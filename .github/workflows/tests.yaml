@@ -21,7 +21,7 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-          
+
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python
@@ -36,6 +36,8 @@ jobs:
     
     - name: Run migrations
       env:
+        DEBUG: true
+        SECRET_KEY: ${{ secrets.SECRET_KEY }}
         DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
       run: |
         python manage.py migrate
