@@ -1,9 +1,15 @@
+from typing import Any
 from django.db import models
 from core.models import BaseModel
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+from django_softdelete.managers import SoftDeleteManager
+from django.contrib.auth.hashers import check_password, make_password
+from django.utils import timezone
+import random
 
 
-class CustomUserManager(BaseUserManager):
+
+class CustomUserManager(SoftDeleteManager,BaseUserManager):
     def create_user(self, username, email, password=None, **extra_fields):
         if not email:
             raise ValueError('The Email field must be set')
@@ -28,3 +34,68 @@ class CustomUserManager(BaseUserManager):
 # Create your models here.
 class User(AbstractBaseUser, BaseModel):
     objects = CustomUserManager()
+    role = models.CharField(max_length=64)
+    phone_number = models.CharField(max_length=16)
+
+    def __str__(self) -> str:
+        return f"{self.email}"
+
+
+class Business(BaseModel):
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL)
+    name = models.CharField(max_length=128)
+    size = models.IntegerField()
+    description = models.TextField(null=True)
+    website = models.URLField(null=True)
+    location = models.CharField(max_length=128, null=True)
+    logo = models.ImageField(upload_to="logo/", null=True)
+    instagram = models.URLField(null=True)
+    linkedin = models.URLField(null=True)
+    facebook = models.URLField(null=True)
+    x = models.URLField(null=True)
+
+    def __str__(self):
+        return self.name
+
+
+
+class VerificationCode(BaseModel):
+    def default_code(instance):
+        code = ""
+        for _ in range(instance.length):
+            code += random.randint(0, 9)
+        return code
+
+    email = models.EmailField()
+    code = models.CharField(max_length=128, default=default_code)
+    expires_at = models.DateTimeField()
+    length = models.IntegerField(default=4)
+
+    def save(self, *args, **kwargs):
+        if not self.pk: 
+            self.code = make_password(self.code)
+        super().save(*args, **kwargs)
+
+    def verify_code(self, code_to_check):
+        return check_password(code_to_check, self.code)
+
+    def __str__(self):
+        return f"VerificationCode(email={self.email})"
+    
+    def has_expired(self):
+        return timezone.now() > self.expires_at
+
+
+class BusinessUser(BaseModel):
+    OWNER = "owner"
+    ADMIN = "admin"
+    TEAM_MEMBER = "team_member"
+    ROLE_CHOICES = (
+        (OWNER, OWNER),
+        (ADMIN, ADMIN),
+        (TEAM_MEMBER, TEAM_MEMBER)
+    )
+    business = models.ForeignKey(Business, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    added_by = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    role = models.CharField(max_length=32, choices=ROLE_CHOICES)
