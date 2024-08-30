@@ -35,10 +35,18 @@ class CustomUserManager(SoftDeleteManager, BaseUserManager):
 class User(AbstractUser, BaseModel):
     objects = CustomUserManager()
     REQUIRED_FIELDS = []
+    BUSINESS = "business"
+    TALENT = "talent"
+    TYPE_CHOICES = (
+        (BUSINESS, BUSINESS),
+        (TALENT, TALENT)
+    )
 
     role = models.CharField(max_length=64, null=True)
     phone_number = models.CharField(max_length=16, null=True)
     email = models.EmailField(unique=True)
+    type = models.CharField(max_length=16, null=True, choices=TYPE_CHOICES)
+    username = models.CharField(max_length=32, null=True)
 
     USERNAME_FIELD = "email"
 
@@ -49,7 +57,7 @@ class User(AbstractUser, BaseModel):
 class Business(BaseModel):
     created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING)
     name = models.CharField(max_length=128)
-    size = models.IntegerField()
+    size = models.IntegerField(null=True)
     description = models.TextField(null=True)
     website = models.URLField(null=True)
     location = models.CharField(max_length=128, null=True)
@@ -106,5 +114,5 @@ class BusinessUser(BaseModel):
     )
     business = models.ForeignKey(Business, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    added_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="added_business_users")
+    added_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="added_business_users", null=True)
     role = models.CharField(max_length=32, choices=ROLE_CHOICES)
