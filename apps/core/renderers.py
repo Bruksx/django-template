@@ -45,9 +45,25 @@ def get_message(data, response_status):
         pass
 
     try:
-        print(data)
         res = MessageSchema(**data)
         return res.message
     except ValidationError:
         pass
+    return ""
+
+
+def get_message(data, response_status):
+    schemas = [FieldErrorSchema, StringDetailSchema, MessageSchema]
+    for schema in schemas:
+        try:
+            res = schema(**data)
+            # Handle the specific field based on the schema
+            if hasattr(res, 'detail'):
+                return res.detail
+            elif hasattr(res, 'message'):
+                return res.message
+            elif hasattr(res, 'errors'):
+                return format_errors(data)
+        except ValidationError:
+            continue
     return ""

@@ -54,9 +54,4 @@ def validate_otp(request, data: schemas.ValidateOTPSchema):
             )
             business_user.save()
             return user
-        else:
-            raise HttpError(400, "Incorrect otp")
-    else:
-        return {
-            "message":"invalid code"
-        }
+    raise HttpError(400, "Incorrect otp")
