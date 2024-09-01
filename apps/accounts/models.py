@@ -9,6 +9,10 @@ import random
 from datetime import timedelta
 
 
+class Country(BaseModel):
+    name = models.CharField(max_length=64)
+    code = models.CharField(max_length=4)
+
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -37,16 +41,29 @@ class User(AbstractUser, BaseModel):
     REQUIRED_FIELDS = []
     BUSINESS = "business"
     TALENT = "talent"
+    MALE = "m"
+    FEMALE = "f"
     TYPE_CHOICES = (
         (BUSINESS, BUSINESS),
         (TALENT, TALENT)
     )
-
+    GENDER_CHOICES = (
+        (MALE, "male"),
+        (FEMALE, "female")
+    )
     role = models.CharField(max_length=64, null=True)
     phone_number = models.CharField(max_length=16, null=True)
     email = models.EmailField(unique=True)
     type = models.CharField(max_length=16, null=True, choices=TYPE_CHOICES)
     username = models.CharField(max_length=32, null=True)
+    country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
+    city = models.CharField(max_length=64, null=True)
+    postal_code = models.CharField(max_length=8, null=True)
+    employment_type = models.CharField(max_length=32, null=True)
+    bio = models.TextField(null=True)
+    gender = models.CharField(max_length=16, null=True)
+    notice_period = models.IntegerField(null=True)
+    languages = models.ManyToManyField("Language", through="UserLanguage")
 
     USERNAME_FIELD = "email"
 
@@ -116,3 +133,37 @@ class BusinessUser(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     added_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="added_business_users", null=True)
     role = models.CharField(max_length=32, choices=ROLE_CHOICES)
+
+
+class Education(BaseModel):
+    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    level = models.CharField()
+    start_date = models.DateField()
+    end_date = models.DateField()
+    major = models.CharField(max_length=64)
+    university = models.CharField(max_length=64)
+
+
+class Experience(BaseModel):
+    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    role = models.CharField(max_length=32)
+    role_type = models.ForeignKey("jobs.EmploymentType", on_delete=models.SET_NULL, null=True)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    currently_works_here = models.BooleanField()
+
+
+class Language(BaseModel):
+    name = models.CharField(max_length=32)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class UserLanguage(BaseModel):
+    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    language = models.ForeignKey(Language, on_delete=models.CASCADE)
+    is_native = models.BooleanField(default=False)
+
+    def __str__(self) -> str:
+        return f"{self.language}({self.user})"
