@@ -41,3 +41,7 @@ jobs:
         DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
       run: |
         python manage.py migrate
+    
+    - name: Run  tests
+      run: |
+        python manage.py test accounts
