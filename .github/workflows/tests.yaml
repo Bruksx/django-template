@@ -34,14 +34,11 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
     
-    - name: Run migrations
+    - name: Run migrations and tests
       env:
         DEBUG: true
         SECRET_KEY: ${{ secrets.SECRET_KEY }}
         DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
       run: |
         python manage.py migrate
-    
-    - name: Run  tests
-      run: |
         python manage.py test accounts
