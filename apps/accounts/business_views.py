@@ -34,13 +34,13 @@ def validate_otp(request, data: schemas.ValidateOTPSchema):
         if is_correct:
             user = User.objects.create(
                 role=data.role,
-                password=data.password,
                 first_name=data.first_name,
                 last_name=data.last_name,
                 type= User.TALENT,
                 email=data.email,
                 username=None,
             )
+            user.set_password(data.password)
             user.save()
             business = Business(
                 name=data.company_name,
