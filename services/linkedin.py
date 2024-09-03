@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 import requests
 from django.conf import settings
 
-from service.schema import FreshTokenSchema, TokenSchema, ProfileSchema
+from services.schema import FreshTokenSchema, TokenSchema, ProfileSchema
 
 LINKEDIN_CLIENT_ID = settings.LINKEDIN_CLIENT_ID
 LINKEDIN_CLIENT_SECRET = settings.LINKEDIN_CLIENT_SECRET
