@@ -52,7 +52,7 @@ def get_message(data, response_status):
     return ""
 
 
-def get_message(data, response_status):
+"""def get_message(data, response_status):
     schemas = [FieldErrorSchema, StringDetailSchema, MessageSchema]
     for schema in schemas:
         try:
@@ -66,4 +66,4 @@ def get_message(data, response_status):
                 return format_errors(data)
         except ValidationError:
             continue
-    return ""
+    return """""

@@ -3,6 +3,8 @@ from .models import User, Business
 
 
 class UserSchema(ModelSchema):
+    token: str
+    
     class Meta:
         model = User
         fields = ['uid', 'email', 'first_name', 'last_name', 'type']
