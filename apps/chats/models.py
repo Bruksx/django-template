@@ -22,10 +22,13 @@ class Conversation(BaseModel):
 class Message(BaseModel):
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, null=True)
     sender = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="sent_messages")
-    receiver = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="received_messages")
     job = models.ForeignKey(Job, on_delete=models.DO_NOTHING)
     body = models.TextField()
-    is_read = models.BooleanField(default=False)
 
     def __str__(self) -> str:
         return f"{self.sender} {self.receiver}"
+
+
+class ReadMessageLog(BaseModel):
+    reader = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    message = models.ForeignKey(Message, on_delete=models.DO_NOTHING)
