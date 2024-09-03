@@ -38,10 +38,10 @@ def get_tokens(code:str)->Optional[FreshTokenSchema|TokenSchema]:
         elif "access_token" in response_data:
             return TokenSchema(**response_data)
         else:
-            logging.critical(f"Linkedin Token Error: access token not found: {response}", )
+            logging.critical(f"Gmail Token Error: access token not found: {response}", )
             return None
     except JSONDecodeError as e:
-        logging.critical(f"Linkedin Token Error: {e}")
+        logging.critical(f"Gmail Token Error: {e}")
         return None
 
 
@@ -66,10 +66,10 @@ def refresh_tokens(refresh_token:str)->Optional[FreshTokenSchema|TokenSchema]:
         elif "access_token" in response_data:
             return TokenSchema(**response_data)
         else:
-            logging.critical(f"Linkedin Token Error: access token not found: {response}", )
+            logging.critical(f"Gmail Token Error: access token not found: {response}", )
             return None
     except JSONDecodeError as e:
-        logging.critical(f"Linkedin Token Error: {e}")
+        logging.critical(f"Gmail Token Error: {e}")
         return None
 
 def get_profile_details(access_token:str)->Optional[ProfileSchema]:
