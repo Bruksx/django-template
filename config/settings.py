@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 import os
 import sys
 import dj_database_url
+from datetime import timedelta
 
 load_dotenv()
 
@@ -140,3 +141,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = "accounts.User"
 
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+NINJA_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days= 365 * 5),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=365 * 5),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': False,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}

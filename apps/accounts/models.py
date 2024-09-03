@@ -7,6 +7,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.utils import timezone
 import random
 from datetime import timedelta
+from ninja_jwt.tokens import RefreshToken
 
 
 class Country(BaseModel):
@@ -56,6 +57,20 @@ class User(AbstractUser, BaseModel):
     email = models.EmailField(unique=True)
     type = models.CharField(max_length=16, null=True, choices=TYPE_CHOICES)
     username = models.CharField(max_length=32, null=True)
+
+    USERNAME_FIELD = "email"
+
+    def __str__(self) -> str:
+        return f"{self.email}"
+    
+    @property
+    def token(self):
+        refresh = RefreshToken.for_user(self)
+        return str(refresh.access_token)
+
+
+class Talent(BaseModel):
+    user = models.OneToOneField(User, on_delete=models.DO_NOTHING)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
     city = models.CharField(max_length=64, null=True)
     postal_code = models.CharField(max_length=8, null=True)
@@ -64,11 +79,13 @@ class User(AbstractUser, BaseModel):
     gender = models.CharField(max_length=16, null=True)
     notice_period = models.IntegerField(null=True)
     languages = models.ManyToManyField("Language", through="UserLanguage")
-
-    USERNAME_FIELD = "email"
-
-    def __str__(self) -> str:
-        return f"{self.email}"
+    instagram = models.URLField(null=True)
+    linkedin = models.URLField(null=True)
+    facebook = models.URLField(null=True)
+    twitter_x = models.URLField(null=True)
+    cv = models.FileField(upload_to="cvs")
+    photo = models.ImageField(upload_to="talents")
+    
 
 
 class Business(BaseModel):
@@ -130,7 +147,7 @@ class BusinessUser(BaseModel):
         (TEAM_MEMBER, TEAM_MEMBER)
     )
     business = models.ForeignKey(Business, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
     added_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="added_business_users", null=True)
     role = models.CharField(max_length=32, choices=ROLE_CHOICES)
 
@@ -161,7 +178,7 @@ class Language(BaseModel):
 
 
 class UserLanguage(BaseModel):
-    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    talent = models.ForeignKey(Talent, on_delete=models.DO_NOTHING, null=True)
     language = models.ForeignKey(Language, on_delete=models.CASCADE)
     is_native = models.BooleanField(default=False)
 
