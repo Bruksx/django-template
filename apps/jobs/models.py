@@ -113,7 +113,7 @@ class Job(BaseModel):
         return self.title
 
 
-class Location(BaseModel):
+class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     is_posted = models.BooleanField(default=False)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
@@ -181,3 +181,7 @@ class Skill(BaseModel):
 class JobDraft(BaseModel):
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
+
+
+class JobFilter(BaseModel):
+    user = models.OneToOneField(User, on_delete=models.DO_NOTHING)
