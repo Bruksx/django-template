@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'accounts',
     'jobs',
     'chats',
+    "core"
 ]
 
 MIDDLEWARE = [
@@ -126,6 +127,14 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 
 USE_TZ = True
+
+NINJA_PAGINATION_PER_PAGE=30
+NINJA_PAGINATION_CLASS=""
+NINJA_PAGINATION_MAX_LIMIT=6
+NINJA_NUM_PROXIES=7
+NINJS_DEFAULT_THROTTLE_RATES=""
+
+
 
 
 # Static files (CSS, JavaScript, Images)

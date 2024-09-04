@@ -1,6 +1,6 @@
 from ninja import Router
 
-router = Router()
+router = Router(tags=["Account"])
 
 
 # Create your views here.

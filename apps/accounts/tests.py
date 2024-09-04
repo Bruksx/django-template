@@ -1,9 +1,9 @@
+from accounts.models import User, VerificationCode, Business, BusinessUser
 from django.test import TestCase
 from ninja.testing import TestClient
-from django.utils import timezone
-from unittest.mock import patch
-from .business_views import router  
-from .models import User, VerificationCode, Business, BusinessUser
+
+from .business_views import router
+
 
 class ValidateOtpTests(TestCase):
     def setUp(self):

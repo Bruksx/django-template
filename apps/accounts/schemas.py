@@ -1,5 +1,5 @@
 from ninja import ModelSchema, Schema
-from .models import User, Business
+from accounts.models import User, Business
 
 
 class UserSchema(ModelSchema):

@@ -1,12 +1,13 @@
-from ninja import Router
+from ninja import Router, Schema
 from . import schemas
-from .models import User, Business, BusinessUser, VerificationCode
+from accounts.models import User, Business, BusinessUser, VerificationCode
 from django.core.mail import send_mail
 from django.db import transaction
 from ninja.errors import HttpError
 
+from .enums import UserType
 
-router = Router()
+router = Router(tags=["Business Account"])
 
 
 @router.post("create-account/")
@@ -36,7 +37,7 @@ def validate_otp(request, data: schemas.ValidateOTPSchema):
                 role=data.role,
                 first_name=data.first_name,
                 last_name=data.last_name,
-                type= User.TALENT,
+                type=UserType.TALENT.value,
                 email=data.email,
                 username=None,
             )

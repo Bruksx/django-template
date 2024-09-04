@@ -1,3 +1,5 @@
+import secrets
+import string
 from typing import Any
 from django.db import models
 from core.models import BaseModel
@@ -9,10 +11,9 @@ import random
 from datetime import timedelta
 from ninja_jwt.tokens import RefreshToken
 
+from apps.accounts.dtos import TokenDto
+from apps.accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType
 
-class Country(BaseModel):
-    name = models.CharField(max_length=64)
-    code = models.CharField(max_length=4)
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -35,28 +36,38 @@ class CustomUserManager(SoftDeleteManager, BaseUserManager):
             raise ValueError('Superuser must have is_superuser=True.')
         return self.create_user(email, password, **extra_fields)
 
+    @staticmethod
+    def make_random_password(length=10, digits=True, letters=True)->str:
+        alphabet = string.ascii_letters + string.digits
+        if digits and not letters:
+           alphabet = string.digits
+        elif not digits and letters:
+            alphabet = string.ascii_letters
+        while True:
+            password = ''.join(secrets.choice(alphabet) for i in range(length))
+            if (any(c.islower() for c in password)
+                    and any(c.isupper() for c in password)
+                    and sum(c.isdigit() for c in password) >= 3):
+                break
+        return password
+
 
 # Create your models here.
 class User(AbstractUser, BaseModel):
     objects = CustomUserManager()
     REQUIRED_FIELDS = []
-    BUSINESS = "business"
-    TALENT = "talent"
-    MALE = "m"
-    FEMALE = "f"
-    TYPE_CHOICES = (
-        (BUSINESS, BUSINESS),
-        (TALENT, TALENT)
-    )
-    GENDER_CHOICES = (
-        (MALE, "male"),
-        (FEMALE, "female")
-    )
+
+
     role = models.CharField(max_length=64, null=True)
+    gender = models.CharField(max_length=10, choices=GenderType.choices(), default=GenderType.OTHERS.name)
     phone_number = models.CharField(max_length=16, null=True)
     email = models.EmailField(unique=True)
-    type = models.CharField(max_length=16, null=True, choices=TYPE_CHOICES)
+    email_verified = models.BooleanField(default=False)
+    type = models.CharField(max_length=16, null=True, choices=UserType.choices())
     username = models.CharField(max_length=32, null=True)
+    auth_mode = models.CharField(max_length=20, choices=AuthType.choices,
+                                 default=AuthType.EMAIL.value)
+
 
     USERNAME_FIELD = "email"
 
@@ -67,6 +78,15 @@ class User(AbstractUser, BaseModel):
     def token(self):
         refresh = RefreshToken.for_user(self)
         return str(refresh.access_token)
+
+    def tokens(self)->TokenDto:
+        refresh_token = RefreshToken.for_user(self)
+        return TokenDto(access_token=str(refresh_token.access_token), refresh_token=str(refresh_token))
+
+class Country(BaseModel):
+    name = models.CharField(max_length=64)
+    code = models.CharField(max_length=4)
+
 
 
 class Talent(BaseModel):
@@ -138,18 +158,11 @@ class VerificationCode(BaseModel):
 
 
 class BusinessUser(BaseModel):
-    OWNER = "owner"
-    ADMIN = "admin"
-    TEAM_MEMBER = "team_member"
-    ROLE_CHOICES = (
-        (OWNER, OWNER),
-        (ADMIN, ADMIN),
-        (TEAM_MEMBER, TEAM_MEMBER)
-    )
+
     business = models.ForeignKey(Business, on_delete=models.CASCADE)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     added_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="added_business_users", null=True)
-    role = models.CharField(max_length=32, choices=ROLE_CHOICES)
+    role = models.CharField(max_length=32, choices=BusinessUserRoleType.choices())
 
 
 class Education(BaseModel):

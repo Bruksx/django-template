@@ -1,7 +1,7 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.urls import reverse
-from .views import router
+from apps.auth.views import router
 from ninja.testing import TestClient
 
 
@@ -45,3 +45,6 @@ class LoginEndpointTests(TestCase):
         
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json()['detail'], 'Invalid Credentials')
+
+
+
