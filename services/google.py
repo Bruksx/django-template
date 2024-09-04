@@ -15,7 +15,7 @@ GOOGLE_REDIRECT_URI = settings.GOOGLE_REDIRECT_URI
 
 def get_authorization_url()->str:
     scope = "https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile"
-    return f"https://accounts.google.com/o/oauth2/auth?response_type=code&client_id={GOOGLE_CLIENT_ID}&redirect_uri={GOOGLE_REDIRECT_URI}&scope={scope}"
+    return f"https://accounts.google.com/o/oauth2/auth?response_type=code&client_id={GOOGLE_CLIENT_ID}&redirect_uri={GOOGLE_REDIRECT_URI}&scope={scope}&access_type=offline"
 
 
 def get_tokens(code:str)->Optional[FreshTokenSchema|TokenSchema]:
@@ -33,10 +33,17 @@ def get_tokens(code:str)->Optional[FreshTokenSchema|TokenSchema]:
         response_data = response.json()
         if "refresh_token" in response_data:
             return FreshTokenSchema(
-                **response_data
+                access_token=response_data["access_token"],
+                expires_in=response_data["expires_in"],
+                scope=response_data["scope"],
+                refresh_token=response_data["refresh_token"]
             )
         elif "access_token" in response_data:
-            return TokenSchema(**response_data)
+            return TokenSchema(
+                access_token=response_data["access_token"],
+                expires_in=response_data["expires_in"],
+                scope=response_data["scope"]
+            )
         else:
             logging.critical(f"Gmail Token Error: access token not found: {response}", )
             return None
@@ -61,10 +68,17 @@ def refresh_tokens(refresh_token:str)->Optional[FreshTokenSchema|TokenSchema]:
         response_data = response.json()
         if "refresh_token" in response_data:
             return FreshTokenSchema(
-                **response_data
+                access_token=response_data["access_token"],
+                expires_in=response_data["expires_in"],
+                scope=response_data["scope"],
+                refresh_token=response_data["refresh_token"]
             )
         elif "access_token" in response_data:
-            return TokenSchema(**response_data)
+            return TokenSchema(
+                access_token=response_data["access_token"],
+                expires_in=response_data["expires_in"],
+                scope=response_data["scope"]
+            )
         else:
             logging.critical(f"Gmail Token Error: access token not found: {response}", )
             return None
@@ -77,13 +91,12 @@ def get_profile_details(access_token:str)->Optional[ProfileSchema]:
         "https://www.googleapis.com/oauth2/v1/userinfo",
         params={'access_token': access_token}
     )
-
     user_info = user_info_response.json()
-    name = user_info.get("displayName").split(" ")
+    name = user_info.get("name").split(" ")
     return ProfileSchema(
         email=user_info.get("email"),
-        first_name=name[0],
-        last_name=" ".join(name[1: ])
+        first_name=name[0].title(),
+        last_name=" ".join(name[1: ]).title()
     )
 
 

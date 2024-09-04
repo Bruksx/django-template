@@ -6,7 +6,6 @@ class FreshTokenSchema:
     access_token: str
     expires_in: int
     refresh_token: str
-    refresh_token_expires: int
     scope: str
 
 @dataclass
