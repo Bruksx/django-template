@@ -7,14 +7,14 @@ from ninja.responses import Response
 
 from helpers.utils import failure_response, success_response
 from .enums import AuthActionEnum
-from .schema import LoginSchema, GoogleAuthSchema
-from accounts.models import User
-from accounts.schemas import UserSchema
+from .schema import LoginSchema, SocialAuthSchema
 from services import google
 from .services import create_social_user, login_social_user
+from accounts.models import User
+from accounts.schemas import UserSchema
 
 # Create your views here.
-router = Router()
+router = Router(tags=["Auth"])
 
 
 @router.post("login", response=UserSchema)
@@ -32,7 +32,7 @@ def google_login(request):
 
 
 @router.post("google/redirect")
-def google_redirect(request, data: GoogleAuthSchema):
+def google_redirect(request, data: SocialAuthSchema):
     """
     when google sends the code to the frontend redirect url, they would
     call this end point to create the user and its response may be used to
@@ -46,9 +46,9 @@ def google_redirect(request, data: GoogleAuthSchema):
     if not profile:
         return failure_response(message="Profile not found", status=404)
     if data.action == AuthActionEnum.LOGIN:
-        token = login_social_user(profile)
-        return success_response(message="login is successful", data={"token": token})
+        token = login_social_user(profile, social_type=data.social_type)
+        return success_response(message="login is successful", data={"token": token.__dict__})
     elif data.action == AuthActionEnum.SIGNUP:
-        token = create_social_user(profile)
-        return success_response(message="login is successful", data={"token": token})
+        token = create_social_user(profile, social_type=data.social_type)
+        return success_response(message="login is successful", data={"token": token.__dict__})
     return success_response(message="Profile Details", data=profile.__dict__)

@@ -3,6 +3,7 @@ from typing import Optional
 from ninja.schema import BaseModel
 from ninja.schema import Field
 
+from apps.accounts.enums import UserType, SocialType
 from apps.auth.enums import AuthActionEnum
 
 
@@ -10,6 +11,11 @@ class LoginSchema(BaseModel):
     email: str
     password: str
 
-class GoogleAuthSchema(BaseModel):
+
+class SocialAuthSchema(BaseModel):
     code: str
-    action: Optional[AuthActionEnum] = Field(default="profile")
+    action: Optional[AuthActionEnum] = None
+    user_type: Optional[UserType] = None
+    social_type: SocialType
+
+

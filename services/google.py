@@ -94,7 +94,7 @@ def get_profile_details(access_token:str)->Optional[ProfileSchema]:
     user_info = user_info_response.json()
     name = user_info.get("name").split(" ")
     return ProfileSchema(
-        email=user_info.get("email"),
+        email=user_info.get("email").lower(),
         first_name=name[0].title(),
         last_name=" ".join(name[1: ]).title()
     )

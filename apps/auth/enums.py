@@ -1,8 +1,11 @@
-from enum import Enum
+from apps.core.enums import BaseEnum
 
 
-class AuthActionEnum(Enum):
+class AuthActionEnum(BaseEnum):
     LOGIN = "login"
     SIGNUP = "signup"
     PROFILE = "profile"
+
+
+
 
