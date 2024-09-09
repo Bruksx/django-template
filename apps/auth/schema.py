@@ -1,5 +1,6 @@
 from typing import Optional
 
+from marshmallow.fields import Email
 from ninja.schema import BaseModel
 from ninja.schema import Field
 from ninja import ModelSchema
@@ -13,14 +14,15 @@ class LoginSchema(BaseModel):
     password: str
 
 
-class SocialAuthSchema(BaseModel):
+class GoogleAuthSchema(BaseModel):
     code: str
-    action: Optional[AuthActionEnum] = None
     user_type: Optional[UserType] = None
-    social_type: SocialType
 
 
 class FaceBookLoginSchema(BaseModel):
     user_id: str
     access_token: str
     type: UserType
+
+
+

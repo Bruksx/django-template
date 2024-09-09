@@ -1,3 +1,4 @@
+import pyfacebook
 import requests
 from config.settings import FACEBOOK_APP_ID, FACEBOOK_APP_SECRET
 import urllib
@@ -10,8 +11,11 @@ class Facebook():
     def __init__(self, APP_ID, APP_SECRET):
         self.APP_ID = APP_ID
         self.APP_SECRET = APP_SECRET
-        self.api = GraphAPI(app_id=self.APP_ID, app_secret=self.APP_SECRET, application_only_auth=True)
-    
+        try:
+            self.api = GraphAPI(app_id=self.APP_ID, app_secret=self.APP_SECRET, application_only_auth=True)
+        except pyfacebook.exceptions.FacebookError:
+            pass
+
     def get_login_url(self):
         api = GraphAPI(app_id=self.APP_ID, app_secret=self.APP_SECRET, oauth_flow=True)
         url, _ = api.get_authorization_url(redirect_uri="https://127.0.0.1:8000/api/auth/facebook/redirect")
