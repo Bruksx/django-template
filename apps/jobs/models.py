@@ -10,6 +10,10 @@ class EmploymentType(BaseModel):
 
     def __str__(self) -> str:
         return self.name
+    
+    @property
+    def sub_types(self):
+        return EmploymentType.objects.filter(parent=self)
 
 
 class EducationLevel(BaseModel):
@@ -97,7 +101,7 @@ class Job(BaseModel):
     first_language = models.ForeignKey(Language, on_delete=models.SET_NULL, null=True)
     additional_languages = models.ManyToManyField(Language, related_name="jobs")
     office_address = models.CharField(max_length=128)
-    lunch_break = models.CharField(max_length=16)
+    lunch_break = models.CharField(max_length=16, choices=LUNCH_BREAK_CHOICES)
     annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2)
     annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2)
     annaul_salary_curreny = models.CharField(max_length=8)
@@ -105,9 +109,13 @@ class Job(BaseModel):
     annual_bonus_max = models.DecimalField(max_digits=12, decimal_places=2)
     annaul_bonus_curreny = models.CharField(max_length=8)
     recruiter = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="recruiting_jobs")
+    benefits = models.TextField(null=True)
     share_compensation = models.BooleanField(default=True)
     is_draft = models.BooleanField(default=False)
     is_paused = models.BooleanField(default=False)
+    additional_hours_min = models.IntegerField(default=0)
+    additional_hours_max = models.IntegerField(default=0)
+    additional_hours_description = models.TextField(null=True)
 
     def __str__(self) -> str:
         return self.title
@@ -117,12 +125,16 @@ class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     is_posted = models.BooleanField(default=False)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
+    province = models.CharField(max_length=64, null=True)
+    postal_code = models.CharField(max_length=8)
     annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2)
     annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2)
     annaul_salary_curreny = models.CharField(max_length=8)
     annual_bonus_min = models.DecimalField(max_digits=12, decimal_places=2)
     annual_bonus_max = models.DecimalField(max_digits=12, decimal_places=2)
     annaul_bonus_curreny = models.CharField(max_length=8)
+    location_type = models.CharField(max_length=32)
+    recruiter = models.ForeignKey(User, null=True, on_delete=models.CASCADE)
 
 
     def __str__(self) -> str:
@@ -185,3 +197,18 @@ class JobDraft(BaseModel):
 
 class JobFilter(BaseModel):
     user = models.OneToOneField(User, on_delete=models.DO_NOTHING)
+
+
+class ScreeningQuestion(BaseModel):
+    job = models.ForeignKey(Job, on_delete=models.CASCADE)
+    type = models.CharField(max_length=16)
+    text = models.TextField()
+
+
+class QuestionOption(BaseModel):
+    question = models.ForeignKey(ScreeningQuestion, on_delete=models.CASCADE)
+    is_accepted = models.BooleanField(default=False)
+
+
+class RequiredAttribute(BaseModel):
+    job = models.ForeignKey(Job, on_delete=models.CASCADE)
