@@ -104,10 +104,10 @@ class Job(BaseModel):
     lunch_break = models.CharField(max_length=16, choices=LUNCH_BREAK_CHOICES)
     annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2)
     annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2)
-    annaul_salary_curreny = models.CharField(max_length=8)
+    annual_salary_currency = models.CharField(max_length=8)
     annual_bonus_min = models.DecimalField(max_digits=12, decimal_places=2)
     annual_bonus_max = models.DecimalField(max_digits=12, decimal_places=2)
-    annaul_bonus_curreny = models.CharField(max_length=8)
+    annual_bonus_currency = models.CharField(max_length=8)
     recruiter = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="recruiting_jobs")
     benefits = models.TextField(null=True)
     share_compensation = models.BooleanField(default=True)
@@ -126,16 +126,15 @@ class JobPost(BaseModel):
     is_posted = models.BooleanField(default=False)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
     province = models.CharField(max_length=64, null=True)
-    postal_code = models.CharField(max_length=8)
+    postal_code = models.CharField(max_length=8, null=True)
     annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2)
     annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2)
-    annaul_salary_curreny = models.CharField(max_length=8)
+    annual_salary_currency = models.CharField(max_length=8)
     annual_bonus_min = models.DecimalField(max_digits=12, decimal_places=2)
     annual_bonus_max = models.DecimalField(max_digits=12, decimal_places=2)
-    annaul_bonus_curreny = models.CharField(max_length=8)
-    location_type = models.CharField(max_length=32)
-    recruiter = models.ForeignKey(User, null=True, on_delete=models.CASCADE)
-
+    annual_bonus_currency = models.CharField(max_length=8)
+    location_type = models.CharField(max_length=32, null=True)
+    recruiter = models.ForeignKey(User, null=True, on_delete=models.CASCADE, related_name="recruiting_job_posts")
 
     def __str__(self) -> str:
         return self.country
@@ -191,7 +190,7 @@ class Skill(BaseModel):
 
 
 class JobDraft(BaseModel):
-    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    user = models.OneToOneField(User, on_delete=models.DO_NOTHING)
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
 
 
