@@ -100,10 +100,10 @@ class Job(BaseModel):
     lunch_break = models.CharField(max_length=16)
     annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2)
     annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2)
-    annaul_salary_curreny = models.CharField(max_length=8)
+    annual_salary_currency = models.CharField(max_length=8)
     annual_bonus_min = models.DecimalField(max_digits=12, decimal_places=2)
     annual_bonus_max = models.DecimalField(max_digits=12, decimal_places=2)
-    annaul_bonus_curreny = models.CharField(max_length=8)
+    annual_bonus_currency = models.CharField(max_length=8)
     recruiter = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="recruiting_jobs")
     share_compensation = models.BooleanField(default=True)
     is_draft = models.BooleanField(default=False)
@@ -119,10 +119,10 @@ class JobPost(BaseModel):
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
     annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2)
     annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2)
-    annaul_salary_curreny = models.CharField(max_length=8)
+    annual_salary_currency = models.CharField(max_length=8)
     annual_bonus_min = models.DecimalField(max_digits=12, decimal_places=2)
     annual_bonus_max = models.DecimalField(max_digits=12, decimal_places=2)
-    annaul_bonus_curreny = models.CharField(max_length=8)
+    annual_bonus_currency = models.CharField(max_length=8)
 
 
     def __str__(self) -> str:
