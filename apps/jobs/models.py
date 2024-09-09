@@ -6,14 +6,10 @@ from accounts.models import User, Country, Language, Business
 # Create your models here.
 class EmploymentType(BaseModel):
     name = models.CharField(max_length=128)
-    parent = models.ForeignKey("EmploymentType", on_delete=models.DO_NOTHING, null=True)
+    parent = models.ForeignKey("EmploymentType", on_delete=models.DO_NOTHING, null=True, blank=True)
 
     def __str__(self) -> str:
         return self.name
-    
-    @property
-    def sub_types(self):
-        return EmploymentType.objects.filter(parent=self)
 
 
 class EducationLevel(BaseModel):
