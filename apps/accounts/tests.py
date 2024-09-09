@@ -1,7 +1,7 @@
 from accounts.models import User, VerificationCode, Business, BusinessUser
 from django.test import TestCase
 from ninja.testing import TestClient
-
+from ninja_jwt.authentication import JWTAuth
 from .business_views import router
 
 
@@ -34,8 +34,6 @@ class ValidateOtpTests(TestCase):
         user = User.objects.get(email=self.user_data["email"])
         self.assertEqual(user.first_name, self.user_data["first_name"])
         self.assertEqual(user.last_name, self.user_data["last_name"])
-        print(user.password)
-        print(user.check_password(self.user_data["password"]))
         self.assertTrue(user.check_password(self.user_data["password"]))
 
     def test_validate_otp_incorrect_otp(self):
@@ -62,3 +60,60 @@ class ValidateOtpTests(TestCase):
         self.assertEqual(User.objects.count(), 0)
         self.assertEqual(Business.objects.count(), 0)
         self.assertEqual(BusinessUser.objects.count(), 0)
+
+
+
+class CompleteCompanyProfileTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.user = User.objects.create_user(email='testuser@mail.com', password='testpass')
+        self.business = Business.objects.create(name="Test Business", created_by=self.user)
+        self.business_user = BusinessUser.objects.create(user=self.user, business=self.business)
+
+        self.auth = JWTAuth()
+        self.auth.authenticate = lambda r: self.user
+
+    def test_complete_company_profile_success(self):
+
+        data = {
+            "size": 10,
+            "description": "string",
+            "website": "string",
+            "industry": "string",
+            "location": "string",
+            "logo": "base64string",
+            "instagram": "www.instagram.com",
+            "linkedin": "www.linkedin.com",
+            "facebook": "www.fb.com",
+            "twitter_x": "www.x.com"
+        }
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.patch("/complete-company-profile", json=data, headers=headers)
+        self.business.refresh_from_db()
+
+        self.assertEqual(response.status_code, 200)
+
+        self.assertEqual(self.business.description, data["description"])
+
+    def test_complete_company_profile_forbidden(self):
+        other_user = User.objects.create_user(email='otheruser@mail.com', password='otherpass')
+        data = {
+            "size": 10,
+            "description": "string",
+            "website": "string",
+            "industry": "string",
+            "location": "string",
+            "logo": "base64string",
+            "instagram": "www.instagram.com",
+            "linkedin": "www.linkedin.com",
+            "facebook": "www.fb.com",
+            "twitter_x": "www.x.com"
+        }
+        headers = {
+            "authorization": f"bearer {other_user.token}"
+        }
+        response = self.client.patch("/complete-company-profile", json=data, headers=headers)
+
+        self.assertEqual(response.status_code, 403)

@@ -1,7 +1,7 @@
 from ninja.renderers import BaseRenderer
 import orjson
 import json
-from core.schemas import FieldErrorSchema, StringDetailSchema, MessageSchema
+from core.schemas import FieldErrorSchema, StringDetailSchema, MessageSchema, StringSchema
 from pydantic_core import ValidationError
 
 
@@ -28,10 +28,14 @@ def format_errors(data):
 
 
 def format_data(data):
+    if isinstance(data, str):
+        return data
     return dict(data)
 
 
 def get_message(data, response_status):
+    if isinstance(data, str):
+        return data
     try:
         FieldErrorSchema(**data)
         return format_errors(data)
@@ -49,6 +53,7 @@ def get_message(data, response_status):
         return res.message
     except ValidationError:
         pass
+
     return ""
 
 

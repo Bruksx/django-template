@@ -16,3 +16,7 @@ class StringDetailSchema(Schema):
 
 class MessageSchema(Schema):
     message: str
+
+
+class StringSchema(Schema):
+    pass

@@ -7,9 +7,10 @@ from ninja.responses import Response
 
 from helpers.utils import failure_response, success_response
 from .enums import AuthActionEnum
-from .schema import LoginSchema, SocialAuthSchema
+from .schema import LoginSchema, SocialAuthSchema, FaceBookLoginSchema
 from services import google
 from .services import create_social_user, login_social_user
+from services.facebook import facebook_client
 from accounts.models import User
 from accounts.schemas import UserSchema
 
@@ -52,3 +53,20 @@ def google_redirect(request, data: SocialAuthSchema):
         token = create_social_user(profile, social_type=data.social_type)
         return success_response(message="login is successful", data={"token": token.__dict__})
     return success_response(message="Profile Details", data=profile.__dict__)
+
+
+@router.post('facebook/login', response=UserSchema)
+def facebook_login(request, data: FaceBookLoginSchema):
+    fb_user = facebook_client.get_user(data.user_id, data.access_token)
+    existing_user = User.objects.filter(facebook_id=fb_user.id, type=data.type).first()
+    if existing_user:
+        return existing_user
+    else:
+        new_user = User(
+            first_name = fb_user.first_name,
+            last_name = fb_user.last_name,
+            email = fb_user.email,
+            type = data.type.value,
+        )
+        #new_user.save()
+        return new_user

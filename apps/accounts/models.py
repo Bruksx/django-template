@@ -59,14 +59,17 @@ class User(AbstractUser, BaseModel):
 
 
     role = models.CharField(max_length=64, null=True)
-    gender = models.CharField(max_length=10, choices=GenderType.choices(), default=GenderType.OTHERS.name)
+    gender = models.CharField(max_length=16, choices=GenderType.choices())
     phone_number = models.CharField(max_length=16, null=True)
-    email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True, null=True)
     email_verified = models.BooleanField(default=False)
     type = models.CharField(max_length=16, null=True, choices=UserType.choices())
     username = models.CharField(max_length=32, null=True)
     auth_mode = models.CharField(max_length=20, choices=AuthType.choices,
                                  default=AuthType.EMAIL.value)
+    facebook_id = models.CharField(max_length=32, null=True, unique=True)
+    linkedin_id = models.CharField(max_length=32, null=True)
+    google_id = models.CharField(max_length=32, null=True)
 
 
     USERNAME_FIELD = "email"
@@ -115,11 +118,12 @@ class Business(BaseModel):
     description = models.TextField(null=True)
     website = models.URLField(null=True)
     location = models.CharField(max_length=128, null=True)
-    logo = models.ImageField(upload_to="logo/", null=True)
+    logo = models.ImageField(upload_to="media/logo/", null=True)
     instagram = models.URLField(null=True)
     linkedin = models.URLField(null=True)
     facebook = models.URLField(null=True)
     twitter_x = models.URLField(null=True)
+    industry = models.CharField(max_length=64, null=True)
 
     def __str__(self):
         return self.name
