@@ -2,6 +2,7 @@ from typing import Optional
 
 from ninja.schema import BaseModel
 from ninja.schema import Field
+from ninja import ModelSchema
 
 from apps.accounts.enums import UserType, SocialType
 from apps.auth.enums import AuthActionEnum
@@ -19,3 +20,7 @@ class SocialAuthSchema(BaseModel):
     social_type: SocialType
 
 
+class FaceBookLoginSchema(BaseModel):
+    user_id: str
+    access_token: str
+    type: UserType

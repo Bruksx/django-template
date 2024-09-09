@@ -3,8 +3,7 @@ from apps.core.renderers import ORJSONRenderer
 from ninja.pagination import PageNumberPagination
 
 
-api = NinjaAPI(docs_url="docs_1840gtc_c6403omdxnc", renderer=ORJSONRenderer(),
-               )
+api = NinjaAPI(docs_url="docs_1840gtc_c6403omdxnc", renderer=ORJSONRenderer())
 
 api.add_router("auth/", "auth.views.router")
 api.add_router("accounts/", "accounts.views.router")
