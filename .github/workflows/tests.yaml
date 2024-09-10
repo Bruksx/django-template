@@ -39,5 +39,13 @@ jobs:
         DEBUG: true
         SECRET_KEY: ${{ secrets.SECRET_KEY }}
         DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
+        GOOGLE_CLIENT_ID: ${{secrets.GOOGLE_CLIENT_ID}}
+        GOOGLE_CLIENT_SECRET: ${{secrets.GOOGLE_CLIENT_SECRET}}
+        GOOGLE_REDIRECT_URI: ${{secrets.GOOGLE_REDIRECT_URI}}
+        LINKEDIN_CLIENT_ID: test
+        LINKEDIN_CLIENT_SECRET: test
+        LINKEDIN_REDIRECT_URI: http://example.com
+        FACEBOOK_APP_ID: ${{secrets.FACEBOOK_APP_ID}}
+        FACEBOOK_APP_SECRET: ${{secrets.FACEBOOK_APP_SECRET}}
       run: |
         python manage.py migrate
