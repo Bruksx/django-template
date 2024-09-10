@@ -76,3 +76,4 @@ venv.bak/
 # Windows specific files
 Thumbs.db
 ehthumbs.db
+files/
