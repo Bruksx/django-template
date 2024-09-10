@@ -3,16 +3,8 @@ from accounts.models import User, Business
 from jobs.models import EmploymentType
 
 
-class UserSchema(ModelSchema):
-    token: str
-    email: str | None
-    class Meta:
-        model = User
-        fields = ['uid', 'email', 'first_name', 'last_name', 'type']
 
 
-class RegisterSchema(Schema):
-    email: str
 
 
 class ValidateOTPSchema(Schema):
@@ -28,11 +20,14 @@ class ValidateOTPSchema(Schema):
 class BusinessSchema(ModelSchema):
     class Meta:
         model = Business
-        fields = ["size", "description", "website", "industry", "location", "logo", "instagram", "linkedin", "facebook", "twitter_x"]
+        fields = ["size", "description", "website", "industry", "location", "logo", "instagram", "linkedin", "facebook",
+                  "twitter_x"]
 
 
 class EmploymentTypeSchema(ModelSchema):
-    #sub_types: list[EmploymentTypeSchema]
+    # sub_types: list[EmploymentTypeSchema]
     class Meta:
         model = EmploymentType
         fields = ["uid", "name"]
+
+

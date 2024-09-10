@@ -1,4 +1,4 @@
-from ninja import Schema
+from ninja import Schema, ModelSchema
 
 
 class ErrorDetail(Schema):
@@ -20,3 +20,6 @@ class MessageSchema(Schema):
 
 class StringSchema(Schema):
     pass
+
+BASE_EXCLUDE_FIELDS =  ("id", "created_at", "updated_at", "transaction_id",
+                   "uid", "deleted_at", "restored_at")

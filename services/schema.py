@@ -16,6 +16,7 @@ class TokenSchema:
 
 @dataclass
 class ProfileSchema:
+    id: str
     email: str
     first_name: str
     last_name: str

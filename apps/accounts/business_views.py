@@ -1,5 +1,6 @@
 from ninja import Router, Schema
-from . import schemas
+from .schemas import business as business_schema
+from .schemas import common as common_schema
 from accounts.models import User, Business, BusinessUser, VerificationCode
 from django.core.mail import send_mail
 from django.db import transaction
@@ -14,7 +15,7 @@ router = Router(tags=["Business Account"])
 
 
 @router.post("create-account/")
-def create_account(request, data: schemas.RegisterSchema):
+def create_account(request, data: common_schema.RegisterSchema):
     existing_user = User.objects.filter(email=data.email).exists()
     if existing_user:
         raise HttpError(400, "An account withn this email already exists")
@@ -32,9 +33,9 @@ def create_account(request, data: schemas.RegisterSchema):
     }
 
 
-@router.post("validate-otp", response={200:schemas.UserSchema})
+@router.post("validate-otp", response={200:common_schema.UserSchema})
 @transaction.atomic
-def validate_otp(request, data: schemas.ValidateOTPSchema):
+def validate_otp(request, data: business_schema.ValidateOTPSchema):
     existing_user = User.objects.filter(email=data.email).exists()
     if existing_user:
         raise HttpError(400, "An account withn this email already exists")
@@ -68,8 +69,8 @@ def validate_otp(request, data: schemas.ValidateOTPSchema):
     raise HttpError(400, "Incorrect otp")
 
 
-@router.patch("complete-company-profile", response=schemas.BusinessSchema, auth=JWTAuth())
-def complete_company_profile(request, data: schemas.BusinessSchema):
+@router.patch("complete-company-profile", response=business_schema.BusinessSchema, auth=JWTAuth())
+def complete_company_profile(request, data: business_schema.BusinessSchema):
     business_user = BusinessUser.objects.filter(user=request.user).first()
     if business_user:
         business = business_user.business
@@ -83,7 +84,7 @@ def complete_company_profile(request, data: schemas.BusinessSchema):
         raise HttpError(403, "Not allowed")
 
 
-@router.get("employment-types", response=schemas.EmploymentTypeSchema)
+@router.get("employment-types", response=business_schema.EmploymentTypeSchema)
 def get_employment_types(request):
     employment_types = EmploymentType.objects.filter(parent=None)
     return employment_types
