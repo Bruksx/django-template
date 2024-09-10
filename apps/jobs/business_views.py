@@ -13,4 +13,4 @@ def get_employment_types(request):
 
 @router.post("create", response=CreateJobSchema)
 def create_job(request, data:CreateJobSchema):
-    return CreateJobSchema
+    return data
