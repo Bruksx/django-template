@@ -1,6 +1,7 @@
 from ninja import Router
 from .schemas import EmploymentTypeSchema, CreateJobSchema
-from .models import EmploymentType
+from .models import EmploymentType, AvailableDay
+from copy import copy
 
 
 router = Router(tags=["Business Jobs"])
@@ -13,4 +14,8 @@ def get_employment_types(request):
 
 @router.post("create", response=CreateJobSchema)
 def create_job(request, data:CreateJobSchema):
-    return data
+    response = copy(data)
+    for i in data.availability:
+        available_day = AvailableDay(**i.dict())
+    del data.availability
+    return response

@@ -9,6 +9,8 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.utils import timezone
 import random
 from datetime import timedelta
+
+from ninja_jwt.exceptions import AuthenticationFailed
 from ninja_jwt.tokens import RefreshToken
 
 from apps.accounts.dtos import TokenDto
@@ -83,6 +85,8 @@ class User(AbstractUser, BaseModel):
         return str(refresh.access_token)
 
     def tokens(self)->TokenDto:
+        if not self.is_active:
+            raise AuthenticationFailed("This user is blocked")
         refresh_token = RefreshToken.for_user(self)
         return TokenDto(access_token=str(refresh_token.access_token), refresh_token=str(refresh_token))
 
@@ -95,9 +99,12 @@ class Country(BaseModel):
 class Talent(BaseModel):
     user = models.OneToOneField(User, on_delete=models.DO_NOTHING)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
+    state = models.CharField(max_length=64, null=True)
     city = models.CharField(max_length=64, null=True)
     postal_code = models.CharField(max_length=8, null=True)
     employment_type = models.CharField(max_length=32, null=True)
+    visible = models.BooleanField(default=False)
+    preferred_communication = models.CharField(max_length=64, null=True)
     bio = models.TextField(null=True)
     gender = models.CharField(max_length=16, null=True)
     notice_period = models.IntegerField(null=True)
@@ -201,3 +208,74 @@ class UserLanguage(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.language}({self.user})"
+
+class TalentAvailability(BaseModel):
+    talent = models.OneToOneField(Talent, on_delete=models.CASCADE)
+    monday = models.BooleanField(default=False)
+    monday_start_time = models.TimeField(default=None, null=True)
+    monday_end_time = models.TimeField(default=None, null=True)
+    tuesday = models.BooleanField(default=False)
+    tuesday_start_time = models.TimeField(default=None, null=True)
+    tuesday_end_time = models.TimeField(default=None, null=True)
+    wednesday = models.BooleanField(default=False)
+    wednesday_start_time = models.TimeField(default=None, null=True)
+    wednesday_end_time = models.TimeField(default=None, null=True)
+    thursday = models.BooleanField(default=False)
+    thursday_start_time = models.TimeField(default=None, null=True)
+    thursday_end_time = models.TimeField(default=None, null=True)
+    friday = models.BooleanField(default=False)
+    friday_start_time = models.TimeField(default=None, null=True)
+    friday_end_time = models.TimeField(default=None, null=True)
+    saturday = models.BooleanField(default=False)
+    saturday_start_time = models.TimeField(default=None, null=True)
+    saturday_end_time = models.TimeField(default=None, null=True)
+    sunday = models.BooleanField(default=False)
+    sunday_start_time = models.TimeField(default=None, null=True)
+    sunday_end_time = models.TimeField(default=None, null=True)
+
+
+class Industry(BaseModel):
+    name = models.CharField(max_length=128)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Department(BaseModel):
+    industry = models.ForeignKey(Industry, on_delete=models.CASCADE)
+    name = models.CharField(max_length=128)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Role(BaseModel):
+    department = models.ForeignKey(Department, on_delete=models.CASCADE)
+    name = models.CharField(max_length=128)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class SkillCategory(BaseModel):
+    name = models.CharField(max_length=128)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class SkillReference(BaseModel):
+    name = models.CharField(max_length=128, unique=True)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Skill(BaseModel):
+    reference = models.ForeignKey(SkillReference, on_delete=models.SET_NULL, null=True)
+    name = models.CharField(max_length=128)
+    category = models.ForeignKey(SkillCategory, on_delete=models.CASCADE)
+    department = models.ForeignKey(Department, on_delete=models.CASCADE)
+
+    def __str__(self) -> str:
+        return self.name

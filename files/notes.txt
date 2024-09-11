@@ -1,0 +1,7 @@
+dropdowns for department, roles, skills
+responsibilities
+assign recruiter
+job location
+talent country
+skills and their categories
+job timezone

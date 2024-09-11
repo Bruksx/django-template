@@ -1,6 +1,8 @@
 from django.db import models
 from core.models import BaseModel
 from accounts.models import User, Country, Language, Business
+from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum
+from timezone_field import TimeZoneField
 
 
 # Create your models here.
@@ -55,27 +57,11 @@ class AvailableDay(BaseModel):
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
     job = models.ForeignKey("Job", on_delete=models.DO_NOTHING)
     day = models.CharField(max_length=32)
-    start_time = models.TimeField(null=True)
     end_time = models.TimeField(null=True)
+    start_time = models.TimeField(null=True)
 
 
 class Job(BaseModel):
-    REMOTE = "remote"
-    HYBRID = "hybrid"
-    IN_OFFICE = "in office"
-    WORKSTRUCTURE_CHOICES = (
-        (REMOTE, "Remote"),
-        (HYBRID, "Hybrid"),
-        (IN_OFFICE, "In-Office"),
-    )
-    WINDOWS = "windows"
-    MACBOOK = "macbook"
-    EITHER = "either"
-    TECHNOLOGICAL_REQUIREMENT_CHOICES = (
-        (WINDOWS, "Windows"),
-        (MACBOOK, "Macbook"),
-        (EITHER, "Either"),
-    )
     PAID = "paid"
     UNPAID = "unpaid"
     LUNCH_BREAK_CHOICES = (
@@ -93,11 +79,11 @@ class Job(BaseModel):
     minimum_education_level = models.ForeignKey(EducationLevel, on_delete=models.DO_NOTHING, null=True)
     job_level = models.ForeignKey(JobLevel, on_delete=models.DO_NOTHING, null=True)
     qualification = models.ForeignKey(Qualification, on_delete=models.DO_NOTHING, null=True)
-    work_structure = models.CharField(choices=WORKSTRUCTURE_CHOICES)
+    work_structure = models.CharField(choices=WorkStructureEnum.choices())
     first_language = models.ForeignKey(Language, on_delete=models.SET_NULL, null=True)
     additional_languages = models.ManyToManyField(Language, related_name="jobs")
     office_address = models.CharField(max_length=128)
-    lunch_break = models.CharField(max_length=16, choices=LUNCH_BREAK_CHOICES)
+    lunch_break = models.CharField(max_length=16, choices=LunchBreakEnum.choices())
     annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2)
     annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2)
     annual_salary_currency = models.CharField(max_length=8)
@@ -112,6 +98,8 @@ class Job(BaseModel):
     additional_hours_min = models.IntegerField(default=0)
     additional_hours_max = models.IntegerField(default=0)
     additional_hours_description = models.TextField(null=True)
+    technological_requirement = models.CharField(max_length=16, null=True)
+    avaibility_timezone = TimeZoneField(default="America/Vancouver")
 
     def __str__(self) -> str:
         return self.title
@@ -131,6 +119,7 @@ class JobPost(BaseModel):
     annual_bonus_currency = models.CharField(max_length=8)
     location_type = models.CharField(max_length=32, null=True)
     recruiter = models.ForeignKey(User, null=True, on_delete=models.CASCADE, related_name="recruiting_job_posts")
+    location_type = models.CharField(max_length=32, null=True)
 
     def __str__(self) -> str:
         return self.country
@@ -196,13 +185,14 @@ class JobFilter(BaseModel):
 
 class ScreeningQuestion(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
-    type = models.CharField(max_length=16)
+    type = models.CharField(max_length=16, choices=QuestionTypeEnum.choices())
     text = models.TextField()
 
 
 class QuestionOption(BaseModel):
     question = models.ForeignKey(ScreeningQuestion, on_delete=models.CASCADE)
     is_accepted = models.BooleanField(default=False)
+    text = models.CharField(max_length=128, null=True)
 
 
 class RequiredAttribute(BaseModel):
