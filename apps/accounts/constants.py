@@ -1,0 +1,23 @@
+EDUCATION_LEVEL = [
+    {"industry": "General Industries", "education": "None"},
+    {"industry": "General Industries", "education": "Associates"},
+    {"industry": "General Industries", "education": "Bachelors"},
+    {"industry": "General Industries", "education": "Masters"},
+    {"industry": "General Industries", "education": "Doctorate"},
+    {"industry": "General Industries", "education": "Certificate"},
+    {"industry": "General Industries", "education": "Diploma"},
+    {"industry": "General Industries", "education": "Graduate Certificate"},
+    {"industry": "General Industries", "education": "Trade/Technical Certificate"},
+    {"industry": "General Industries", "education": "Postgraduate Certificate"},
+    {"industry": "General Industries", "education": "Higher National Diploma (HND)"},
+    {"industry": "General Industries", "education": "Advanced Diploma"},
+    {"industry": "General Industries", "education": "Professional Degree"},
+    {"industry": "General Industries", "education": "Non-Degree Programs"},
+    {"industry": "Healthcare", "education": "Residency/Internship"},
+    {"industry": "Healthcare", "education": "Fellowship"},
+    {"industry": "Healthcare", "education": "Advanced Practice Registered Nurse (APRN) Certification"},
+    {"industry": "Healthcare", "education": "Board Certification"},
+    {"industry": "Healthcare", "education": "Licensure"},
+    {"industry": "Healthcare", "education": "Professional Certifications"},
+    {"industry": "Healthcare", "education": "Continuing Education Units (CEUs)"}
+]

@@ -8,13 +8,13 @@ from django_softdelete.managers import SoftDeleteManager
 from django.contrib.auth.hashers import check_password, make_password
 from django.utils import timezone
 import random
-from datetime import timedelta
+from datetime import timedelta, date
 
 from ninja_jwt.exceptions import AuthenticationFailed
 from ninja_jwt.tokens import RefreshToken
 
 from apps.accounts.dtos import TokenDto
-from apps.accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType
+from apps.accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType
 
 
 
@@ -60,7 +60,6 @@ class User(AbstractUser, BaseModel):
     REQUIRED_FIELDS = []
 
 
-    role = models.CharField(max_length=64, null=True)
     gender = models.CharField(max_length=16, choices=GenderType.choices())
     phone_number = models.CharField(max_length=16, null=True)
     email = models.EmailField(unique=True, null=True)
@@ -108,13 +107,26 @@ class Talent(BaseModel):
     bio = models.TextField(null=True)
     gender = models.CharField(max_length=16, null=True)
     notice_period = models.IntegerField(null=True)
-    languages = models.ManyToManyField("Language", through="UserLanguage")
     instagram = models.URLField(null=True)
     linkedin = models.URLField(null=True)
     facebook = models.URLField(null=True)
     twitter_x = models.URLField(null=True)
     cv = models.FileField(upload_to="cvs")
     photo = models.ImageField(upload_to="talents")
+    notice_period_type = models.CharField(max_length=32, choices=NoticePeriodType.choices(),
+                                          default=NoticePeriodType.MONTH.value)
+    native_language = models.ForeignKey("core.Language", on_delete=models.SET_NULL, null=True,
+                                        related_name="native_language")
+    additional_languages = models.ManyToManyField("core.Language", related_name="other_languages")
+    gender = models.CharField(max_length=64, null=True)
+
+    def years_of_experience(self):
+        experiences = Experience.objects.filter(talent=self).only("start_date", "end_date")
+        if not experiences:
+            return 0
+        start_date: date = experiences.order_by("start_date").first().start_date
+        end_date: date = experiences.order_by("end_date").last().end_date
+        return (end_date - start_date).days//365
     
 
 
@@ -168,6 +180,11 @@ class VerificationCode(BaseModel):
         return timezone.now() > self.expires_at
 
 
+class EducationLevel(BaseModel):
+    industry = models.ForeignKey("accounts.Industry", on_delete=models.SET_NULL, null=True)
+    level = models.CharField(max_length=64)
+
+
 class BusinessUser(BaseModel):
 
     business = models.ForeignKey(Business, on_delete=models.CASCADE)
@@ -177,8 +194,8 @@ class BusinessUser(BaseModel):
 
 
 class Education(BaseModel):
-    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
-    level = models.CharField()
+    talent = models.ForeignKey(Talent, on_delete=models.CASCADE, default=None, null=True)
+    level = models.ForeignKey(EducationLevel, on_delete=models.SET_NULL, null=True, default=None)
     start_date = models.DateField()
     end_date = models.DateField()
     major = models.CharField(max_length=64)
@@ -186,28 +203,23 @@ class Education(BaseModel):
 
 
 class Experience(BaseModel):
-    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
-    role = models.CharField(max_length=32)
-    role_type = models.ForeignKey("jobs.EmploymentType", on_delete=models.SET_NULL, null=True)
+    talent = models.ForeignKey(Talent, on_delete=models.CASCADE, null=True)
+    company = models.CharField(max_length=100, null=True)
+    annual_salary = models.FloatField(default=0)
+    annual_salary_currency = models.ForeignKey("core.Currency", on_delete=models.SET_NULL,
+                                               null=True,
+                                               related_name="annual_salary_currency")
+    annual_salary_bonus = models.FloatField(default=0)
+    annual_salary_bonus_currency = models.ForeignKey("core.Currency",
+                                                     on_delete=models.SET_NULL,
+                                                     null=True,
+                                                     related_name="annual_salary_bonus_currency")
+    level = models.ForeignKey("jobs.JobLevel", on_delete=models.SET_NULL, null=True)
+    employment_type = models.ForeignKey("jobs.EmploymentType", on_delete=models.SET_NULL, null=True)
     start_date = models.DateField()
     end_date = models.DateField()
     currently_works_here = models.BooleanField()
 
-
-class Language(BaseModel):
-    name = models.CharField(max_length=32)
-
-    def __str__(self) -> str:
-        return self.name
-
-
-class UserLanguage(BaseModel):
-    talent = models.ForeignKey(Talent, on_delete=models.DO_NOTHING, null=True)
-    language = models.ForeignKey(Language, on_delete=models.CASCADE)
-    is_native = models.BooleanField(default=False)
-
-    def __str__(self) -> str:
-        return f"{self.language}({self.user})"
 
 class TalentAvailability(BaseModel):
     talent = models.OneToOneField(Talent, on_delete=models.CASCADE)
@@ -264,15 +276,7 @@ class SkillCategory(BaseModel):
         return self.name
 
 
-class SkillReference(BaseModel):
-    name = models.CharField(max_length=128, unique=True)
-
-    def __str__(self) -> str:
-        return self.name
-
-
 class Skill(BaseModel):
-    reference = models.ForeignKey(SkillReference, on_delete=models.SET_NULL, null=True)
     name = models.CharField(max_length=128)
     category = models.ForeignKey(SkillCategory, on_delete=models.CASCADE)
     department = models.ForeignKey(Department, on_delete=models.CASCADE)

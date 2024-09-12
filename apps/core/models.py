@@ -20,3 +20,18 @@ class BaseModel(SoftDeleteModel):
         self.save()
         self.refresh_from_db()
         return self
+
+
+class Currency(BaseModel):
+    name = models.CharField()
+    abbreviation = models.CharField()
+
+    def __str__(self) -> str:
+        return f"{self.name}({self.abbreviation})"
+
+
+class Language(BaseModel):
+    name = models.CharField(max_length=32)
+
+    def __str__(self) -> str:
+        return self.name

@@ -62,7 +62,7 @@ def validate_otp(request, data: talent_schemas.ValidateOTPSchema):
 
 
 
-@router.patch("complete-profile", response=talent_schemas.MutateTalentSchema, auth=JWTAuth())
+"""@router.patch("complete-profile", response=talent_schemas.MutateTalentSchema, auth=JWTAuth())
 def complete_talent_profile(request, data: talent_schemas.MutateTalentSchema):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
@@ -76,4 +76,4 @@ def complete_talent_profile(request, data: talent_schemas.MutateTalentSchema):
         data["photo"] = convert_base64_to_image_file(data["photo"])
     if "cv" in data:
         data["cv"] = convert_base64_to_image_file(data["cv"])
-    return talent_user.update(**request_data)
+    return talent_user.update(**request_data)"""

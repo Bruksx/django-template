@@ -19,15 +19,16 @@ class LunchBreakEnum(BaseEnum):
 
 
 class QuestionTypeEnum(BaseEnum):
-    SINGLE_SELECT = "single_select"
-    MULTI_SELECT = "multi_select"
+    SINGLE_SELECT = "single select"
+    MULTI_SELECT = "multi select"
     TEXT = "text"
     FILE = "file"
+    
 
-
-class RequiredAttributeType(BaseEnum):
-    WORK_STRUCTURE = "work_structure"
-    FIRST_LANGUAGE = "first_language"
-    LOCATION = "location"
-    TECHNOLOGICAL_REQUIREMENTS = "technological_requirements"
-    WORKING_HOURS = "working_hours"
+class StageType(BaseEnum):
+    SCREENING = "screening"
+    INTERVIEW = "interview"
+    INTERVIEW_2 = "interview 2"
+    HIRED = "hired"
+    ONBOARDING = "onboarding"
+    REJECTED = "rejected"

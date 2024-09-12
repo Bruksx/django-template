@@ -39,14 +39,14 @@ class MutateTalentAvailabilitySchema(ModelSchema):
         model = TalentAvailability
         exclude = [*BASE_EXCLUDE_FIELDS, "talent"]
 
-class MutateTalentSchema(ModelSchema):
+"""class MutateTalentSchema(ModelSchema):
     user: Optional[UserSchema]
     availability: Optional[MutateTalentAvailabilitySchema]
-    country: str
+    #country: str
     class Meta:
         model = Talent
-        exclude = BASE_EXCLUDE_FIELDS
+        exclude = BASE_EXCLUDE_FIELDS"""
 
-class ValidateOTPSchema(MutateTalentSchema):
+class ValidateOTPSchema(Schema):
     otp: str
     password: str

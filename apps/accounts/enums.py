@@ -5,15 +5,10 @@ class UserType(BaseEnum):
     BUSINESS = "business"
     TALENT = "talent"
 
-class GenderType(BaseEnum):
-    MALE = "male"
-    FEMALE = "female"
-    OTHERS = "others"
-
 class SocialType(BaseEnum):
-    GOOGLE = "Google"
-    LINKEDIN = "LinkedIn"
-    FACEBOOK = "Facebook"
+    GOOGLE = "google"
+    LINKEDIN = "linkedIn"
+    FACEBOOK = "facebook"
 
 class AuthType(BaseEnum):
     GOOGLE = "Google"
@@ -25,3 +20,20 @@ class BusinessUserRoleType(BaseEnum):
     OWNER = "owner"
     ADMIN = "admin"
     TEAM_MEMBER = "team_member"
+
+class NoticePeriodType(BaseEnum):
+    DAYS = "days"
+    WEEKS = "weeks"
+    MONTH = "months"
+
+class GenderType(BaseEnum):
+    MALE = "male"
+    FEMALE = "female"
+    NON_BINARY = "non-binary"
+    OTHERS = "prefer to self describe"
+
+class PreferredCommunicationType(BaseEnum):
+    TEXT = "text"
+    WHATSAPP = "whatsapp"
+    VIBER = "viber"
+    EMAIL = "email"

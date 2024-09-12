@@ -1,6 +1,6 @@
 from ninja import Router
 from .schemas import EmploymentTypeSchema, CreateJobSchema
-from .models import EmploymentType, AvailableDay
+from .models import EmploymentType, AvailableDay, Language
 from copy import copy
 
 
@@ -15,6 +15,7 @@ def get_employment_types(request):
 @router.post("create", response=CreateJobSchema)
 def create_job(request, data:CreateJobSchema):
     response = copy(data)
+    first_language = Language.objects.filter(uid=data.first_language_uid).first()
     for i in data.availability:
         available_day = AvailableDay(**i.dict())
     del data.availability
