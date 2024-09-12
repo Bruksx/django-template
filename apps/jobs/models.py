@@ -1,23 +1,14 @@
 from django.db import models
-from core.models import BaseModel
-from accounts.models import User, Country, Language, Business
+from core.models import BaseModel, Language
+from accounts.models import User, Country, Business
+from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, StageType
+from timezone_field import TimeZoneField
 
 
 # Create your models here.
 class EmploymentType(BaseModel):
     name = models.CharField(max_length=128)
-    parent = models.ForeignKey("EmploymentType", on_delete=models.DO_NOTHING, null=True)
-
-    def __str__(self) -> str:
-        return self.name
-    
-    @property
-    def sub_types(self):
-        return EmploymentType.objects.filter(parent=self)
-
-
-class EducationLevel(BaseModel):
-    name = models.CharField(max_length=64)
+    parent = models.ForeignKey("EmploymentType", on_delete=models.DO_NOTHING, null=True, blank=True)
 
     def __str__(self) -> str:
         return self.name
@@ -38,48 +29,14 @@ class Qualification(BaseModel):
 
 
 class AvailableDay(BaseModel):
-    SUNDAY = "sunday"
-    MONDAY = "monday"
-    TUESDAY = "tuesday"
-    WEDNESDAY = "wednesday"
-    THURSDAY = "thursday"
-    FRIDAY = "friday"
-    SATURDAY = "saturday"
-    FLEXIBLE = "flexible"
-    DAY_CHOICES = (
-        (SUNDAY, SUNDAY),
-        (MONDAY, MONDAY),
-        (TUESDAY, TUESDAY),
-        (WEDNESDAY, WEDNESDAY),
-        (THURSDAY, THURSDAY),
-        (FRIDAY, FRIDAY),
-        (SATURDAY, SATURDAY),
-        (FLEXIBLE, FLEXIBLE)
-    )
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
     job = models.ForeignKey("Job", on_delete=models.DO_NOTHING)
     day = models.CharField(max_length=32)
-    start_time = models.TimeField(null=True)
     end_time = models.TimeField(null=True)
+    start_time = models.TimeField(null=True)
 
 
 class Job(BaseModel):
-    REMOTE = "remote"
-    HYBRID = "hybrid"
-    IN_OFFICE = "in office"
-    WORKSTRUCTURE_CHOICES = (
-        (REMOTE, "Remote"),
-        (HYBRID, "Hybrid"),
-        (IN_OFFICE, "In-Office"),
-    )
-    WINDOWS = "windows"
-    MACBOOK = "macbook"
-    EITHER = "either"
-    TECHNOLOGICAL_REQUIREMENT_CHOICES = (
-        (WINDOWS, "Windows"),
-        (MACBOOK, "Macbook"),
-        (EITHER, "Either"),
-    )
     PAID = "paid"
     UNPAID = "unpaid"
     LUNCH_BREAK_CHOICES = (
@@ -94,14 +51,15 @@ class Job(BaseModel):
     title = models.CharField(max_length=32)
     about = models.TextField()
     years_of_experience = models.IntegerField()
-    minimum_education_level = models.ForeignKey(EducationLevel, on_delete=models.DO_NOTHING, null=True)
+    minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.DO_NOTHING, null=True)
+    business_models = models.ManyToManyField("BusinessModel")
     job_level = models.ForeignKey(JobLevel, on_delete=models.DO_NOTHING, null=True)
     qualification = models.ForeignKey(Qualification, on_delete=models.DO_NOTHING, null=True)
-    work_structure = models.CharField(choices=WORKSTRUCTURE_CHOICES)
+    work_structure = models.CharField(choices=WorkStructureEnum.choices())
     first_language = models.ForeignKey(Language, on_delete=models.SET_NULL, null=True)
     additional_languages = models.ManyToManyField(Language, related_name="jobs")
     office_address = models.CharField(max_length=128)
-    lunch_break = models.CharField(max_length=16, choices=LUNCH_BREAK_CHOICES)
+    lunch_break = models.CharField(max_length=16, choices=LunchBreakEnum.choices())
     annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2)
     annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2)
     annual_salary_currency = models.CharField(max_length=8)
@@ -116,9 +74,11 @@ class Job(BaseModel):
     additional_hours_min = models.IntegerField(default=0)
     additional_hours_max = models.IntegerField(default=0)
     additional_hours_description = models.TextField(null=True)
+    technological_requirement = models.CharField(max_length=16, null=True)
+    avaibility_timezone = TimeZoneField(default="America/Vancouver")
 
     def __str__(self) -> str:
-        return self.title
+        return f"{self.title}({self.uid})"
 
 
 class JobPost(BaseModel):
@@ -135,31 +95,18 @@ class JobPost(BaseModel):
     annual_bonus_currency = models.CharField(max_length=8)
     location_type = models.CharField(max_length=32, null=True)
     recruiter = models.ForeignKey(User, null=True, on_delete=models.CASCADE, related_name="recruiting_job_posts")
+    #location_type = models.CharField(max_length=32, null=True)
 
     def __str__(self) -> str:
         return self.country
 
 
 class JobApplication(BaseModel):
-    SCREENING = "screening"
-    INTERVIEW = "interview"
-    INTERVIEW_2 = "interview 2"
-    HIRED = "hired"
-    ONBOARDING = "onboarding"
-    REJECTED = "rejected"
-    STAGE_CHOICES = (
-        (SCREENING, SCREENING),
-        (INTERVIEW, INTERVIEW),
-        (INTERVIEW_2, INTERVIEW_2),
-        (ONBOARDING, ONBOARDING),
-        (HIRED, HIRED),
-        (REJECTED, REJECTED),
-    )
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     applicant = models.ForeignKey(User, on_delete=models.CASCADE)
     is_available = models.BooleanField()
     accept_privacy = models.BooleanField(default=True)
-    stage = models.CharField(max_length=16, choices=STAGE_CHOICES)
+    stage = models.CharField(max_length=16, choices=StageType.choices())
     match = models.DecimalField(max_digits=12, decimal_places=2)
 
     def __str__(self) -> str:
@@ -167,26 +114,11 @@ class JobApplication(BaseModel):
 
 
 class SavedJob(BaseModel):
-    job = models.ForeignKey(Job, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    job_post = models.ForeignKey(JobPost, on_delete=models.CASCADE, null=True)
+    talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE, null=True)
 
     def __str__(self) -> str:
         return f"{self.job} ({self.user})"
-
-
-class SkillCategory(BaseModel):
-    name = models.CharField(max_length=64)
-
-    def __str__(self) -> str:
-        return self.name
-
-
-class Skill(BaseModel):
-    category = models.ForeignKey(SkillCategory, on_delete=models.SET_NULL, null=True)
-    name = models.CharField(max_length=64)
-
-    def __str__(self) -> str:
-        return self.name
 
 
 class JobDraft(BaseModel):
@@ -195,19 +127,67 @@ class JobDraft(BaseModel):
 
 
 class JobFilter(BaseModel):
-    user = models.OneToOneField(User, on_delete=models.DO_NOTHING)
+    talent = models.OneToOneField("accounts.Talent", on_delete=models.CASCADE, null=True)
+    years_of_experience = models.PositiveSmallIntegerField(default=1)
+    office_location = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
+    employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
+    department = models.ForeignKey("accounts.Department", on_delete=models.SET_NULL, null=True)
+    minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
+    location_type = models.CharField(choices=WorkStructureEnum.choices(), default=WorkStructureEnum.IN_OFFICE)
+    remove_applied_jobs = models.BooleanField(default=False)
 
 
 class ScreeningQuestion(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
-    type = models.CharField(max_length=16)
+    type = models.CharField(max_length=16, choices=QuestionTypeEnum.choices())
     text = models.TextField()
+    is_knockout = models.BooleanField(default=False)
 
 
 class QuestionOption(BaseModel):
     question = models.ForeignKey(ScreeningQuestion, on_delete=models.CASCADE)
     is_accepted = models.BooleanField(default=False)
+    text = models.CharField(max_length=128, null=True)
+
+
+class Answer(BaseModel):
+    application = models.ForeignKey(JobApplication, on_delete=models.CASCADE)
+    option = models.ForeignKey(QuestionOption, on_delete=models.CASCADE)
+    text = models.TextField(null=True)
 
 
 class RequiredAttribute(BaseModel):
+    job = models.OneToOneField(Job, on_delete=models.CASCADE)
+    skills = models.ManyToManyField("accounts.Skill")
+    role = models.BooleanField(default=False)
+    job_level = models.BooleanField(default=False)
+    business_model = models.ManyToManyField("BusinessModel")
+    minimum_education_level = models.BooleanField(default=False)
+    work_structure = models.BooleanField(default=False)
+    technological_requirement = models.BooleanField(default=False)
+    first_language = models.BooleanField(default=False)
+    secondary_language = models.BooleanField(default=False)
+    working_hours = models.BooleanField(default=False)
+    location = models.BooleanField(default=False)
+
+    def __str__(self) -> str:
+        return f"{self.job}({self.uid})"
+
+
+class OtherSkill(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
+    name = models.CharField(max_length=128)
+
+
+class JobApplicationWithdrawal(BaseModel):
+    job_post = models.ForeignKey(JobPost, on_delete=models.DO_NOTHING)
+    talent = models.ForeignKey("accounts.Talent", on_delete=models.DO_NOTHING)
+    feedback = models.TextField()
+
+
+class BusinessModel(BaseModel):
+    name = models.CharField(max_length=64)
+    description = models.TextField()
+
+    def __str__(self) -> str:
+        return self.name

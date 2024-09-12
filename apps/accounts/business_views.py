@@ -8,7 +8,7 @@ from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
 from .enums import UserType
 from helpers.images import convert_base64_to_image_file
-from jobs.models import EmploymentType
+from typing import List
 
 
 router = Router(tags=["Business Account"])
@@ -82,9 +82,3 @@ def complete_company_profile(request, data: business_schema.BusinessSchema):
             return business
     else:
         raise HttpError(403, "Not allowed")
-
-
-@router.get("employment-types", response=business_schema.EmploymentTypeSchema)
-def get_employment_types(request):
-    employment_types = EmploymentType.objects.filter(parent=None)
-    return employment_types

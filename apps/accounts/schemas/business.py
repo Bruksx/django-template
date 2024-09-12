@@ -1,6 +1,8 @@
 from ninja import ModelSchema, Schema
 from accounts.models import User, Business
 from jobs.models import EmploymentType
+from typing import Optional, List
+from uuid import UUID
 
 
 
@@ -29,5 +31,3 @@ class EmploymentTypeSchema(ModelSchema):
     class Meta:
         model = EmploymentType
         fields = ["uid", "name"]
-
-

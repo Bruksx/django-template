@@ -30,12 +30,16 @@ def format_errors(data):
 def format_data(data):
     if isinstance(data, str):
         return data
+    if isinstance(data, list):
+        return data
     return dict(data)
 
 
 def get_message(data, response_status):
     if isinstance(data, str):
         return data
+    if isinstance(data, list):
+        return ""
     try:
         FieldErrorSchema(**data)
         return format_errors(data)

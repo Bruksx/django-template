@@ -2,6 +2,7 @@ from django.db import models
 from core.models import BaseModel
 from accounts.models import User
 from jobs.models import Job
+from .enums import ChatMessageAttachmentType
 
 
 # Create your models here.
@@ -26,9 +27,15 @@ class Message(BaseModel):
     body = models.TextField()
 
     def __str__(self) -> str:
-        return f"{self.sender} {self.receiver}"
+        return f"{self.sender}"
 
 
 class ReadMessageLog(BaseModel):
     reader = models.ForeignKey(User, on_delete=models.DO_NOTHING)
     message = models.ForeignKey(Message, on_delete=models.DO_NOTHING)
+
+
+class MessageAttachment(BaseModel):
+    message = models.ForeignKey("Message", on_delete=models.CASCADE)
+    file_type = models.CharField(choices=ChatMessageAttachmentType.choices())
+    file = models.FileField(upload_to="chat_attachments")
