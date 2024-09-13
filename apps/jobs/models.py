@@ -93,6 +93,7 @@ class JobPost(BaseModel):
     annual_bonus_min = models.DecimalField(max_digits=12, decimal_places=2)
     annual_bonus_max = models.DecimalField(max_digits=12, decimal_places=2)
     annual_bonus_currency = models.CharField(max_length=8)
+    location_type = models.CharField(max_length=32, null=True)
     recruiter = models.ForeignKey(User, null=True, on_delete=models.CASCADE, related_name="recruiting_job_posts")
 
     def __str__(self) -> str:
