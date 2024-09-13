@@ -105,7 +105,7 @@ class Talent(BaseModel):
     visible = models.BooleanField(default=False)
     preferred_communication = models.CharField(max_length=64, null=True)
     bio = models.TextField(null=True)
-    gender = models.CharField(max_length=16, null=True)
+    gender = models.CharField(choices=GenderType.choices(), max_length=32, null=True)
     notice_period = models.IntegerField(null=True)
     instagram = models.URLField(null=True)
     linkedin = models.URLField(null=True)
@@ -118,7 +118,6 @@ class Talent(BaseModel):
     native_language = models.ForeignKey("core.Language", on_delete=models.SET_NULL, null=True,
                                         related_name="native_language")
     additional_languages = models.ManyToManyField("core.Language", related_name="other_languages")
-    gender = models.CharField(max_length=64, null=True)
 
     def years_of_experience(self):
         experiences = Experience.objects.filter(talent=self).only("start_date", "end_date")

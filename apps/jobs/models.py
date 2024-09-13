@@ -75,7 +75,7 @@ class Job(BaseModel):
     additional_hours_max = models.IntegerField(default=0)
     additional_hours_description = models.TextField(null=True)
     technological_requirement = models.CharField(max_length=16, null=True)
-    avaibility_timezone = TimeZoneField(default="America/Vancouver")
+    availability_timezone = TimeZoneField(default="America/Vancouver")
 
     def __str__(self) -> str:
         return f"{self.title}({self.uid})"
@@ -95,7 +95,6 @@ class JobPost(BaseModel):
     annual_bonus_currency = models.CharField(max_length=8)
     location_type = models.CharField(max_length=32, null=True)
     recruiter = models.ForeignKey(User, null=True, on_delete=models.CASCADE, related_name="recruiting_job_posts")
-    #location_type = models.CharField(max_length=32, null=True)
 
     def __str__(self) -> str:
         return self.country
