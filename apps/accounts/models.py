@@ -1,3 +1,4 @@
+import logging
 import secrets
 import string
 from typing import Any
@@ -13,8 +14,8 @@ from datetime import timedelta, date
 from ninja_jwt.exceptions import AuthenticationFailed
 from ninja_jwt.tokens import RefreshToken
 
-from apps.accounts.dtos import TokenDto
-from apps.accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType
+from accounts.dtos import TokenDto
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType
 
 
 
@@ -36,7 +37,6 @@ class CustomUserManager(SoftDeleteManager, BaseUserManager):
             raise ValueError('Superuser must have is_staff=True.')
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True.')
-        return self.create_user(email, password, **extra_fields)
 
     @staticmethod
     def make_random_password(length=10, digits=True, letters=True)->str:
@@ -60,7 +60,7 @@ class User(AbstractUser, BaseModel):
     REQUIRED_FIELDS = []
 
 
-    gender = models.CharField(max_length=16, choices=GenderType.choices())
+    gender = models.CharField(max_length=32, choices=GenderType.choices(), default=GenderType.OTHERS.value)
     phone_number = models.CharField(max_length=16, null=True)
     email = models.EmailField(unique=True, null=True)
     email_verified = models.BooleanField(default=False)
@@ -105,7 +105,6 @@ class Talent(BaseModel):
     visible = models.BooleanField(default=False)
     preferred_communication = models.CharField(max_length=64, null=True)
     bio = models.TextField(null=True)
-    gender = models.CharField(choices=GenderType.choices(), max_length=32, null=True)
     notice_period = models.IntegerField(null=True)
     instagram = models.URLField(null=True)
     linkedin = models.URLField(null=True)
@@ -118,6 +117,26 @@ class Talent(BaseModel):
     native_language = models.ForeignKey("core.Language", on_delete=models.SET_NULL, null=True,
                                         related_name="native_language")
     additional_languages = models.ManyToManyField("core.Language", related_name="other_languages")
+    profile_completion_stage = models.SmallIntegerField(default=0)
+
+    @property
+    def photo_url(self):
+        return self.photo.url if self.photo else None
+
+    @property
+    def cv_url(self):
+        return self.cv.url if self.cv else None
+
+    def skill(self):
+        if hasattr(self, "talentskill"):
+            return self.talentskill
+        return None
+
+    def experience_history(self):
+        return self.experience_set.all()
+
+    def education_history(self):
+        return self.education_set.all()
 
     def years_of_experience(self):
         experiences = Experience.objects.filter(talent=self).only("start_date", "end_date")
@@ -127,6 +146,20 @@ class Talent(BaseModel):
         end_date: date = experiences.order_by("end_date").last().end_date
         return (end_date - start_date).days//365
     
+class TalentSkill(BaseModel):
+    talent = models.OneToOneField(Talent, on_delete=models.CASCADE)
+    tools = models.ManyToManyField("accounts.Skill",
+                                   related_name="talent_tool_skills")
+    frameworks = models.ManyToManyField("accounts.Skill",
+                                        related_name="talent_framework_skills")
+    business_models = models.ManyToManyField("accounts.Skill",
+                                             related_name="talent_bm_skills")
+    general_skills = models.ManyToManyField("accounts.Skill",
+                                            related_name="talent_general_skills")
+    soft_skills = models.ManyToManyField("accounts.Skill",
+                                         related_name="talent_soft_skills")
+    additional_skills = models.JSONField(default=list)
+
 
 
 class Business(BaseModel):

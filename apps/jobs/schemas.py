@@ -2,7 +2,9 @@ from ninja import ModelSchema
 from ninja.schema import Schema
 from datetime import time
 from uuid import UUID
-from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption
+
+from core.schemas import READ_EXCLUDE_FIELDS
+from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel
 from typing import List
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
 
@@ -75,3 +77,9 @@ class EmploymentTypeSchema(Schema):
     @staticmethod
     def resolve_sub_types(obj):
         return EmploymentType.objects.filter(parent=obj)
+
+
+class JobLevelSchema(ModelSchema):
+    class Meta:
+        model = JobLevel
+        exclude = [*READ_EXCLUDE_FIELDS]

@@ -21,5 +21,9 @@ class MessageSchema(Schema):
 class StringSchema(Schema):
     pass
 
-BASE_EXCLUDE_FIELDS =  ("id", "created_at", "updated_at", "transaction_id",
+MUTATE_EXCLUDE_FIELDS =  ("id", "created_at", "updated_at", "transaction_id",
                    "uid", "deleted_at", "restored_at")
+
+READ_EXCLUDE_FIELDS = ("transaction_id", "restored_at", "deleted_at")
+
+

@@ -15,7 +15,7 @@ class BaseModel(SoftDeleteModel):
 
 
     def update(self, **kwargs):
-        for key, value in kwargs:
+        for key, value in kwargs.items():
             setattr(self, key, value)
         self.save()
         self.refresh_from_db()
