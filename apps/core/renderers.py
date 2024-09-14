@@ -10,7 +10,6 @@ class ORJSONRenderer(BaseRenderer):
 
     def render(self, request, data, *, response_status):
         message = get_message(data, response_status)
-        
         custom_response = {
             "code": response_status,
             "message": message,

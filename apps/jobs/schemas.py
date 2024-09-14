@@ -5,6 +5,7 @@ from uuid import UUID
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption
 from typing import List
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
+from accounts.models import Department, Role, Skill, SkillCategory
 
 
 class AvailabilitySchema(Schema):
@@ -51,6 +52,9 @@ class CreateJobSchema(ModelSchema):
     annual_bonus_max: float
     same_recruiter: bool
     screening_questions: List[QuestionSchema]
+    department_uid: UUID
+    role_uid: UUID
+    skills: list[UUID]
 
     class Meta:
         model = Job
@@ -58,7 +62,7 @@ class CreateJobSchema(ModelSchema):
             "hiring_company_name", "hiring_company_description", "work_structure", "office_address","lunch_break", 
             "additional_hours_min", "additional_hours_max", "annual_salary_min", "annual_salary_max",
             "annual_salary_currency", "annual_bonus_min", "annual_bonus_max", "annual_bonus_currency", "benefits",
-            "share_compensation",
+            "share_compensation", 
         ]
 
 
@@ -75,3 +79,39 @@ class EmploymentTypeSchema(Schema):
     @staticmethod
     def resolve_sub_types(obj):
         return EmploymentType.objects.filter(parent=obj)
+
+
+class DepartmentSchema(ModelSchema):
+    class Meta:
+        model = Department
+        fields = ["uid", "name"]
+
+
+class RoleSchema(ModelSchema):
+    class Meta:
+        model = Role
+        fields = ["uid", "name"]
+
+
+class SkillSchema(ModelSchema):
+    class Meta:
+        model = Skill
+        fields = ["uid", "name"]
+
+
+class SkillCategorySchema(Schema):
+    uid: UUID
+    category_name: str
+    skills: List[SkillSchema]
+
+    class Meta:
+        model = SkillCategory
+        fields = ["uid", "name", "skills"]
+    
+    @staticmethod
+    def resolve_category_name(obj):
+        return obj.name
+    
+    """@staticmethod
+    def resolve_skills(obj):
+        return Skill.objects.filter(category=obj)"""

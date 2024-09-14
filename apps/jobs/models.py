@@ -9,6 +9,7 @@ from timezone_field import TimeZoneField
 class EmploymentType(BaseModel):
     name = models.CharField(max_length=128)
     parent = models.ForeignKey("EmploymentType", on_delete=models.DO_NOTHING, null=True, blank=True)
+    description = models.TextField(null=True)
 
     def __str__(self) -> str:
         return self.name
@@ -76,6 +77,10 @@ class Job(BaseModel):
     additional_hours_description = models.TextField(null=True)
     technological_requirement = models.CharField(max_length=16, null=True)
     availability_timezone = TimeZoneField(default="America/Vancouver")
+
+    department = models.ForeignKey("accounts.Department", null=True, on_delete=models.SET_NULL)
+    role = models.ForeignKey("accounts.Role", null=True, on_delete=models.SET_NULL)
+    skills = models.ManyToManyField("accounts.Skill")
 
     def __str__(self) -> str:
         return f"{self.title}({self.uid})"

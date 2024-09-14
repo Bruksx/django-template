@@ -1,6 +1,7 @@
 from ninja import Router
-from .schemas import EmploymentTypeSchema, CreateJobSchema
+from .schemas import EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema
 from .models import EmploymentType, AvailableDay, Language
+from accounts.models import Department, Role, SkillCategory
 from copy import copy
 
 
@@ -20,3 +21,18 @@ def create_job(request, data:CreateJobSchema):
         available_day = AvailableDay(**i.dict())
     del data.availability
     return response
+
+
+@router.get("departments", response=list[DepartmentSchema])
+def get_departments(request):
+    return Department.objects.all()
+
+
+@router.get("roles", response=list[RoleSchema])
+def get_roles(request):
+    return Role.objects.all()
+
+
+@router.get("skill-categories", response=list[SkillCategorySchema])
+def get_skills(request):
+    return SkillCategory.objects.all().prefetch_related("skill_set")
