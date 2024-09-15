@@ -1,4 +1,4 @@
-from apps.core.enums import BaseEnum
+from core.enums import BaseEnum
 
 
 class AuthActionEnum(BaseEnum):

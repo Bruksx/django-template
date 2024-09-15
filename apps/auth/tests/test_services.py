@@ -3,9 +3,9 @@ import logging
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from apps.accounts.dtos import TokenDto
-from apps.accounts.enums import SocialType, UserType
-from apps.auth.services import create_social_user, login_social_user
+from accounts.dtos import TokenDto
+from accounts.enums import SocialType, UserType
+from auth.services import create_social_user, login_social_user
 from services.schema import ProfileSchema
 
 User = get_user_model()
