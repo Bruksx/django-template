@@ -1,12 +1,7 @@
 from typing import Optional
 
-from marshmallow.fields import Email
+from accounts.enums import UserType
 from ninja.schema import BaseModel
-from ninja.schema import Field
-from ninja import ModelSchema
-
-from apps.accounts.enums import UserType, SocialType
-from apps.auth.enums import AuthActionEnum
 
 
 class LoginSchema(BaseModel):

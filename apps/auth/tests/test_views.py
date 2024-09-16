@@ -1,7 +1,7 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from django.urls import reverse
-from apps.auth.views import router
+from auth.views import router
 from ninja.testing import TestClient
 
 

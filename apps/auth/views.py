@@ -1,17 +1,13 @@
-import logging
-
-from django.shortcuts import render
-from ninja import Router
-from ninja.errors import HttpError
-from ninja.responses import Response
-
-from helpers.utils import failure_response
-from .schema import LoginSchema, GoogleAuthSchema, FaceBookLoginSchema
-from services import google
-from .services import google_auth_login, validate_login
-from services.facebook import facebook_client
 from accounts.models import User
 from accounts.schemas import common as common_schema
+from ninja import Router
+from ninja.errors import HttpError
+
+from helpers.utils import failure_response
+from services import google
+from services.facebook import facebook_client
+from auth.schema import LoginSchema, GoogleAuthSchema, FaceBookLoginSchema
+from auth.services import google_auth_login, validate_login
 
 # Create your views here.
 router = Router(tags=["Auth"])

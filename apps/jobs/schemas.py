@@ -2,10 +2,12 @@ from ninja import ModelSchema
 from ninja.schema import Schema
 from datetime import time
 from uuid import UUID
-from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption
-from typing import List, Optional
+from core.schemas import READ_EXCLUDE_FIELDS
+from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel
+from typing import List
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
 from accounts.models import Department, Role, Skill, SkillCategory
+from typing import Optional
 
 
 class AvailabilitySchema(Schema):
@@ -148,3 +150,8 @@ class JobDetailSchema(ModelSchema):
     """@staticmethod
     def resolve_job_posts(obj):
         return JobPost.objects.filter(job=obj)"""
+    
+class JobLevelSchema(ModelSchema):
+    class Meta:
+        model = JobLevel
+        exclude = [*READ_EXCLUDE_FIELDS]

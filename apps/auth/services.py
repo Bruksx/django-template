@@ -1,10 +1,10 @@
 from ninja.errors import HttpError
 from ninja_jwt.exceptions import AuthenticationFailed
-from accounts.enums import SocialType, UserType, AuthType
-from accounts.models import User, Talent
-
-from accounts.models import BusinessUser
 from services.schema import ProfileSchema
+
+from accounts.enums import UserType, AuthType
+from accounts.models import BusinessUser
+from accounts.models import User, Talent
 
 
 def google_auth_login(profile: ProfileSchema, user_type: UserType)->User:

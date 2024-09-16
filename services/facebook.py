@@ -13,7 +13,7 @@ class Facebook():
         self.APP_SECRET = APP_SECRET
         try:
             self.api = GraphAPI(app_id=self.APP_ID, app_secret=self.APP_SECRET, application_only_auth=True)
-        except pyfacebook.exceptions.FacebookError:
+        except (pyfacebook.exceptions.FacebookError, requests.exceptions.ConnectionError):
             pass
 
     def get_login_url(self):
