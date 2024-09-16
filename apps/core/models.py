@@ -2,13 +2,14 @@ from django.db import models, router
 from django_softdelete.models import SoftDeleteModel
 import uuid
 from ninja.errors import HttpError
-from django.db.models.fields.related_descriptors import ForwardManyToOneDescriptor
+from django.db.models.fields.related_descriptors import ForwardManyToOneDescriptor, ManyToManyDescriptor
 from copy import copy
 from .monkeypatches import patched_set
+from monkeypatches.patched_related_descriptors import ManyToManyDescriptor as PatchedManyToManyDescriptor 
 
 
 ForwardManyToOneDescriptor.__set__ = patched_set
-#models.base.Model.__init__ = patched_init
+ManyToManyDescriptor.related_manager_cls = PatchedManyToManyDescriptor.related_manager_cls
 
 
 # Create your models here.
