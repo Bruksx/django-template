@@ -1,9 +1,13 @@
 from ninja.errors import HttpError
 import uuid
-from django.db import models, router
-from django.db.models.signals import pre_init, post_init
-from django.db.models.fields.related import ForeignObjectRel, ManyToManyField
+from django.db import models, router, transaction, connections
 from django.core.exceptions import FieldDoesNotExist
+from django.utils.functional import cached_property
+from django.db.models.utils import AltersData, resolve_callables
+from django.db.models import Manager, Q, signals
+from django.db.models.query import QuerySet
+import warnings
+from django.utils.deprecation import RemovedInDjango60Warning
 
 
 class Deferred:
@@ -50,7 +54,7 @@ def patched_set(self, instance, value):
         if not value:
             raise HttpError(404, f"{parent_model.__name__} not found")
 
-    # For ManyToMany fields, value should be an iterable of UUIDs or instances
+    """# For ManyToMany fields, value should be an iterable of UUIDs or instances
     if isinstance(self.field, ManyToManyField):
         if isinstance(value, (list, tuple)):
             parent_model = self.field.remote_field.model
@@ -76,7 +80,7 @@ def patched_set(self, instance, value):
             return
         else:
             raise ValueError(
-                f"Expected list of UIDs or {self.field.remote_field.model.__name__} instances for many-to-many relation.")
+                f"Expected list of UIDs or {self.field.remote_field.model.__name__} instances for many-to-many relation.")"""
 
     # Default ForeignKey behavior follows
     if value is not None and not isinstance(value, self.field.remote_field.model._meta.concrete_model):
