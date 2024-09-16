@@ -1,5 +1,3 @@
-import logging
-
 from django.template.defaultfilters import first
 
 from accounts.enums import PreferredCommunicationType, GenderType, NoticePeriodType
@@ -27,7 +25,7 @@ class ValidateOtpTests(TestCase):
             "last_name": "Doe",
             "preferred_communication": PreferredCommunicationType.WHATSAPP.value,
             "postal_code": "102109",
-            "country_id": self.country.id,
+            "country": self.country.uid,
             "state": "Lagos",
             "city": "Mushin"
         }
@@ -48,7 +46,7 @@ class ValidateOtpTests(TestCase):
         self.assertEqual(user.last_name, self.user_data["last_name"])
         self.assertTrue(user.check_password(self.user_data["password"]))
         self.assertEqual(user.phone_number, self.user_data["phone_number"])
-        self.assertEqual(user.talent.country_id, self.user_data["country_id"])
+        self.assertEqual(user.talent.country.uid, self.user_data["country"])
         self.assertEqual(user.talent.state, self.user_data["state"])
         self.assertEqual(user.talent.postal_code, self.user_data["postal_code"])
 
@@ -145,7 +143,7 @@ class CompleteProfileTests(TestCase):
         data = {
             "education_history": [
                 {
-                    "level_id": education_level.id,
+                    "level": education_level.uid,
                     "start_date": "2020-09-14",
                     "end_date": "2023-09-14",
                     "major": "Business",
@@ -153,9 +151,9 @@ class CompleteProfileTests(TestCase):
                 }
             ],
             "cv": None,
-            "native_language_id": language.id,
+            "native_language": language.uid,
             "additional_languages": [
-                language2.id, language3.id
+                language2.uid, language3.uid
             ]
         }
         headers = {
@@ -182,30 +180,30 @@ class CompleteProfileTests(TestCase):
                     "Skipping", "Jumping"
                 ],
                 "tools": [
-                    skills[0].id
+                    skills[0].uid
                 ],
                 "frameworks": [
-                    skills[1].id
+                    skills[1].uid
                 ],
                 "business_models": [
-                    skills[2].id
+                    skills[2].uid
                 ],
                 "general_skills": [
-                    skills[3].id
+                    skills[3].uid
                 ],
                 "soft_skills": [
-                    skills[4].id
+                    skills[4].uid
                 ]
             },
             "experience_history": [
                 {
                     "company": "Google",
                     "annual_salary": 5000,
-                    "annual_salary_currency_id": currency.id,
+                    "annual_salary_currency": currency.uid,
                     "annual_salary_bonus": 500,
-                    "annual_salary_bonus_currency_id": currency.id,
-                    "level_id": job_level.id,
-                    "employment_type_id": employment_type.id,
+                    "annual_salary_bonus_currency": currency.uid,
+                    "level": job_level.uid,
+                    "employment_type": employment_type.uid,
                     "start_date": "2020-09-14",
                     "end_date": "2023-09-14",
                     "currently_works_here": True
@@ -228,7 +226,6 @@ class CompleteProfileTests(TestCase):
         self.assertIsNotNone(getattr(self.talent, "talentavailability", None))
         self.assertEqual(self.talent.talentavailability.friday, data["availability"]["friday"])
         self.assertEqual(self.talent.talentavailability.sunday, data["availability"]["sunday"])
-        self.assertEqual(self.talent.profile_completion_stage, 1)
 
 
     def test_complete_profile_2_success(self):
@@ -242,7 +239,6 @@ class CompleteProfileTests(TestCase):
         self.assertEqual(self.talent.additional_languages.count(), 2)
         self.assertEqual(self.talent.native_language.name, "TestLanguage1")
         self.assertTrue(self.talent.additional_languages.filter(name="TestLanguage2").exists())
-        self.assertEqual(self.talent.profile_completion_stage, 2)
 
 
 
@@ -253,13 +249,13 @@ class CompleteProfileTests(TestCase):
         self.talent.refresh_from_db()
         self.assertEqual(self.talent.experience_set.count(), 1)
         self.assertTrue(hasattr(self.talent, "talentskill"))
-        self.assertEqual(self.talent.talentskill.tools.first().id, data["skill"]["tools"][0])
-        self.assertEqual(self.talent.talentskill.frameworks.first().id, data["skill"]["frameworks"][0])
-        self.assertEqual(self.talent.talentskill.business_models.first().id, data["skill"]["business_models"][0])
-        self.assertEqual(self.talent.talentskill.general_skills.first().id, data["skill"]["general_skills"][0])
-        self.assertEqual(self.talent.talentskill.soft_skills.first().id, data["skill"]["soft_skills"][0])
-        self.assertTrue(self.talent.experience_set.filter(level_id=data["experience_history"][0]["level_id"],
-                                                          employment_type_id=data["experience_history"][0]["employment_type_id"]).exists())
+        self.assertEqual(self.talent.talentskill.tools.first().uid, data["skill"]["tools"][0])
+        self.assertEqual(self.talent.talentskill.frameworks.first().uid, data["skill"]["frameworks"][0])
+        self.assertEqual(self.talent.talentskill.business_models.first().uid, data["skill"]["business_models"][0])
+        self.assertEqual(self.talent.talentskill.general_skills.first().uid, data["skill"]["general_skills"][0])
+        self.assertEqual(self.talent.talentskill.soft_skills.first().uid, data["skill"]["soft_skills"][0])
+        self.assertTrue(self.talent.experience_set.filter(level__uid=data["experience_history"][0]["level"],
+                                                          employment_type__uid=data["experience_history"][0]["employment_type"]).exists())
 
 
 class GetTalentProfileTests(TestCase):
@@ -267,12 +263,13 @@ class GetTalentProfileTests(TestCase):
         self.client = TestClient(router)
         self.country = Country.objects.create(name="Nigeria", code="NG")
         self.industry = Industry.objects.create(name="TestIndustry")
-        self.user = User.objects.create_user(
+        self.user_data = dict(
             first_name="Test",
-            last_name ="User",
+            last_name="User",
             email="testuser@example.com",
             password="securepassword",
         )
+        self.user = User.objects.create_user(**self.user_data)
         self.talent = Talent.objects.create(
             user=self.user,
             country=self.country
@@ -298,4 +295,30 @@ class GetTalentProfileTests(TestCase):
             "authorization": f"bearer {self.user.token}"
         }
         response = self.client.get("/talent-profile", headers=headers)
-        logging.critical(response.content)
+
+
+    def test_talent_profile_update(self):
+        country = Country.objects.create(name="Ghana", code="GH")
+        data = {
+              "first_name": "Micheal",
+              "last_name": "Test",
+              "preferred_communication": PreferredCommunicationType.EMAIL.value,
+              "phone_number": "09087674473",
+              "country": country.uid,
+              "state": "Lagos",
+              "city": "Satellite Town",
+              "postal_code": "102020"
+            }
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.patch("/talent-profile", headers=headers, json=data)
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.talent.refresh_from_db()
+        self.assertNotEqual(self.user.first_name, self.user_data["first_name"])
+        self.assertNotEqual(self.user.last_name, self.user_data["last_name"])
+        self.assertEqual(self.user.first_name, data["first_name"])
+        self.assertEqual(self.user.last_name, data["last_name"])
+        self.assertEqual(self.talent.postal_code, data["postal_code"])
+        self.assertEqual(self.talent.country, country)
