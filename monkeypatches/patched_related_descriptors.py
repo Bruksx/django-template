@@ -1647,6 +1647,4 @@ def create_forward_many_to_many_manager(superclass, rel, reverse):
                     using=db,
                 )
 
-            # Monkey patch the ManyRelatedManager to add set_by_uid method
-    ManyRelatedManager.set_by_uid = ManyRelatedManager.set_by_uid
     return ManyRelatedManager
