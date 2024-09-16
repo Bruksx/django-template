@@ -65,6 +65,5 @@ class JobManager(SoftDeleteManager):
                     text=option.text,
                 )
                 question_option.save()
-        skills = Skill.objects.filter(uid__in=data.skills)
-        job.skills.add(*skills)
+        job.skills.add(*data.skills)
         return job
