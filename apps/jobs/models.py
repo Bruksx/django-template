@@ -3,12 +3,14 @@ from core.models import BaseModel, Language
 from accounts.models import User, Country, Business
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, StageType
 from timezone_field import TimeZoneField
+from .managers import JobManager
 
 
 # Create your models here.
 class EmploymentType(BaseModel):
     name = models.CharField(max_length=128)
     parent = models.ForeignKey("EmploymentType", on_delete=models.DO_NOTHING, null=True, blank=True)
+    description = models.TextField(null=True)
 
     def __str__(self) -> str:
         return self.name
@@ -29,7 +31,6 @@ class Qualification(BaseModel):
 
 
 class AvailableDay(BaseModel):
-    user = models.ForeignKey(User, on_delete=models.DO_NOTHING)
     job = models.ForeignKey("Job", on_delete=models.DO_NOTHING)
     day = models.CharField(max_length=32)
     end_time = models.TimeField(null=True)
@@ -45,17 +46,17 @@ class Job(BaseModel):
     )
     created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING)
     business = models.ForeignKey(Business, on_delete=models.DO_NOTHING)
-    employment_type = models.ForeignKey(EmploymentType, on_delete=models.DO_NOTHING)
+    employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     hiring_company_name = models.CharField(max_length=64, null=True)
-    hiring_company_description = models.TextField()
-    title = models.CharField(max_length=32)
-    about = models.TextField()
-    years_of_experience = models.IntegerField()
+    hiring_company_description = models.TextField(null=True)
+    title = models.CharField(max_length=32, null=True)
+    about = models.TextField(null=True)
+    years_of_experience = models.IntegerField(null=True)
     minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.DO_NOTHING, null=True)
     business_models = models.ManyToManyField("BusinessModel")
     job_level = models.ForeignKey(JobLevel, on_delete=models.DO_NOTHING, null=True)
     qualification = models.ForeignKey(Qualification, on_delete=models.DO_NOTHING, null=True)
-    work_structure = models.CharField(choices=WorkStructureEnum.choices())
+    work_structure = models.CharField(choices=WorkStructureEnum.choices(), null=True)
     first_language = models.ForeignKey(Language, on_delete=models.SET_NULL, null=True)
     additional_languages = models.ManyToManyField(Language, related_name="jobs")
     office_address = models.CharField(max_length=128)
@@ -77,6 +78,12 @@ class Job(BaseModel):
     technological_requirement = models.CharField(max_length=16, null=True)
     availability_timezone = TimeZoneField(default="America/Vancouver")
 
+    department = models.ForeignKey("accounts.Department", null=True, on_delete=models.SET_NULL)
+    role = models.ForeignKey("accounts.Role", null=True, on_delete=models.SET_NULL)
+    skills = models.ManyToManyField("accounts.Skill")
+
+    objects = JobManager()
+
     def __str__(self) -> str:
         return f"{self.title}({self.uid})"
 
@@ -87,12 +94,12 @@ class JobPost(BaseModel):
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
     province = models.CharField(max_length=64, null=True)
     postal_code = models.CharField(max_length=8, null=True)
-    annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2)
-    annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2)
-    annual_salary_currency = models.CharField(max_length=8)
-    annual_bonus_min = models.DecimalField(max_digits=12, decimal_places=2)
-    annual_bonus_max = models.DecimalField(max_digits=12, decimal_places=2)
-    annual_bonus_currency = models.CharField(max_length=8)
+    annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
+    annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
+    annual_salary_currency = models.CharField(max_length=8, null=True)
+    annual_bonus_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
+    annual_bonus_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
+    annual_bonus_currency = models.CharField(max_length=8, null=True)
     location_type = models.CharField(max_length=32, null=True)
     recruiter = models.ForeignKey(User, null=True, on_delete=models.CASCADE, related_name="recruiting_job_posts")
 

@@ -1,7 +1,16 @@
 from ninja import Router
-from .schemas import EmploymentTypeSchema, CreateJobSchema
-from .models import EmploymentType, AvailableDay, Language
+from ninja.errors import HttpError
+from .schemas import (
+    EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
+    JobDetailSchema
+)
+from .models import (
+    EmploymentType, AvailableDay, Language, BusinessModel, JobLevel, JobPost, Job, ScreeningQuestion, QuestionOption,
+)
+from accounts.models import Department, Role, SkillCategory, Country, User, BusinessUser, Skill
 from copy import copy
+from django.db import transaction
+from ninja_jwt.authentication import JWTAuth
 
 
 router = Router(tags=["Business Jobs"])
@@ -12,11 +21,32 @@ def get_employment_types(request):
     return employment_types
 
 
-@router.post("create", response=CreateJobSchema)
+@router.get("departments", response=list[DepartmentSchema])
+def get_departments(request):
+    return Department.objects.all()
+
+
+@router.get("roles", response=list[RoleSchema])
+def get_roles(request):
+    return Role.objects.all()
+
+
+@router.get("skill-categories", response=list[SkillCategorySchema])
+def get_skills(request):
+    return SkillCategory.objects.all().prefetch_related("skill_set")
+
+
+@router.get("business-models", response=list[GenericNameAndUidSchema])
+def get_business_models(request):
+    return BusinessModel.objects.all()
+
+
+@router.post("create", response=JobDetailSchema, auth=JWTAuth())
+@transaction.atomic
 def create_job(request, data:CreateJobSchema):
-    response = copy(data)
-    first_language = Language.objects.filter(uid=data.first_language_uid).first()
-    for i in data.availability:
-        available_day = AvailableDay(**i.dict())
-    del data.availability
-    return response
+    business_user = BusinessUser.objects.filter(user=request.user).first()
+    if not business_user:
+        raise HttpError(403, "Not Allowed")
+    job = Job.objects.create_job(business_user=business_user, data=data)
+  
+    return job

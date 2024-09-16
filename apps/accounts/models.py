@@ -182,10 +182,8 @@ class Business(BaseModel):
 
 class VerificationCode(BaseModel):
     def default_code():
-        code = ""
-        for _ in range(4):
-            code += str(random.randint(0, 9))
-        return code
+        characters = string.ascii_letters + string.digits
+        return ''.join(random.choice(characters.upper()) for _ in range(4))
     
     def default_expiration():
         return timezone.now() + timedelta(minutes=5)
@@ -306,6 +304,10 @@ class SkillCategory(BaseModel):
 
     def __str__(self) -> str:
         return self.name
+    
+    @property
+    def skills(self):
+        return self.skill_set.all()
 
 
 class Skill(BaseModel):

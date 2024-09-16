@@ -44,7 +44,6 @@ def validate_otp(request, data: business_schema.ValidateOTPSchema):
         is_correct = verification_code.verify_code(data.otp)
         if is_correct:
             user = User.objects.create(
-                role=data.role,
                 first_name=data.first_name,
                 last_name=data.last_name,
                 type=UserType.BUSINESS.value,
