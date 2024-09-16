@@ -3,6 +3,7 @@ from core.models import BaseModel, Language
 from accounts.models import User, Country, Business
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, StageType
 from timezone_field import TimeZoneField
+from .managers import JobManager
 
 
 # Create your models here.
@@ -80,6 +81,8 @@ class Job(BaseModel):
     department = models.ForeignKey("accounts.Department", null=True, on_delete=models.SET_NULL)
     role = models.ForeignKey("accounts.Role", null=True, on_delete=models.SET_NULL)
     skills = models.ManyToManyField("accounts.Skill")
+
+    objects = JobManager()
 
     def __str__(self) -> str:
         return f"{self.title}({self.uid})"
