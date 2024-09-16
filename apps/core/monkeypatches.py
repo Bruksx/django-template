@@ -54,34 +54,6 @@ def patched_set(self, instance, value):
         if not value:
             raise HttpError(404, f"{parent_model.__name__} not found")
 
-    """# For ManyToMany fields, value should be an iterable of UUIDs or instances
-    if isinstance(self.field, ManyToManyField):
-        if isinstance(value, (list, tuple)):
-            parent_model = self.field.remote_field.model
-            # Resolve each item to the related model instance using UID
-            related_instances = []
-            for uid in value:
-                if isinstance(uid, str):
-                    try:
-                        uid = uuid.UUID(uid, version=4)
-                    except ValueError:
-                        pass
-                if isinstance(uid, uuid.UUID):
-                    related_instance = parent_model.objects.filter(uid=uid).first()
-                    if not related_instance:
-                        raise HttpError(404, f"{parent_model.__name__} with uid {uid} not found")
-                    related_instances.append(related_instance)
-                elif isinstance(uid, parent_model):
-                    related_instances.append(uid)
-                else:
-                    raise ValueError(f"Cannot assign value {uid}, expected {parent_model.__name__} instance or UID.")
-            # Clear and set the many-to-many relation
-            instance.__dict__[self.field.attname].set(related_instances)
-            return
-        else:
-            raise ValueError(
-                f"Expected list of UIDs or {self.field.remote_field.model.__name__} instances for many-to-many relation.")"""
-
     # Default ForeignKey behavior follows
     if value is not None and not isinstance(value, self.field.remote_field.model._meta.concrete_model):
         raise ValueError(
