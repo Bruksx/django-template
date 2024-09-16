@@ -111,7 +111,7 @@ def complete_talent_profile2(request, data: talent_schemas.CompleteTalentProfile
             Education(**edu_data, talent=talent_user).save()
     additional_languages = request_data.pop("additional_languages", list())
     talent_user.update(**request_data)
-    talent_user.additional_languages.add(*additional_languages)
+    talent_user.additional_languages.set(additional_languages)
     return talent_user.user
 
 
@@ -153,6 +153,7 @@ def talent_profile(request):
 @router.patch("talent-profile", response=talent_schemas.UserSchema, auth=JWTAuth())
 def update_talent_profile(request, data: talent_schemas.UpdateTalentProfileSchema):
     talent_user = Talent.objects.filter(user=request.user).first()
+    if not talent_user:
     if not talent_user:
         raise HttpError(403, "Not allowed")
     talent_user.user.update(first_name=data.first_name,
