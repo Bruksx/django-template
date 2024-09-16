@@ -297,6 +297,26 @@ class GetTalentProfileTests(TestCase):
         response = self.client.get("/talent-profile", headers=headers)
 
 
+class UpdateTalentProfileTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.country = Country.objects.create(name="Nigeria", code="NG")
+        self.industry = Industry.objects.create(name="TestIndustry")
+        self.user_data = dict(
+            first_name="Test",
+            last_name="User",
+            email="testuser@example.com",
+            password="securepassword",
+        )
+        self.user = User.objects.create_user(**self.user_data)
+        self.talent = Talent.objects.create(
+            user=self.user,
+            country=self.country
+        )
+        self.auth = JWTAuth()
+        self.auth.authenticate = lambda r: self.user
+
+
     def test_talent_profile_update(self):
         country = Country.objects.create(name="Ghana", code="GH")
         data = {
@@ -322,3 +342,29 @@ class GetTalentProfileTests(TestCase):
         self.assertEqual(self.user.last_name, data["last_name"])
         self.assertEqual(self.talent.postal_code, data["postal_code"])
         self.assertEqual(self.talent.country, country)
+
+    def test_delete_profile_education(self):
+        CompleteProfileTests.send_complete_profile_2(client=self.client, token=self.user.token,
+                                                     industry=self.industry)
+        self.talent.refresh_from_db()
+        self.assertEqual(self.talent.education_set.count(), 1)
+        education_uid = self.talent.education_set.first().uid
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.delete(f"/talent/education/{education_uid}", headers=headers)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(self.talent.education_set.count(), 0)
+
+    def test_delete_profile_experience(self):
+        CompleteProfileTests.send_complete_profile_3(client=self.client, token=self.user.token,
+                                                     industry=self.industry)
+        self.talent.refresh_from_db()
+        self.assertEqual(self.talent.experience_set.count(), 1)
+        experience_uid = self.talent.experience_set.first().uid
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.delete(f"/talent/experience/{experience_uid}", headers=headers)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(self.talent.experience_set.count(), 0)

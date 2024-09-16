@@ -1,5 +1,9 @@
+from uuid import UUID
+
 from django.core.mail import send_mail
 from django.db import transaction
+from ninja.responses import Response
+
 from helpers.images import convert_base64_to_image_file
 from ninja import Router
 from ninja.errors import HttpError
@@ -68,7 +72,9 @@ def validate_otp(request, data: talent_schemas.ValidateTalentOTPSchema):
 
 
 
-@router.post("complete-profile/first_step", response=talent_schemas.UserSchema, auth=JWTAuth())
+@router.post("complete-profile/first_step",
+             response=talent_schemas.UserSchema,
+             auth=JWTAuth())
 @transaction.atomic
 def complete_talent_profile(request, data: talent_schemas.CompleteTalentProfileSchema):
     talent_user = Talent.objects.filter(user=request.user).first()
@@ -144,7 +150,7 @@ def talent_profile(request):
         raise HttpError(403, "Not allowed")
     return talent_user
 
-@router.patch("talent-profile", response=talent_schemas.TalentUserSchema, auth=JWTAuth())
+@router.patch("talent-profile", response=talent_schemas.UserSchema, auth=JWTAuth())
 def update_talent_profile(request, data: talent_schemas.UpdateTalentProfileSchema):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
@@ -159,6 +165,31 @@ def update_talent_profile(request, data: talent_schemas.UpdateTalentProfileSchem
         city=data.city,
         postal_code=data.postal_code
     )
-    return talent_user
+    return talent_user.user
 
+@router.delete("talent/education/{education_uid}",
+               response={204: None},
+               auth=JWTAuth())
+def delete_talent_education(request, education_uid:UUID):
+    talent_user = Talent.objects.filter(user=request.user).first()
+    if not talent_user:
+        raise HttpError(403, "Not allowed")
+    education = talent_user.education_set.filter(uid=education_uid).first()
+    if not education:
+        raise HttpError(404, "This education does not exist")
+    education.delete()
+    return Response(status=204, data=None)
+
+
+@router.delete("talent/experience/{experience_uid}",
+               response={204: None}, auth=JWTAuth())
+def delete_talent_experience(request, experience_uid:UUID):
+    talent_user = Talent.objects.filter(user=request.user).first()
+    if not talent_user:
+        raise HttpError(403, "Not allowed")
+    experience = talent_user.experience_set.filter(uid=experience_uid).first()
+    if not experience:
+        raise HttpError(404, "This experience does not exist")
+    experience.delete()
+    return Response(status=204, data=None)
 
