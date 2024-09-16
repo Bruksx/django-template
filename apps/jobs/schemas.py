@@ -2,11 +2,12 @@ from ninja import ModelSchema
 from ninja.schema import Schema
 from datetime import time
 from uuid import UUID
-
 from core.schemas import READ_EXCLUDE_FIELDS
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel
 from typing import List
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
+from accounts.models import Department, Role, Skill, SkillCategory
+from typing import Optional
 
 
 class AvailabilitySchema(Schema):
@@ -16,11 +17,11 @@ class AvailabilitySchema(Schema):
 
 
 class JobPostSchema(ModelSchema):
-    country: str
+    country_code: str
 
     class Meta:
         model = JobPost
-        fields = ["location_type", "province", "postal_code"]
+        fields = ["province", "postal_code"]
 
 
 class QuestionOptionSchema(ModelSchema):
@@ -32,13 +33,14 @@ class QuestionOptionSchema(ModelSchema):
 class QuestionSchema(ModelSchema):
     type: QuestionTypeEnum
     options: List[QuestionOptionSchema]
+
     class Meta:
         model = ScreeningQuestion
-        fields = ["type", "text"]
+        fields = ["type", "text", "is_knockout"]
 
 
 class CreateJobSchema(ModelSchema):
-    employment_type: str
+    employment_type_uid: UUID
     availability: list[AvailabilitySchema]
     work_structure: WorkStructureEnum
     technological_requirements: TechnologicalRequirementsEnum
@@ -53,6 +55,10 @@ class CreateJobSchema(ModelSchema):
     annual_bonus_max: float
     same_recruiter: bool
     screening_questions: List[QuestionSchema]
+    department_uid: UUID
+    role_uid: UUID
+    skills: list[UUID]
+    job_level_uid: Optional[UUID]
 
     class Meta:
         model = Job
@@ -60,8 +66,9 @@ class CreateJobSchema(ModelSchema):
             "hiring_company_name", "hiring_company_description", "work_structure", "office_address","lunch_break", 
             "additional_hours_min", "additional_hours_max", "annual_salary_min", "annual_salary_max",
             "annual_salary_currency", "annual_bonus_min", "annual_bonus_max", "annual_bonus_currency", "benefits",
-            "share_compensation",
+            "share_compensation", 
         ]
+        fields_optional = "__all__"
 
 
 class EmploymentSubTypeSchema(Schema):
@@ -79,6 +86,71 @@ class EmploymentTypeSchema(Schema):
         return EmploymentType.objects.filter(parent=obj)
 
 
+class DepartmentSchema(ModelSchema):
+    class Meta:
+        model = Department
+        fields = ["uid", "name"]
+
+
+class RoleSchema(ModelSchema):
+    class Meta:
+        model = Role
+        fields = ["uid", "name"]
+
+
+class SkillSchema(ModelSchema):
+    class Meta:
+        model = Skill
+        fields = ["uid", "name"]
+
+
+class SkillCategorySchema(Schema):
+    uid: UUID
+    category_name: str
+    skills: List[SkillSchema]
+
+    class Meta:
+        model = SkillCategory
+        fields = ["uid", "name", "skills"]
+    
+    @staticmethod
+    def resolve_category_name(obj):
+        return obj.name
+    
+    """@staticmethod
+    def resolve_skills(obj):
+        return Skill.objects.filter(category=obj)"""
+    
+class GenericNameAndUidSchema(Schema):
+    uid: UUID
+    name: str
+
+
+class JobDetailSchema(ModelSchema):
+    uid: UUID
+    annual_salary_min: float
+    annual_salary_max: float
+    annual_bonus_min: float
+    annual_bonus_max: float
+    #job_posts: list[JobPostSchema]
+
+    class Meta:
+        model = Job
+        fields = fields = [
+            "hiring_company_name", "hiring_company_description", "work_structure", "office_address","lunch_break", 
+            "additional_hours_min", "additional_hours_max", "annual_salary_min", "annual_salary_max",
+            "annual_salary_currency", "annual_bonus_min", "annual_bonus_max", "annual_bonus_currency", "benefits",
+            "share_compensation", 
+        ]
+    
+    @staticmethod
+    def resolve_availability_timezone(obj):
+        return str(obj.availability_timezone)
+    
+    """@staticmethod
+    def resolve_job_posts(obj):
+        return JobPost.objects.filter(job=obj)"""
+    
 class JobLevelSchema(ModelSchema):
     class Meta:
         model = JobLevel
