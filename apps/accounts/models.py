@@ -117,7 +117,6 @@ class Talent(BaseModel):
     native_language = models.ForeignKey("core.Language", on_delete=models.SET_NULL, null=True,
                                         related_name="native_language")
     additional_languages = models.ManyToManyField("core.Language", related_name="other_languages")
-    profile_completion_stage = models.SmallIntegerField(default=0)
 
     @property
     def photo_url(self):

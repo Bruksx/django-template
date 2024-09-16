@@ -1,19 +1,17 @@
-import logging
-
 from django.core.mail import send_mail
 from django.db import transaction
-from django.templatetags.i18n import language
+from helpers.images import convert_base64_to_image_file
 from ninja import Router
 from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.schemas import talent as talent_schemas
-from accounts.schemas import common as common_schemas
 from accounts.enums import UserType, AuthType
-from accounts.models import User, VerificationCode, Country, Education, TalentSkill, Experience, TalentAvailability
-from helpers.images import convert_base64_to_image_file
-
 from accounts.models import Talent
+from accounts.models import User, VerificationCode, Education, TalentSkill, Experience, TalentAvailability, \
+    Skill
+from accounts.schemas import common as common_schemas
+from accounts.schemas import talent as talent_schemas
+from core.models import Language
 
 router = Router(tags=["Account"])
 
@@ -37,7 +35,7 @@ def create_account(request, data: common_schemas.RegisterSchema):
     }
 
 
-@router.post("validate-otp", response={200:common_schemas.UserSchema})
+@router.post("validate-otp", response={200:talent_schemas.LoggedInUserSchema})
 @transaction.atomic
 def validate_otp(request, data: talent_schemas.ValidateTalentOTPSchema):
     existing_user = User.objects.filter(email=data.email).exists()
@@ -58,12 +56,9 @@ def validate_otp(request, data: talent_schemas.ValidateTalentOTPSchema):
                                     auth_mode=AuthType.EMAIL.value,
                                type=UserType.TALENT.value,
                                email_verified=True, is_active=True)
-    country = Country.objects.filter(id=data.country_id).first()
-    if not country:
-        raise HttpError(400, "This country does not exist")
     Talent.objects.create(
         user=user,
-        country=country,
+        country=data.country,
         preferred_communication=data.preferred_communication.value,
         state=data.state,
         city=data.city,
@@ -89,7 +84,7 @@ def complete_talent_profile(request, data: talent_schemas.CompleteTalentProfileS
             TalentAvailability.objects.create(**request_data.pop("availability").__dict__, talent=talent_user)
     if request_data.get("photo"):
         request_data["photo"] = convert_base64_to_image_file(request_data["photo"])
-    talent_user.update(**request_data, profile_completion_stage=1)
+    talent_user.update(**request_data)
     return talent_user.user
 
 
@@ -102,11 +97,15 @@ def complete_talent_profile2(request, data: talent_schemas.CompleteTalentProfile
     request_data = data.__dict__
     education_history = request_data.pop("education_history", list())
     for education in education_history:
-        Education.objects.create(**education.__dict__, talent=talent_user)
+        edu_data = education.__dict__
+        edu_uid = edu_data.pop("uid", None)
+        if edu_uid:
+            Education.objects.filter(uid=edu_uid, talent=talent_user).update(**edu_data)
+        else:
+            Education(**edu_data, talent=talent_user).save()
     additional_languages = request_data.pop("additional_languages", list())
-    talent_user.update(**request_data, profile_completion_stage=2)
-    talent_user.additional_languages.clear()
-    talent_user.additional_languages.add(*additional_languages)
+    talent_user.update(**request_data)
+    talent_user.additional_languages.set(Language.objects.filter(uid__in=additional_languages))
     return talent_user.user
 
 
@@ -124,18 +123,18 @@ def complete_talent_profile3(request, data: talent_schemas.CompleteTalentProfile
         general = skill_data.pop("general_skills")
         soft = skill_data.pop("soft_skills")
         TalentSkill.objects.create(talent=talent_user, **skill_data)
-        talent_user.talentskill.soft_skills.add(*soft)
-        talent_user.talentskill.general_skills.add(*general)
-        talent_user.talentskill.business_models.add(*business_models)
-        talent_user.talentskill.frameworks.add(*frameworks)
-        talent_user.talentskill.tools.add(*tools)
-    if data.experience_history:
-        Experience.objects.bulk_create(
-            [Experience(**experience.__dict__, talent=talent_user)
-             for experience in data.experience_history]
-        )
-    talent_user.profile_completion_stage = 3
-    talent_user.save()
+        talent_user.talentskill.soft_skills.set(Skill.objects.filter(uid__in=soft))
+        talent_user.talentskill.general_skills.set(Skill.objects.filter(uid__in=general))
+        talent_user.talentskill.business_models.set(Skill.objects.filter(uid__in=business_models))
+        talent_user.talentskill.frameworks.set(Skill.objects.filter(uid__in=frameworks))
+        talent_user.talentskill.tools.set(Skill.objects.filter(uid__in=tools))
+    for experience in data.experience_history:
+        experience_data = experience.__dict__
+        experience_uid = experience_data.pop("uid", None)
+        if experience_uid:
+            Experience.objects.filter(uid=experience_uid).update(**experience_data)
+        else:
+            Experience(**experience_data, talent=talent_user).save()
     return talent_user.user
 
 @router.get("talent-profile", response=talent_schemas.TalentUserSchema, auth=JWTAuth())
@@ -144,3 +143,22 @@ def talent_profile(request):
     if not talent_user:
         raise HttpError(403, "Not allowed")
     return talent_user
+
+@router.patch("talent-profile", response=talent_schemas.TalentUserSchema, auth=JWTAuth())
+def update_talent_profile(request, data: talent_schemas.UpdateTalentProfileSchema):
+    talent_user = Talent.objects.filter(user=request.user).first()
+    if not talent_user:
+        raise HttpError(403, "Not allowed")
+    talent_user.user.update(first_name=data.first_name,
+                                    last_name=data.last_name,
+                                    phone_number=data.phone_number)
+    talent_user = talent_user.update(
+        country=data.country,
+        preferred_communication=data.preferred_communication.value,
+        state=data.state,
+        city=data.city,
+        postal_code=data.postal_code
+    )
+    return talent_user
+
+

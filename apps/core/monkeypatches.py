@@ -1,9 +1,8 @@
 from ninja.errors import HttpError
 import uuid
 from django.db import models, router
-from django.db.models import base, NOT_PROVIDED
 from django.db.models.signals import pre_init, post_init
-from django.db.models.fields.related import ForeignObjectRel
+from django.db.models.fields.related import ForeignObjectRel, ManyToManyField
 from django.core.exceptions import FieldDoesNotExist
 
 
@@ -17,6 +16,7 @@ class Deferred:
 
 DEFERRED = Deferred()
 
+
 class ModelStateFieldsCacheDescriptor:
     def __get__(self, instance, cls=None):
         if instance is None:
@@ -27,37 +27,59 @@ class ModelStateFieldsCacheDescriptor:
 
 class ModelState:
     """Store model instance state."""
-
     db = None
-    # If true, uniqueness validation checks will consider this a new, unsaved
-    # object. Necessary for correct validation of new instances of objects with
-    # explicit (non-auto) PKs. This impacts validation only; it has no effect
-    # on the actual save.
     adding = True
     fields_cache = ModelStateFieldsCacheDescriptor()
 
 
-
 def patched_set(self, instance, value):
     """
-    function to overide django's ForwardManyToOneDescriptor.__set__ default behavior
+    Function to override Django's ForwardManyToOneDescriptor.__set__
+    and ManyToManyDescriptor.__set__ default behavior
     """
     if isinstance(value, str):
         try:
             value = uuid.UUID(value, version=4)
         except ValueError:
             pass
+
+    # Handle ForeignKey and OneToOne relationships
     if isinstance(value, uuid.UUID):
         parent_model = self.field.remote_field.model
         value = parent_model.objects.filter(uid=value).first()
         if not value:
             raise HttpError(404, f"{parent_model.__name__} not found")
-        
-    #From here, copied from django's source code
-    # An object must be an instance of the related class.
-    if value is not None and not isinstance(
-        value, self.field.remote_field.model._meta.concrete_model
-    ):
+
+    # For ManyToMany fields, value should be an iterable of UUIDs or instances
+    if isinstance(self.field, ManyToManyField):
+        if isinstance(value, (list, tuple)):
+            parent_model = self.field.remote_field.model
+            # Resolve each item to the related model instance using UID
+            related_instances = []
+            for uid in value:
+                if isinstance(uid, str):
+                    try:
+                        uid = uuid.UUID(uid, version=4)
+                    except ValueError:
+                        pass
+                if isinstance(uid, uuid.UUID):
+                    related_instance = parent_model.objects.filter(uid=uid).first()
+                    if not related_instance:
+                        raise HttpError(404, f"{parent_model.__name__} with uid {uid} not found")
+                    related_instances.append(related_instance)
+                elif isinstance(uid, parent_model):
+                    related_instances.append(uid)
+                else:
+                    raise ValueError(f"Cannot assign value {uid}, expected {parent_model.__name__} instance or UID.")
+            # Clear and set the many-to-many relation
+            instance.__dict__[self.field.attname].set(related_instances)
+            return
+        else:
+            raise ValueError(
+                f"Expected list of UIDs or {self.field.remote_field.model.__name__} instances for many-to-many relation.")
+
+    # Default ForeignKey behavior follows
+    if value is not None and not isinstance(value, self.field.remote_field.model._meta.concrete_model):
         raise ValueError(
             'Cannot assign "%r": "%s.%s" must be a "%s" instance.'
             % (
@@ -83,39 +105,18 @@ def patched_set(self, instance, value):
             )
 
     remote_field = self.field.remote_field
-    # If we're setting the value of a OneToOneField to None, we need to clear
-    # out the cache on any old related object. Otherwise, deleting the
-    # previously-related object will also cause this object to be deleted,
-    # which is wrong.
-    if value is None:
-        # Look up the previously-related object, which may still be available
-        # since we've not yet cleared out the related field.
-        # Use the cache directly, instead of the accessor; if we haven't
-        # populated the cache, then we don't care - we're only accessing
-        # the object to invalidate the accessor cache, so there's no
-        # need to populate the cache just to expire it again.
-        related = self.field.get_cached_value(instance, default=None)
 
-        # If we've got an old related object, we need to clear out its
-        # cache. This cache also might not exist if the related object
-        # hasn't been accessed yet.
+    if value is None:
+        related = self.field.get_cached_value(instance, default=None)
         if related is not None:
             remote_field.set_cached_value(related, None)
-
         for lh_field, rh_field in self.field.related_fields:
             setattr(instance, lh_field.attname, None)
-
-    # Set the values of the related field.
     else:
         for lh_field, rh_field in self.field.related_fields:
             setattr(instance, lh_field.attname, getattr(value, rh_field.attname))
 
-    # Set the related instance cache used by __get__ to avoid an SQL query
-    # when accessing the attribute we just set.
     self.field.set_cached_value(instance, value)
 
-    # If this is a one-to-one relation, set the reverse accessor cache on
-    # the related object to the current instance to avoid an extra SQL
-    # query if it's accessed later on.
     if value is not None and not remote_field.multiple:
         remote_field.set_cached_value(value, instance)
