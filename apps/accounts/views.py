@@ -111,7 +111,7 @@ def complete_talent_profile2(request, data: talent_schemas.CompleteTalentProfile
             Education(**edu_data, talent=talent_user).save()
     additional_languages = request_data.pop("additional_languages", list())
     talent_user.update(**request_data)
-    talent_user.additional_languages.set_by_uid(additional_languages)
+    talent_user.additional_languages.set(additional_languages)
     return talent_user.user
 
 
