@@ -368,3 +368,39 @@ class UpdateTalentProfileTests(TestCase):
         response = self.client.delete(f"/talent/experience/{experience_uid}", headers=headers)
         self.assertEqual(response.status_code, 204)
         self.assertEqual(self.talent.experience_set.count(), 0)
+
+    def test_education_update(self):
+        CompleteProfileTests.send_complete_profile_2(client=self.client, token=self.user.token,
+                                                     industry=self.industry)
+        education_level = EducationLevel.objects.create(industry=self.industry, level="TestLevel")
+        language = Language.objects.create(name="TestLanguage1")
+
+        self.talent.refresh_from_db()
+        education = self.talent.education_set.first()
+        data = {
+            "education_history": [
+                {
+                    "uid": education.uid,
+                    "level": education_level.uid,
+                    "start_date": "2020-09-14",
+                    "end_date": "2023-09-14",
+                    "major": "Computer Science",
+                    "university": "University of Nigeria, Nsukka"
+                }
+            ],
+            "native_language": language.uid,
+            "additional_languages": []
+        }
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        self.assertNotEqual(education.major, data["education_history"][0]["major"])
+        self.assertNotEqual(education.university, data["education_history"][0]["university"])
+        self.assertNotEqual(self.talent.additional_languages.count(), 0)
+        response = self.client.post("/complete-profile/next_step", json=data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        education.refresh_from_db()
+        self.assertEqual(education.major, data["education_history"][0]["major"])
+        self.assertEqual(education.university, data["education_history"][0]["university"])
+        self.assertEqual(self.talent.additional_languages.count(), 0)

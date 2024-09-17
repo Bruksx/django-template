@@ -100,14 +100,15 @@ def complete_talent_profile2(request, data: talent_schemas.CompleteTalentProfile
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
         raise HttpError(403, "Not allowed")
-    request_data = data.dict()
-    education_history = request_data.pop("education_history")
-    #this deletes any pre existing education incase this endpoint is called multiple times, to avoid possible duplicates
-    Education.objects.filter(talent=talent_user).delete()
+    request_data = data.__dict__
+    education_history = request_data.pop("education_history", list())
     for education in education_history:
-        education.pop("uid")
-        education = Education(**education, talent=talent_user)
-        education.save()
+        edu_data = education.__dict__
+        edu_uid = edu_data.pop("uid", None)
+        if edu_uid:
+            talent_user.education_set.filter(uid=edu_uid).update(**edu_data)
+        else:
+            Education(**edu_data, talent=talent_user).save()
     additional_languages = request_data.pop("additional_languages", list())
     talent_user.update(**request_data)
     talent_user.additional_languages.set(additional_languages)
@@ -128,11 +129,11 @@ def complete_talent_profile3(request, data: talent_schemas.CompleteTalentProfile
         general = skill_data.pop("general_skills")
         soft = skill_data.pop("soft_skills")
         TalentSkill.objects.create(talent=talent_user, **skill_data)
-        talent_user.talentskill.soft_skills.set_by_uid(soft)
-        talent_user.talentskill.general_skills.set_by_uid(general)
-        talent_user.talentskill.business_models.set_by_uid(business_models)
-        talent_user.talentskill.frameworks.set_by_uid(frameworks)
-        talent_user.talentskill.tools.set_by_uid(tools)
+        talent_user.talentskill.soft_skills.set(soft)
+        talent_user.talentskill.general_skills.set(general)
+        talent_user.talentskill.business_models.set(business_models)
+        talent_user.talentskill.frameworks.set(frameworks)
+        talent_user.talentskill.tools.set(tools)
     for experience in data.experience_history:
         experience_data = experience.__dict__
         experience_uid = experience_data.pop("uid", None)
