@@ -48,5 +48,4 @@ def create_job(request, data:CreateJobSchema):
     if not business_user:
         raise HttpError(403, "Not Allowed")
     job = Job.objects.create_job(business_user=business_user, data=data)
-  
     return job
