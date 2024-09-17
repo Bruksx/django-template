@@ -1351,6 +1351,19 @@ def create_forward_many_to_many_manager(superclass, rel, reverse):
             # Force evaluation of `objs` in case it's a queryset whose value
             # could be affected by `manager.clear()`. Refs #19816.
             objs = tuple(objs)
+            model = self.model
+            cleaned_objs = tuple()
+            for item in objs:
+                try:
+                    item = uuid.UUID(item)
+                except Exception as e:
+                    pass
+                if isinstance(item, uuid.UUID):
+                    item = model.objects.filter(uid=item).first()
+                    if not item:
+                        raise HttpError(404, f"{model.__name__} of uid {item} not found")
+                cleaned_objs = cleaned_objs + (item,)
+            objs = cleaned_objs
 
             db = router.db_for_write(self.through, instance=self.instance)
             with transaction.atomic(using=db, savepoint=False):
