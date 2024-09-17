@@ -100,18 +100,17 @@ def complete_talent_profile2(request, data: talent_schemas.CompleteTalentProfile
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
         raise HttpError(403, "Not allowed")
-    request_data = data.__dict__
-    education_history = request_data.pop("education_history", list())
+    request_data = data.dict()
+    education_history = request_data.pop("education_history")
+    #this deletes any pre existing education incase this endpoint is called multiple times, to avoid possible duplicates
+    Education.objects.filter(talent=talent_user).delete()
     for education in education_history:
-        edu_data = education.__dict__
-        edu_uid = edu_data.pop("uid", None)
-        if edu_uid:
-            Education.objects.filter(uid=edu_uid, talent=talent_user).update(**edu_data)
-        else:
-            Education(**edu_data, talent=talent_user).save()
+        education.pop("uid")
+        education = Education(**education, talent=talent_user)
+        education.save()
     additional_languages = request_data.pop("additional_languages", list())
     talent_user.update(**request_data)
-    talent_user.additional_languages.set_by_uid(additional_languages)
+    talent_user.additional_languages.set(additional_languages)
     return talent_user.user
 
 
