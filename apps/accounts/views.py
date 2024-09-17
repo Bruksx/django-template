@@ -106,12 +106,12 @@ def complete_talent_profile2(request, data: talent_schemas.CompleteTalentProfile
         edu_data = education.__dict__
         edu_uid = edu_data.pop("uid", None)
         if edu_uid:
-            Education.objects.filter(uid=edu_uid, talent=talent_user).update(**edu_data)
+            talent_user.education_set.filter(uid=edu_uid).update(**edu_data)
         else:
             Education(**edu_data, talent=talent_user).save()
     additional_languages = request_data.pop("additional_languages", list())
     talent_user.update(**request_data)
-    talent_user.additional_languages.set(Language.objects.filter(uid__in=additional_languages))
+    talent_user.additional_languages.set(additional_languages)
     return talent_user.user
 
 
@@ -129,11 +129,11 @@ def complete_talent_profile3(request, data: talent_schemas.CompleteTalentProfile
         general = skill_data.pop("general_skills")
         soft = skill_data.pop("soft_skills")
         TalentSkill.objects.create(talent=talent_user, **skill_data)
-        talent_user.talentskill.soft_skills.set(Skill.objects.filter(uid__in=soft))
-        talent_user.talentskill.general_skills.set(Skill.objects.filter(uid__in=general))
-        talent_user.talentskill.business_models.set(Skill.objects.filter(uid__in=business_models))
-        talent_user.talentskill.frameworks.set(Skill.objects.filter(uid__in=frameworks))
-        talent_user.talentskill.tools.set(Skill.objects.filter(uid__in=tools))
+        talent_user.talentskill.soft_skills.set(soft)
+        talent_user.talentskill.general_skills.set(general)
+        talent_user.talentskill.business_models.set(business_models)
+        talent_user.talentskill.frameworks.set(frameworks)
+        talent_user.talentskill.tools.set(tools)
     for experience in data.experience_history:
         experience_data = experience.__dict__
         experience_uid = experience_data.pop("uid", None)

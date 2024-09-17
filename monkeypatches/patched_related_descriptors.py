@@ -1287,6 +1287,24 @@ def create_forward_many_to_many_manager(superclass, rel, reverse):
                         through_defaults=through_defaults,
                     )
 
+
+        def set_by_uid(self, uids):
+            """
+            Custom method to set many-to-many relationships using the uid field.
+            """
+            if uids and isinstance(uids[0], str):
+                # Convert string UUIDs to UUID objects
+                uids = [uuid.UUID(uid) for uid in uids]
+
+            # Assume that self.model is the related model of the ManyToMany field
+            model_class = self.model
+
+            # Fetch the corresponding model objects using the uids
+            related_objects = model_class.objects.filter(uid__in=uids)
+
+            # Set the relationship using the fetched objects
+            self.set(related_objects)
+
         add.alters_data = True
 
         async def aadd(self, *objs, through_defaults=None):
@@ -1344,6 +1362,19 @@ def create_forward_many_to_many_manager(superclass, rel, reverse):
             # Force evaluation of `objs` in case it's a queryset whose value
             # could be affected by `manager.clear()`. Refs #19816.
             objs = tuple(objs)
+            model = self.model
+            cleaned_objs = tuple()
+            for item in objs:
+                try:
+                    item = uuid.UUID(item)
+                except Exception as e:
+                    pass
+                if isinstance(item, uuid.UUID):
+                    item = model.objects.filter(uid=item).first()
+                    if not item:
+                        raise HttpError(404, f"{model.__name__} of uid {item} not found")
+                cleaned_objs = cleaned_objs + (item,)
+            objs = cleaned_objs
 
             db = router.db_for_write(self.through, instance=self.instance)
             with transaction.atomic(using=db, savepoint=False):
