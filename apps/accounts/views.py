@@ -129,11 +129,11 @@ def complete_talent_profile3(request, data: talent_schemas.CompleteTalentProfile
         general = skill_data.pop("general_skills")
         soft = skill_data.pop("soft_skills")
         TalentSkill.objects.create(talent=talent_user, **skill_data)
-        talent_user.talentskill.soft_skills.set_by_uid(soft)
-        talent_user.talentskill.general_skills.set_by_uid(general)
-        talent_user.talentskill.business_models.set_by_uid(business_models)
-        talent_user.talentskill.frameworks.set_by_uid(frameworks)
-        talent_user.talentskill.tools.set_by_uid(tools)
+        talent_user.talentskill.soft_skills.set(soft)
+        talent_user.talentskill.general_skills.set(general)
+        talent_user.talentskill.business_models.set(business_models)
+        talent_user.talentskill.frameworks.set(frameworks)
+        talent_user.talentskill.tools.set(tools)
     for experience in data.experience_history:
         experience_data = experience.__dict__
         experience_uid = experience_data.pop("uid", None)
