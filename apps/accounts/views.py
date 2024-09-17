@@ -106,7 +106,7 @@ def complete_talent_profile2(request, data: talent_schemas.CompleteTalentProfile
         edu_data = education.__dict__
         edu_uid = edu_data.pop("uid", None)
         if edu_uid:
-            Education.objects.filter(uid=edu_uid, talent=talent_user).update(**edu_data)
+            talent_user.education_set.filter(uid=edu_uid).update(**edu_data)
         else:
             Education(**edu_data, talent=talent_user).save()
     additional_languages = request_data.pop("additional_languages", list())
