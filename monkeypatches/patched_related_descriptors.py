@@ -87,6 +87,17 @@ import uuid
 from ninja.errors import HttpError
 
 
+def clean_objects(model):
+    cleaned_objs = tuple()
+    for item in objs:
+        if isinstance(item, uuid.UUID):
+            item = model.objects.filter(uid=item).first()
+            if not item:
+                raise HttpError(404, f"{model.__name__} of uid {item} not found")
+        cleaned_objs = cleaned_objs + (item,)
+    return cleaned_objs
+
+
 class ForeignKeyDeferredAttribute(DeferredAttribute):
     def __set__(self, instance, value):
         if instance.__dict__.get(self.field.attname) != value and self.field.is_cached(

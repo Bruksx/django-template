@@ -1,8 +1,9 @@
 from django_softdelete.managers import SoftDeleteManager
 from accounts.models import Department, Role,  Country, User, BusinessUser, Skill
+from core.models import BaseManager
 
 
-class JobManager(SoftDeleteManager):
+class JobManager(BaseManager):
     def create_job(self, *, business_user, data):
         from .models import (
             EmploymentType, AvailableDay, Language, BusinessModel, JobLevel, JobPost, ScreeningQuestion, QuestionOption,
@@ -65,5 +66,5 @@ class JobManager(SoftDeleteManager):
                     text=option.text,
                 )
                 question_option.save()
-        job.skills.add(*data.skills)
+        job.skills.set(data.skills)
         return job
