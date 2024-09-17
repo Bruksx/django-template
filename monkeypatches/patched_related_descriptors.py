@@ -1276,6 +1276,24 @@ def create_forward_many_to_many_manager(superclass, rel, reverse):
                         through_defaults=through_defaults,
                     )
 
+
+        def set_by_uid(self, uids):
+            """
+            Custom method to set many-to-many relationships using the uid field.
+            """
+            if uids and isinstance(uids[0], str):
+                # Convert string UUIDs to UUID objects
+                uids = [uuid.UUID(uid) for uid in uids]
+
+            # Assume that self.model is the related model of the ManyToMany field
+            model_class = self.model
+
+            # Fetch the corresponding model objects using the uids
+            related_objects = model_class.objects.filter(uid__in=uids)
+
+            # Set the relationship using the fetched objects
+            self.set(related_objects)
+
         add.alters_data = True
 
         async def aadd(self, *objs, through_defaults=None):
