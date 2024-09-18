@@ -1,14 +1,16 @@
+from datetime import time
+from typing import List
+from typing import Optional
+from uuid import UUID
+
 from ninja import ModelSchema
 from ninja.schema import Schema
-from datetime import time
-from uuid import UUID
-from core.schemas import READ_EXCLUDE_FIELDS
-from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, BusinessModel
-from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
-from typing import List
-from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
+
 from accounts.models import Department, Role, Skill, SkillCategory
-from typing import Optional
+from core.schemas import READ_EXCLUDE_FIELDS
+from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
+from .models import BusinessModel
+from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
 
 
 class AvailabilitySchema(Schema):
