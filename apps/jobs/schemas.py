@@ -4,6 +4,7 @@ from datetime import time
 from uuid import UUID
 from core.schemas import READ_EXCLUDE_FIELDS
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, BusinessModel
+from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
 from typing import List
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
 from accounts.models import Department, Role, Skill, SkillCategory
@@ -40,6 +41,7 @@ class QuestionSchema(ModelSchema):
 
 
 class CreateJobSchema(ModelSchema):
+    title: str
     employment_type_uid: UUID
     availability: list[AvailabilitySchema]
     work_structure: WorkStructureEnum
@@ -68,7 +70,7 @@ class CreateJobSchema(ModelSchema):
             "annual_salary_currency", "annual_bonus_min", "annual_bonus_max", "annual_bonus_currency", "benefits",
             "share_compensation", 
         ]
-        fields_optional = "__all__"
+        fields_optional = fields
 
 
 class EmploymentSubTypeSchema(Schema):
@@ -126,30 +128,46 @@ class GenericNameAndUidSchema(Schema):
     name: str
 
 
+class JobPostDetailSchema(ModelSchema):
+    annual_salary_min: float | None
+    annual_salary_max: float | None
+    annual_bonus_min: float | None
+    annual_bonus_max: float | None
+    class Meta:
+        model = JobPost
+        fields = ["uid", "province", "postal_code", "is_posted", "annual_salary_currency", "annual_bonus_currency"]
+
+
 class JobDetailSchema(ModelSchema):
     uid: UUID
     annual_salary_min: float
     annual_salary_max: float
     annual_bonus_min: float
     annual_bonus_max: float
-    #job_posts: list[JobPostSchema]
+    employment_type: GenericNameAndUidSchema
+    availability: list[AvailabilitySchema]
+    job_posts: list[JobPostDetailSchema]
 
     class Meta:
         model = Job
-        fields = fields = [
-            "hiring_company_name", "hiring_company_description", "work_structure", "office_address","lunch_break", 
+        fields = [
+            "title", "hiring_company_name", "hiring_company_description", "work_structure", "office_address","lunch_break",
             "additional_hours_min", "additional_hours_max", "annual_salary_min", "annual_salary_max",
             "annual_salary_currency", "annual_bonus_min", "annual_bonus_max", "annual_bonus_currency", "benefits",
-            "share_compensation", 
+            "share_compensation", "employment_type"
         ]
     
     @staticmethod
     def resolve_availability_timezone(obj):
         return str(obj.availability_timezone)
     
-    """@staticmethod
+    @staticmethod
+    def resolve_availability(obj):
+        return AvailableDay.objects.filter(job=obj)
+
+    @staticmethod
     def resolve_job_posts(obj):
-        return JobPost.objects.filter(job=obj)"""
+        return JobPost.objects.filter(job=obj)
     
 class JobLevelSchema(ModelSchema):
     class Meta:
