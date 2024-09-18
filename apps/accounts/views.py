@@ -2,23 +2,19 @@ from uuid import UUID
 
 from django.core.mail import send_mail
 from django.db import transaction
-from ninja.responses import Response
-
 from helpers.images import convert_base64_to_image_file
 from ninja import Router
 from ninja.errors import HttpError
+from ninja.responses import Response
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import UserType, AuthType
-from accounts.models import Talent
-from accounts.models import User, VerificationCode, Education, TalentSkill, Experience, TalentAvailability, \
-    Skill
+from accounts.models import Talent, AdditionalSkill
+from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
-from core.models import Language
 
 router = Router(tags=["Account"])
-
 
 @router.post("create-account/")
 def create_account(request, data: common_schemas.RegisterSchema):
@@ -83,11 +79,20 @@ def complete_talent_profile(request, data: talent_schemas.CompleteTalentProfileS
     request_data = data.__dict__
     if "gender" in request_data:
         talent_user.user.update(gender=request_data.pop("gender").value)
-    if "availability" in request_data:
-        if hasattr(talent_user,"talentavailability"):
-            talent_user.availability.update(**request_data.pop("availability").__dict__)
-        else:
-            TalentAvailability.objects.create(**request_data.pop("availability").__dict__, talent=talent_user)
+    availability = request_data.pop("availability", list())
+    for available_day in availability:
+        av_data = available_day.dict()
+        uid =  av_data.pop("uid", None)
+        active = av_data.pop("active", True)
+        if uid and not active:
+            talent_user.talentavailableday_set.filter(uid=uid).delete()
+        elif uid and active:
+            talent_user.talentavailableday_set.filter(uid=uid).update(**av_data)
+        elif not uid:
+            if talent_user.talentavailableday_set.filter(day=available_day.day.value).exists():
+                raise HttpError(400, f"{available_day.day.value} already exists")
+            av_data["day"] = av_data["day"].value
+            talent_user.talentavailableday.objects.create(**av_data, talent=talent_user)
     if request_data.get("photo"):
         request_data["photo"] = convert_base64_to_image_file(request_data["photo"])
     talent_user.update(**request_data)
@@ -118,22 +123,22 @@ def complete_talent_profile2(request, data: talent_schemas.CompleteTalentProfile
 @router.post("complete-profile/last_step", response=talent_schemas.UserSchema, auth=JWTAuth())
 @transaction.atomic
 def complete_talent_profile3(request, data: talent_schemas.CompleteTalentProfileSchema3):
-    talent_user = Talent.objects.filter(user=request.user).first()
+    talent_user: Talent = Talent.objects.filter(user=request.user).first()
     if not talent_user:
         raise HttpError(403, "Not allowed")
-    if data.skill:
-        skill_data = data.skill.__dict__
-        tools = skill_data.pop("tools")
-        frameworks = skill_data.pop("frameworks")
-        business_models = skill_data.pop("business_models")
-        general = skill_data.pop("general_skills")
-        soft = skill_data.pop("soft_skills")
-        TalentSkill.objects.create(talent=talent_user, **skill_data)
-        talent_user.talentskill.soft_skills.set(soft)
-        talent_user.talentskill.general_skills.set(general)
-        talent_user.talentskill.business_models.set(business_models)
-        talent_user.talentskill.frameworks.set(frameworks)
-        talent_user.talentskill.tools.set(tools)
+    if data.skills:
+        talent_user.skills.set(data.skills)
+    if data.business_models:
+        talent_user.business_models.set(data.business_models)
+    if data.additional_skills:
+        existing_skills = talent_user.get_additional_skills()
+        AdditionalSkill.objects.bulk_create(
+            [
+                AdditionalSkill(name=skill, talent=talent_user)
+                for skill in data.additional_skills
+                if skill not in existing_skills
+            ]
+        )
     for experience in data.experience_history:
         experience_data = experience.__dict__
         experience_uid = experience_data.pop("uid", None)

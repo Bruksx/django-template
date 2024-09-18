@@ -1,8 +1,8 @@
 from django.template.defaultfilters import first
 
 from accounts.enums import PreferredCommunicationType, GenderType, NoticePeriodType
-from accounts.models import User, VerificationCode, Country, Talent, TalentAvailability, EducationLevel, Industry, \
-    Skill, Department, SkillCategory, TalentSkill, Experience, Education
+from accounts.models import User, VerificationCode, Country, Talent, EducationLevel, Industry, \
+    Skill, Department, SkillCategory, Experience, Education
 from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
@@ -10,6 +10,7 @@ from accounts.views import router
 from core.models import Language, Currency
 from jobs.models import JobLevel, EmploymentType
 
+#TODO: Update the tests with the latest updates
 
 class ValidateOtpTests(TestCase):
     def setUp(self):
@@ -216,16 +217,14 @@ class CompleteProfileTests(TestCase):
         return data, client.post("/complete-profile/last_step", json=data, headers=headers)
 
     def test_complete_profile_success(self):
-        self.assertIsNone(getattr(self.talent, "talentavailability", None))
+        self.assertEqual(self.talent.talentavailableday_set.count(), 0)
         data, response = self.send_complete_profile_1(client=self.client, token=self.user.token)
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.user.refresh_from_db()
         self.assertEqual(self.user.gender, data["gender"])
         self.assertEqual(self.talent.bio, data["bio"])
-        self.assertIsNotNone(getattr(self.talent, "talentavailability", None))
-        self.assertEqual(self.talent.talentavailability.friday, data["availability"]["friday"])
-        self.assertEqual(self.talent.talentavailability.sunday, data["availability"]["sunday"])
+        self.assertEqual(self.talent.talentavailableday_set.count(), 7)
 
 
     def test_complete_profile_2_success(self):
@@ -243,17 +242,13 @@ class CompleteProfileTests(TestCase):
 
 
     def test_complete_profile_3_success(self):
-        self.assertFalse(hasattr(self.talent, "talentskill"))
+        self.assertEqual(self.talent.skills.count(), 0)
         data, response = self.send_complete_profile_3(client=self.client, token=self.user.token, industry=self.industry)
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.assertEqual(self.talent.experience_set.count(), 1)
-        self.assertTrue(hasattr(self.talent, "talentskill"))
-        self.assertEqual(self.talent.talentskill.tools.first().uid, data["skill"]["tools"][0])
-        self.assertEqual(self.talent.talentskill.frameworks.first().uid, data["skill"]["frameworks"][0])
-        self.assertEqual(self.talent.talentskill.business_models.first().uid, data["skill"]["business_models"][0])
-        self.assertEqual(self.talent.talentskill.general_skills.first().uid, data["skill"]["general_skills"][0])
-        self.assertEqual(self.talent.talentskill.soft_skills.first().uid, data["skill"]["soft_skills"][0])
+        self.assertNotEqual(self.talent.skills.count(), 0)
+        self.assertNotEqual(self.talent.business_models.count(), 0)
         self.assertTrue(self.talent.experience_set.filter(level__uid=data["experience_history"][0]["level"],
                                                           employment_type__uid=data["experience_history"][0]["employment_type"]).exists())
 

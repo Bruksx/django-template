@@ -37,3 +37,26 @@ class PreferredCommunicationType(BaseEnum):
     WHATSAPP = "whatsapp"
     VIBER = "viber"
     EMAIL = "email"
+
+class Months(BaseEnum):
+    JANUARY = "Jan"
+    FEBRUARY = "Feb"
+    MARCH = "Mar"
+    APRIL = "Apr"
+    MAY = "May"
+    JUNE = "Jun"
+    JULY = "Jul"
+    AUGUST = "Aug"
+    SEPTEMBER = "Sept"
+    OCTOBER = "Oct"
+    NOVEMBER = "Nov"
+    DECEMBER = "Dec"
+
+class Days(BaseEnum):
+    MONDAY = "Monday"
+    TUESDAY = "Tuesday"
+    WEDNESDAY = "Wednesday"
+    THURSDAY = "Thursday"
+    FRIDAY = "Friday"
+    SATURDAY = "Saturday"
+    SUNDAY = "Sunday"

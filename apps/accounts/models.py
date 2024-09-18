@@ -1,22 +1,21 @@
-import logging
+import random
 import secrets
 import string
-from typing import Any
-from django.db import models
-from core.models import BaseModel
-from django.contrib.auth.models import AbstractUser, BaseUserManager
-from django_softdelete.managers import SoftDeleteManager
-from django.contrib.auth.hashers import check_password, make_password
-from django.utils import timezone
-import random
-from datetime import timedelta, date
+from datetime import timedelta, date, datetime
+from typing import List
 
+from django.contrib.auth.hashers import check_password, make_password
+from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.db import models
+from django.db.models import Q
+from django.utils import timezone
+from django_softdelete.managers import SoftDeleteManager
 from ninja_jwt.exceptions import AuthenticationFailed
 from ninja_jwt.tokens import RefreshToken
 
 from accounts.dtos import TokenDto
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType
-
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days
+from core.models import BaseModel
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -94,6 +93,52 @@ class Country(BaseModel):
     code = models.CharField(max_length=4)
 
 
+class SkillCategory(BaseModel):
+    name = models.CharField(max_length=128)
+
+    def __str__(self) -> str:
+        return self.name
+
+    @property
+    def skills(self):
+        return self.skill_set.all()
+
+class Industry(BaseModel):
+    name = models.CharField(max_length=128)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Department(BaseModel):
+    industry = models.ForeignKey(Industry, on_delete=models.CASCADE)
+    name = models.CharField(max_length=128)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Role(BaseModel):
+    department = models.ForeignKey(Department, on_delete=models.CASCADE)
+    name = models.CharField(max_length=128)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Skill(BaseModel):
+    name = models.CharField(max_length=128)
+    category = models.ForeignKey(SkillCategory, on_delete=models.CASCADE)
+    department = models.ForeignKey(Department, on_delete=models.CASCADE)
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class AdditionalSkill(BaseModel):
+    talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE)
+    name = models.CharField(max_length=128)
+
 
 class Talent(BaseModel):
     user = models.OneToOneField(User, on_delete=models.DO_NOTHING)
@@ -116,7 +161,9 @@ class Talent(BaseModel):
                                           default=NoticePeriodType.MONTH.value)
     native_language = models.ForeignKey("core.Language", on_delete=models.SET_NULL, null=True,
                                         related_name="native_language")
+    skills = models.ManyToManyField("accounts.Skill")
     additional_languages = models.ManyToManyField("core.Language", related_name="other_languages")
+    business_models = models.ManyToManyField("jobs.BusinessModel")
 
     @property
     def photo_url(self):
@@ -126,10 +173,33 @@ class Talent(BaseModel):
     def cv_url(self):
         return self.cv.url if self.cv else None
 
-    def skill(self):
-        if hasattr(self, "talentskill"):
-            return self.talentskill
-        return None
+    def get_skills(self):
+        from accounts.schemas.talent import SkillSchema, TalentSkillSchema
+
+        categories = SkillCategory.object.only("id", "name")
+        data = list()
+        for category in categories:
+            data.append(TalentSkillSchema(
+                category=category.name,
+                skills=SkillSchema(self.skills.filter(category=category), many=True)
+            ))
+        return data
+
+    def get_additional_skills(self)->List[str]:
+        return self.additionalskill_set.values_list("name", flat=True)
+
+
+    def get_available_days(self):
+        from accounts.schemas.talent import TalentAvailableDaySchema
+
+        data = list()
+        for days, value in Days:
+            data.append({
+                "day": value,
+                "availability": TalentAvailableDaySchema.from_orm(self.talentavailableday.filter(day=value).first())
+            })
+        return data
+
 
     def experience_history(self):
         return self.experience_set.all()
@@ -144,22 +214,119 @@ class Talent(BaseModel):
         start_date: date = experiences.order_by("start_date").first().start_date
         end_date: date = experiences.order_by("end_date").last().end_date
         return (end_date - start_date).days//365
-    
-class TalentSkill(BaseModel):
-    talent = models.OneToOneField(Talent, on_delete=models.CASCADE)
-    tools = models.ManyToManyField("accounts.Skill",
-                                   related_name="talent_tool_skills")
-    frameworks = models.ManyToManyField("accounts.Skill",
-                                        related_name="talent_framework_skills")
-    business_models = models.ManyToManyField("accounts.Skill",
-                                             related_name="talent_bm_skills")
-    general_skills = models.ManyToManyField("accounts.Skill",
-                                            related_name="talent_general_skills")
-    soft_skills = models.ManyToManyField("accounts.Skill",
-                                         related_name="talent_soft_skills")
-    additional_skills = models.JSONField(default=list)
+
+    def job_post_matches(self):
+        from jobs.models import AvailableDay, JobPost
+
+        from jobs.models import Job
+        experiences = self.experience_set.only("level_id", "employment_type_id", "role_id")
+        job_level_ids = experiences.values_list("level_id", flat=True)
+        years_of_experience = self.years_of_experience()
+        education_level_ids = self.education_set.only("level_id").values_list("level_id", flat=True)
+        business_model_ids = self.business_models.only("id").values_list("id", flat=True)
+        role_ids=experiences.values_list("role_id", flat=True)
+        additional_language_ids = self.additional_languages.only("id").values_list("id", flat=True)
+        skill_ids = self.skills.only("id").values_list("id", flat=True)
+
+        working_hours_query = self.availability_query()
+
+        job_matching_query = Q(
+            Q(requiredattribute__job_level=True, job_level_id__in=job_level_ids)|
+            Q(requiredattribute__minimum_education_level=True, minimum_education_level_id__in=education_level_ids)|
+            Q(requiredattribute__business_model_id__in=business_model_ids)|
+            Q(requiredattribute__role=True, role_id__in=role_ids)|
+            Q(requiredattribute__years_of_experience=True, years_of_experience=years_of_experience)|
+            Q(requiredattribute__first_language=True, first_language=self.native_language)|
+            Q(requiredattribute__second_language=True, additional_languages_id__in=additional_language_ids)|
+            Q(requiredattribute__working_hours=True, availableday__in=AvailableDay.objects.filter(working_hours_query))|
+            Q(requiredattribute__location=True, jobpost__country=self.country),
+            Q(requiredattribute__skills__id__in=skill_ids)
+        )
+        job_ids = Job.objects.filter(job_matching_query).only("id").distinct("id").values_list("id", flat=True)
+        return JobPost.objects.filter(job_id__in=job_ids)
+
+    def job_match_score(self, job_post):
+        job = job_post.job
+        required_attribute = job.requiredattribute
+        score = 0
+        if required_attribute.skills.intersection(self.skills).count()  > 0:
+            score += 1
+        if required_attribute.role and self.experience_set.filter(role=job.role).exists():
+            score +=1
+        if  required_attribute.job_level and self.experience_set.filter(level=job.job_level).exists():
+            score +=1
+        if  required_attribute.years_of_experience and job.years_of_experience >= job.years_of_experience:
+            score +=1
+        if required_attribute.business_model.intersection(self.business_models).count() > 0:
+            score += 1
+        if required_attribute.minimum_education_level and self.education_set.filter(level=job.minimum_education_level).exists():
+            score += 1
+
+        if required_attribute.first_language and self.native_language == job.first_language:
+            score += 1
+        if required_attribute.second_language and job.additional_languages.intersection(self.additional_languages).count() > 0:
+            score += 1
+        if required_attribute.working_hours:
+            working_hours_query = self.availability_query()
+            if job.availableday_set.filter(working_hours_query).exists():
+                score += 1
+        if required_attribute.location and self.country == job_post.country:
+            score += 1
+        requirement_score = required_attribute.total_score()
+        return int((score/requirement_score) * 100)
 
 
+    def availability_query(self):
+        working_hours_query = Q()
+
+        for availability in self.talentavailabledays.all():
+            day_query = Q(
+                day=availability.day,
+                start_time__lte=availability.end_time,
+                end_time__gte=availability.start_time
+            )
+            working_hours_query |= day_query
+        return working_hours_query
+
+
+    def job_applications(self):
+        return self.jobapplication__set
+
+
+    def invitations_to_apply(self):
+        return self.user.conversations.only("job_id").distinct("job_id").count()
+
+    def job_interviews(self):
+        from jobs.models import JobInterview
+        JobInterview.objects.filter(application__talent=self)
+
+    def applications_made_chart(self):
+        current_year = datetime.now().year
+        applications = self.job_application_set.filter(created_at__year=current_year)
+        data = list()
+        month = 0
+        for value in Months.values():
+            month +=1
+            data.append(
+                dict(
+                    month = value,
+                    count = applications.filter(created_at__month=month).count()
+                )
+            )
+
+    def interviews_chart(self):
+        current_year = datetime.now().year
+        interviews = self.job_interviews().filter(created_at__year=current_year)
+        data = list()
+        month = 0
+        for value in Months.values():
+            month += 1
+            data.append(
+                dict(
+                    month=value,
+                    count=interviews.filter(created_at__month=month).count()
+                )
+            )
 
 class Business(BaseModel):
     created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING)
@@ -183,7 +350,7 @@ class VerificationCode(BaseModel):
     def default_code():
         characters = string.ascii_letters + string.digits
         return ''.join(random.choice(characters.upper()) for _ in range(4))
-    
+
     def default_expiration():
         return timezone.now() + timedelta(minutes=5)
 
@@ -223,8 +390,8 @@ class BusinessUser(BaseModel):
 
 
 class Education(BaseModel):
-    talent = models.ForeignKey(Talent, on_delete=models.CASCADE, default=None, null=True)
-    level = models.ForeignKey(EducationLevel, on_delete=models.SET_NULL, null=True, default=None)
+    talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE, default=None, null=True)
+    level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True, default=None)
     start_date = models.DateField()
     end_date = models.DateField()
     major = models.CharField(max_length=64)
@@ -232,7 +399,8 @@ class Education(BaseModel):
 
 
 class Experience(BaseModel):
-    talent = models.ForeignKey(Talent, on_delete=models.CASCADE, null=True)
+    talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE, null=True)
+    role = models.ForeignKey("accounts.Role", on_delete=models.SET_NULL, null=True)
     company = models.CharField(max_length=100, null=True)
     annual_salary = models.FloatField(default=0)
     annual_salary_currency = models.ForeignKey("core.Currency", on_delete=models.SET_NULL,
@@ -250,69 +418,12 @@ class Experience(BaseModel):
     currently_works_here = models.BooleanField()
 
 
-class TalentAvailability(BaseModel):
-    talent = models.OneToOneField(Talent, on_delete=models.CASCADE)
-    monday = models.BooleanField(default=False)
-    monday_start_time = models.TimeField(default=None, null=True)
-    monday_end_time = models.TimeField(default=None, null=True)
-    tuesday = models.BooleanField(default=False)
-    tuesday_start_time = models.TimeField(default=None, null=True)
-    tuesday_end_time = models.TimeField(default=None, null=True)
-    wednesday = models.BooleanField(default=False)
-    wednesday_start_time = models.TimeField(default=None, null=True)
-    wednesday_end_time = models.TimeField(default=None, null=True)
-    thursday = models.BooleanField(default=False)
-    thursday_start_time = models.TimeField(default=None, null=True)
-    thursday_end_time = models.TimeField(default=None, null=True)
-    friday = models.BooleanField(default=False)
-    friday_start_time = models.TimeField(default=None, null=True)
-    friday_end_time = models.TimeField(default=None, null=True)
-    saturday = models.BooleanField(default=False)
-    saturday_start_time = models.TimeField(default=None, null=True)
-    saturday_end_time = models.TimeField(default=None, null=True)
-    sunday = models.BooleanField(default=False)
-    sunday_start_time = models.TimeField(default=None, null=True)
-    sunday_end_time = models.TimeField(default=None, null=True)
+class TalentAvailableDay(BaseModel):
+    talent = models.ForeignKey("Talent", on_delete=models.CASCADE)
+    day = models.CharField(max_length=32, choices=Days.choices())
+    end_time = models.TimeField(null=True)
+    start_time = models.TimeField(null=True)
 
 
-class Industry(BaseModel):
-    name = models.CharField(max_length=128)
-
-    def __str__(self) -> str:
-        return self.name
 
 
-class Department(BaseModel):
-    industry = models.ForeignKey(Industry, on_delete=models.CASCADE)
-    name = models.CharField(max_length=128)
-
-    def __str__(self) -> str:
-        return self.name
-
-
-class Role(BaseModel):
-    department = models.ForeignKey(Department, on_delete=models.CASCADE)
-    name = models.CharField(max_length=128)
-
-    def __str__(self) -> str:
-        return self.name
-
-
-class SkillCategory(BaseModel):
-    name = models.CharField(max_length=128)
-
-    def __str__(self) -> str:
-        return self.name
-    
-    @property
-    def skills(self):
-        return self.skill_set.all()
-
-
-class Skill(BaseModel):
-    name = models.CharField(max_length=128)
-    category = models.ForeignKey(SkillCategory, on_delete=models.CASCADE)
-    department = models.ForeignKey(Department, on_delete=models.CASCADE)
-
-    def __str__(self) -> str:
-        return self.name

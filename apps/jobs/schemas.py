@@ -3,7 +3,7 @@ from ninja.schema import Schema
 from datetime import time
 from uuid import UUID
 from core.schemas import READ_EXCLUDE_FIELDS
-from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel
+from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, BusinessModel
 from typing import List
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
 from accounts.models import Department, Role, Skill, SkillCategory
@@ -154,4 +154,10 @@ class JobDetailSchema(ModelSchema):
 class JobLevelSchema(ModelSchema):
     class Meta:
         model = JobLevel
+        exclude = [*READ_EXCLUDE_FIELDS]
+
+
+class BusinessModelSchema(ModelSchema):
+    class Meta:
+        model = BusinessModel
         exclude = [*READ_EXCLUDE_FIELDS]
