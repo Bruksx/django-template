@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, List
 from uuid import UUID
 
@@ -5,7 +6,7 @@ from ninja import Schema, ModelSchema
 
 from accounts.enums import GenderType, PreferredCommunicationType, Days
 from accounts.models import (Talent, User, TalentAvailableDay, Education,
-                             Experience, Skill, EducationLevel, Country, Role)
+                             Experience, Skill, EducationLevel, Country, Role, Department)
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema
 from jobs.schemas import JobLevelSchema, EmploymentTypeSchema, BusinessModelSchema
 
@@ -15,11 +16,17 @@ class CountrySchema(ModelSchema):
         model = Country
         fields = ("uid", "name", "code")
 
+class DepartmentSchema(ModelSchema):
+    class Meta:
+        model = Department
+        fields = ("uid", "name",)
+
 class RoleSchema(ModelSchema):
     department: str
     class Meta:
         model = Role
         fields = ("uid", "name", "department")
+
     @staticmethod
     def resolve_department(obj):
         return obj.department.name
@@ -74,14 +81,11 @@ class ExperienceSchema(ModelSchema):
 
 
 class SkillSchema(ModelSchema):
-    department: str
+    department: DepartmentSchema
     class Meta:
         model = Skill
-        fields = ("uid", "department", "name")
+        fields = ("uid",  "name")
 
-    @staticmethod
-    def resolve_department(obj):
-        return obj.department.name
 
 
 class MutateTalentAvailableDaySchema(ModelSchema):
@@ -150,12 +154,16 @@ class TalentUserSchema(ModelSchema):
         exclude = (*READ_EXCLUDE_FIELDS, "cv", "photo")
 
     @staticmethod
-    def resolve_skills(self):
-        return self.get_skills()
+    def resolve_skills(obj):
+        return obj.get_skills()
 
     @staticmethod
-    def resolve_additional_skills(self):
-        return self.get_addiional_skills()
+    def resolve_additional_skills(obj):
+        return obj.get_additional_skills()
+
+    @staticmethod
+    def resolve_availability(obj):
+        return obj.get_available_days()
 
 
 
@@ -175,8 +183,8 @@ class CompleteTalentProfileSchema(ModelSchema):
 class CompleteTalentProfileSchema2(ModelSchema):
     education_history: List[MutateEducationSchema]
     cv: Optional[str] = None
-    native_language: Optional[UUID]
-    additional_languages:List[str]
+    native_language: Optional[UUID] = None
+    additional_languages:List[UUID]
 
 
     class Meta:
@@ -188,7 +196,7 @@ class CompleteTalentProfileSchema3(ModelSchema):
     skills: List[UUID]
     additional_skills: List[str]
     business_models: List[UUID]
-    experience_history: Optional[List[MutateExperienceSchema]]
+    experience_history: List[MutateExperienceSchema]
 
     class Meta:
         model = Talent

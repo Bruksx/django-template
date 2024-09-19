@@ -176,27 +176,28 @@ class Talent(BaseModel):
     def get_skills(self):
         from accounts.schemas.talent import SkillSchema, TalentSkillSchema
 
-        categories = SkillCategory.object.only("id", "name")
+        categories = SkillCategory.objects.only("id", "name")
         data = list()
         for category in categories:
             data.append(TalentSkillSchema(
                 category=category.name,
-                skills=SkillSchema(self.skills.filter(category=category), many=True)
+                skills=[SkillSchema.from_orm(skill) for skill in self.skills.filter(category_id=category.id)]
             ))
         return data
 
     def get_additional_skills(self)->List[str]:
-        return self.additionalskill_set.values_list("name", flat=True)
+        return list(self.additionalskill_set.values_list("name", flat=True))
 
 
     def get_available_days(self):
         from accounts.schemas.talent import TalentAvailableDaySchema
 
         data = list()
-        for days, value in Days:
+        for value in Days.values():
+            availability = self.talentavailableday_set.filter(day=value).first()
             data.append({
                 "day": value,
-                "availability": TalentAvailableDaySchema.from_orm(self.talentavailableday.filter(day=value).first())
+                "availability": TalentAvailableDaySchema.from_orm(availability) if availability else None
             })
         return data
 
@@ -233,11 +234,11 @@ class Talent(BaseModel):
         job_matching_query = Q(
             Q(requiredattribute__job_level=True, job_level_id__in=job_level_ids)|
             Q(requiredattribute__minimum_education_level=True, minimum_education_level_id__in=education_level_ids)|
-            Q(requiredattribute__business_model_id__in=business_model_ids)|
+            Q(requiredattribute__business_model__id__in=business_model_ids)|
             Q(requiredattribute__role=True, role_id__in=role_ids)|
             Q(requiredattribute__years_of_experience=True, years_of_experience=years_of_experience)|
             Q(requiredattribute__first_language=True, first_language=self.native_language)|
-            Q(requiredattribute__second_language=True, additional_languages_id__in=additional_language_ids)|
+            Q(requiredattribute__secondary_language=True, additional_languages__id__in=additional_language_ids)|
             Q(requiredattribute__working_hours=True, availableday__in=AvailableDay.objects.filter(working_hours_query))|
             Q(requiredattribute__location=True, jobpost__country=self.country),
             Q(requiredattribute__skills__id__in=skill_ids)
@@ -249,7 +250,7 @@ class Talent(BaseModel):
         job = job_post.job
         required_attribute = job.requiredattribute
         score = 0
-        if required_attribute.skills.intersection(self.skills).count()  > 0:
+        if required_attribute.skills.intersection(self.skills.all()).count()  > 0:
             score += 1
         if required_attribute.role and self.experience_set.filter(role=job.role).exists():
             score +=1
@@ -257,14 +258,14 @@ class Talent(BaseModel):
             score +=1
         if  required_attribute.years_of_experience and job.years_of_experience >= job.years_of_experience:
             score +=1
-        if required_attribute.business_model.intersection(self.business_models).count() > 0:
+        if required_attribute.business_model.intersection(self.business_models.all()).count() > 0:
             score += 1
         if required_attribute.minimum_education_level and self.education_set.filter(level=job.minimum_education_level).exists():
             score += 1
 
         if required_attribute.first_language and self.native_language == job.first_language:
             score += 1
-        if required_attribute.second_language and job.additional_languages.intersection(self.additional_languages).count() > 0:
+        if required_attribute.secondary_language and job.additional_languages.intersection(self.additional_languages.all()).count() > 0:
             score += 1
         if required_attribute.working_hours:
             working_hours_query = self.availability_query()
@@ -279,7 +280,7 @@ class Talent(BaseModel):
     def availability_query(self):
         working_hours_query = Q()
 
-        for availability in self.talentavailabledays.all():
+        for availability in self.talentavailableday_set.all():
             day_query = Q(
                 day=availability.day,
                 start_time__lte=availability.end_time,
@@ -290,19 +291,20 @@ class Talent(BaseModel):
 
 
     def job_applications(self):
-        return self.jobapplication__set
+        return self.jobapplication_set
 
 
     def invitations_to_apply(self):
-        return self.user.conversations.only("job_id").distinct("job_id").count()
+        from chats.models import Message
+        return Message.objects.filter(conversation__users__id=self.user.id).only("job_id").distinct("job_id").count()
 
     def job_interviews(self):
         from jobs.models import JobInterview
-        JobInterview.objects.filter(application__talent=self)
+        return JobInterview.objects.filter(application__applicant=self)
 
     def applications_made_chart(self):
         current_year = datetime.now().year
-        applications = self.job_application_set.filter(created_at__year=current_year)
+        applications = self.jobapplication_set.filter(created_at__year=current_year)
         data = list()
         month = 0
         for value in Months.values():
@@ -313,6 +315,7 @@ class Talent(BaseModel):
                     count = applications.filter(created_at__month=month).count()
                 )
             )
+        return data
 
     def interviews_chart(self):
         current_year = datetime.now().year
@@ -327,6 +330,7 @@ class Talent(BaseModel):
                     count=interviews.filter(created_at__month=month).count()
                 )
             )
+        return data
 
 class Business(BaseModel):
     created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING)
