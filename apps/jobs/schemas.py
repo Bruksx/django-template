@@ -42,7 +42,7 @@ class QuestionSchema(ModelSchema):
         fields = ["type", "text", "is_knockout"]
 
 
-class CreateJobSchema(ModelSchema):
+class CreateJobSchema(Schema):
     title: str
     employment_type_uid: UUID
     availability: list[AvailabilitySchema]
@@ -130,7 +130,7 @@ class GenericNameAndUidSchema(Schema):
     name: str
 
 
-class JobPostDetailSchema(ModelSchema):
+class JobPostDetailSchema(Schema):
     annual_salary_min: float | None
     annual_salary_max: float | None
     annual_bonus_min: float | None
@@ -140,7 +140,7 @@ class JobPostDetailSchema(ModelSchema):
         fields = ["uid", "province", "postal_code", "is_posted", "annual_salary_currency", "annual_bonus_currency"]
 
 
-class JobDetailSchema(ModelSchema):
+class JobDetailSchema(Schema):
     uid: UUID
     annual_salary_min: float
     annual_salary_max: float

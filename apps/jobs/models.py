@@ -45,8 +45,7 @@ class Job(BaseModel):
         (PAID, PAID),
         (UNPAID, UNPAID)
     )
-    created_by = models.ForeignKey("accounts.User", on_delete=models.DO_NOTHING)
-    business = models.ForeignKey("accounts.Business", on_delete=models.DO_NOTHING)
+    created_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.DO_NOTHING, null=True)
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     hiring_company_name = models.CharField(max_length=64, null=True)
     hiring_company_description = models.TextField(null=True)
@@ -64,11 +63,26 @@ class Job(BaseModel):
     lunch_break = models.CharField(max_length=16, choices=LunchBreakEnum.choices())
     annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_salary_currency = models.CharField(max_length=8)
+    annual_salary_currency = models.ForeignKey(
+        "core.Currency", 
+        on_delete=models.SET_NULL, 
+        related_name="jobs_with_salary_currency",
+        null=True
+    )
     annual_bonus_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     annual_bonus_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_bonus_currency = models.CharField(max_length=8)
-    recruiter = models.ForeignKey("accounts.User", on_delete=models.SET_NULL, null=True, related_name="recruiting_jobs")
+    annual_bonus_currency = models.ForeignKey(
+        "core.Currency", 
+        on_delete=models.SET_NULL, 
+        related_name="jobs_with_bonus_currency",
+        null=True,
+    )
+    recruiter = models.ForeignKey(
+        "accounts.BusinessUser", 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        related_name="recruiting_jobs"
+    )
     benefits = models.TextField(null=True)
     share_compensation = models.BooleanField(default=True)
     is_draft = models.BooleanField(default=False)
@@ -97,15 +111,30 @@ class JobPost(BaseModel):
     postal_code = models.CharField(max_length=8, null=True)
     annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_salary_currency = models.CharField(max_length=8, null=True)
+    annual_salary_currency = models.ForeignKey(
+        "core.Currency", 
+        on_delete=models.SET_NULL, 
+        related_name="jobs_posts_with_salary_currency",
+        null=True,
+    )
     annual_bonus_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     annual_bonus_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_bonus_currency = models.CharField(max_length=8, null=True)
+    annual_bonus_currency = models.ForeignKey(
+        "core.Currency", 
+        on_delete=models.SET_NULL, 
+        related_name="jobs_posts_with_bonus_currency",
+        null=True,
+    )
     location_type = models.CharField(max_length=32, null=True)
-    recruiter = models.ForeignKey("accounts.User", null=True, on_delete=models.CASCADE, related_name="recruiting_job_posts")
+    recruiter = models.ForeignKey(
+        "accounts.BusinessUser", 
+        null=True, 
+        on_delete=models.SET_NULL, 
+        related_name="recruiting_job_posts"
+    )
 
     def __str__(self) -> str:
-        return self.country
+        return f"{self.job}({self.country})"
 
 
 class JobApplication(BaseModel):
@@ -129,7 +158,7 @@ class SavedJob(BaseModel):
 
 
 class JobDraft(BaseModel):
-    user = models.OneToOneField("accounts.User", on_delete=models.DO_NOTHING)
+    user = models.OneToOneField("accounts.BusinessUser", on_delete=models.DO_NOTHING)
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
 
 
