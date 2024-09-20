@@ -1,13 +1,16 @@
+from datetime import time
+from typing import List
+from typing import Optional
+from uuid import UUID
+
 from ninja import ModelSchema
 from ninja.schema import Schema
-from datetime import time
-from uuid import UUID
-from core.schemas import READ_EXCLUDE_FIELDS
-from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
-from typing import List
-from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
+
 from accounts.models import Department, Role, Skill, SkillCategory
-from typing import Optional
+from core.schemas import READ_EXCLUDE_FIELDS
+from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
+from .models import BusinessModel
+from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
 
 
 class AvailabilitySchema(Schema):
@@ -150,7 +153,7 @@ class JobDetailSchema(ModelSchema):
     class Meta:
         model = Job
         fields = [
-            "title", "hiring_company_name", "hiring_company_description", "work_structure", "office_address","lunch_break", 
+            "title", "hiring_company_name", "hiring_company_description", "work_structure", "office_address","lunch_break",
             "additional_hours_min", "additional_hours_max", "annual_salary_min", "annual_salary_max",
             "annual_salary_currency", "annual_bonus_min", "annual_bonus_max", "annual_bonus_currency", "benefits",
             "share_compensation", "employment_type"
@@ -163,7 +166,7 @@ class JobDetailSchema(ModelSchema):
     @staticmethod
     def resolve_availability(obj):
         return AvailableDay.objects.filter(job=obj)
-    
+
     @staticmethod
     def resolve_job_posts(obj):
         return JobPost.objects.filter(job=obj)
@@ -171,4 +174,10 @@ class JobDetailSchema(ModelSchema):
 class JobLevelSchema(ModelSchema):
     class Meta:
         model = JobLevel
+        exclude = [*READ_EXCLUDE_FIELDS]
+
+
+class BusinessModelSchema(ModelSchema):
+    class Meta:
+        model = BusinessModel
         exclude = [*READ_EXCLUDE_FIELDS]

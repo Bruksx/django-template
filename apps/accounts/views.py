@@ -2,23 +2,20 @@ from uuid import UUID
 
 from django.core.mail import send_mail
 from django.db import transaction
-from ninja.responses import Response
-
 from helpers.images import convert_base64_to_image_file
-from ninja import Router
+from ninja import Router, PatchDict
 from ninja.errors import HttpError
+from ninja.responses import Response
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import UserType, AuthType
-from accounts.models import Talent
-from accounts.models import User, VerificationCode, Education, TalentSkill, Experience, TalentAvailability, \
-    Skill
+from accounts.models import Talent, AdditionalSkill, TalentAvailableDay
+from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
-from core.models import Language
+
 
 router = Router(tags=["Account"])
-
 
 @router.post("create-account/")
 def create_account(request, data: common_schemas.RegisterSchema):
@@ -72,75 +69,82 @@ def validate_otp(request, data: talent_schemas.ValidateTalentOTPSchema):
 
 
 
-@router.post("complete-profile/first_step",
+@router.patch("complete-profile/first_step",
              response=talent_schemas.UserSchema,
              auth=JWTAuth())
 @transaction.atomic
-def complete_talent_profile(request, data: talent_schemas.CompleteTalentProfileSchema):
+def complete_talent_profile(request, data: PatchDict[talent_schemas.CompleteTalentProfileSchema]):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
         raise HttpError(403, "Not allowed")
-    request_data = data.__dict__
-    if "gender" in request_data:
-        talent_user.user.update(gender=request_data.pop("gender").value)
-    if "availability" in request_data:
-        if hasattr(talent_user,"talentavailability"):
-            talent_user.availability.update(**request_data.pop("availability").__dict__)
-        else:
-            TalentAvailability.objects.create(**request_data.pop("availability").__dict__, talent=talent_user)
-    if request_data.get("photo"):
-        request_data["photo"] = convert_base64_to_image_file(request_data["photo"])
-    talent_user.update(**request_data)
+    if "gender" in data:
+        talent_user.user.update(gender=data.pop("gender").value)
+    availability = data.pop("availability", list())
+    for available_day in availability:
+        available_day["day"] = available_day["day"].value
+        uid =  available_day.pop("uid", None)
+        active = available_day.pop("active", True)
+        if uid and not active:
+            talent_user.talentavailableday_set.filter(uid=uid).delete()
+        elif uid and active:
+            talent_user.talentavailableday_set.filter(uid=uid).update(**available_day)
+        elif not uid:
+            day = available_day['day']
+            if talent_user.talentavailableday_set.filter(day=day).exists():
+                raise HttpError(400, f"{day} already exists")
+            TalentAvailableDay.objects.create(**available_day, talent=talent_user)
+    if data.get("photo"):
+        data["photo"] = convert_base64_to_image_file(data["photo"])
+    talent_user.update(**data)
     return talent_user.user
 
 
-@router.post("complete-profile/next_step", response=talent_schemas.UserSchema, auth=JWTAuth())
+@router.patch("complete-profile/next_step", response=talent_schemas.UserSchema, auth=JWTAuth())
 @transaction.atomic
-def complete_talent_profile2(request, data: talent_schemas.CompleteTalentProfileSchema2):
+def complete_talent_profile2(request, data: PatchDict[talent_schemas.CompleteTalentProfileSchema2]):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
         raise HttpError(403, "Not allowed")
-    request_data = data.__dict__
-    education_history = request_data.pop("education_history", list())
+    education_history = data.pop("education_history", list())
     for education in education_history:
-        edu_data = education.__dict__
-        edu_uid = edu_data.pop("uid", None)
+        edu_uid = education.pop("uid", None)
         if edu_uid:
-            talent_user.education_set.filter(uid=edu_uid).update(**edu_data)
+            talent_user.education_set.filter(uid=edu_uid).update(**education)
         else:
-            Education(**edu_data, talent=talent_user).save()
-    additional_languages = request_data.pop("additional_languages", list())
-    talent_user.update(**request_data)
+            Education(**education, talent=talent_user).save()
+    additional_languages = data.pop("additional_languages", list())
+    talent_user.update(**data)
     talent_user.additional_languages.set(additional_languages)
     return talent_user.user
 
 
-@router.post("complete-profile/last_step", response=talent_schemas.UserSchema, auth=JWTAuth())
+@router.patch("complete-profile/last_step", response=talent_schemas.UserSchema, auth=JWTAuth())
 @transaction.atomic
-def complete_talent_profile3(request, data: talent_schemas.CompleteTalentProfileSchema3):
-    talent_user = Talent.objects.filter(user=request.user).first()
+def complete_talent_profile3(request, data: PatchDict[talent_schemas.CompleteTalentProfileSchema3]):
+    talent_user: Talent = Talent.objects.filter(user=request.user).first()
     if not talent_user:
         raise HttpError(403, "Not allowed")
-    if data.skill:
-        skill_data = data.skill.__dict__
-        tools = skill_data.pop("tools")
-        frameworks = skill_data.pop("frameworks")
-        business_models = skill_data.pop("business_models")
-        general = skill_data.pop("general_skills")
-        soft = skill_data.pop("soft_skills")
-        TalentSkill.objects.create(talent=talent_user, **skill_data)
-        talent_user.talentskill.soft_skills.set(soft)
-        talent_user.talentskill.general_skills.set(general)
-        talent_user.talentskill.business_models.set(business_models)
-        talent_user.talentskill.frameworks.set(frameworks)
-        talent_user.talentskill.tools.set(tools)
-    for experience in data.experience_history:
-        experience_data = experience.__dict__
-        experience_uid = experience_data.pop("uid", None)
-        if experience_uid:
-            Experience.objects.filter(uid=experience_uid).update(**experience_data)
-        else:
-            Experience(**experience_data, talent=talent_user).save()
+    if "skills" in data:
+        talent_user.skills.set(data["skills"])
+    if "business_models" in data:
+        talent_user.business_models.set(data["business_models"])
+    if "additional_skills" in data:
+        talent_user.additionalskill_set.exclude(name__in=data["additional_skills"]).delete()
+        existing_skills = talent_user.get_additional_skills()
+        AdditionalSkill.objects.bulk_create(
+            [
+                AdditionalSkill(name=skill, talent=talent_user)
+                for skill in data["additional_skills"]
+                if skill not in existing_skills
+            ]
+        )
+    if "experience_history" in data:
+        for experience in data["experience_history"]:
+            experience_uid = experience.pop("uid", None)
+            if experience_uid:
+                Experience.objects.filter(uid=experience_uid).update(**experience)
+            else:
+                Experience(**experience, talent=talent_user).save()
     return talent_user.user
 
 @router.get("talent-profile", response=talent_schemas.TalentUserSchema, auth=JWTAuth())
