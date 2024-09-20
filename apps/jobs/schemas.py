@@ -2,12 +2,16 @@ from ninja import ModelSchema
 from ninja.schema import Schema
 from datetime import time
 from uuid import UUID
-from core.schemas import READ_EXCLUDE_FIELDS
-from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
+from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS
+from .models import (
+    EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay, RequiredAttribute,
+    BusinessModel
+    )
 from typing import List
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
-from accounts.models import Department, Role, Skill, SkillCategory
+from accounts.models import Department, Role, Skill, SkillCategory, Country
 from typing import Optional
+from decimal import Decimal
 
 
 class AvailabilitySchema(Schema):
@@ -50,10 +54,10 @@ class CreateJobSchema(ModelSchema):
     lunch_break: LunchBreakEnum
     job_posts: List[JobPostSchema]
     recruiter_uid: UUID
-    annual_salary_min: float
-    annual_salary_max: float
-    annual_bonus_min: float
-    annual_bonus_max: float
+    annual_salary_min: Decimal
+    annual_salary_max: Decimal
+    annual_bonus_min: Decimal
+    annual_bonus_max: Decimal
     same_recruiter: bool
     screening_questions: List[QuestionSchema]
     department_uid: UUID
@@ -127,11 +131,19 @@ class GenericNameAndUidSchema(Schema):
     name: str
 
 
+class CountrySchema(ModelSchema):
+    class Meta:
+        model = Country
+        fields = ("uid", "name", "code")
+
+
 class JobPostDetailSchema(ModelSchema):
-    annual_salary_min: float | None
-    annual_salary_max: float | None
-    annual_bonus_min: float | None
-    annual_bonus_max: float | None
+    uid: UUID = None
+    annual_salary_min: Decimal | None
+    annual_salary_max: Decimal | None
+    annual_bonus_min: Decimal | None
+    annual_bonus_max: Decimal | None
+    country: CountrySchema
     class Meta:
         model = JobPost
         fields = ["uid", "province", "postal_code", "is_posted", "annual_salary_currency", "annual_bonus_currency"]
@@ -172,3 +184,48 @@ class JobLevelSchema(ModelSchema):
     class Meta:
         model = JobLevel
         exclude = [*READ_EXCLUDE_FIELDS]
+
+class BusinessModelSchema(ModelSchema):
+    class Meta:
+        model = BusinessModel
+        exclude = [*READ_EXCLUDE_FIELDS]
+
+
+class MutateRequiredAttributeSchema(ModelSchema):
+    skills: Optional[list[UUID]]
+    business_model: Optional[list[UUID]]
+    class Meta:
+        model = RequiredAttribute
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid"]
+
+
+class RequiredAttributeSkillCategory(ModelSchema):
+    uid: UUID
+    name: str
+    skills: List[SkillSchema] = None
+
+    class Meta:
+        model = SkillCategory
+        fields = ["uid", "name"]
+
+
+class RequiredAttributeSchema(ModelSchema):
+    business_model: list[BusinessModelSchema]
+    skill_categories: list[RequiredAttributeSkillCategory]
+
+    class Meta:
+        model = RequiredAttribute
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid", "skills"]
+    
+    @staticmethod
+    def resolve_skill_categories(obj):
+        result = []
+        for category in  SkillCategory.objects.all():
+            skills = obj.skills.filter(category=category)
+            category_json = RequiredAttributeSkillCategory(
+                uid=category.uid,
+                name=category.name,
+                skills=skills
+            )
+            result.append(category_json)
+        return result
