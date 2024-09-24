@@ -102,6 +102,12 @@ class Job(BaseModel):
     def __str__(self) -> str:
         return f"{self.title}({self.uid})"
 
+    def business_logo(self):
+        return self.created_by.business.get_logo()
+
+    def business_name(self):
+        return self.created_by.business.name
+
 
 class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
@@ -154,7 +160,7 @@ class SavedJob(BaseModel):
     talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE, null=True)
 
     def __str__(self) -> str:
-        return f"{self.job} ({self.user})"
+        return f"{self.job_post} ({self.user})"
 
 
 class JobDraft(BaseModel):
@@ -188,7 +194,7 @@ class JobFilter(BaseModel):
         if self.location_type:
             queryset = queryset.filter(job__work_structure=self.location_type)
         if self.remove_applied_jobs:
-            queryset = queryset.exclude(jobapplication__talent=self.talent)
+            queryset = queryset.exclude(jobapplication__applicant=self.talent)
         if self.role:
             queryset = queryset.filter(job__role__name__icontains=self.role)
         return queryset

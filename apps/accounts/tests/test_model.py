@@ -7,16 +7,15 @@ from django.test import TestCase
 from accounts.enums import BusinessUserRoleType, Days
 from accounts.models import User, Talent, SkillCategory, Skill, Department, Experience, Role, Education, EducationLevel, \
     BusinessUser, Business, Country, TalentAvailableDay
-from accounts.schemas.talent import TalentSkillSchema
+from accounts.schemas.talent import TalentSkillSchema, MonthlyChartSchema
 from chats.models import Conversation, Message
 from core.models import Currency
 from jobs.enums import LunchBreakEnum, WorkStructureEnum, StageType
 from jobs.models import JobLevel, EmploymentType, Job, JobPost, RequiredAttribute, BusinessModel, AvailableDay, \
-    JobApplication, JobInterview
+    JobApplication, JobInterview, SavedJob
 
 
 class TalentModelTest(TestCase):
-    #TODO
     def setUp(self):
         BusinessModel.objects.bulk_create(
             [BusinessModel(
@@ -93,8 +92,7 @@ class TalentModelTest(TestCase):
             university="University of Lagos"
         )
         job = Job.objects.create(
-            created_by=self.user2,
-            business=self.business,
+            created_by=self.business_user,
             job_level=self.job_level,
             employment_type=self.employment_type,
             hiring_company_name="Example Company",
@@ -104,7 +102,7 @@ class TalentModelTest(TestCase):
             lunch_break=LunchBreakEnum.PAID.value,  # Assuming LunchBreakEnum has a PAID option
             annual_salary_min=100000.00,
             annual_salary_max=120000.00,
-            annual_salary_currency="USD",
+            annual_salary_currency=self.currency,
             availability_timezone=timezone.utc  # Set to UTC for this example
         )
         self.job_post = JobPost.objects.create(
@@ -115,9 +113,9 @@ class TalentModelTest(TestCase):
             postal_code="M5V 1T6",  # Replace with actual postal code
             annual_salary_min=Decimal('80000.00'),  # Use Decimal for money fields
             annual_salary_max=Decimal('100000.00'),
-            annual_salary_currency="USD",
+            annual_salary_currency=self.currency,
             location_type=WorkStructureEnum.HYBRID.value,
-            recruiter=self.user2
+            recruiter=self.business_user
         )
         self.job_required_attrs = RequiredAttribute.objects.create(
             job=job,
@@ -241,16 +239,26 @@ class TalentModelTest(TestCase):
     def test_applications_made_chart(self):
         applications_chart = self.talent.applications_made_chart()
         self.assertTrue(isinstance(applications_chart, list))
-        self.assertTrue(isinstance(applications_chart[0], dict))
+        self.assertTrue(isinstance(applications_chart[0], MonthlyChartSchema))
         self.assertEqual(len(applications_chart), 12)
-        self.assertIn("month", applications_chart[0])
-        self.assertIn("count", applications_chart[0])
 
 
     def test_interviews_chart(self):
         interview_chart = self.talent.interviews_chart()
         self.assertTrue(isinstance(interview_chart, list))
-        self.assertTrue(isinstance(interview_chart[0], dict))
+        self.assertTrue(isinstance(interview_chart[0], MonthlyChartSchema))
         self.assertEqual(len(interview_chart), 12)
-        self.assertIn("month", interview_chart[0])
-        self.assertIn("count", interview_chart[0])
+
+
+    def test_saved_jobs(self):
+        self.assertEqual(self.talent.saved_jobs().count(), 0)
+        SavedJob.objects.create(
+            job_post=self.job_post,
+            talent=self.talent
+        )
+        self.assertEqual(self.talent.saved_jobs().count(), 1)
+
+    def test_applied_jobs(self):
+        self.assertEqual(self.talent.applied_jobs().count(),1)
+
+

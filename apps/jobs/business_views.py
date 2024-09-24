@@ -15,23 +15,23 @@ from ninja_jwt.authentication import JWTAuth
 
 router = Router(tags=["Business Jobs"])
 
-@router.get("employment-types", response=list[EmploymentTypeSchema])
+@router.get("employment-types", response=list[EmploymentTypeSchema], tags=["Common"])
 def get_employment_types(request):
     employment_types = EmploymentType.objects.filter(parent=None)
     return employment_types
 
 
-@router.get("departments", response=list[DepartmentSchema])
+@router.get("departments", response=list[DepartmentSchema], tags=["Common"])
 def get_departments(request):
     return Department.objects.all()
 
 
-@router.get("roles", response=list[RoleSchema])
+@router.get("roles", response=list[RoleSchema], tags=["Common"])
 def get_roles(request):
     return Role.objects.all()
 
 
-@router.get("skill-categories", response=list[SkillCategorySchema])
+@router.get("skill-categories", response=list[SkillCategorySchema], tags=["Common"])
 def get_skills(request):
     return SkillCategory.objects.all().prefetch_related("skill_set")
 
