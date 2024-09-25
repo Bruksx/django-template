@@ -13,8 +13,8 @@ class LoginEndpointTests(TestCase):
         self.login_url = '/login'
 
     def test_login_successful(self):
-        User.objects.create_user(email='testuser@example.com', password='securepassword')
-        
+        user = User.objects.create_user(email='testuser@example.com', password='securepassword')
+        user.update(email_verified=True)
         data = {
             'email': 'testuser@example.com',
             'password': 'securepassword'
@@ -25,7 +25,8 @@ class LoginEndpointTests(TestCase):
         self.assertEqual(response_data['email'], 'testuser@example.com')
 
     def test_login_unsuccessful_with_wrong_password(self):
-        User.objects.create_user(email='testuser@example.com', password='securepassword')
+        User.objects.create_user(email='testuser@example.com', password='securepassword',
+                                 email_verified=True)
         
         data = {
             'email': 'testuser@example.com',
@@ -33,8 +34,8 @@ class LoginEndpointTests(TestCase):
         }
         response = self.client.post(self.login_url, json=data, content_type='application/json')
         
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.json()['detail'], 'Invalid Credentials')
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()['detail'], 'Invalid login credentials')
 
     def test_login_unsuccessful_with_non_existent_user(self):
         data = {
@@ -43,8 +44,8 @@ class LoginEndpointTests(TestCase):
         }
         response = self.client.post(self.login_url, json=data, content_type='application/json')
         
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.json()['detail'], 'Invalid Credentials')
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()['detail'], "You don't have an account with us")
 
 
 

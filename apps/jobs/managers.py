@@ -1,5 +1,4 @@
-from django_softdelete.managers import SoftDeleteManager
-from accounts.models import Department, Role,  Country, User, BusinessUser, Skill
+from accounts.models import Department, Role,  Country, User
 from core.models import BaseManager
 
 
