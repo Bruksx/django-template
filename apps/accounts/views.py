@@ -1,3 +1,6 @@
+import logging
+from datetime import date, timedelta
+from typing import List
 from uuid import UUID
 
 from django.core.mail import send_mail
@@ -5,15 +8,17 @@ from django.db import transaction
 from helpers.images import convert_base64_to_image_file
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
+from ninja.pagination import paginate
 from ninja.responses import Response
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import UserType, AuthType
-from accounts.models import Talent, AdditionalSkill, TalentAvailableDay
+from accounts.models import Talent, AdditionalSkill, TalentAvailableDay, Country, EducationLevel, Role
 from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
-
+from accounts.schemas.talent import CountrySchema, EducationLevelSchema, RoleSchema, TalentDashboardReport, \
+    MonthlyChartSchema
 
 router = Router(tags=["Account"])
 
@@ -196,4 +201,51 @@ def delete_talent_experience(request, experience_uid:UUID):
         raise HttpError(404, "This experience does not exist")
     experience.delete()
     return Response(status=204, data=None)
+
+
+@router.get("countries", response=List[CountrySchema], tags=["Common"], auth=JWTAuth())
+def country_list(request):
+    return Country.objects.all()
+
+
+@router.get("educational-levels", response=List[EducationLevelSchema], auth=JWTAuth(),
+            tags=["Common"])
+def educational_levels(request):
+    return EducationLevel.objects.all()
+
+
+@router.get("talent/dashboard-report", response=TalentDashboardReport, auth=JWTAuth(),
+            tags=["Talent Dashboard"])
+def talent_dashboard_report(request, start_date: date=None, end_date: date=None):
+    user = request.user
+    if not hasattr(user, "talent", ):
+        raise HttpError(403, "Only talents are allowed here")
+    if start_date and end_date:
+        # if the range is inclusive
+        end_date = end_date + timedelta(days=1)
+        return TalentDashboardReport.model_dump(user.talent, context={
+                "start_date": start_date,
+                "end_date": end_date
+            })
+
+    return user.talent
+
+@router.get("talent/applications-chart", response=List[MonthlyChartSchema],
+            tags=["Talent Dashboard"])
+def talent_applications_chart(request):
+    user = request.user
+    if not hasattr(user, "talent", ):
+        raise HttpError(403, "Only talents are allowed here")
+    return user.talent.applications_made_chart()
+
+
+@router.get("talent/interviews-chart", response=List[MonthlyChartSchema],
+            tags=["Talent Dashboard"])
+def talent_interview_chart(request):
+    user = request.user
+    if not hasattr(user, "talent", ):
+        raise HttpError(403, "Only talents are allowed here")
+    logging.critical(f"interview: {user.talent.interviews_chart()}")
+    return user.talent.interviews_chart()
+
 

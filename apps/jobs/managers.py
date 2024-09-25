@@ -1,5 +1,4 @@
-from django_softdelete.managers import SoftDeleteManager
-from accounts.models import Department, Role,  Country, User, BusinessUser, Skill
+from accounts.models import Department, Role,  Country, User
 from core.models import BaseManager
 
 
@@ -27,7 +26,7 @@ class JobManager(BaseManager):
             del data_dict[attr]
 
         job = Job(**data_dict)
-        job.created_by = business_user.user
+        job.created_by = business_user
         job.business = business_user.business
         job.first_language = first_language
         job.department = department

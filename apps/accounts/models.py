@@ -17,7 +17,6 @@ from accounts.dtos import TokenDto
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days
 from core.models import BaseModel
 
-
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -216,7 +215,7 @@ class Talent(BaseModel):
         end_date: date = experiences.order_by("end_date").last().end_date
         return (end_date - start_date).days//365
 
-    def job_post_matches(self):
+    def job_post_matches(self, job_only=False, start_date: date=None, end_date: date=None):
         from jobs.models import AvailableDay, JobPost
 
         from jobs.models import Job
@@ -243,8 +242,13 @@ class Talent(BaseModel):
             Q(requiredattribute__location=True, jobpost__country=self.country),
             Q(requiredattribute__skills__id__in=skill_ids)
         )
-        job_ids = Job.objects.filter(job_matching_query).only("id").distinct("id").values_list("id", flat=True)
-        return JobPost.objects.filter(job_id__in=job_ids)
+        if start_date and end_date:
+            job_matching_query = Q(job_matching_query, created_at__range=[start_date, end_date])
+        jobs = Job.objects.filter(job_matching_query).only("id").distinct("id")
+        if job_only:
+            return jobs
+        job_ids = jobs.values_list("id", flat=True)
+        return JobPost.objects.filter(job_id__in=job_ids).order_by("-id")
 
     def job_match_score(self, job_post):
         job = job_post.job
@@ -290,19 +294,37 @@ class Talent(BaseModel):
         return working_hours_query
 
 
-    def job_applications(self):
+    def job_applications(self, start_date:date=None, end_date:date=None):
+        if start_date and end_date:
+            return self.jobapplication_set.filter(created_at__range=[start_date, end_date])
         return self.jobapplication_set
 
+    def saved_jobs(self):
+        from jobs.models import JobPost
+        job_post_ids = self.savedjob_set.only("job_post_id").values_list("job_post_id", flat=True)
+        return JobPost.objects.filter(id__in=job_post_ids)
 
-    def invitations_to_apply(self):
+    def applied_jobs(self):
+        from jobs.models import JobPost
+        job_post_ids = self.jobapplication_set.only("job_post_id").values_list("job_post_id", flat=True)
+        return JobPost.objects.filter(id__in=job_post_ids)
+
+    def invitations_to_apply(self, start_date:date=None, end_date:date=None)->int:
         from chats.models import Message
-        return Message.objects.filter(conversation__users__id=self.user.id).only("job_id").distinct("job_id").count()
+        query = Q(conversation__users__id=self.user.id)
+        if start_date and end_date:
+            query = Q(query, created_at__range=[start_date, end_date])
+        return Message.objects.filter(query).only("job_id").distinct("job_id").count()
 
-    def job_interviews(self):
+    def job_interviews(self, start_date:date=None, end_date:date=None):
         from jobs.models import JobInterview
-        return JobInterview.objects.filter(application__applicant=self)
+        query = Q(application__applicant=self)
+        if start_date and end_date:
+            query = Q(query, created_at__range=[start_date, end_date])
+        return JobInterview.objects.filter(query)
 
     def applications_made_chart(self):
+        from accounts.schemas.talent import MonthlyChartSchema
         current_year = datetime.now().year
         applications = self.jobapplication_set.filter(created_at__year=current_year)
         data = list()
@@ -310,7 +332,7 @@ class Talent(BaseModel):
         for value in Months.values():
             month +=1
             data.append(
-                dict(
+                MonthlyChartSchema(
                     month = value,
                     count = applications.filter(created_at__month=month).count()
                 )
@@ -318,6 +340,7 @@ class Talent(BaseModel):
         return data
 
     def interviews_chart(self):
+        from accounts.schemas.talent import MonthlyChartSchema
         current_year = datetime.now().year
         interviews = self.job_interviews().filter(created_at__year=current_year)
         data = list()
@@ -325,7 +348,7 @@ class Talent(BaseModel):
         for value in Months.values():
             month += 1
             data.append(
-                dict(
+                MonthlyChartSchema(
                     month=value,
                     count=interviews.filter(created_at__month=month).count()
                 )
@@ -349,6 +372,10 @@ class Business(BaseModel):
     def __str__(self):
         return self.name
 
+    def get_logo(self):
+        if not self.logo:
+            return
+        return self.logo.url
 
 class VerificationCode(BaseModel):
     def default_code():

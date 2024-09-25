@@ -2,10 +2,9 @@ from ninja.errors import HttpError
 from ninja_jwt.exceptions import AuthenticationFailed
 from services.schema import ProfileSchema
 
-from accounts.enums import UserType, AuthType
+from accounts.enums import UserType, AuthType, SocialType
 from accounts.models import BusinessUser
 from accounts.models import User, Talent
-
 
 def google_auth_login(profile: ProfileSchema, user_type: UserType)->User:
     user = User.objects.filter(google_id=profile.id).first()
@@ -22,9 +21,10 @@ def google_auth_login(profile: ProfileSchema, user_type: UserType)->User:
     user = User.objects.create_user(**profile.__dict__,
                                     password=password,
                                     type=user_type.value,
-                                    email_verified=True, is_active=True)
+                                    email_verified=True, is_active=True,
+                                    auth_mode=SocialType.GOOGLE.value)
     if user_type == UserType.TALENT:
-        Talent.object.create(user=user)
+        Talent.objects.create(user=user)
     elif user_type == UserType.BUSINESS:
         BusinessUser.objects.create(user=user)
     return user
