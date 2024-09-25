@@ -1,23 +1,30 @@
 import logging
 from datetime import time
-from decimal import Decimal
 from typing import List
 from typing import Optional
 from uuid import UUID
 
 from ninja import ModelSchema
 from ninja.schema import Schema
-from pydantic import ValidationError
+from pydantic import fields, ValidationError
 from pydantic.fields import FieldInfo
 
 from accounts.models import Department, Role, Skill, SkillCategory
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS
+from datetime import time
+from uuid import UUID
+from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS
+from .models import (
+    EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay, RequiredAttribute,
+    BusinessModel, EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
+    )
+from typing import List
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
 from .models import BusinessModel, JobFilter, JobApplication
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
-from .models import (
-    RequiredAttribute
-)
+from accounts.models import Department, Role, Skill, SkillCategory, Country
+from typing import Optional
+from decimal import Decimal
 
 
 class AvailabilitySchema(Schema):
