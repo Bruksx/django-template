@@ -1,15 +1,16 @@
-from django.template.defaultfilters import first
-
-from accounts.enums import PreferredCommunicationType, GenderType, NoticePeriodType
-from accounts.models import User, VerificationCode, Country, Talent, TalentAvailability, EducationLevel, Industry, \
-    Skill, Department, SkillCategory, TalentSkill, Experience, Education
 from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
+
+from accounts.enums import PreferredCommunicationType, GenderType, NoticePeriodType, Days
+from accounts.models import User, VerificationCode, Country, Talent, EducationLevel, Industry, \
+    Skill, Department, SkillCategory, Role
 from accounts.views import router
 from core.models import Language, Currency
-from jobs.models import JobLevel, EmploymentType
+from jobs.models import JobLevel, EmploymentType, BusinessModel
 
+
+#TODO: Update the tests with the latest updates
 
 class ValidateOtpTests(TestCase):
     def setUp(self):
@@ -97,29 +98,6 @@ class CompleteProfileTests(TestCase):
         data = {
             "gender": GenderType.NON_BINARY.value,
             "visible": True,
-            "availability": {
-                "monday": True,
-                "monday_start_time": "09:30:00",
-                "monday_end_time": "06:30:00",
-                "tuesday": True,
-                "tuesday_start_time": "09:30:00",
-                "tuesday_end_time": "06:30:00",
-                "wednesday": True,
-                "wednesday_start_time": "09:30:00",
-                "wednesday_end_time": "06:30:00",
-                "thursday": True,
-                "thursday_start_time": "09:30:00",
-                "thursday_end_time": "06:30:00",
-                "friday": True,
-                "friday_start_time": "09:30:00",
-                "friday_end_time": "06:30:00",
-                "saturday": False,
-                "saturday_start_time": None,
-                "saturday_end_time": None,
-                "sunday": False,
-                "sunday_start_time": None,
-                "sunday_end_time": None
-            },
             "bio": "I am a Tech Freak",
             "photo": None,
             "notice_period": 1,
@@ -127,12 +105,39 @@ class CompleteProfileTests(TestCase):
             "instagram": "https://instagram.com",
             "linkedin": "https://linkedin.com",
             "facebook": "https://facebook.com",
-            "twitter_x": "https://twitterx.com"
+            "twitter_x": "https://twitter.com",
+            "availability": [
+                {
+                    "day": Days.MONDAY.value,
+                    "start_time": "09:30:00",
+                    "end_time": "06:30:00"
+                },
+                {
+                    "day": Days.TUESDAY.value,
+                    "start_time": "09:30:00",
+                    "end_time": "06:30:00"
+                },
+                {
+                    "day": Days.WEDNESDAY.value,
+                    "start_time": "09:30:00",
+                    "end_time": "06:30:00"
+                },
+                {
+                    "day": Days.THURSDAY.value,
+                    "start_time": "09:30:00",
+                    "end_time": "06:30:00"
+                },
+                {
+                    "day": Days.FRIDAY.value,
+                    "start_time": "09:30:00",
+                    "end_time": "06:30:00"
+                }
+            ]
         }
         headers = {
             "authorization": f"bearer {token}"
         }
-        return data, client.post("/complete-profile/first_step", json=data, headers=headers)
+        return data, client.patch("/complete-profile/first_step", json=data, headers=headers)
 
     @classmethod
     def send_complete_profile_2(cls, client, token, industry):
@@ -159,7 +164,7 @@ class CompleteProfileTests(TestCase):
         headers = {
             "authorization": f"bearer {token}"
         }
-        return data, client.post("/complete-profile/next_step", json=data, headers=headers)
+        return data, client.patch("/complete-profile/next_step", json=data, headers=headers)
 
     @classmethod
     def send_complete_profile_3(cls, client, token, industry):
@@ -167,37 +172,32 @@ class CompleteProfileTests(TestCase):
                                                name="TestDepartment")
         skills = []
         skill_categories = []
-        for category in ["tool", "framework", "bm", "general", "soft"]:
+        for category in ["tool", "framework", "general", "soft"]:
             skill_categories.append(SkillCategory.objects.create(name=f"{category.title()}Category"))
-            skills.append(Skill.objects.create(name=f"{category.upper()}Skill", category=skill_categories[-1],
+            skills.append(Skill.objects.create(name=f"{category.title()}Skill", category=skill_categories[-1],
                                                department=department))
+        skill_uids = [x.uid for x in skills]
+        BusinessModel.objects.bulk_create(
+            [BusinessModel(**data) for data in [
+                dict(name="TestBM1", description="Test BM"),
+                dict(name="TestBM2", description="Test BM 2")
+            ]]
+        )
+        business_models_uids = list(BusinessModel.objects.values_list("uid", flat=True))
         job_level = JobLevel.objects.create(name="TestJobLevel")
         employment_type = EmploymentType.objects.create(name="TestEmploymentType")
         currency = Currency.objects.create(name="Naira", abbreviation="NGN")
+        role = Role.objects.create(name="Accountant", department=department)
         data = {
-            "skill": {
-                "additional_skills": [
+            "skills": skill_uids,
+            "additional_skills": [
                     "Skipping", "Jumping"
                 ],
-                "tools": [
-                    skills[0].uid
-                ],
-                "frameworks": [
-                    skills[1].uid
-                ],
-                "business_models": [
-                    skills[2].uid
-                ],
-                "general_skills": [
-                    skills[3].uid
-                ],
-                "soft_skills": [
-                    skills[4].uid
-                ]
-            },
+            "business_models": business_models_uids,
             "experience_history": [
                 {
-                    "company": "Google",
+                    "role": role.uid,
+                     "company": "Google",
                     "annual_salary": 5000,
                     "annual_salary_currency": currency.uid,
                     "annual_salary_bonus": 500,
@@ -213,19 +213,17 @@ class CompleteProfileTests(TestCase):
         headers = {
             "authorization": f"bearer {token}"
         }
-        return data, client.post("/complete-profile/last_step", json=data, headers=headers)
+        return data, client.patch("/complete-profile/last_step", json=data, headers=headers)
 
     def test_complete_profile_success(self):
-        self.assertIsNone(getattr(self.talent, "talentavailability", None))
+        self.assertEqual(self.talent.talentavailableday_set.count(), 0)
         data, response = self.send_complete_profile_1(client=self.client, token=self.user.token)
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.user.refresh_from_db()
         self.assertEqual(self.user.gender, data["gender"])
         self.assertEqual(self.talent.bio, data["bio"])
-        self.assertIsNotNone(getattr(self.talent, "talentavailability", None))
-        self.assertEqual(self.talent.talentavailability.friday, data["availability"]["friday"])
-        self.assertEqual(self.talent.talentavailability.sunday, data["availability"]["sunday"])
+        self.assertEqual(self.talent.talentavailableday_set.count(), 5)
 
 
     def test_complete_profile_2_success(self):
@@ -243,17 +241,13 @@ class CompleteProfileTests(TestCase):
 
 
     def test_complete_profile_3_success(self):
-        self.assertFalse(hasattr(self.talent, "talentskill"))
+        self.assertEqual(self.talent.skills.count(), 0)
         data, response = self.send_complete_profile_3(client=self.client, token=self.user.token, industry=self.industry)
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.assertEqual(self.talent.experience_set.count(), 1)
-        self.assertTrue(hasattr(self.talent, "talentskill"))
-        self.assertEqual(self.talent.talentskill.tools.first().uid, data["skill"]["tools"][0])
-        self.assertEqual(self.talent.talentskill.frameworks.first().uid, data["skill"]["frameworks"][0])
-        self.assertEqual(self.talent.talentskill.business_models.first().uid, data["skill"]["business_models"][0])
-        self.assertEqual(self.talent.talentskill.general_skills.first().uid, data["skill"]["general_skills"][0])
-        self.assertEqual(self.talent.talentskill.soft_skills.first().uid, data["skill"]["soft_skills"][0])
+        self.assertNotEqual(self.talent.skills.count(), 0)
+        self.assertNotEqual(self.talent.business_models.count(), 0)
         self.assertTrue(self.talent.experience_set.filter(level__uid=data["experience_history"][0]["level"],
                                                           employment_type__uid=data["experience_history"][0]["employment_type"]).exists())
 
@@ -291,10 +285,12 @@ class GetTalentProfileTests(TestCase):
                                                      industry=self.industry)
         CompleteProfileTests.send_complete_profile_3(client=self.client, token=self.user.token,
                                                      industry=self.industry)
+        self.talent.refresh_from_db()
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
         response = self.client.get("/talent-profile", headers=headers)
+        self.assertEqual(response.status_code, 200)
 
 
 class UpdateTalentProfileTests(TestCase):
@@ -369,7 +365,7 @@ class UpdateTalentProfileTests(TestCase):
         self.assertEqual(response.status_code, 204)
         self.assertEqual(self.talent.experience_set.count(), 0)
 
-    def test_education_update(self):
+    def test_talent_education_update(self):
         CompleteProfileTests.send_complete_profile_2(client=self.client, token=self.user.token,
                                                      industry=self.industry)
         education_level = EducationLevel.objects.create(industry=self.industry, level="TestLevel")
@@ -397,10 +393,84 @@ class UpdateTalentProfileTests(TestCase):
         self.assertNotEqual(education.major, data["education_history"][0]["major"])
         self.assertNotEqual(education.university, data["education_history"][0]["university"])
         self.assertNotEqual(self.talent.additional_languages.count(), 0)
-        response = self.client.post("/complete-profile/next_step", json=data, headers=headers)
+        response = self.client.patch("/complete-profile/next_step", json=data, headers=headers)
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         education.refresh_from_db()
         self.assertEqual(education.major, data["education_history"][0]["major"])
         self.assertEqual(education.university, data["education_history"][0]["university"])
         self.assertEqual(self.talent.additional_languages.count(), 0)
+
+    def test_talent_availability_update(self):
+        CompleteProfileTests.send_complete_profile_1(client=self.client, token=self.user.token)
+        self.talent.refresh_from_db()
+        data = {"availability": [
+                {
+                    'uid': self.talent.talentavailableday_set.filter(day=Days.TUESDAY.value).first().uid,
+                    "day": Days.TUESDAY.value,
+                    "start_time": "09:30:00",
+                    "end_time": "06:00:00"
+                },
+                {
+                    'uid': self.talent.talentavailableday_set.filter(day=Days.WEDNESDAY.value).first().uid,
+                    'active': False,
+                    "day": Days.WEDNESDAY.value,
+                    "start_time": "09:30:00",
+                    "end_time": "06:30:00"
+                },
+                {
+                    'uid': self.talent.talentavailableday_set.filter(day=Days.FRIDAY.value).first().uid,
+                    'active': False,
+                    "day": Days.FRIDAY.value,
+                    "start_time": "09:30:00",
+                    "end_time": "06:30:00"
+                },
+                {
+                    "day": Days.SATURDAY.value,
+                    "start_time": "12:00:00",
+                    "end_time": "07:00:00"
+                },
+
+            ]
+        }
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        tuesday_availability = self.talent.talentavailableday_set.filter(day=Days.TUESDAY.value).first()
+        self.assertNotEqual(str(tuesday_availability.end_time), data["availability"][0]["end_time"])
+        wednesday_availability = self.talent.talentavailableday_set.filter(day=Days.WEDNESDAY.value).first()
+        self.assertIsNotNone(wednesday_availability)
+        saturday_availability = self.talent.talentavailableday_set.filter(day=Days.SATURDAY.value).first()
+        self.assertIsNone(saturday_availability)
+        response = self.client.patch("/complete-profile/first_step", json=data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        tuesday_availability = self.talent.talentavailableday_set.filter(day=Days.TUESDAY.value).first()
+        self.assertEqual(str(tuesday_availability.end_time), data["availability"][0]["end_time"])
+        wednesday_availability = self.talent.talentavailableday_set.filter(day=Days.WEDNESDAY.value).first()
+        self.assertIsNone(wednesday_availability)
+        saturday_availability = self.talent.talentavailableday_set.filter(day=Days.SATURDAY.value).first()
+        self.assertIsNotNone(saturday_availability)
+        self.assertEqual(self.talent.talentavailableday_set.count(), 4)
+
+    def test_talent_additional_skills_update(self):
+        CompleteProfileTests.send_complete_profile_3(client=self.client, token=self.user.token,
+                                                     industry=self.industry)
+        self.talent.refresh_from_db()
+        data = {
+            "additional_skills": [
+                    "Skipping", "Swimming", "Baking"
+                ]
+        }
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        self.assertEqual(self.talent.additionalskill_set.count(), 2)
+        self.assertTrue(self.talent.additionalskill_set.filter(name="Jumping").exists())
+        response = self.client.patch("/complete-profile/last_step", json=data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        self.assertEqual(self.talent.additionalskill_set.count(), 3)
+        self.assertFalse(self.talent.additionalskill_set.filter(name="Jumping").exists())
+        self.assertTrue(self.talent.additionalskill_set.filter(name="Baking").exists())
+        self.assertTrue(self.talent.additionalskill_set.filter(name="Skipping").exists())

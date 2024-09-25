@@ -1,22 +1,35 @@
-from locale import currency
-from typing import Optional, List, Any
+import logging
+from typing import Optional, List
 from uuid import UUID
 
 from ninja import Schema, ModelSchema
-from ninja.types import DictStrAny
 
-from accounts.enums import GenderType, PreferredCommunicationType
-from accounts.models import (Talent, User, TalentAvailability, Education,
-                             Experience, TalentSkill, Skill, EducationLevel, Country, SkillCategory, Department,
-                             Industry)
-from core.models import Language
+from accounts.enums import GenderType, PreferredCommunicationType, Days
+from accounts.models import (Talent, User, TalentAvailableDay, Education,
+                             Experience, Skill, EducationLevel, Country, Role, Department)
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema
-from jobs.schemas import JobLevelSchema, EmploymentTypeSchema
+from jobs.schemas import JobLevelSchema, EmploymentTypeSchema, BusinessModelSchema
+
 
 class CountrySchema(ModelSchema):
     class Meta:
         model = Country
         fields = ("uid", "name", "code")
+
+class DepartmentSchema(ModelSchema):
+    class Meta:
+        model = Department
+        fields = ("uid", "name",)
+
+class RoleSchema(ModelSchema):
+    department: str
+    class Meta:
+        model = Role
+        fields = ("uid", "name", "department")
+
+    @staticmethod
+    def resolve_department(obj):
+        return obj.department.name
 
 
 class EducationLevelSchema(ModelSchema):
@@ -46,6 +59,7 @@ class MutateEducationSchema(ModelSchema):
 
 
 class MutateExperienceSchema(ModelSchema):
+    role: UUID
     uid: Optional[UUID] = None
     annual_salary_bonus_currency: UUID
     annual_salary_currency: UUID
@@ -56,6 +70,7 @@ class MutateExperienceSchema(ModelSchema):
         exclude = [*MUTATE_EXCLUDE_FIELDS, "talent"]
 
 class ExperienceSchema(ModelSchema):
+    role: RoleSchema
     level: JobLevelSchema
     employment_type: EmploymentTypeSchema
     annual_salary_currency: CurrencySchema
@@ -65,51 +80,26 @@ class ExperienceSchema(ModelSchema):
         exclude = [*READ_EXCLUDE_FIELDS, "talent"]
 
 
-
-class MutateTalentSkill(ModelSchema):
-    additional_skills:List[str]
-    tools: List[UUID]
-    frameworks: List[UUID]
-    business_models: List[UUID]
-    general_skills: List[UUID]
-    soft_skills: List[UUID]
-
-    class Meta:
-        model = TalentSkill
-        exclude = [*MUTATE_EXCLUDE_FIELDS,"talent", "uid"]
-
-
 class SkillSchema(ModelSchema):
-    category: str
-    department: str
+    department: DepartmentSchema
     class Meta:
         model = Skill
-        fields = ("uid", "category", "department", "name")
-
-    @staticmethod
-    def resolve_category(obj):
-        return obj.category.name
-
-    @staticmethod
-    def resolve_department(obj):
-        return obj.department.name
+        fields = ("uid",  "name")
 
 
 
-class TalentSkillSchema(ModelSchema):
-    tools: List[SkillSchema]
-    frameworks: List[SkillSchema]
-    business_models: List[SkillSchema]
-    general_skills: List[SkillSchema]
-    soft_skills: List[SkillSchema]
+class MutateTalentAvailableDaySchema(ModelSchema):
+    uid: Optional[UUID] = None
+    active: Optional[bool] = True
+    day: Days
     class Meta:
-        model = TalentSkill
-        exclude = [*READ_EXCLUDE_FIELDS,"talent"]
+        model = TalentAvailableDay
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "talent"]
 
-class MutateTalentAvailabilitySchema(ModelSchema):
+class TalentAvailableDaySchema(ModelSchema):
     class Meta:
-        model = TalentAvailability
-        exclude = [*MUTATE_EXCLUDE_FIELDS, "talent", "uid"]
+        model = TalentAvailableDay
+        fields = ("uid", "start_time", "end_time")
 
 class UpdateTalentProfileSchema(Schema):
     first_name: str
@@ -137,26 +127,50 @@ class UserSchema(ModelSchema):
 class LoggedInUserSchema(UserSchema):
     token: str
 
+class TalentSkillSchema(Schema):
+    category :str
+    skills : List[SkillSchema]
+
+class TalentAvailabilitySchema(Schema):
+    day: str
+    availability: Optional[TalentAvailableDaySchema] = None
 
 class TalentUserSchema(ModelSchema):
     user: UserSchema
     country: Optional[CountrySchema]
-    skill: Optional[TalentSkillSchema]
+    skills: List[TalentSkillSchema]
+    business_models: List[BusinessModelSchema]
     experience_history: List[ExperienceSchema]
     education_history: List[EducationSchema]
     photo_url: Optional[str]
     cv_url: Optional[str]
     native_language: Optional[LanguageSchema]
     additional_languages: List[LanguageSchema]
+    availability:  List[TalentAvailabilitySchema]
+    additional_skills: List[str]
+
     class Meta:
         model = Talent
         exclude = (*READ_EXCLUDE_FIELDS, "cv", "photo")
+
+    @staticmethod
+    def resolve_skills(obj):
+        return obj.get_skills()
+
+    @staticmethod
+    def resolve_additional_skills(obj):
+        return obj.get_additional_skills()
+
+    @staticmethod
+    def resolve_availability(obj):
+        return obj.get_available_days()
+
 
 
 
 class CompleteTalentProfileSchema(ModelSchema):
     gender: GenderType
-    availability: Optional[MutateTalentAvailabilitySchema]
+    availability: List[MutateTalentAvailableDaySchema]
     photo: Optional[str] = None
 
     class Meta:
@@ -169,8 +183,8 @@ class CompleteTalentProfileSchema(ModelSchema):
 class CompleteTalentProfileSchema2(ModelSchema):
     education_history: List[MutateEducationSchema]
     cv: Optional[str] = None
-    native_language: Optional[UUID]
-    additional_languages:List[str]
+    native_language: Optional[UUID] = None
+    additional_languages:List[UUID]
 
 
     class Meta:
@@ -178,8 +192,14 @@ class CompleteTalentProfileSchema2(ModelSchema):
         fields = ["cv", "additional_languages", "native_language"]
 
 
-class CompleteTalentProfileSchema3(Schema):
-    skill: Optional[MutateTalentSkill]
-    experience_history: Optional[List[MutateExperienceSchema]]
+class CompleteTalentProfileSchema3(ModelSchema):
+    skills: List[UUID]
+    additional_skills: List[str]
+    business_models: List[UUID]
+    experience_history: List[MutateExperienceSchema]
+
+    class Meta:
+        model = Talent
+        fields = ["skills", "business_models"]
 
 

@@ -1,3 +1,8 @@
+from datetime import time
+from typing import List
+from typing import Optional
+from uuid import UUID
+
 from ninja import ModelSchema
 from ninja.schema import Schema
 from datetime import time
@@ -5,7 +10,7 @@ from uuid import UUID
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS
 from .models import (
     EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay, RequiredAttribute,
-    BusinessModel
+    BusinessModel, EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
     )
 from typing import List
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
@@ -43,7 +48,7 @@ class QuestionSchema(ModelSchema):
         fields = ["type", "text", "is_knockout"]
 
 
-class CreateJobSchema(ModelSchema):
+class CreateJobSchema(Schema):
     title: str
     employment_type_uid: UUID
     availability: list[AvailabilitySchema]
@@ -131,25 +136,17 @@ class GenericNameAndUidSchema(Schema):
     name: str
 
 
-class CountrySchema(ModelSchema):
-    class Meta:
-        model = Country
-        fields = ("uid", "name", "code")
-
-
-class JobPostDetailSchema(ModelSchema):
-    uid: UUID = None
+class JobPostDetailSchema(Schema):
     annual_salary_min: Decimal | None
     annual_salary_max: Decimal | None
     annual_bonus_min: Decimal | None
     annual_bonus_max: Decimal | None
-    country: CountrySchema
     class Meta:
         model = JobPost
         fields = ["uid", "province", "postal_code", "is_posted", "annual_salary_currency", "annual_bonus_currency"]
 
 
-class JobDetailSchema(ModelSchema):
+class JobDetailSchema(Schema):
     uid: UUID
     annual_salary_min: float
     annual_salary_max: float
@@ -162,7 +159,7 @@ class JobDetailSchema(ModelSchema):
     class Meta:
         model = Job
         fields = [
-            "title", "hiring_company_name", "hiring_company_description", "work_structure", "office_address","lunch_break", 
+            "title", "hiring_company_name", "hiring_company_description", "work_structure", "office_address","lunch_break",
             "additional_hours_min", "additional_hours_max", "annual_salary_min", "annual_salary_max",
             "annual_salary_currency", "annual_bonus_min", "annual_bonus_max", "annual_bonus_currency", "benefits",
             "share_compensation", "employment_type"
@@ -175,7 +172,7 @@ class JobDetailSchema(ModelSchema):
     @staticmethod
     def resolve_availability(obj):
         return AvailableDay.objects.filter(job=obj)
-    
+
     @staticmethod
     def resolve_job_posts(obj):
         return JobPost.objects.filter(job=obj)
