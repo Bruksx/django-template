@@ -27,7 +27,7 @@ class JobManager(BaseManager):
             del data_dict[attr]
 
         job = Job(**data_dict)
-        job.created_by = business_user.user
+        job.created_by = business_user
         job.business = business_user.business
         job.first_language = first_language
         job.department = department
