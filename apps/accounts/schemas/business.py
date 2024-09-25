@@ -1,4 +1,6 @@
 from ninja import ModelSchema, Schema
+from pydantic import EmailStr
+
 from accounts.models import User, Business
 from jobs.models import EmploymentType
 from typing import Optional, List
@@ -10,7 +12,7 @@ from uuid import UUID
 
 
 class ValidateOTPSchema(Schema):
-    email: str
+    email: EmailStr
     otp: str
     first_name: str
     last_name: str

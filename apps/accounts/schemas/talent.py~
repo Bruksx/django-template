@@ -116,7 +116,7 @@ class UpdateTalentProfileSchema(Schema):
 class ValidateTalentOTPSchema(UpdateTalentProfileSchema):
     otp: str
     password: str
-    email: EmailStr
+    email: str
 
 
 class UserSchema(ModelSchema):

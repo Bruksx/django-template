@@ -6,11 +6,13 @@ from uuid import UUID
 
 from ninja import ModelSchema
 from ninja.schema import Schema
+from pydantic import fields, ValidationError
+from pydantic.fields import FieldInfo
 
 from accounts.models import Department, Role, Skill, SkillCategory
-from core.schemas import READ_EXCLUDE_FIELDS
+from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
-from .models import BusinessModel
+from .models import BusinessModel, JobFilter, JobApplication
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
 
 
@@ -208,3 +210,33 @@ class TalentJobPostListSchema(ModelSchema):
         score = talent.job_match_score(obj)
         logging.critical(f"score: {score}")
         return score
+
+
+
+location_options = WorkStructureEnum.values()
+class TalentJobFilterSchema(ModelSchema):
+    location_type:str = FieldInfo(description=f"choices are {', '.join(location_options)}",
+                                  examples=location_options)
+    class Meta:
+        model = JobFilter
+        fields = ["role", "years_of_experience", "office_location", "employment_type", "department",
+             "minimum_education_level",  "location_type",  "remove_applied_jobs"]
+        optional_fields = fields
+
+    def validate_location_type(self, value):
+        if value not in location_options:
+            raise ValidationError("Invalid location type")
+        return value
+
+
+class TalentJobApplySchema(ModelSchema):
+    class Meta:
+        model = JobApplication
+        fields = ("accept_privacy", "is_available")
+
+class TalentJobApplicationWithdrawalSchema(Schema):
+       feedback: str
+
+class ShareJobPostViaEmailSchema(Schema):
+    emails: List[str]
+    talents: List[UUID]

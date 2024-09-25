@@ -37,6 +37,5 @@ typing_extensions==4.12.2
 urllib3==2.2.2
 django-q2==1.7.2
 email-validator==2.2.0
-dnspython==2.6.1
 
 

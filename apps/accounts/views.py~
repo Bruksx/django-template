@@ -5,7 +5,6 @@ from uuid import UUID
 
 from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import Q
 from helpers.images import convert_base64_to_image_file
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
@@ -159,17 +158,6 @@ def talent_profile(request):
     if not talent_user:
         raise HttpError(403, "Not allowed")
     return talent_user
-
-@router.get("talents", response=talent_schemas.TalentUserListSchema, auth=JWTAuth())
-def talent_lists(request, search:str):
-    talents = Talent.objects.prefetch_related("user").all()
-    if search:
-        talents = talents.filter(Q(user__first_name__icontains=search)|
-                                 Q(user__last_name__icontains=search)|
-                                 Q(user__email__icontains=search)
-                                 )
-    return talents
-
 
 @router.patch("talent-profile", response=talent_schemas.UserSchema, auth=JWTAuth())
 def update_talent_profile(request, data: talent_schemas.UpdateTalentProfileSchema):
