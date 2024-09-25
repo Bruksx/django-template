@@ -1,16 +1,21 @@
+from datetime import timezone, date
+from decimal import Decimal
+
 from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.enums import PreferredCommunicationType, GenderType, NoticePeriodType, Days
+from accounts.enums import PreferredCommunicationType, GenderType, NoticePeriodType, Days, BusinessUserRoleType
 from accounts.models import User, VerificationCode, Country, Talent, EducationLevel, Industry, \
-    Skill, Department, SkillCategory, Role
+    Skill, Department, SkillCategory, Role, Business, BusinessUser, Experience, Education, TalentAvailableDay
 from accounts.views import router
+from chats.models import Conversation, Message
 from core.models import Language, Currency
-from jobs.models import JobLevel, EmploymentType, BusinessModel
+from jobs.enums import LunchBreakEnum, WorkStructureEnum, StageType
+from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, RequiredAttribute, AvailableDay, \
+    JobApplication, JobInterview
 
 
-#TODO: Update the tests with the latest updates
 
 class ValidateOtpTests(TestCase):
     def setUp(self):
@@ -474,3 +479,224 @@ class UpdateTalentProfileTests(TestCase):
         self.assertFalse(self.talent.additionalskill_set.filter(name="Jumping").exists())
         self.assertTrue(self.talent.additionalskill_set.filter(name="Baking").exists())
         self.assertTrue(self.talent.additionalskill_set.filter(name="Skipping").exists())
+
+
+class CommonListTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.country = Country.objects.first()
+        self.industry = Industry.objects.first()
+        self.user_data = dict(
+            first_name="Test",
+            last_name="User",
+            email="testuser@example.com",
+            password="securepassword",
+        )
+        self.user = User.objects.create_user(**self.user_data)
+        self.talent = Talent.objects.create(
+            user=self.user,
+            country=self.country
+        )
+        self.auth = JWTAuth()
+        self.auth.authenticate = lambda r: self.user
+
+    def test_country_list_endpoint(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get("/countries", headers=headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_educational_level_list_endpoint(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get("/educational-levels", headers=headers)
+        self.assertEqual(response.status_code, 200)
+
+
+class TalentDashboardTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.country = Country.objects.first()
+        self.industry = Industry.objects.first()
+        self.user_data = dict(
+            first_name="Test",
+            last_name="User",
+            email="testuser@example.com",
+            password="securepassword",
+        )
+        self.user = User.objects.create_user(**self.user_data)
+        self.talent = Talent.objects.create(
+            user=self.user,
+            country=self.country
+        )
+        self.auth = JWTAuth()
+        self.auth.authenticate = lambda r: self.user
+        self.department = Department.objects.first()
+        self.role = Role.objects.first()
+        self.currency = Currency.objects.first()
+        self.job_level = JobLevel.objects.first()
+        self.employment_type = EmploymentType.objects.first()
+        self.education_level = EducationLevel.objects.first()
+        self.country = Country.objects.first()
+        self.user2 = User.objects.create_user(
+            email="testuser1@example.com",
+            password="securedPassword1",
+            first_name="Test1",
+            last_name="User1",
+            phone_number="9098866699"
+        )
+        self.business = Business.objects.create(
+            created_by=self.user2,
+            name="Example Business",
+            size=50,
+            description="A sample business description.",
+            website="https://example.com",
+            location="Lekki, Lagos, Nigeria",
+            industry="Technology"
+        )
+        self.business_user = BusinessUser.objects.create(
+            user=self.user,
+            business=self.business,
+            role=BusinessUserRoleType.OWNER.value
+
+        )
+        self.talent.skills.set(Skill.objects.all()[:3])
+        Experience.objects.create(
+            talent=self.talent,
+            role=self.role,
+            company="TestCompany",
+            annual_salary=700,
+            annual_salary_currency=self.currency,
+            annual_salary_bonus=700,
+            annual_salary_bonus_currency=self.currency,
+            level=self.job_level,
+            employment_type=self.employment_type,
+            start_date=date(year=2022, month=1, day=1),
+            end_date=date(year=2024, month=1, day=1),
+            currently_works_here=False
+        )
+        job = Job.objects.create(
+            created_by=self.business_user,
+            job_level=self.job_level,
+            employment_type=self.employment_type,
+            hiring_company_name="Example Company",
+            title="Software Engineer",
+            about="We are looking for a passionate...",  # Truncated for brevity
+            years_of_experience=3,
+            lunch_break=LunchBreakEnum.PAID.value,  # Assuming LunchBreakEnum has a PAID option
+            annual_salary_min=100000.00,
+            annual_salary_max=120000.00,
+            annual_salary_currency=self.currency,
+            availability_timezone=timezone.utc  # Set to UTC for this example
+        )
+        self.job_post = JobPost.objects.create(
+            job=job,
+            is_posted=False,  # Can be changed to True for posting
+            country=self.country,
+            province="Ontario",
+            postal_code="M5V 1T6",  # Replace with actual postal code
+            annual_salary_min=Decimal('80000.00'),  # Use Decimal for money fields
+            annual_salary_max=Decimal('100000.00'),
+            annual_salary_currency=self.currency,
+            location_type=WorkStructureEnum.HYBRID.value,
+            recruiter=self.business_user
+        )
+        self.job_required_attrs = RequiredAttribute.objects.create(
+            job=job,
+            role=True,
+            job_level=True,
+            years_of_experience=True,
+            minimum_education_level=True,
+            work_structure=True,
+            technological_requirement=True,
+            first_language=True,
+            secondary_language=True,
+            working_hours=True,
+            location=True
+        )
+        self.job_required_attrs.skills.set(Skill.objects.all()[:2])
+        self.job_required_attrs.business_model.set(BusinessModel.objects.all()[:2])
+        self.job_required_attrs.refresh_from_db()
+        TalentAvailableDay.objects.create(
+            talent=self.talent,
+            day=Days.WEDNESDAY,
+            start_time="10:00:00",
+            end_time="16:00:00"
+        )
+        TalentAvailableDay.objects.create(
+            talent=self.talent,
+            day=Days.MONDAY,
+            start_time="10:00:00",
+            end_time="16:00:00"
+        )
+
+        AvailableDay.objects.create(
+            job=job,
+            day=Days.MONDAY,
+            start_time="10:00:00",
+            end_time="16:00:00"
+        )
+
+        application = JobApplication.objects.create(
+            job_post=self.job_post,
+            applicant=self.talent,
+            is_available=True,
+            accept_privacy=True,
+            stage=StageType.INTERVIEW.value,
+            match=5
+        )
+        JobInterview.objects.create(
+            application=application
+        )
+        conversation = Conversation.objects.create()
+        conversation.users.set([self.user2, self.user])
+        conversation.refresh_from_db()
+        Message.objects.create(
+            conversation=conversation,
+            sender=self.user2,
+            job=job,
+            body="Hello"
+
+        )
+
+    def test_dashboard_report_endpoint(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get("/talent/dashboard-report", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("jobs_applied", data)
+        self.assertEqual(data["jobs_applied"], 1)
+        response = self.client.get("/talent/dashboard-report?start_date=2022-02-02&end_date=2022-09-02", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("jobs_applied", data)
+        self.assertEqual(data["jobs_applied"], 0)
+
+
+    def test_applications_chart_endpoint(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get("/talent/applications-chart", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(isinstance(data, list))
+        self.assertTrue(len(data))
+
+    def test_interviews_chart_endpoint(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get("/talent/interviews-chart", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(isinstance(data, list))
+        self.assertTrue(len(data))
+
+
+
+

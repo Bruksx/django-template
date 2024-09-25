@@ -1,18 +1,24 @@
+import logging
 from datetime import timezone
 from decimal import Decimal
 
 from django.test import TestCase
+from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import BusinessUserRoleType
-from accounts.models import Country, Industry, User, Talent, BusinessUser, Business, Department, Role, EducationLevel
+from accounts.models import Country, Industry, User, Talent, BusinessUser, Business, Role, EducationLevel, Department
 from core.models import Currency
-from jobs.enums import LunchBreakEnum, WorkStructureEnum
-from jobs.models import JobPost, Job, JobLevel, EmploymentType, JobFilter, JobApplication
+from jobs.enums import WorkStructureEnum, LunchBreakEnum, StageType
+from jobs.models import JobPost, JobLevel, EmploymentType, Job, SavedJob, JobApplication
+from jobs.views import router
 
 
-class JobFilterModelTest(TestCase):
+
+
+class TalentJobListTests(TestCase):
     def setUp(self):
+        self.client = TestClient(router)
         self.country = Country.objects.first()
         self.industry = Industry.objects.first()
         self.user_data = dict(
@@ -21,7 +27,7 @@ class JobFilterModelTest(TestCase):
             email="testuser@example.com",
             password="securepassword",
         )
-        self.user = User.objects.create_user(**self.user_data)
+        self.user = User.objects.create_user(**self.user_data, email_verified=True)
         self.talent = Talent.objects.create(
             user=self.user,
             country=self.country
@@ -29,8 +35,8 @@ class JobFilterModelTest(TestCase):
         self.auth = JWTAuth()
         self.auth.authenticate = lambda r: self.user
         self.role = Role.objects.first()
-        self.education_level=EducationLevel.objects.first()
-        self.department=Department.objects.first()
+        self.education_level = EducationLevel.objects.first()
+        self.department = Department.objects.first()
         self.currency = Currency.objects.first()
         self.job_level = JobLevel.objects.first()
         self.employment_type = EmploymentType.objects.first()
@@ -88,35 +94,45 @@ class JobFilterModelTest(TestCase):
             recruiter=self.business_user
         )
 
+    def test_job_recommendations_endpoint(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get("/talent/job-recommendations", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        response = self.client.get("/talent/job-recommendations?use_filter=false&limit=100&offset=0")
+        logging.critical(f"response: {response.content}")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(isinstance(response.json(), list))
 
-    def test_get_queryset(self):
-        queryset = JobPost.objects.all()
-        JobFilter.objects.create(
-            talent = self.talent,
-            role="",
-            years_of_experience=2,
-            office_location=self.country,
-            employment_type=self.employment_type,
-            department=self.department,
-            minimum_education_level=self.education_level,
-            location_type=WorkStructureEnum.HYBRID,
-            remove_applied_jobs=False
-
-        )
-        filtered_queryset = self.talent.jobfilter.get_queryset(queryset)
-
-        self.assertEqual(queryset.count(), 1)
-        self.assertEqual(filtered_queryset.count(), 0)
-
-        self.talent.jobfilter.update(remove_applied_jobs=True)
-        JobApplication.objects.create(
-            applicant=self.talent,
+    def test_saved_job_endpoints(self):
+        SavedJob.objects.create(
             job_post=self.job_post,
+            talent=self.talent
+        )
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get("/talent/saved-jobs", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        response = self.client.get("/talent/saved-jobs?use_filter=false&limit=100&offset=0")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(isinstance(response.json(), list))
+
+    def test_applied_job_endpoints(self):
+        JobApplication.objects.create(
+            job_post=self.job_post,
+            applicant=self.talent,
             is_available=True,
+            accept_privacy=True,
+            stage=StageType.INTERVIEW.value,
             match=5
         )
-        filtered_queryset = self.talent.jobfilter.get_queryset(queryset)
-        self.assertEqual(filtered_queryset.count(), 0)
-
-
-
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get("/talent/applied-jobs", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        response = self.client.get("/talent/applied-jobs?use_filter=false&limit=100&offset=0")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(isinstance(response.json(), list))

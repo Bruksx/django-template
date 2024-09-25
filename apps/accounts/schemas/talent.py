@@ -4,7 +4,7 @@ from uuid import UUID
 
 from ninja import Schema, ModelSchema
 
-from accounts.enums import GenderType, PreferredCommunicationType, Days
+from accounts.enums import GenderType, PreferredCommunicationType, Days, Months
 from accounts.models import (Talent, User, TalentAvailableDay, Education,
                              Experience, Skill, EducationLevel, Country, Role, Department)
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema
@@ -203,3 +203,29 @@ class CompleteTalentProfileSchema3(ModelSchema):
         fields = ["skills", "business_models"]
 
 
+class TalentDashboardReport(Schema):
+    job_matches: int
+    jobs_applied: int
+    invitations_to_apply: int
+    interviews: int
+
+    @staticmethod
+    def resolve_job_matches(obj, context):
+        return obj.job_post_matches(job_only=True).count()
+
+    @staticmethod
+    def resolve_jobs_applied(obj, context):
+        return obj.job_applications().count()
+
+    @staticmethod
+    def resolve_interviews(obj, context):
+        return obj.job_interviews.count()
+
+    @staticmethod
+    def resolve_invitations_to_apply(obj, context):
+        return obj.invitations_to_apply()
+
+
+class MonthlyChartSchema(Schema):
+    month: Months
+    count: int
