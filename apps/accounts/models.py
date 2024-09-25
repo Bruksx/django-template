@@ -413,11 +413,13 @@ class EducationLevel(BaseModel):
 
 
 class BusinessUser(BaseModel):
-
     business = models.ForeignKey(Business, on_delete=models.CASCADE)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     added_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="added_business_users", null=True)
     role = models.CharField(max_length=32, choices=BusinessUserRoleType.choices())
+
+    def __str__(self) -> str:
+        return self.user.email
 
 
 class Education(BaseModel):

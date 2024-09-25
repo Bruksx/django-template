@@ -1,5 +1,6 @@
 from accounts.models import Department, Role,  Country, User
 from core.models import BaseManager
+from django.shortcuts import get_object_or_404
 
 
 class JobManager(BaseManager):
@@ -40,7 +41,7 @@ class JobManager(BaseManager):
             available_day = AvailableDay(job=job, **i.dict())
             available_day.save()
         for i in data.job_posts:
-            country = Country.objects.filter(code=i.country_code).first()
+            country = get_object_or_404(Country, uid=i.country_uid)
             post = JobPost(
                 job=job,
                 country=country,

@@ -1,5 +1,5 @@
 from ninja import Schema, ModelSchema
-
+from pydantic import condecimal
 from core.models import Currency, Language
 
 
@@ -36,3 +36,5 @@ class LanguageSchema(ModelSchema):
     class Meta:
         model = Language
         fields = ("uid", "name")
+
+DecimalType = condecimal(max_digits=12, decimal_places=2)

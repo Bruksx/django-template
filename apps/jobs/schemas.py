@@ -27,11 +27,24 @@ class AvailabilitySchema(Schema):
 
 
 class JobPostSchema(ModelSchema):
-    country_code: str
+    country_uid: UUID
 
     class Meta:
         model = JobPost
         fields = ["province", "postal_code"]
+
+
+class MutateJobPostSchema(ModelSchema):
+    annual_salary_min: float | None
+    annual_salary_max: float | None
+    annual_bonus_min: float | None
+    annual_bonus_max: float | None
+    annual_bonus_currency_uid: UUID
+    annual_salary_currency_uid: UUID
+    country_code: str
+    class Meta:
+        model = JobPost
+        fields = ["uid", "province", "postal_code", "is_posted"]
 
 
 class QuestionOptionSchema(ModelSchema):
@@ -133,18 +146,31 @@ class SkillCategorySchema(Schema):
         return Skill.objects.filter(category=obj)"""
     
 class GenericNameAndUidSchema(Schema):
-    uid: UUID
+    uid: UUID 
     name: str
 
 
-class JobPostDetailSchema(Schema):
-    annual_salary_min: Decimal | None
-    annual_salary_max: Decimal | None
-    annual_bonus_min: Decimal | None
-    annual_bonus_max: Decimal | None
+class JobPostDetailSchema(ModelSchema):
+    annual_salary_min: float | None
+    annual_salary_max: float | None
+    annual_bonus_min: float | None
+    annual_bonus_max: float | None
+    annual_bonus_currency: str = ""
+    annual_salary_currency: str = ""
+    country: GenericNameAndUidSchema | None
+
     class Meta:
         model = JobPost
-        fields = ["uid", "province", "postal_code", "is_posted", "annual_salary_currency", "annual_bonus_currency"]
+        fields = ["uid", "province", "postal_code", "is_posted"]
+    
+    @staticmethod
+    def resolve_annual_bonus_currency(obj: JobPost):
+        return obj.annual_bonus_currency.abbreviation
+    
+    @staticmethod
+    def resolve_annual_salary_currency(obj: JobPost):
+        return obj.annual_bonus_currency.abbreviation
+    
 
 
 class JobDetailSchema(Schema):
