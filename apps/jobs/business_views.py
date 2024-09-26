@@ -123,6 +123,7 @@ def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
     job_post.save()
     return job_post
 
+
 "TODO: add custom pagination class to control page size"
 @router.get("list", response=PaginatedResponseSchema[JobDetailSchema], auth=JWTAuth())
 @paginate(PageNumberPaginationExtra, page_size=50)

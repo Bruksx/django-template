@@ -1,4 +1,4 @@
-from accounts.models import Department, Role,  Country, User
+from accounts.models import Department, Role,  Country, User, BusinessUser
 from core.models import BaseManager
 from django.shortcuts import get_object_or_404
 
@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 class JobManager(BaseManager):
     def create_job(self, *, business_user, data):
         from .models import (
-            EmploymentType, AvailableDay, Language, BusinessModel, JobLevel, JobPost, ScreeningQuestion, QuestionOption,
+            EmploymentType, AvailableDay, Language, JobLevel, JobPost, ScreeningQuestion, QuestionOption,
         )
         Job = self.model
         data_dict = data.dict()
@@ -15,7 +15,7 @@ class JobManager(BaseManager):
         department = Department.objects.filter(uid=data.department_uid).first()
         role = Role.objects.filter(uid=data.role_uid).first()
         job_level = JobLevel.objects.filter(uid=data.job_level_uid).first()
-        recruiter = User.objects.filter(uid=data.recruiter_uid).first()
+        recruiter = BusinessUser.objects.filter(uid=data.recruiter_uid).first()
 
         to_be_deleted = [
             "employment_type_uid", "first_language_uid", "role_uid", "job_level_uid","additional_languages", "skills", 

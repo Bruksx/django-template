@@ -3,7 +3,7 @@ from ninja.testing import TestClient
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel
     )
-from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User
+from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country
 from ninja_jwt.authentication import JWTAuth
 from jobs.business_views import router
 
@@ -19,12 +19,6 @@ class JobCreationTest(TestCase):
         self.department = Department.objects.create(name='IT', industry=industry)
         self.role = Role.objects.create(name='Developer', department=self.department)
         self.job_level = JobLevel.objects.create(name='Junior')
-        self.recruiter = User.objects.create_user(
-            first_name="Recruiter",
-            last_name ="Recruiter",
-            email="testuser@example.com",
-            password="securepassword",
-        )
         self.user = User.objects.create_user(
             first_name="Test",
             last_name ="User",
@@ -37,11 +31,23 @@ class JobCreationTest(TestCase):
             user=self.user, 
             business=self.business,
         )
+        self.recruiter = User.objects.create_user(
+            first_name="Recruiter",
+            last_name ="Recruiter",
+            email="testuser@example.com",
+            password="securepassword",
+        )
+        self.recruiter_business_user = BusinessUser.objects.create(
+            user=self.recruiter, 
+            business=self.business,
+        )
         self.auth = JWTAuth()
         self.client = TestClient(router)
         self.headers = {
             "authorization": f"bearer {self.user.token}"
         }
+        self.country1 = Country.objects.order_by("?").first()
+        self.country2 = Country.objects.order_by("?").first()
 
     def test_create_job(self):
         data = {
@@ -73,17 +79,17 @@ class JobCreationTest(TestCase):
             "additional_hours_max": 0,
             "job_posts": [
                 {
-                "country_code": "NG",
+                "country_uid": str(self.country1.uid),
                 "province": "Delta State",
                 "postal_code": "500000"
                 },
                 {
-                "country_code": "NG",
+                "country_uid": str(self.country2.uid),
                 "province": "Rivers State",
                 "postal_code": "500000"
                 }
               ],
-            "recruiter_uid": str(self.recruiter.uid),
+            "recruiter_uid": str(self.recruiter_business_user.uid),
             "annual_salary_min": 0,
             "annual_salary_max": 0,
             "annual_salary_currency": "string",
@@ -115,19 +121,19 @@ class JobCreationTest(TestCase):
               ],
               "job_level_uid": str(self.job_level.uid)
           }
-        response = self.client.post("create", json=data, headers=self.headers)
+        response = self.client.post("", json=data, headers=self.headers)
 
         #Assert the job was created correctly
-        job = Job.objects.filter(created_by=self.user).first()
+        self.assertEqual(response.status_code, 200)
+        job = Job.objects.filter(created_by=self.business_user).first()
      
-        self.assertEqual(job.created_by, self.user)
-        self.assertEqual(job.business, self.business)
+        self.assertEqual(job.created_by, self.business_user)
         self.assertEqual(job.first_language, self.language)
         self.assertEqual(job.department, self.department)
         self.assertEqual(job.employment_type, self.employment_type)
         self.assertEqual(job.role, self.role)
         self.assertEqual(job.job_level, self.job_level)
-        self.assertEqual(job.recruiter, self.recruiter)
+        self.assertEqual(job.recruiter, self.recruiter_business_user)
      
         #Check availability
         available_days = AvailableDay.objects.filter(job=job)
@@ -136,7 +142,7 @@ class JobCreationTest(TestCase):
         #Check job posts
         job_posts = JobPost.objects.filter(job=job)
         self.assertEqual(job_posts.count(), 2)
-        self.assertEqual(job_posts[0].country.code, 'NG')
+        self.assertEqual(job_posts[0].country.code, self.country1.code)
      
         #Check screening questions
         screening_questions = ScreeningQuestion.objects.filter(job=job)
