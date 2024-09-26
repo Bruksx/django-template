@@ -148,7 +148,7 @@ class JobApplication(BaseModel):
     applicant = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE)
     is_available = models.BooleanField()
     accept_privacy = models.BooleanField(default=True)
-    stage = models.CharField(max_length=16, choices=StageType.choices())
+    stage = models.CharField(max_length=16, choices=StageType.choices(), null=True, default=None)
     match = models.DecimalField(max_digits=12, decimal_places=2)
 
     def __str__(self) -> str:
@@ -277,6 +277,7 @@ class JobApplicationWithdrawal(BaseModel):
     job_post = models.ForeignKey(JobPost, on_delete=models.SET_NULL, null=True, default=None)
     talent = models.ForeignKey("accounts.Talent", on_delete=models.DO_NOTHING)
     feedback = models.TextField()
+
 
 
 class JobInterview(BaseModel):

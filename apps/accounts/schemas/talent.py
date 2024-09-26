@@ -3,6 +3,7 @@ from typing import Optional, List
 from uuid import UUID
 
 from ninja import Schema, ModelSchema
+from pydantic import Field, EmailStr
 
 from accounts.enums import GenderType, PreferredCommunicationType, Days, Months
 from accounts.models import (Talent, User, TalentAvailableDay, Education,
@@ -115,7 +116,7 @@ class UpdateTalentProfileSchema(Schema):
 class ValidateTalentOTPSchema(UpdateTalentProfileSchema):
     otp: str
     password: str
-    email: str
+    email: EmailStr
 
 
 class UserSchema(ModelSchema):
@@ -165,7 +166,15 @@ class TalentUserSchema(ModelSchema):
     def resolve_availability(obj):
         return obj.get_available_days()
 
-
+class TalentUserListSchema(ModelSchema):
+    first_name: str =  Field(alias="user.first_name")
+    last_name: str = Field(alias="user.last_name")
+    email: EmailStr = Field(alias="user.email")
+    phone_number: Optional[str] = Field(alias="user.phone_number")
+    photo_url:Optional[str]
+    class Meta:
+        model = Talent
+        fields = ("uid", )
 
 
 class CompleteTalentProfileSchema(ModelSchema):

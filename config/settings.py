@@ -70,7 +70,7 @@ ROOT_URLCONF = 'config.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': ["templates/html", "templates/text"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -135,7 +135,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
-
+STATIC_ROOT = "static"
+STATIC_DIR = (os.path.join(BASE_DIR.parent, "static"),)
+STATICFILES_DIRS = (os.path.join(BASE_DIR, "templates\\assets"),)
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
@@ -143,7 +145,14 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = "accounts.User"
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = "smtp.office365.com"
+EMAIL_PORT = 587
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = f"1840 GTC <{EMAIL_HOST_USER}>"
+
 
 NINJA_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days= 365 * 5),
@@ -161,3 +170,16 @@ LINKEDIN_CLIENT_SECRET =  os.environ["LINKEDIN_CLIENT_SECRET"]
 LINKEDIN_REDIRECT_URI = os.environ["LINKEDIN_REDIRECT_URI"]
 FACEBOOK_APP_ID= os.environ["FACEBOOK_APP_ID"]
 FACEBOOK_APP_SECRET = os.environ["FACEBOOK_APP_SECRET"]
+
+Q_CLUSTER = {
+    'name': 'DjangoQCluster',
+    'workers': 4,
+    'recycle': 500,
+    'timeout': 60,
+    'save_limit': 250,
+    'queue_limit': 500,
+    'cpu_affinity': 1,
+    'label': 'Django Q',
+    'orm': 'default',  # Use Django ORM as a fallback for result persistence
+    'broker': "amqp://guest:guest@localhost:5672/"
+}

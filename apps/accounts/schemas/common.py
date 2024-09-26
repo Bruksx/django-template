@@ -1,11 +1,12 @@
 from ninja import ModelSchema, Schema
+from pydantic import EmailStr
 
 from accounts.models import User
 
 
 class UserSchema(ModelSchema):
     token: str
-    email: str | None
+    email: EmailStr | None
 
     class Meta:
         model = User

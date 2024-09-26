@@ -1,23 +1,23 @@
 import logging
 from datetime import time
+from decimal import Decimal
 from typing import List
 from typing import Optional
 from uuid import UUID
 
 from ninja import ModelSchema
 from ninja.schema import Schema
-from datetime import time
-from uuid import UUID
+from pydantic import ValidationError
+from pydantic.fields import FieldInfo
+
+from accounts.models import Department, Role, Skill, SkillCategory
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS
-from .models import (
-    EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay, RequiredAttribute,
-    BusinessModel, EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
-    )
-from typing import List
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
-from accounts.models import Department, Role, Skill, SkillCategory, Country
-from typing import Optional
-from decimal import Decimal
+from .models import BusinessModel, JobFilter, JobApplication
+from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
+from .models import (
+    RequiredAttribute
+)
 
 
 class AvailabilitySchema(Schema):
@@ -146,7 +146,7 @@ class SkillCategorySchema(Schema):
         return Skill.objects.filter(category=obj)"""
     
 class GenericNameAndUidSchema(Schema):
-    uid: UUID 
+    uid: UUID
     name: str
 
 
@@ -162,15 +162,15 @@ class JobPostDetailSchema(ModelSchema):
     class Meta:
         model = JobPost
         fields = ["uid", "province", "postal_code", "is_posted"]
-    
+
     @staticmethod
     def resolve_annual_bonus_currency(obj: JobPost):
         return obj.annual_bonus_currency.abbreviation
-    
+
     @staticmethod
     def resolve_annual_salary_currency(obj: JobPost):
         return obj.annual_bonus_currency.abbreviation
-    
+
 
 
 class JobDetailSchema(Schema):
@@ -240,7 +240,7 @@ class RequiredAttributeSchema(ModelSchema):
     class Meta:
         model = RequiredAttribute
         exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid", "skills"]
-    
+
     @staticmethod
     def resolve_skill_categories(obj):
         result = []
@@ -278,3 +278,33 @@ class TalentJobPostListSchema(ModelSchema):
         score = talent.job_match_score(obj)
         logging.critical(f"score: {score}")
         return score
+
+
+
+location_options = WorkStructureEnum.values()
+class TalentJobFilterSchema(ModelSchema):
+    location_type:str = FieldInfo(description=f"choices are {', '.join(location_options)}",
+                                  examples=location_options)
+    class Meta:
+        model = JobFilter
+        fields = ["role", "years_of_experience", "office_location", "employment_type", "department",
+             "minimum_education_level",  "location_type",  "remove_applied_jobs"]
+        optional_fields = fields
+
+    def validate_location_type(self, value):
+        if value not in location_options:
+            raise ValidationError("Invalid location type")
+        return value
+
+
+class TalentJobApplySchema(ModelSchema):
+    class Meta:
+        model = JobApplication
+        fields = ("accept_privacy", "is_available")
+
+class TalentJobApplicationWithdrawalSchema(Schema):
+       feedback: str
+
+class ShareJobPostViaEmailSchema(Schema):
+    emails: List[str]
+    talents: List[UUID]
