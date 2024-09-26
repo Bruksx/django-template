@@ -103,14 +103,36 @@ class TalentAvailableDaySchema(ModelSchema):
         fields = ("uid", "start_time", "end_time")
 
 class UpdateTalentProfileSchema(Schema):
-    first_name: str
-    last_name: str
-    preferred_communication: PreferredCommunicationType
-    phone_number: str
-    country: UUID
-    state: str
-    city: str
-    postal_code: str
+    first_name: Optional[str]
+    last_name: Optional[str]
+    preferred_communication: Optional[PreferredCommunicationType]
+    phone_number: Optional[str]
+    country: Optional[UUID]
+    state: Optional[str]
+    city: Optional[str]
+    postal_code: Optional[str]
+
+class UpdateTalentProfileSchema2(Schema):
+    first_name: Optional[str]
+    last_name: Optional[str]
+    preferred_communication: Optional[PreferredCommunicationType]
+    phone_number: Optional[str]
+    country: Optional[UUID]
+    state: Optional[str]
+    city: Optional[str]
+    postal_code: Optional[str]
+    whatsapp_number: Optional[str]
+    viber_number: Optional[str]
+    address: Optional[str]
+    gender: Optional[GenderType]
+    bio: Optional[str]
+    notice_period: Optional[int]
+    office: Optional[str]
+    instagram: Optional[str]
+    linkedin: Optional[str]
+    facebook: Optional[str]
+    twitter_x: Optional[str]
+
 
 
 class ValidateTalentOTPSchema(UpdateTalentProfileSchema):
@@ -238,3 +260,7 @@ class TalentDashboardReport(Schema):
 class MonthlyChartSchema(Schema):
     month: Months
     count: int
+
+class TalentChangePasswordSchema(Schema):
+    old_password: str
+    new_password: str
