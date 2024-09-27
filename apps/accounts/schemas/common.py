@@ -1,7 +1,7 @@
 from ninja import ModelSchema, Schema
 from pydantic import EmailStr
 
-from accounts.models import User
+from accounts.models import User, CustomerCase
 
 
 class UserSchema(ModelSchema):
@@ -12,5 +12,15 @@ class UserSchema(ModelSchema):
         model = User
         fields = ['uid', 'email', 'first_name', 'last_name', 'type']
 
+class UserListSchema(UserSchema):
+    class Meta:
+        model = User
+        fields = ['uid', 'email', 'first_name', 'last_name', 'type']
+
 class RegisterSchema(Schema):
     email: str
+
+class CreateCustomerCaseSchema(Schema):
+    class Meta:
+        model = CustomerCase
+        fields = ("reason", "subject", "description")

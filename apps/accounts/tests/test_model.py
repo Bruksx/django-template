@@ -170,7 +170,7 @@ class TalentModelTest(TestCase):
         Message.objects.create(
             conversation=conversation,
             sender=self.user2,
-            job=job,
+            job_post=self.job_post,
             body="Hello"
 
         )
