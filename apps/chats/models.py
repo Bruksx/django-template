@@ -23,7 +23,7 @@ class Conversation(BaseModel):
 class Message(BaseModel):
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, null=True)
     sender = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="sent_messages")
-    job_post = models.ForeignKey(JobPost, on_delete=models.DO_NOTHING)
+    job_post = models.ForeignKey(JobPost, on_delete=models.SET_NULL, null=True, default=None)
     body = models.TextField()
 
     def __str__(self) -> str:

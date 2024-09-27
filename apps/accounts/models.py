@@ -255,6 +255,8 @@ class Talent(BaseModel):
 
     def job_match_score(self, job_post):
         job = job_post.job
+        if not hasattr(job, "requiredattribute"):
+            return 0
         required_attribute = job.requiredattribute
         score = 0
         if required_attribute.skills.intersection(self.skills.all()).count()  > 0:
