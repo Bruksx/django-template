@@ -141,9 +141,12 @@ class AdditionalSkill(BaseModel):
 
 class Talent(BaseModel):
     user = models.OneToOneField(User, on_delete=models.DO_NOTHING)
+    whatsapp_number = models.CharField(max_length=16, null=True)
+    viber_number = models.CharField(max_length=16, null=True)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
     state = models.CharField(max_length=64, null=True)
     city = models.CharField(max_length=64, null=True)
+    address = models.CharField(max_length=128, null=True)
     postal_code = models.CharField(max_length=8, null=True)
     employment_type = models.CharField(max_length=32, null=True)
     visible = models.BooleanField(default=False)
