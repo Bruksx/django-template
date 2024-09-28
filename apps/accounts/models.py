@@ -255,6 +255,8 @@ class Talent(BaseModel):
 
     def job_match_score(self, job_post):
         job = job_post.job
+        if not hasattr(job, "requiredattribute"):
+            return 0
         required_attribute = job.requiredattribute
         score = 0
         if required_attribute.skills.intersection(self.skills.all()).count()  > 0:
@@ -317,7 +319,7 @@ class Talent(BaseModel):
         query = Q(conversation__users__id=self.user.id)
         if start_date and end_date:
             query = Q(query, created_at__range=[start_date, end_date])
-        return Message.objects.filter(query).only("job_id").distinct("job_id").count()
+        return Message.objects.filter(query).only("job_post_id").distinct("job_post_id").count()
 
     def job_interviews(self, start_date:date=None, end_date:date=None):
         from jobs.models import JobInterview
@@ -461,5 +463,9 @@ class TalentAvailableDay(BaseModel):
     start_time = models.TimeField(null=True)
 
 
-
+class CustomerCase(BaseModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    reason = models.CharField(max_length=200)
+    subject = models.CharField(max_length=200)
+    description = models.TextField()
 

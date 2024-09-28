@@ -13,7 +13,7 @@ from ninja.responses import Response
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import UserType, AuthType
-from accounts.models import Talent, AdditionalSkill, TalentAvailableDay, Country, EducationLevel, Role
+from accounts.models import Talent, AdditionalSkill, TalentAvailableDay, Country, EducationLevel, Role, CustomerCase
 from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
@@ -342,5 +342,15 @@ def change_talent_password(request, data: TalentChangePasswordSchema):
     user.set_password(data.new_password)
     user.save()
     return Response(status=200, data={"message": "Password changed successfully"})
+
+@router.post("complete-profile", auth=JWTAuth())
+def create_customer_case(request, data: PatchDict[common_schemas.CreateCustomerCaseSchema]):
+    user = request.user
+    if user.customercase_set.filter(**data).exists():
+        raise HttpError(400, "Case already exists")
+    CustomerCase.objects.create(**data, user=user).save()
+    return Response(status=200, data={"message": "Case created successfully"})
+
+
 
 

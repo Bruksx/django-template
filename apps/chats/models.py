@@ -1,7 +1,7 @@
 from django.db import models
 from core.models import BaseModel
 from accounts.models import User
-from jobs.models import Job
+from jobs.models import Job, JobPost
 from .enums import ChatMessageAttachmentType
 
 
@@ -23,7 +23,7 @@ class Conversation(BaseModel):
 class Message(BaseModel):
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, null=True)
     sender = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="sent_messages")
-    job = models.ForeignKey(Job, on_delete=models.DO_NOTHING)
+    job_post = models.ForeignKey(JobPost, on_delete=models.SET_NULL, null=True, default=None)
     body = models.TextField()
 
     def __str__(self) -> str:
@@ -39,3 +39,8 @@ class MessageAttachment(BaseModel):
     message = models.ForeignKey("Message", on_delete=models.CASCADE)
     file_type = models.CharField(choices=ChatMessageAttachmentType.choices())
     file = models.FileField(upload_to="chat_attachments")
+
+    def file_url(self):
+        if self.file:
+            return  self.file.url
+        return None
