@@ -1,3 +1,4 @@
+import logging
 import random
 import secrets
 import string
@@ -342,6 +343,8 @@ class Talent(BaseModel):
                     count = applications.filter(created_at__month=month).count()
                 )
             )
+        logging.critical(f"chart: {data}")
+
         return data
 
     def interviews_chart(self):

@@ -1,12 +1,14 @@
 from typing import Optional, List
 from uuid import UUID
 
-from ninja import ModelSchema
+from ninja import ModelSchema, Schema
+from ninja.orm.fields import AnyObject
 from pydantic import Field
 from setuptools.command.alias import alias
 
 from accounts.models import User
 from accounts.schemas.common import UserSchema
+from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, MessageAttachment
 from jobs.models import JobPost
 
@@ -105,4 +107,19 @@ class ChatMessageSchema(ModelSchema):
     @staticmethod
     def resolve_attachments(obj):
         return obj.messageattachment_set.all()
+
+
+class MutateChatAttachmentSchema(Schema):
+    file: str
+    file_type: ChatMessageAttachmentType
+
+class MutateChatMessageSchema(Schema):
+    job_post_uid: UUID
+    attachments: List[str]
+    body: str
+
+
+class ResponseSchema(Schema):
+    message: str
+    data: Optional[AnyObject]
 

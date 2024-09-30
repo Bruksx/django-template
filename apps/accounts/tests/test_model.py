@@ -1,13 +1,14 @@
 import logging
-from datetime import date, timezone
+from datetime import date, timezone, datetime
 from decimal import Decimal
+from xmlrpc.client import DateTime
 
 from django.test import TestCase
 
 from accounts.enums import BusinessUserRoleType, Days
 from accounts.models import User, Talent, SkillCategory, Skill, Department, Experience, Role, Education, EducationLevel, \
     BusinessUser, Business, Country, TalentAvailableDay
-from accounts.schemas.talent import TalentSkillSchema, MonthlyChartSchema
+from accounts.schemas.talent import TalentSkillSchema, MonthlyChartSchema, TalentAvailableDaySchema
 from chats.models import Conversation, Message
 from core.models import Currency
 from jobs.enums import LunchBreakEnum, WorkStructureEnum, StageType
@@ -135,22 +136,22 @@ class TalentModelTest(TestCase):
         self.job_required_attrs.refresh_from_db()
         TalentAvailableDay.objects.create(
             talent=self.talent,
-            day=Days.WEDNESDAY,
-            start_time="10:00:00",
-            end_time="16:00:00"
+            day=Days.WEDNESDAY.value,
+            start_time=datetime.strptime("10:00:00", "%H:%M:%S").time(),  # "10:00:00",
+            end_time=datetime.strptime("16:00:00", "%H:%M:%S").time()  # "16:00:00"
         )
         TalentAvailableDay.objects.create(
             talent=self.talent,
-            day=Days.MONDAY,
-            start_time="10:00:00",
-            end_time="16:00:00"
+            day=Days.MONDAY.value,
+            start_time=datetime.strptime("10:00:00", "%H:%M:%S").time(),  # "10:00:00",
+            end_time=datetime.strptime("16:00:00", "%H:%M:%S").time()  # "16:00:00"
         )
 
         AvailableDay.objects.create(
             job=job,
-            day=Days.MONDAY,
-            start_time="10:00:00",
-            end_time="16:00:00"
+            day=Days.MONDAY.value,
+            start_time=datetime.strptime("10:00:00", "%H:%M:%S").time(),  # "10:00:00",
+            end_time=datetime.strptime("16:00:00", "%H:%M:%S").time()  # )"16:00:00"
         )
 
         application = JobApplication.objects.create(
@@ -226,6 +227,12 @@ class TalentModelTest(TestCase):
     def test_job_applications(self):
         applications = self.talent.job_applications()
         self.assertEqual(applications.count(), 1)
+        start_date = date(year=2020, month=1, day=1)
+        end_date = date(year=2023, month=1, day=1)
+        applications = self.talent.job_applications(start_date=start_date, end_date=end_date)
+        self.assertEqual(applications.count(), 0)
+
+
 
 
     def test_invitations_to_apply(self):
@@ -260,5 +267,13 @@ class TalentModelTest(TestCase):
 
     def test_applied_jobs(self):
         self.assertEqual(self.talent.applied_jobs().count(),1)
+
+    def test_get_available_days(self):
+        available_days = self.talent.get_available_days()
+        self.assertTrue(isinstance(available_days, list))
+        self.assertTrue(isinstance(available_days[0],dict))
+        self.assertIn("day", available_days[0])
+        self.assertIn("availability", available_days[0])
+        self.assertEqual(type(available_days[0]["availability"]), TalentAvailableDaySchema)
 
 

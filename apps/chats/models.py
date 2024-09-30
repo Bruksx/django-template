@@ -1,4 +1,6 @@
 from django.db import models
+from django.db.models import Q
+
 from core.models import BaseModel
 from accounts.models import User
 from jobs.models import Job, JobPost
@@ -18,6 +20,15 @@ class Conversation(BaseModel):
             if existing_conversations.exists():
                 raise ValueError("A conversation between these users already exists.")"""
         super().save(*args, **kwargs)
+
+    @staticmethod
+    def read_messages(messages, user):
+        messages = messages.filter(~Q(message__sender=user))
+        read_message_ids = user.readmessagelog_set.filter(message__in=messages).only("message_id").values_list("message_id", flat=True)
+        messages = messages.filter(~Q(id__in=read_message_ids))
+        ReadMessageLog.objects.bulk_create([
+            ReadMessageLog(reader=user, message=message) for message in messages
+        ])
 
 
 class Message(BaseModel):

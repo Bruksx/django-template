@@ -1,25 +1,21 @@
-import logging
 from typing import List
 from uuid import UUID
 
-from django.contrib.messages.context_processors import messages
+from django_q.tasks import async_task
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
 from ninja.pagination import paginate
 from ninja.responses import Response
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import Talent
 from jobs import tasks
-from jobs.enums import StageType
 from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, \
     TalentJobApplySchema, TalentJobApplicationWithdrawalSchema, ShareJobPostViaEmailSchema
-from django_q.tasks import async_task
 
-router = Router(auth=JWTAuth())
+router = Router()
 
-@router.get("talent/job-recommendations", response=List[TalentJobPostListSchema], tags=["Talent Dashboard"])
+@router.get("talent/job-recommendations", auth=JWTAuth(), response=List[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate
 def talent_job_recommendations(request, search="", use_filter=False, **kwargs):
     user = request.user
@@ -32,7 +28,7 @@ def talent_job_recommendations(request, search="", use_filter=False, **kwargs):
         queryset = user.talent.jobfilter.get_queryset(queryset)
     return queryset
 
-@router.get("talent/saved-jobs", response=List[TalentJobPostListSchema], tags=["Talent Dashboard"])
+@router.get("talent/saved-jobs", auth=JWTAuth(), response=List[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate
 def talent_saved_jobs(request, search="", use_filter=False, **kwargs):
     user = request.user
@@ -45,7 +41,7 @@ def talent_saved_jobs(request, search="", use_filter=False, **kwargs):
         queryset = user.talent.jobfilter.get_queryset(queryset)
     return queryset
 
-@router.get("talent/applied-jobs", response=List[TalentJobPostListSchema], tags=["Talent Dashboard"])
+@router.get("talent/applied-jobs", auth=JWTAuth(), response=List[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate
 def talent_applied_jobs(request, search="", use_filter=False, **kwargs):
     user = request.user
@@ -59,15 +55,16 @@ def talent_applied_jobs(request, search="", use_filter=False, **kwargs):
     return queryset
 
 
-@router.patch("talent/job-filter", tags=["Talent Jobs"], response=TalentJobFilterSchema)
+@router.patch("talent/job-filter", auth=JWTAuth(), tags=["Talent Jobs"])
 def update_talent_job_filter(request, data: PatchDict[TalentJobFilterSchema]):
     user = request.user
     if not hasattr(user, "talent"):
         return HttpError(403, "Only Talents are allowed")
     if not hasattr(user.talent, "jobfilter"):
-        return JobFilter.objects.create(talent=user.talent, **data)
-    user.talent.jobfilter.update(**data)
-    return user.talent.jobfilter
+        JobFilter.objects.create(talent=user.talent, **data)
+    else:
+        user.talent.jobfilter.update(**data)
+    return Response(status=200, data={"message": "Job filter updated successfully"})
 
 
 @router.post("talent/job-posts/{job_post_id}/apply", response={200: None}, tags=["Talent Jobs"])

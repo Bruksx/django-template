@@ -27,13 +27,13 @@ class TalentJobListTests(TestCase):
             email="testuser@example.com",
             password="securepassword",
         )
-        self.user = User.objects.create_user(**self.user_data, email_verified=True)
+        self.user = User.objects.create_user(**self.user_data,
+                                             email_verified=True,
+                                             is_active=True)
         self.talent = Talent.objects.create(
             user=self.user,
             country=self.country
         )
-        self.auth = JWTAuth()
-        self.auth.authenticate = lambda r: self.user
         self.role = Role.objects.first()
         self.education_level = EducationLevel.objects.first()
         self.department = Department.objects.first()
@@ -61,7 +61,6 @@ class TalentJobListTests(TestCase):
             user=self.user,
             business=self.business,
             role=BusinessUserRoleType.OWNER.value
-
         )
 
         job = Job.objects.create(
@@ -98,12 +97,13 @@ class TalentJobListTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.get("/talent/job-recommendations", headers=headers)
+        response = self.client.get("talent/job-recommendations", headers=headers)
         self.assertEqual(response.status_code, 200)
-        response = self.client.get("/talent/job-recommendations?use_filter=false&limit=100&offset=0")
+        self.assertEqual(response.json()["count"], 0)
+        response = self.client.get("talent/job-recommendations?use_filter=false&limit=100&offset=0", headers=headers)
         logging.critical(f"response: {response.content}")
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(isinstance(response.json(), list))
+        self.assertEqual(response.json()["count"], 0)
 
     def test_saved_job_endpoints(self):
         SavedJob.objects.create(
@@ -113,11 +113,12 @@ class TalentJobListTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.get("/talent/saved-jobs", headers=headers)
+        response = self.client.get("talent/saved-jobs", headers=headers)
         self.assertEqual(response.status_code, 200)
-        response = self.client.get("/talent/saved-jobs?use_filter=false&limit=100&offset=0")
+        self.assertEqual(response.json()["count"], 1)
+        response = self.client.get("talent/saved-jobs?use_filter=false&limit=100&offset=0", headers=headers)
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(isinstance(response.json(), list))
+        self.assertEqual(response.json()["count"], 1)
 
     def test_applied_job_endpoints(self):
         JobApplication.objects.create(
@@ -131,8 +132,59 @@ class TalentJobListTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.get("/talent/applied-jobs", headers=headers)
+        response = self.client.get("talent/applied-jobs", headers=headers)
         self.assertEqual(response.status_code, 200)
-        response = self.client.get("/talent/applied-jobs?use_filter=false&limit=100&offset=0")
+        self.assertEqual(response.json()["count"], 1)
+        response = self.client.get("talent/applied-jobs?use_filter=false&limit=100&offset=0", headers=headers)
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(isinstance(response.json(), list))
+        self.assertEqual(response.json()["count"], 1)
+
+class UpdateTalentJobFilterTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.user = User.objects.create_user(email="testuser1@example.com",
+                                             password="securedPassword1",
+                                             first_name="Test1",
+                                             last_name="User1",
+                                             phone_number="9098866699")
+        self.country = Country.objects.first()
+        self.talent = Talent.objects.create(
+            user=self.user,
+            country=self.country
+        )
+
+    def test_update_job_filter(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        self.assertFalse(hasattr(self.talent, "jobfilter"))
+
+        data = {
+          "location_type": WorkStructureEnum.IN_OFFICE.value,
+          "role": "",
+          "years_of_experience": 0,
+          "office_location": str(Country.objects.first().uid),
+          "employment_type": str(EmploymentType.objects.first().uid),
+          "department": None,
+          "minimum_education_level": None,
+          "remove_applied_jobs": False
+        }
+        response = self.client.patch("talent/job-filter",
+                                    json=data,
+                                    headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        self.assertTrue(hasattr(self.talent, "jobfilter"))
+        data["remove_applied_jobs"] = True
+        data["department"] = str(Department.objects.first().uid)
+        response = self.client.patch("talent/job-filter",
+                                     json=data,
+                                     headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        self.assertEqual(self.talent.jobfilter.remove_applied_jobs, True)
+        self.assertEqual(self.talent.jobfilter.department, Department.objects.first())
+
+
+
+

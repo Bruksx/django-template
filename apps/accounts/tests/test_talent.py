@@ -1,3 +1,4 @@
+import logging
 from datetime import timezone, date
 from decimal import Decimal
 
@@ -7,7 +8,8 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import PreferredCommunicationType, GenderType, NoticePeriodType, Days, BusinessUserRoleType
 from accounts.models import User, VerificationCode, Country, Talent, EducationLevel, Industry, \
-    Skill, Department, SkillCategory, Role, Business, BusinessUser, Experience, Education, TalentAvailableDay
+    Skill, Department, SkillCategory, Role, Business, BusinessUser, Experience, Education, TalentAvailableDay, \
+    CustomerCase
 from accounts.views import router
 from chats.models import Conversation, Message
 from core.models import Language, Currency
@@ -333,7 +335,7 @@ class UpdateTalentProfileTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.patch("/talent-profile", headers=headers, json=data)
+        response = self.client.post("/talent-profile", headers=headers, json=data)
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
         self.talent.refresh_from_db()
@@ -656,7 +658,7 @@ class TalentDashboardTests(TestCase):
         Message.objects.create(
             conversation=conversation,
             sender=self.user2,
-            job=job,
+            job_post=self.job_post,
             body="Hello"
 
         )
@@ -685,7 +687,7 @@ class TalentDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(isinstance(data, list))
-        self.assertTrue(len(data))
+        self.assertTrue(len(data), 12)
 
     def test_interviews_chart_endpoint(self):
         headers = {
@@ -695,7 +697,63 @@ class TalentDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(isinstance(data, list))
-        self.assertTrue(len(data))
+        self.assertTrue(len(data), 12)
+
+
+class ChangeTalentPasswordTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.user = User.objects.create_user(
+            email="kx5GQ@example.com",
+            password="testpassword",
+            is_active=True,
+            email_verified=True
+        )
+        self.talent = Talent.objects.create(user=self.user)
+
+    def test_change_password_endpoint(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.patch("talent/change-password", json={"old_password": "testpassword", "new_password": "newtestpassword"}, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("newtestpassword"))
+
+
+    def test_wrong_old_password(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.patch("talent/change-password", json={"old_password": "wrongpassword", "new_password": "newtestpassword"}, headers=headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(self.user.check_password("newtestpassword"))
+        self.assertTrue(self.user.check_password("testpassword"))
+
+class CustomerCaseTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.user = User.objects.create_user(
+            email="kx5GQ@example.com",
+            password="testpassword",
+            is_active=True,
+            email_verified=True
+        )
+        self.talent = Talent.objects.create(user=self.user)
+
+    def test_customer_case_endpoint(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        self.assertFalse(CustomerCase.objects.filter(user=self.user).exists())
+
+        response = self.client.post("customer-cases",
+                                    json=dict(reason="test reason",
+                                            description="test description",
+                                              subject="test subject",),
+                                    headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(CustomerCase.objects.filter(user=self.user).exists())
 
 
 

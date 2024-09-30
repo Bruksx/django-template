@@ -282,20 +282,18 @@ class TalentJobPostListSchema(ModelSchema):
 
 
 
-location_options = WorkStructureEnum.values()
 class TalentJobFilterSchema(ModelSchema):
-    location_type:str = FieldInfo(description=f"choices are {', '.join(location_options)}",
-                                  examples=location_options)
+    location_type:WorkStructureEnum
+    office_location: Optional[UUID]
+    employment_type: Optional[UUID]
+    department: Optional[UUID]
+    minimum_education_level: Optional[UUID]
+
     class Meta:
         model = JobFilter
-        fields = ["role", "years_of_experience", "office_location", "employment_type", "department",
-             "minimum_education_level",  "location_type",  "remove_applied_jobs"]
+        fields = ["role", "years_of_experience", "location_type",  "remove_applied_jobs"]
         optional_fields = fields
 
-    def validate_location_type(self, value):
-        if value not in location_options:
-            raise ValidationError("Invalid location type")
-        return value
 
 
 class TalentJobApplySchema(ModelSchema):
