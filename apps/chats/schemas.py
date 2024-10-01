@@ -9,7 +9,8 @@ from setuptools.command.alias import alias
 from accounts.models import User
 from accounts.schemas.common import UserSchema
 from chats.enums import ChatMessageAttachmentType
-from chats.models import Message, MessageAttachment
+from chats.models import Message, MessageAttachment, Conversation
+from jobs.business_views import job_list
 from jobs.models import JobPost
 
 
@@ -32,32 +33,41 @@ class ChatJobSchema(ModelSchema):
     country: str
     job_title: str
     job_business: str
-    job_business_logo: str
+    job_business_logo: Optional[str]
     class Meta:
         model = JobPost
         fields = ("uid", "created_at")
 
     @staticmethod
     def resolve_job_title(obj):
-        return obj.job.title
+        if obj.job:
+            return obj.job.title
+        return ""
 
     @staticmethod
     def resolve_job_business(obj):
+        if not obj.job or not obj.job.created_by:
+            return ""
         return obj.job.created_by.business.name
 
     @staticmethod
     def resolve_job_business_logo(obj):
-        return obj.job.created_by.business.get_logo()
+        try:
+            return obj.job.created_by.business.get_logo()
+        except:
+            return None
 
     @staticmethod
     def resolve_country(obj):
+        if not obj.country:
+            return ""
         return obj.country.name
 
 
-class ChatListSchema(ModelSchema):
+class ChatMessageListSchema(ModelSchema):
     sender : ChatUserSchema
     conversation_uid: UUID
-    job_post: ChatJobSchema
+    job_post: Optional[ChatJobSchema]
     read: Optional[bool] = None
     class Meta:
         model = Message
@@ -73,7 +83,14 @@ class ChatListSchema(ModelSchema):
         user = request.user
         if user == obj.sender:
             return None
-        return obj.readmessagelog_set.filter(user=user).exist()
+        return obj.readmessagelog_set.filter(reader=user).exist()
+
+class ChatListSchema(ModelSchema):
+    last_message :ChatMessageListSchema
+    class Meta:
+        model = Conversation
+        fields = ("uid",)
+
 
 class ChatAttachmentSchema(ModelSchema):
     file_url: Optional[str] = None
@@ -84,7 +101,7 @@ class ChatAttachmentSchema(ModelSchema):
 class ChatMessageSchema(ModelSchema):
     sender: ChatUserSchema
     conversation_uid: UUID
-    job_post: ChatJobSchema
+    job_post: Optional[ChatJobSchema]
     read: Optional[bool] = None
     attachments: List[ChatAttachmentSchema]
 
@@ -102,7 +119,7 @@ class ChatMessageSchema(ModelSchema):
         user = request.user
         if user == obj.sender:
             return None
-        return obj.readmessagelog_set.filter(user=user).exist()
+        return obj.readmessagelog_set.filter(reader=user).exist()
 
     @staticmethod
     def resolve_attachments(obj):
@@ -114,8 +131,8 @@ class MutateChatAttachmentSchema(Schema):
     file_type: ChatMessageAttachmentType
 
 class MutateChatMessageSchema(Schema):
-    job_post_uid: UUID
-    attachments: List[str]
+    job_post: Optional[UUID] = None
+    attachments: List[str] = list()
     body: str
 
 
