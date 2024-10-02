@@ -1,17 +1,13 @@
-from typing import Optional, List
+from typing import Optional, List, Any
 from uuid import UUID
 
-from ninja import ModelSchema, Schema
-from ninja.orm.fields import AnyObject
-from pydantic import Field
-from setuptools.command.alias import alias
-
 from accounts.models import User
-from accounts.schemas.common import UserSchema
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, MessageAttachment, Conversation
-from jobs.business_views import job_list
 from jobs.models import JobPost
+from ninja import ModelSchema, Schema
+from ninja.orm.fields import AnyObject
+from ninja.types import DictStrAny
 
 
 class ChatUserSchema(ModelSchema):
@@ -73,6 +69,7 @@ class ChatMessageListSchema(ModelSchema):
         model = Message
         fields = ("uid", "sender", "body", "job_post", "created_at")
 
+
     @staticmethod
     def resolve_conversation_uid(obj):
         return obj.conversation.uid
@@ -86,10 +83,17 @@ class ChatMessageListSchema(ModelSchema):
         return obj.readmessagelog_set.filter(reader=user).exist()
 
 class ChatListSchema(ModelSchema):
-    last_message :ChatMessageListSchema
+    last_message : ChatMessageListSchema
+    unread_messages_count : int
+
     class Meta:
         model = Conversation
         fields = ("uid",)
+
+    @staticmethod
+    def resolve_unread_messages_count(obj, context):
+        user = context.get("request").user
+        return obj.unread_messages_count(user)
 
 
 class ChatAttachmentSchema(ModelSchema):
