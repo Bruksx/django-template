@@ -234,27 +234,39 @@ class CompleteTalentProfileSchema3(ModelSchema):
         fields = ["skills", "business_models"]
 
 
-class TalentDashboardReport(Schema):
+class TalentDashboardReport(ModelSchema):
     job_matches: int
     jobs_applied: int
     invitations_to_apply: int
     interviews: int
 
+    class Meta:
+        model = Talent
+        fields = ("uid",)
+
     @staticmethod
     def resolve_job_matches(obj, context):
-        return obj.job_post_matches(job_only=True).count()
+        if not context:
+            context = dict()
+        return obj.job_post_matches(job_only=True, **context).count()
 
     @staticmethod
     def resolve_jobs_applied(obj, context):
-        return obj.job_applications().count()
+        if not context:
+            context = dict()
+        return obj.job_applications(**context).count()
 
     @staticmethod
     def resolve_interviews(obj, context):
-        return obj.job_interviews.count()
+        if not context:
+            context = dict()
+        return obj.job_interviews(**context).count()
 
     @staticmethod
     def resolve_invitations_to_apply(obj, context):
-        return obj.invitations_to_apply()
+        if not context:
+            context = dict()
+        return obj.invitations_to_apply(**context)
 
 
 class MonthlyChartSchema(Schema):

@@ -20,6 +20,7 @@ from accounts.schemas import talent as talent_schemas
 from accounts.schemas.talent import CountrySchema, EducationLevelSchema, RoleSchema, TalentDashboardReport, \
     MonthlyChartSchema, MutateEducationSchema, MutateExperienceSchema, MutateTalentAvailableDaySchema, \
     TalentChangePasswordSchema
+from chats.schemas import ResponseSchema
 
 router = Router(tags=["Account"])
 
@@ -230,19 +231,19 @@ def educational_levels(request):
             tags=["Talent Dashboard"])
 def talent_dashboard_report(request, start_date: date=None, end_date: date=None):
     user = request.user
-    if not hasattr(user, "talent", ):
+    if not hasattr(user, "talent"):
         raise HttpError(403, "Only talents are allowed here")
     if start_date and end_date:
         # if the range is inclusive
         end_date = end_date + timedelta(days=1)
-        return TalentDashboardReport.model_dump(user.talent, context={
+        return Response(data=TalentDashboardReport.from_orm(user.talent, context={
                 "start_date": start_date,
                 "end_date": end_date
-            })
+            }))
 
-    return user.talent
+    return Response(data=TalentDashboardReport.from_orm(user.talent))
 
-@router.get("talent/applications-chart", response=List[MonthlyChartSchema],
+@router.get("talent/applications-chart", response=List[MonthlyChartSchema], auth=JWTAuth(),
             tags=["Talent Dashboard"])
 def talent_applications_chart(request):
     user = request.user
@@ -257,7 +258,6 @@ def talent_interview_chart(request):
     user = request.user
     if not hasattr(user, "talent", ):
         raise HttpError(403, "Only talents are allowed here")
-    logging.critical(f"interview: {user.talent.interviews_chart()}")
     return user.talent.interviews_chart()
 
 
@@ -343,7 +343,7 @@ def change_talent_password(request, data: TalentChangePasswordSchema):
     user.save()
     return Response(status=200, data={"message": "Password changed successfully"})
 
-@router.post("complete-profile", auth=JWTAuth())
+@router.post("customer-cases", auth=JWTAuth())
 def create_customer_case(request, data: PatchDict[common_schemas.CreateCustomerCaseSchema]):
     user = request.user
     if user.customercase_set.filter(**data).exists():

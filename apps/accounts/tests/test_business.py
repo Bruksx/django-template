@@ -2,7 +2,7 @@ from accounts.models import User, VerificationCode, Business, BusinessUser
 from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
-from apps.accounts.business_views import router
+from accounts.business_views import router
 
 
 class ValidateOtpTests(TestCase):

@@ -27,13 +27,13 @@ class TalentJobListTests(TestCase):
             email="testuser@example.com",
             password="securepassword",
         )
-        self.user = User.objects.create_user(**self.user_data, email_verified=True)
+        self.user = User.objects.create_user(**self.user_data,
+                                             email_verified=True,
+                                             is_active=True)
         self.talent = Talent.objects.create(
             user=self.user,
             country=self.country
         )
-        self.auth = JWTAuth()
-        self.auth.authenticate = lambda r: self.user
         self.role = Role.objects.first()
         self.education_level = EducationLevel.objects.first()
         self.department = Department.objects.first()
@@ -61,7 +61,6 @@ class TalentJobListTests(TestCase):
             user=self.user,
             business=self.business,
             role=BusinessUserRoleType.OWNER.value
-
         )
 
         job = Job.objects.create(
@@ -98,12 +97,13 @@ class TalentJobListTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.get("/talent/job-recommendations", headers=headers)
+        response = self.client.get("talent/job-recommendations", headers=headers)
         self.assertEqual(response.status_code, 200)
-        response = self.client.get("/talent/job-recommendations?use_filter=false&limit=100&offset=0")
+        self.assertEqual(response.json()["count"], 0)
+        response = self.client.get("talent/job-recommendations?use_filter=false&limit=100&offset=0", headers=headers)
         logging.critical(f"response: {response.content}")
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(isinstance(response.json(), list))
+        self.assertEqual(response.json()["count"], 0)
 
     def test_saved_job_endpoints(self):
         SavedJob.objects.create(
@@ -113,11 +113,12 @@ class TalentJobListTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.get("/talent/saved-jobs", headers=headers)
+        response = self.client.get("talent/saved-jobs", headers=headers)
         self.assertEqual(response.status_code, 200)
-        response = self.client.get("/talent/saved-jobs?use_filter=false&limit=100&offset=0")
+        self.assertEqual(response.json()["count"], 1)
+        response = self.client.get("talent/saved-jobs?use_filter=false&limit=100&offset=0", headers=headers)
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(isinstance(response.json(), list))
+        self.assertEqual(response.json()["count"], 1)
 
     def test_applied_job_endpoints(self):
         JobApplication.objects.create(
@@ -131,8 +132,231 @@ class TalentJobListTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.get("/talent/applied-jobs", headers=headers)
+        response = self.client.get("talent/applied-jobs", headers=headers)
         self.assertEqual(response.status_code, 200)
-        response = self.client.get("/talent/applied-jobs?use_filter=false&limit=100&offset=0")
+        self.assertEqual(response.json()["count"], 1)
+        response = self.client.get("talent/applied-jobs?use_filter=false&limit=100&offset=0", headers=headers)
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(isinstance(response.json(), list))
+        self.assertEqual(response.json()["count"], 1)
+
+class UpdateTalentJobFilterTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.user = User.objects.create_user(email="testuser1@example.com",
+                                             password="securedPassword1",
+                                             first_name="Test1",
+                                             last_name="User1",
+                                             phone_number="9098866699")
+        self.country = Country.objects.first()
+        self.talent = Talent.objects.create(
+            user=self.user,
+            country=self.country
+        )
+
+    def test_update_job_filter(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        self.assertFalse(hasattr(self.talent, "jobfilter"))
+
+        data = {
+          "location_type": WorkStructureEnum.IN_OFFICE.value,
+          "role": "",
+          "years_of_experience": 0,
+          "office_location": str(Country.objects.first().uid),
+          "employment_type": str(EmploymentType.objects.first().uid),
+          "department": None,
+          "minimum_education_level": None,
+          "remove_applied_jobs": False
+        }
+        response = self.client.patch("talent/job-filter",
+                                    json=data,
+                                    headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        self.assertTrue(hasattr(self.talent, "jobfilter"))
+        data["remove_applied_jobs"] = True
+        data["department"] = str(Department.objects.first().uid)
+        response = self.client.patch("talent/job-filter",
+                                     json=data,
+                                     headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        self.assertEqual(self.talent.jobfilter.remove_applied_jobs, True)
+        self.assertEqual(self.talent.jobfilter.department, Department.objects.first())
+
+class ApplyToJobPostTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.user = User.objects.create_user(email="testuser1@example.com",
+                                             password="securedPassword1",
+                                             first_name="Test1",
+                                             last_name="User1",
+                                             phone_number="9098866699")
+        self.country = Country.objects.first()
+        self.talent = Talent.objects.create(
+            user=self.user,
+            country=self.country
+        )
+        self.job = Job.objects.create(
+            title="Test Job"
+        )
+        self.job_post = JobPost.objects.create(
+            job=self.job,)
+
+    def test_apply_to_job_post(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        job_post_id = str(JobPost.objects.first().uid)
+        data = {
+         "accept_privacy": True,
+         "is_available": True,
+        }
+        self.assertEqual(self.talent.applied_jobs().count(), 0)
+        response = self.client.post(f"talent/job-posts/{job_post_id}/apply",
+                                    headers=headers, json=data)
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        self.assertEqual(self.talent.applied_jobs().count(), 1)
+        # test to ensure that you cannot apply for one job twice
+        response = self.client.post(f"talent/job-posts/{job_post_id}/apply",
+                                    headers=headers, json=data)
+        self.assertEqual(response.status_code, 400)
+
+class WithdrawJobApplicationTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.user = User.objects.create_user(email="testuser1@example.com",
+                                             password="securedPassword1",
+                                             first_name="Test1",
+                                             last_name="User1",
+                                             phone_number="9098866699")
+        self.country = Country.objects.first()
+        self.talent = Talent.objects.create(
+            user=self.user,
+            country=self.country
+        )
+        self.job = Job.objects.create(
+            title="Test Job"
+        )
+        self.job_post = JobPost.objects.create(
+            job=self.job,)
+
+        self.job_application = JobApplication.objects.create(
+            job_post=self.job_post,
+            applicant=self.talent,
+            is_available=True,
+            accept_privacy=True,
+            stage=None,
+            match=5
+        )
+
+    def test_withdraw_job_application(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        job_application_id = str(JobApplication.objects.first().uid)
+        data = {
+            "feedback": "Test Feedback"
+        }
+        self.assertEqual(self.talent.applied_jobs().count(), 1)
+        response = self.client.post(f"talent/job-posts/applications/{job_application_id}/withdraw",
+                                    headers=headers, json=data)
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        self.assertEqual(self.talent.applied_jobs().count(), 0)
+
+    def test_withdraw_for_job_application_with_stage(self):
+        self.job_application.stage = StageType.INTERVIEW.value
+        self.job_application.save()
+        self.job_application.refresh_from_db()
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        job_application_id = str(JobApplication.objects.first().uid)
+        data = {
+            "feedback": "Test Feedback"
+        }
+        self.assertEqual(self.talent.applied_jobs().count(), 1)
+        response = self.client.post(f"talent/job-posts/applications/{job_application_id}/withdraw",
+                                    headers=headers, json=data)
+        self.assertEqual(response.status_code, 400)
+        self.talent.refresh_from_db()
+        self.assertEqual(self.talent.applied_jobs().count(), 1)
+
+
+class ShareJobPostViaEmailTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.user = User.objects.create_user(email="testuser1@example.com",
+                                             password="securedPassword1",
+                                             first_name="Test1",
+                                             last_name="User1",
+                                             phone_number="9098866699")
+        self.user2 = User.objects.create_user(email="testuser2@example.com",
+                                             password="securedPassword1",
+                                             first_name="Test2",
+                                             last_name="User2",
+                                             phone_number="9098866699")
+        self.talent2 = Talent.objects.create(user=self.user2)
+
+        self.country = Country.objects.first()
+        self.talent = Talent.objects.create(
+            user=self.user,
+            country=self.country
+        )
+        self.job = Job.objects.create(
+            title="Test Job"
+        )
+        self.job_post = JobPost.objects.create(
+            job=self.job,)
+
+    def test_share_job_post_via_email(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        job_post_id = str(JobPost.objects.first().uid)
+        data = {
+         "talents": [str(self.talent2.user.uid)],
+         "emails": ["testuser3@example.com", "testuser4@example.com"]
+        }
+        response = self.client.post(f"talent/job-posts/{job_post_id}/share-via-email",
+                                    headers=headers, json=data)
+        self.assertEqual(response.status_code, 200)
+
+class SaveJobTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.user = User.objects.create_user(email="testuser1@example.com",
+                                             password="securedPassword1",
+                                             first_name="Test1",
+                                             last_name="User1",
+                                             phone_number="9098866699")
+        self.country = Country.objects.first()
+        self.talent = Talent.objects.create(
+            user=self.user,
+            country=self.country
+        )
+        self.job = Job.objects.create(
+            title="Test Job"
+        )
+        self.job_post = JobPost.objects.create(
+            job=self.job,)
+
+    def test_save_job(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        self.assertEqual(self.talent.saved_jobs().count(), 0)
+        job_post_id = str(JobPost.objects.first().uid)
+        response = self.client.post(f"talent/job-posts/{job_post_id}/save",
+                                    headers=headers)
+        logging.critical(f"response: {response.content}")
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        self.assertEqual(self.talent.saved_jobs().count(), 1)
+        # test to ensure that you cannot save for one job twice
+        response = self.client.post(f"talent/job-posts/{job_post_id}/save",
+                                    headers=headers)
+        self.assertEqual(response.status_code, 400)
