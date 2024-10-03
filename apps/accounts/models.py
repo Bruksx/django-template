@@ -88,6 +88,14 @@ class User(AbstractUser, BaseModel):
         refresh_token = RefreshToken.for_user(self)
         return TokenDto(access_token=str(refresh_token.access_token), refresh_token=str(refresh_token))
 
+
+    def photo_url(self):
+        if hasattr(self, "talent"):
+            return self.talent.photo_url
+        elif hasattr(self, "businessuser"):
+            return self.businessuser.business.get_logo()
+        return None
+
 class Country(BaseModel):
     name = models.CharField(max_length=64)
     code = models.CharField(max_length=4)

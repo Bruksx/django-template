@@ -1,7 +1,10 @@
+from typing import Optional
+
 from ninja import ModelSchema, Schema
 from pydantic import EmailStr
 
 from accounts.models import User, CustomerCase
+from core.schemas import READ_EXCLUDE_FIELDS
 
 
 class UserSchema(ModelSchema):
@@ -13,6 +16,7 @@ class UserSchema(ModelSchema):
         fields = ['uid', 'email', 'first_name', 'last_name', 'type']
 
 class UserListSchema(UserSchema):
+    photo_url: Optional[str]
     class Meta:
         model = User
         fields = ['uid', 'email', 'first_name', 'last_name', 'type']
@@ -20,7 +24,13 @@ class UserListSchema(UserSchema):
 class RegisterSchema(Schema):
     email: str
 
-class CreateCustomerCaseSchema(Schema):
+class MutateCustomerCaseSchema(ModelSchema):
     class Meta:
         model = CustomerCase
         fields = ("reason", "subject", "description")
+
+class CustomerCaseSchema(ModelSchema):
+    user: UserListSchema
+    class Meta:
+        model = CustomerCase
+        exclude = [*READ_EXCLUDE_FIELDS]

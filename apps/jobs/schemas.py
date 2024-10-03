@@ -7,6 +7,7 @@ from uuid import UUID
 
 from ninja import ModelSchema
 from ninja.schema import Schema
+from oauthlib.uri_validate import query
 from pydantic import ValidationError
 from pydantic.fields import FieldInfo
 
@@ -135,15 +136,19 @@ class SkillCategorySchema(Schema):
 
     class Meta:
         model = SkillCategory
-        fields = ["uid", "name", "skills"]
+        fields = ["uid", "name"]
     
     @staticmethod
     def resolve_category_name(obj):
         return obj.name
     
-    """@staticmethod
-    def resolve_skills(obj):
-        return Skill.objects.filter(category=obj)"""
+    @staticmethod
+    def resolve_skills(obj, context):
+        search = context.get("search")
+        queryset = obj.skill_set.all()
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+        return [SkillSchema.from_orm(skill) for skill in queryset]
     
 class GenericNameAndUidSchema(Schema):
     uid: UUID
