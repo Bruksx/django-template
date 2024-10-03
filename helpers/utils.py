@@ -23,7 +23,7 @@ def is_valid_uuid(value):
     except ValueError:
         return False
 
-def convert_base64_to_file(base64_string, * ,name=None)->Optional[ContentFile]:
+def convert_base64_to_image_file(base64_string, * ,name=None)->Optional[ContentFile]:
     if not name:
         letters_and_digits = string.ascii_letters + string.digits
         name = ''.join(random.choice(letters_and_digits) for _ in range(10))
@@ -31,7 +31,7 @@ def convert_base64_to_file(base64_string, * ,name=None)->Optional[ContentFile]:
         file_content= base64.b64decode(base64_string)
         return ContentFile(file_content, name=name)
     except Exception as e:
-        logging.critical(f"Error converting base64 to file: {e}", exc_info=True)
+        logging.critical(f"Error converting base64 image to file: {e}", exc_info=True)
         return None
 
 

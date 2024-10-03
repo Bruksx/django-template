@@ -7,8 +7,7 @@ from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q
 from helpers.images import convert_base64_to_image_file
-from helpers.utils import convert_base64_to_file
-from ninja import Router, PatchDict
+from ninja import Router, PatchDict, UploadedFile
 from ninja.errors import HttpError
 from ninja.responses import Response
 from ninja_jwt.authentication import JWTAuth
@@ -102,7 +101,7 @@ def complete_talent_profile(request, data: PatchDict[talent_schemas.CompleteTale
                 raise HttpError(400, f"{day} already exists")
             TalentAvailableDay.objects.create(**available_day, talent=talent_user)
     if data.get("photo"):
-        data["photo"] = convert_base64_to_file(data["photo"])
+        data["photo"] = convert_base64_to_image_file(data["photo"])
     talent_user.update(**data)
     return talent_user.user
 
@@ -121,8 +120,6 @@ def complete_talent_profile2(request, data: PatchDict[talent_schemas.CompleteTal
         else:
             Education(**education, talent=talent_user).save()
     additional_languages = data.pop("additional_languages", list())
-    if "cv" in data:
-        data["cv"] = convert_base64_to_file(data["cv"])
     talent_user.update(**data)
     talent_user.additional_languages.set(additional_languages)
     return talent_user.user
@@ -354,6 +351,26 @@ def create_customer_case(request, data: PatchDict[common_schemas.CreateCustomerC
     CustomerCase.objects.create(**data, user=user).save()
     return Response(status=200, data={"message": "Case created successfully"})
 
+@router.post("talent/cv", auth=JWTAuth())
+def upload_talent_cv(request, file: UploadedFile):
+    talent_user = Talent.objects.filter(user=request.user).first()
+    if not talent_user:
+        raise HttpError(403, "Not allowed")
+    if file.name.split(".")[-1] != "pdf":
+        raise HttpError(400, "This file type is not supported. Only PDF files")
+    talent_user.update(cv=file)
+    return Response(status=200, data={"message": "CV uploaded successfully"})
+
+
+@router.post("talent/profile-pic", auth=JWTAuth())
+def upload_talent_profile_picture(request, file: UploadedFile):
+    talent_user = Talent.objects.filter(user=request.user).first()
+    if not talent_user:
+        raise HttpError(403, "Not allowed")
+    if file.name.split(".")[-1] in ["jpg", "jpeg", "png"]:
+        raise HttpError(400, "This file type is not supported. Only JPG/JPEG/PNG files")
+    talent_user.update(photo=file)
+    return Response(status=200, data={"message": "Profile picture uploaded successfully"})
 
 
 
