@@ -7,6 +7,7 @@ from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q
 from helpers.images import convert_base64_to_image_file
+from helpers.utils import convert_base64_to_file
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
 from ninja.responses import Response
@@ -101,7 +102,7 @@ def complete_talent_profile(request, data: PatchDict[talent_schemas.CompleteTale
                 raise HttpError(400, f"{day} already exists")
             TalentAvailableDay.objects.create(**available_day, talent=talent_user)
     if data.get("photo"):
-        data["photo"] = convert_base64_to_image_file(data["photo"])
+        data["photo"] = convert_base64_to_file(data["photo"])
     talent_user.update(**data)
     return talent_user.user
 
@@ -120,6 +121,8 @@ def complete_talent_profile2(request, data: PatchDict[talent_schemas.CompleteTal
         else:
             Education(**education, talent=talent_user).save()
     additional_languages = data.pop("additional_languages", list())
+    if "cv" in data:
+        data["cv"] = convert_base64_to_file(data["cv"])
     talent_user.update(**data)
     talent_user.additional_languages.set(additional_languages)
     return talent_user.user
