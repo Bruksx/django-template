@@ -83,8 +83,9 @@ class ChatMessageListSchema(ModelSchema):
         return obj.readmessagelog_set.filter(reader=user).exist()
 
 class ChatListSchema(ModelSchema):
-    last_message : ChatMessageListSchema
+    last_message : Optional[ChatMessageListSchema]
     unread_messages_count : int
+    recipient: Optional[ChatUserSchema]
 
     class Meta:
         model = Conversation
@@ -94,6 +95,14 @@ class ChatListSchema(ModelSchema):
     def resolve_unread_messages_count(obj, context):
         user = context.get("request").user
         return obj.unread_messages_count(user)
+
+    @staticmethod
+    def resolve_recipient(obj, context):
+        user = context.get("request").user
+        recipient = obj.users.exclude(id=user.id).first()
+        if not recipient:
+            return None
+        return ChatUserSchema.from_orm(recipient)
 
 
 class ChatAttachmentSchema(ModelSchema):

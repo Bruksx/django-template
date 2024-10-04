@@ -8,14 +8,11 @@ from pydantic import Field, EmailStr
 from accounts.enums import GenderType, PreferredCommunicationType, Days, Months, NoticePeriodType
 from accounts.models import (Talent, User, TalentAvailableDay, Education,
                              Experience, Skill, EducationLevel, Country, Role, Department)
-from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema
+from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema, \
+    EducationLevelSchema, CountrySchema
 from jobs.schemas import JobLevelSchema, EmploymentTypeSchema, BusinessModelSchema
 
 
-class CountrySchema(ModelSchema):
-    class Meta:
-        model = Country
-        fields = ("uid", "name", "code")
 
 class DepartmentSchema(ModelSchema):
     class Meta:
@@ -32,16 +29,6 @@ class RoleSchema(ModelSchema):
     def resolve_department(obj):
         return obj.department.name
 
-
-class EducationLevelSchema(ModelSchema):
-    industry: str
-    class Meta:
-        model = EducationLevel
-        fields = ("uid", "industry", "level")
-
-    @staticmethod
-    def resolve_industry(obj):
-        return obj.industry.name
 
 class EducationSchema(ModelSchema):
     level: EducationLevelSchema
@@ -235,15 +222,15 @@ class CompleteTalentProfileSchema3(ModelSchema):
         fields = ["skills", "business_models"]
 
 
-class TalentDashboardReport(ModelSchema):
+class TalentDashboardReport(Schema):
     job_matches: int
     jobs_applied: int
     invitations_to_apply: int
     interviews: int
 
-    class Meta:
-        model = Talent
-        fields = ("uid",)
+    # class Meta:
+    #     model = Talent
+    #     fields = ("uid",)
 
     @staticmethod
     def resolve_job_matches(obj, context):

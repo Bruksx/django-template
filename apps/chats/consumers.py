@@ -1,4 +1,5 @@
 import json
+import logging
 
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
@@ -21,7 +22,7 @@ class ChatsConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
         self.user = user
-        self.chat_ids = await self.get_chat_uuids(user)
+        self.chat_ids = self.get_chat_uuids(user)
         for chat_id in self.chat_ids:
             await self.channel_layer.group_add(str(chat_id), self.channel_name)
         await self.accept()
@@ -69,7 +70,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.close()
             return
         self.user = user
-        chat = await self.get_conversation()
+        chat = self.get_conversation()
         if not chat:
             await self.close()
             return
@@ -93,6 +94,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def notify(self, event):
         await self.send(text_data=event["data"])
+
 
 
 

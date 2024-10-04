@@ -101,7 +101,6 @@ class TalentJobListTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 0)
         response = self.client.get("talent/job-recommendations?use_filter=false&limit=100&offset=0", headers=headers)
-        logging.critical(f"response: {response.content}")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 0)
 
@@ -352,7 +351,6 @@ class SaveJobTest(TestCase):
         job_post_id = str(JobPost.objects.first().uid)
         response = self.client.post(f"talent/job-posts/{job_post_id}/save",
                                     headers=headers)
-        logging.critical(f"response: {response.content}")
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.assertEqual(self.talent.saved_jobs().count(), 1)

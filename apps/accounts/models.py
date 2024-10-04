@@ -36,6 +36,7 @@ class CustomUserManager(SoftDeleteManager, BaseUserManager):
             raise ValueError('Superuser must have is_staff=True.')
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True.')
+        return self.create_user(email, password, **extra_fields)
 
     @staticmethod
     def make_random_password(length=10, digits=True, letters=True)->str:
@@ -351,8 +352,6 @@ class Talent(BaseModel):
                     count = applications.filter(created_at__month=month).count()
                 )
             )
-        logging.critical(f"chart: {data}")
-
         return data
 
     def interviews_chart(self):

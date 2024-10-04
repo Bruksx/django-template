@@ -41,6 +41,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "daphne",
     "channels",
     'django.contrib.admin',
     'django.contrib.auth',
@@ -180,13 +181,18 @@ Q_CLUSTER = {
     'name': 'DjangoQCluster',
     'workers': 4,
     'recycle': 500,
-    'timeout': 60,
+    'timeout': -1,
     'save_limit': 250,
     'queue_limit': 500,
     'cpu_affinity': 1,
     'label': 'Django Q',
-    'orm': 'default',  # Use Django ORM as a fallback for result persistence
-    'broker': "amqp://guest:guest@localhost:5672/"
+    # 'orm': 'default',  # Use Django ORM as a fallback for result persistence
+    # 'broker': "amqp://guest:guest@localhost:5672/",
+    'redis': {
+        'host': 'localhost',
+        'port': 6379,
+        'db': 3,
+    }
 }
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
@@ -198,6 +204,13 @@ CHANNEL_LAYERS = {
         },
     },
 }
+CHANNEL_LAYERS["default"]["MIDDLEWARE"] = [
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "channels.middleware.http.HttpConsumerMiddleware",
+    "channels.middleware.auth.AuthMiddlewareStack",
+]
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join("media")
 

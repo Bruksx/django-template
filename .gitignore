@@ -81,3 +81,5 @@ ehthumbs.db
 /files
 static
 *~
+ws_client.py
+ws_test.py

@@ -21,6 +21,6 @@ def currency_list(request, search=""):
 @router.get("languages", response=List[LanguageSchema], tags=["Common"])
 def language_list(request, search=""):
     queryset = Language.objects.all()
-    if queryset:
+    if search:
         queryset = queryset.filter(name__icontains=search)
     return queryset

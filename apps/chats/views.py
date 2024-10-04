@@ -1,3 +1,4 @@
+import logging
 from typing import List
 from uuid import UUID
 
@@ -40,8 +41,8 @@ def get_messages(request, conversation_uid:UUID, **kwargs):
     pagination = kwargs.get("pagination_info")
     start = pagination.offset * pagination.limit
     end = start + pagination.limit
-    queryset = Message.objects.filter(conversation__uid=conversation_uid).order_by("created_at")[start:end]
-    async_task(conversation.read_messages(message_ids=list(queryset.values_list("id", flat=True)), user_id=user.id))
+    queryset = Message.objects.filter(conversation__uid=conversation_uid).order_by("-created_at")[start:end]
+    async_task(conversation.read_messages, message_ids=list(queryset.values_list("id", flat=True)), user_id=user.id)
     return queryset
 
 
@@ -49,7 +50,7 @@ def get_messages(request, conversation_uid:UUID, **kwargs):
 def get_chat_message_readers(request, message_uid:UUID):
     user = request.user
     if not Message.objects.filter(uid=message_uid, sender=user).exists():
-        raise HttpError(403, "Not allowed")
+        raise HttpError(404, "This message does not exist")
     user_ids = ReadMessageLog.objects.filter(message__uid=message_uid).values_list("reader_id", flat=True)
     return User.objects.filter(id__in=user_ids)
 

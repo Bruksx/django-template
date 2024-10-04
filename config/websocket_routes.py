@@ -1,7 +1,6 @@
 from django.urls import re_path, path
 from apps.chats.consumers import ChatConsumer, ChatsConsumer
 from apps.notification.consumers import NotificationConsumer
-from config.urls import urlpatterns
 
 urlpatterns = [
     path("ws/chats/", ChatsConsumer.as_asgi()),

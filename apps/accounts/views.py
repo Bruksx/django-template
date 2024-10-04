@@ -15,10 +15,7 @@ from accounts.enums import UserType, AuthType
 from accounts.models import Talent, AdditionalSkill, TalentAvailableDay, Country, EducationLevel, CustomerCase
 from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
-from accounts.schemas import talent as talent_schemas
-from accounts.schemas.talent import CountrySchema, EducationLevelSchema, TalentDashboardReport, \
-    MonthlyChartSchema, MutateEducationSchema, MutateExperienceSchema, MutateTalentAvailableDaySchema, \
-    TalentChangePasswordSchema
+from accounts.schemas import  talent as talent_schemas
 
 router = Router(tags=["Account"])
 
@@ -220,7 +217,7 @@ def delete_talent_experience(request, experience_uid:UUID):
     return Response(status=204, data=None)
 
 
-@router.get("countries", response=List[CountrySchema], tags=["Common"])
+@router.get("countries", response=List[talent_schemas.CountrySchema], tags=["Common"])
 def country_list(request, search:str=""):
     queryset = Country.objects.all()
     if search:
@@ -228,7 +225,7 @@ def country_list(request, search:str=""):
     return queryset
 
 
-@router.get("educational-levels", response=List[EducationLevelSchema], auth=JWTAuth(),
+@router.get("educational-levels", response=List[talent_schemas.EducationLevelSchema], auth=JWTAuth(),
             tags=["Common"])
 def educational_levels(request, search=""):
     queryset = EducationLevel.objects.all()
@@ -237,7 +234,7 @@ def educational_levels(request, search=""):
     return queryset
 
 
-@router.get("talent/dashboard-report", response=TalentDashboardReport, auth=JWTAuth(),
+@router.get("talent/dashboard-report", response=talent_schemas.TalentDashboardReport, auth=JWTAuth(),
             tags=["Talent Dashboard"])
 def talent_dashboard_report(request, start_date: date=None, end_date: date=None):
     user = request.user
@@ -246,14 +243,14 @@ def talent_dashboard_report(request, start_date: date=None, end_date: date=None)
     if start_date and end_date:
         # if the range is inclusive
         end_date = end_date + timedelta(days=1)
-        return Response(data=TalentDashboardReport.from_orm(user.talent, context={
+        return Response(data=talent_schemas.TalentDashboardReport.from_orm(user.talent, context={
                 "start_date": start_date,
                 "end_date": end_date
             }))
 
-    return Response(data=TalentDashboardReport.from_orm(user.talent))
+    return Response(data=talent_schemas.TalentDashboardReport.from_orm(user.talent))
 
-@router.get("talent/applications-chart", response=List[MonthlyChartSchema], auth=JWTAuth(),
+@router.get("talent/applications-chart", response=List[talent_schemas.MonthlyChartSchema], auth=JWTAuth(),
             tags=["Talent Dashboard"])
 def talent_applications_chart(request):
     user = request.user
@@ -262,7 +259,7 @@ def talent_applications_chart(request):
     return user.talent.applications_made_chart()
 
 
-@router.get("talent/interviews-chart", response=List[MonthlyChartSchema],
+@router.get("talent/interviews-chart", response=List[talent_schemas.MonthlyChartSchema],
             tags=["Talent Dashboard"], auth=JWTAuth())
 def talent_interview_chart(request):
     user = request.user
@@ -298,7 +295,7 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
 
 
 @router.patch("talent/education-history", auth=JWTAuth())
-def update_education_history(request, data: List[PatchDict[MutateEducationSchema]]):
+def update_education_history(request, data: List[PatchDict[talent_schemas.MutateEducationSchema]]):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
         raise HttpError(403, "Not allowed")
@@ -313,7 +310,7 @@ def update_education_history(request, data: List[PatchDict[MutateEducationSchema
     return Response(status=200, data={"message": "Education history updated successfully"})
 
 @router.patch("talent/experience-history", auth=JWTAuth())
-def update_experience_history(request, data:List[PatchDict[MutateExperienceSchema]]):
+def update_experience_history(request, data:List[PatchDict[talent_schemas.MutateExperienceSchema]]):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
         raise HttpError(403, "Not allowed")
@@ -328,7 +325,7 @@ def update_experience_history(request, data:List[PatchDict[MutateExperienceSchem
     return Response(status=200, data={"message": "Experience history updated successfully"})
 
 @router.patch("talent/availability", auth=JWTAuth())
-def update_talent_availability(request, data: List[PatchDict[MutateTalentAvailableDaySchema]]):
+def update_talent_availability(request, data: List[PatchDict[talent_schemas.MutateTalentAvailableDaySchema]]):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
         raise HttpError(403, "Not allowed")
@@ -348,7 +345,7 @@ def update_talent_availability(request, data: List[PatchDict[MutateTalentAvailab
     return Response(status=200, data={"message": "Availability updated successfully"})
 
 @router.patch("talent/change-password", auth=JWTAuth())
-def change_talent_password(request, data: TalentChangePasswordSchema):
+def change_talent_password(request, data: talent_schemas.TalentChangePasswordSchema):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
         raise HttpError(403, "Not allowed")
