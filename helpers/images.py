@@ -1,6 +1,4 @@
 import base64
-from io import BytesIO
-from PIL import Image
 from django.core.files.base import ContentFile
 import random
 import string

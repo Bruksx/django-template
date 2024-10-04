@@ -213,14 +213,13 @@ class CompleteTalentProfileSchema(ModelSchema):
 
 class CompleteTalentProfileSchema2(ModelSchema):
     education_history: List[MutateEducationSchema]
-    cv: Optional[str] = None
     native_language: Optional[UUID] = None
     additional_languages:List[UUID]
 
 
     class Meta:
         model = Talent
-        fields = ["cv", "additional_languages", "native_language"]
+        fields = ["additional_languages", "native_language"]
 
 
 class CompleteTalentProfileSchema3(ModelSchema):

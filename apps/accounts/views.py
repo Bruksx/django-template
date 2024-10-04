@@ -7,7 +7,7 @@ from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q
 from helpers.images import convert_base64_to_image_file
-from ninja import Router, PatchDict
+from ninja import Router, PatchDict, UploadedFile
 from ninja.errors import HttpError
 from ninja.responses import Response
 from ninja_jwt.authentication import JWTAuth
@@ -351,6 +351,26 @@ def create_customer_case(request, data: PatchDict[common_schemas.CreateCustomerC
     CustomerCase.objects.create(**data, user=user).save()
     return Response(status=200, data={"message": "Case created successfully"})
 
+@router.post("talent/cv", auth=JWTAuth())
+def upload_talent_cv(request, file: UploadedFile):
+    talent_user = Talent.objects.filter(user=request.user).first()
+    if not talent_user:
+        raise HttpError(403, "Not allowed")
+    if file.name.split(".")[-1] != "pdf":
+        raise HttpError(400, "This file type is not supported. Only PDF files")
+    talent_user.update(cv=file)
+    return Response(status=200, data={"message": "CV uploaded successfully"})
+
+
+@router.post("talent/profile-pic", auth=JWTAuth())
+def upload_talent_profile_picture(request, file: UploadedFile):
+    talent_user = Talent.objects.filter(user=request.user).first()
+    if not talent_user:
+        raise HttpError(403, "Not allowed")
+    if file.name.split(".")[-1] in ["jpg", "jpeg", "png"]:
+        raise HttpError(400, "This file type is not supported. Only JPG/JPEG/PNG files")
+    talent_user.update(photo=file)
+    return Response(status=200, data={"message": "Profile picture uploaded successfully"})
 
 
 

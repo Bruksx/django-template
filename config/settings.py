@@ -41,6 +41,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "channels",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -85,6 +86,9 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'config.wsgi.application'
+ASGI_APPLICATION = 'config.asgi.application'
+
+
 
 
 # Database
@@ -183,4 +187,14 @@ Q_CLUSTER = {
     'label': 'Django Q',
     'orm': 'default',  # Use Django ORM as a fallback for result persistence
     'broker': "amqp://guest:guest@localhost:5672/"
+}
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [f"redis://{REDIS_HOST}:{REDIS_PORT}/2"],
+        },
+    },
 }

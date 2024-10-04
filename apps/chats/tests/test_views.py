@@ -54,7 +54,8 @@ class ChatTest(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(len(data), 2)
-        self.assertEqual(data[0]["last_message"]["uid"], str(self.message3.uid))\
+        self.assertEqual(data[0]["last_message"]["uid"], str(self.message3.uid))
+        self.assertEqual(data[0]["unread_messages_count"], 1)
 
     def test_get_chat_messages(self):
         headers = {
