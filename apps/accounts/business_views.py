@@ -1,3 +1,4 @@
+from django_q.tasks import async_task
 from ninja import Router, Schema
 from .schemas import business as business_schema
 from .schemas import common as common_schema
@@ -21,7 +22,7 @@ def create_account(request, data: common_schema.RegisterSchema):
         raise HttpError(400, "An account withn this email already exists")
     verification_code = VerificationCode(email=data.email)
     raw_code = verification_code.save()
-    send_mail(
+    async_task(send_mail,
         "OTP",
         f"{raw_code}",
         "from@example.com",

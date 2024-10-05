@@ -1,17 +1,14 @@
-import logging
 from datetime import time
 from decimal import Decimal
 from typing import List
 from typing import Optional
 from uuid import UUID
 
+from accounts.models import Department, Role, Skill, SkillCategory
+from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySchema, EducationLevelSchema
 from ninja import ModelSchema
 from ninja.schema import Schema
-from pydantic import ValidationError
-from pydantic.fields import FieldInfo
 
-from accounts.models import Department, Role, Skill, SkillCategory
-from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
 from .models import BusinessModel, JobFilter, JobApplication
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
@@ -135,15 +132,19 @@ class SkillCategorySchema(Schema):
 
     class Meta:
         model = SkillCategory
-        fields = ["uid", "name", "skills"]
+        fields = ["uid", "name"]
     
     @staticmethod
     def resolve_category_name(obj):
         return obj.name
     
-    """@staticmethod
-    def resolve_skills(obj):
-        return Skill.objects.filter(category=obj)"""
+    @staticmethod
+    def resolve_skills(obj, context):
+        search = context.get("search")
+        queryset = obj.skill_set.all()
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+        return [SkillSchema.from_orm(skill) for skill in queryset]
     
 class GenericNameAndUidSchema(Schema):
     uid: UUID
@@ -282,12 +283,24 @@ class TalentJobPostListSchema(ModelSchema):
 
 
 
-class TalentJobFilterSchema(ModelSchema):
+class MutateTalentJobFilterSchema(ModelSchema):
     location_type:WorkStructureEnum
     office_location: Optional[UUID]
     employment_type: Optional[UUID]
     department: Optional[UUID]
     minimum_education_level: Optional[UUID]
+
+    class Meta:
+        model = JobFilter
+        fields = ["role", "years_of_experience", "location_type",  "remove_applied_jobs"]
+        optional_fields = fields
+
+class TalentJobFilterSchema(ModelSchema):
+    location_type: WorkStructureEnum
+    office_location: Optional[CountrySchema]
+    employment_type: Optional[EmploymentTypeSchema]
+    department: Optional[DepartmentSchema]
+    minimum_education_level: Optional[EducationLevelSchema]
 
     class Meta:
         model = JobFilter

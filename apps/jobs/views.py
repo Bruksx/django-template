@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from django_q.tasks import async_task
@@ -11,8 +11,9 @@ from ninja_jwt.authentication import JWTAuth
 from jobs import tasks
 from jobs.enums import StageType
 from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob
-from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, \
+from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
     TalentJobApplySchema, TalentJobApplicationWithdrawalSchema, ShareJobPostViaEmailSchema
+from pyexpat.errors import messages
 
 router = Router()
 
@@ -21,11 +22,13 @@ router = Router()
 def talent_job_recommendations(request, search="", use_filter=False, **kwargs):
     user = request.user
     if not hasattr(user, "talent"):
-        return HttpError(403, "Only Talents are allowed")
+        raise HttpError(403, "Only Talents are allowed")
     queryset = user.talent.job_post_matches()
     if search:
         queryset = queryset.filter(job__title__icontains=search)
     if use_filter:
+        if not hasattr(user.talent, "jobfilter"):
+            raise HttpError(400, "You have not set a job filter yet")
         queryset = user.talent.jobfilter.get_queryset(queryset)
     return queryset
 
@@ -34,9 +37,11 @@ def talent_job_recommendations(request, search="", use_filter=False, **kwargs):
 def talent_saved_jobs(request, search="", use_filter=False, **kwargs):
     user = request.user
     if not hasattr(user, "talent"):
-        return HttpError(403, "Only Talents are allowed")
+        raise HttpError(403, "Only Talents are allowed")
     queryset = user.talent.saved_jobs()
     if search:
+        if not hasattr(user.talent, "jobfilter"):
+            raise HttpError(400, "You have not set a job filter yet")
         queryset = queryset.filter(job__title__icontains=search)
     if use_filter:
         queryset = user.talent.jobfilter.get_queryset(queryset)
@@ -47,32 +52,46 @@ def talent_saved_jobs(request, search="", use_filter=False, **kwargs):
 def talent_applied_jobs(request, search="", use_filter=False, **kwargs):
     user = request.user
     if not hasattr(user, "talent"):
-        return HttpError(403, "Only Talents are allowed")
+        raise HttpError(403, "Only Talents are allowed")
     queryset = user.talent.applied_jobs()
     if search:
         queryset = queryset.filter(job__title__icontains=search)
     if use_filter:
+        if not hasattr(user.talent, "jobfilter"):
+            raise HttpError(400, "You have not set a job filter yet")
         queryset = user.talent.jobfilter.get_queryset(queryset)
     return queryset
 
 
-@router.patch("talent/job-filter", auth=JWTAuth(), tags=["Talent Jobs"])
-def update_talent_job_filter(request, data: PatchDict[TalentJobFilterSchema]):
+@router.patch("talent/job-filter", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentJobFilterSchema)
+def update_talent_job_filter(request, data: PatchDict[MutateTalentJobFilterSchema]):
     user = request.user
     if not hasattr(user, "talent"):
-        return HttpError(403, "Only Talents are allowed")
+        raise HttpError(403, "Only Talents are allowed")
+    if "location_type" in data:
+        data["location_type"] = data["location_type"].value
     if not hasattr(user.talent, "jobfilter"):
         JobFilter.objects.create(talent=user.talent, **data)
     else:
         user.talent.jobfilter.update(**data)
-    return Response(status=200, data={"message": "Job filter updated successfully"})
+    user.talent.refresh_from_db()
+    return user.talent.jobfilter
+
+@router.get("talent/job-filter", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentJobFilterSchema)
+def get_talent_job_filter(request):
+    user = request.user
+    if not hasattr(user, "talent"):
+        raise HttpError(403, "Only Talents are allowed")
+    if not hasattr(user.talent, "jobfilter"):
+        raise HttpError(400, "You have not set a job filter yet")
+    return user.talent.jobfilter
 
 
 @router.post("talent/job-posts/{job_post_id}/apply", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 def apply_to_job_post(request, job_post_id:UUID, data: PatchDict[TalentJobApplySchema]):
     user = request.user
     if not hasattr(user, "talent"):
-        return HttpError(403, "Only Talents are allowed")
+        raise HttpError(403, "Only Talents are allowed")
     job_post = JobPost.objects.filter(uid=job_post_id).first()
     if not job_post:
         raise HttpError(404, "Job post not found")
@@ -87,7 +106,7 @@ def apply_to_job_post(request, job_post_id:UUID, data: PatchDict[TalentJobApplyS
 def withdraw_job_applications(request, application_id:UUID, data: PatchDict[TalentJobApplicationWithdrawalSchema]):
     user = request.user
     if not hasattr(user, "talent"):
-        return HttpError(403, "Only Talents are allowed")
+        raise HttpError(403, "Only Talents are allowed")
     application = JobApplication.objects.filter(uid=application_id).first()
     if not application:
         raise HttpError(404, "Application not found")
@@ -102,20 +121,20 @@ def withdraw_job_applications(request, application_id:UUID, data: PatchDict[Tale
 def share_job_post_via_email(request, job_post_id:UUID, data: ShareJobPostViaEmailSchema):
     user = request.user
     if not hasattr(user, "talent"):
-        return HttpError(403, "Only Talents are allowed")
+        raise HttpError(403, "Only Talents are allowed")
     job_post = JobPost.objects.filter(uid=job_post_id).first()
     if not job_post:
         raise HttpError(404, "Job post not found")
-    async_task(tasks.send_shared_job_email(
+    async_task(tasks.send_shared_job_email,
         job_post_id=job_post.id, talent_ids=data.talents, emails=data.emails
-    ))
+    )
     return Response(status=200, data={"message": "Shared successfully"})
 
 @router.post("talent/job-posts/{job_post_id}/save", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 def save_job(request, job_post_id:UUID):
     user = request.user
     if not hasattr(user, "talent"):
-        return HttpError(403, "Only Talents are allowed")
+        raise HttpError(403, "Only Talents are allowed")
     job_post = JobPost.objects.filter(uid=job_post_id).first()
     if not job_post:
         raise HttpError(404, "Job post not found")

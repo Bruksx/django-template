@@ -5,17 +5,14 @@ from uuid import UUID
 from ninja import Schema, ModelSchema
 from pydantic import Field, EmailStr
 
-from accounts.enums import GenderType, PreferredCommunicationType, Days, Months
+from accounts.enums import GenderType, PreferredCommunicationType, Days, Months, NoticePeriodType
 from accounts.models import (Talent, User, TalentAvailableDay, Education,
                              Experience, Skill, EducationLevel, Country, Role, Department)
-from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema
+from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema, \
+    EducationLevelSchema, CountrySchema
 from jobs.schemas import JobLevelSchema, EmploymentTypeSchema, BusinessModelSchema
 
 
-class CountrySchema(ModelSchema):
-    class Meta:
-        model = Country
-        fields = ("uid", "name", "code")
 
 class DepartmentSchema(ModelSchema):
     class Meta:
@@ -32,16 +29,6 @@ class RoleSchema(ModelSchema):
     def resolve_department(obj):
         return obj.department.name
 
-
-class EducationLevelSchema(ModelSchema):
-    industry: str
-    class Meta:
-        model = EducationLevel
-        fields = ("uid", "industry", "level")
-
-    @staticmethod
-    def resolve_industry(obj):
-        return obj.industry.name
 
 class EducationSchema(ModelSchema):
     level: EducationLevelSchema
@@ -65,14 +52,14 @@ class MutateExperienceSchema(ModelSchema):
     annual_salary_bonus_currency: UUID
     annual_salary_currency: UUID
     employment_type: UUID
-    level: UUID
+    level: Optional[UUID]
     class Meta:
         model = Experience
         exclude = [*MUTATE_EXCLUDE_FIELDS, "talent"]
 
 class ExperienceSchema(ModelSchema):
     role: RoleSchema
-    level: JobLevelSchema
+    level: Optional[JobLevelSchema]
     employment_type: EmploymentTypeSchema
     annual_salary_currency: CurrencySchema
     annual_salary_bonus_currency: CurrencySchema
@@ -113,25 +100,26 @@ class UpdateTalentProfileSchema(Schema):
     postal_code: Optional[str]
 
 class UpdateTalentProfileSchema2(Schema):
-    first_name: Optional[str]
-    last_name: Optional[str]
-    preferred_communication: Optional[PreferredCommunicationType]
-    phone_number: Optional[str]
-    country: Optional[UUID]
-    state: Optional[str]
-    city: Optional[str]
-    postal_code: Optional[str]
-    whatsapp_number: Optional[str]
-    viber_number: Optional[str]
-    address: Optional[str]
-    gender: Optional[GenderType]
-    bio: Optional[str]
-    notice_period: Optional[int]
-    office: Optional[str]
-    instagram: Optional[str]
-    linkedin: Optional[str]
-    facebook: Optional[str]
-    twitter_x: Optional[str]
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    preferred_communication: Optional[PreferredCommunicationType] = None
+    phone_number: Optional[str] = None
+    country: Optional[UUID] = None
+    state: Optional[str] = None
+    city: Optional[str] = None
+    postal_code: Optional[str] = None
+    whatsapp_number: Optional[str] = None
+    viber_number: Optional[str] = None
+    address: Optional[str] = None
+    gender: Optional[GenderType] = None
+    bio: Optional[str] = None
+    notice_period: Optional[int] = None
+    notice_period_type: Optional[NoticePeriodType] = None
+    office: Optional[str] = None
+    instagram: Optional[str] = None
+    linkedin: Optional[str] = None
+    facebook: Optional[str] = None
+    twitter_x: Optional[str] = None
 
 
 
@@ -203,6 +191,7 @@ class CompleteTalentProfileSchema(ModelSchema):
     gender: GenderType
     availability: List[MutateTalentAvailableDaySchema]
     photo: Optional[str] = None
+    notice_period_type: NoticePeriodType
 
     class Meta:
         model = Talent
@@ -233,15 +222,15 @@ class CompleteTalentProfileSchema3(ModelSchema):
         fields = ["skills", "business_models"]
 
 
-class TalentDashboardReport(ModelSchema):
+class TalentDashboardReport(Schema):
     job_matches: int
     jobs_applied: int
     invitations_to_apply: int
     interviews: int
 
-    class Meta:
-        model = Talent
-        fields = ("uid",)
+    # class Meta:
+    #     model = Talent
+    #     fields = ("uid",)
 
     @staticmethod
     def resolve_job_matches(obj, context):

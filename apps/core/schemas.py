@@ -2,6 +2,9 @@ from ninja import Schema, ModelSchema
 from pydantic import condecimal
 from core.models import Currency, Language
 
+from accounts.models import Country, EducationLevel
+
+
 
 class ErrorDetail(Schema):
     type: str
@@ -36,5 +39,22 @@ class LanguageSchema(ModelSchema):
     class Meta:
         model = Language
         fields = ("uid", "name")
+
+class CountrySchema(ModelSchema):
+    class Meta:
+        model = Country
+        fields = ("uid", "name", "code")
+
+class EducationLevelSchema(ModelSchema):
+    industry: str
+    class Meta:
+        model = EducationLevel
+        fields = ("uid", "industry", "level")
+
+    @staticmethod
+    def resolve_industry(obj):
+        return obj.industry.name
+
+
 
 DecimalType = condecimal(max_digits=12, decimal_places=2)

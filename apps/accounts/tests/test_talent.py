@@ -82,6 +82,13 @@ class ValidateOtpTests(TestCase):
         self.assertEqual(User.objects.count(), 0)
         self.assertEqual(Talent.objects.count(), 0)
 
+    def test_validate_wrong_email(self):
+        self.user_data["email"] = "test2@example.com"
+        response = self.client.post(self.url, json=self.user_data)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(User.objects.count(), 0)
+        self.assertEqual(Talent.objects.count(), 0)
+
 class CompleteProfileTests(TestCase):
     def setUp(self):
         self.client = TestClient(router)
@@ -283,7 +290,7 @@ class GetTalentProfileTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.get("/talent-profile", headers=headers)
+        response = self.client.get("/talent/profile", headers=headers)
         self.assertEqual(response.status_code, 200)
 
     def test_after_profile_completion(self):
@@ -296,7 +303,7 @@ class GetTalentProfileTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.get("/talent-profile", headers=headers)
+        response = self.client.get("/talent/profile", headers=headers)
         self.assertEqual(response.status_code, 200)
 
 
@@ -335,7 +342,7 @@ class UpdateTalentProfileTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.post("/talent-profile", headers=headers, json=data)
+        response = self.client.patch("/talent/profile", headers=headers, json=data)
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
         self.talent.refresh_from_db()

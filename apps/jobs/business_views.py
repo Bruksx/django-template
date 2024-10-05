@@ -1,5 +1,8 @@
+from django.db.models import Q
 from ninja import Router
 from ninja.errors import HttpError
+from ninja.responses import Response
+
 from .schemas import (
     EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
     JobDetailSchema
@@ -23,24 +26,38 @@ from ninja_extra.pagination import (
 router = Router(tags=["Business Jobs"])
 
 @router.get("employment-types", response=list[EmploymentTypeSchema], tags=["Common"])
-def get_employment_types(request):
-    employment_types = EmploymentType.objects.filter(parent=None)
-    return employment_types
+def get_employment_types(request, search=""):
+    queryset = EmploymentType.objects.filter(parent=None)
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    return queryset
 
 
 @router.get("departments", response=list[DepartmentSchema], tags=["Common"])
-def get_departments(request):
-    return Department.objects.all()
+def get_departments(request, search=""):
+    queryset = Department.objects.prefetch_related("industry").all()
+    if search:
+        queryset = queryset.filter(Q(name__icontains=search)|
+                                   Q(industry__name__icontains=search))
+    return queryset
 
 
 @router.get("roles", response=list[RoleSchema], tags=["Common"])
-def get_roles(request):
-    return Role.objects.all()
+def get_roles(request, search=""):
+    queryset = Role.objects.prefetch_related("department").all()
+    if search:
+        queryset = queryset.filter(Q(name__icontains=search)|
+                                   Q(department__name__icontains=search))
+    return queryset
 
 
-@router.get("skill-categories", response=list[SkillCategorySchema], tags=["Common"])
-def get_skills(request):
-    return SkillCategory.objects.all().prefetch_related("skill_set")
+@router.get("skill-categories", response={200: list[SkillCategorySchema]}, tags=["Common"])
+def get_skills(request, search=""):
+    queryset = SkillCategory.objects.all().prefetch_related("skill_set")
+    if search:
+        queryset = queryset.filter(Q(name__icontains=search)|
+                                   Q(skill__name__icontains=search)).distinct("uid")
+    return Response(data=[SkillCategorySchema.from_orm(q, context={"search": search}) for q in queryset])
 
 
 @router.get("business-models", response=list[GenericNameAndUidSchema])

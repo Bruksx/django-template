@@ -36,6 +36,7 @@ class CustomUserManager(SoftDeleteManager, BaseUserManager):
             raise ValueError('Superuser must have is_staff=True.')
         if extra_fields.get('is_superuser') is not True:
             raise ValueError('Superuser must have is_superuser=True.')
+        return self.create_user(email, password, **extra_fields)
 
     @staticmethod
     def make_random_password(length=10, digits=True, letters=True)->str:
@@ -87,6 +88,14 @@ class User(AbstractUser, BaseModel):
             raise AuthenticationFailed("This user is blocked")
         refresh_token = RefreshToken.for_user(self)
         return TokenDto(access_token=str(refresh_token.access_token), refresh_token=str(refresh_token))
+
+
+    def photo_url(self):
+        if hasattr(self, "talent"):
+            return self.talent.photo_url
+        elif hasattr(self, "businessuser"):
+            return self.businessuser.business.get_logo()
+        return None
 
 class Country(BaseModel):
     name = models.CharField(max_length=64)
@@ -343,8 +352,6 @@ class Talent(BaseModel):
                     count = applications.filter(created_at__month=month).count()
                 )
             )
-        logging.critical(f"chart: {data}")
-
         return data
 
     def interviews_chart(self):

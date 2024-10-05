@@ -1,5 +1,6 @@
 from typing import List
 
+from django.db.models import Q
 from ninja.router import Router
 from ninja.pagination import paginate
 
@@ -11,9 +12,15 @@ from core.schemas import CurrencySchema, LanguageSchema
 router = Router(tags=["core"])
 
 @router.get("currencies", response=List[CurrencySchema], tags=["Common"])
-def currency_list(request):
-    return Currency.objects.all()
+def currency_list(request, search=""):
+    queryset = Currency.objects.all()
+    if search:
+        queryset = queryset.filter(Q(name__icontains=search)|Q(abbreviation__icontains=search))
+    return queryset
 
 @router.get("languages", response=List[LanguageSchema], tags=["Common"])
-def language_list(request):
-    return Language.objects.all()
+def language_list(request, search=""):
+    queryset = Language.objects.all()
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    return queryset

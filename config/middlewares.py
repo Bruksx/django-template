@@ -1,3 +1,4 @@
+import logging
 from urllib.parse import parse_qsl
 
 from django.contrib.auth.models import AnonymousUser
@@ -23,9 +24,10 @@ class QueryAuthMiddleware:
         return User.objects.filer(id=user_id).first()
 
 
-    async def __call__(self, scope, receive, send):
+    def __call__(self, scope, receive, send):
         user = AnonymousUser
         query_params = dict()
+        logging.critical(f"query_params: {query_params}")
         query_string = str(scope["query_string"].decode())
         if query_string:
             query_params = dict(parse_qsl(query_string))
@@ -40,4 +42,4 @@ class QueryAuthMiddleware:
             user = self.get_user_with_token(token) | AnonymousUser
             scope["user"] = user
 
-        return await self.app(scope, receive, send)
+        return self.app(scope, receive, send)
