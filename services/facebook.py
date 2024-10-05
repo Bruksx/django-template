@@ -1,3 +1,5 @@
+from logging import exception
+
 import pyfacebook
 import requests
 from config.settings import FACEBOOK_APP_ID, FACEBOOK_APP_SECRET
@@ -13,7 +15,9 @@ class Facebook():
         self.APP_SECRET = APP_SECRET
         try:
             self.api = GraphAPI(app_id=self.APP_ID, app_secret=self.APP_SECRET, application_only_auth=True)
-        except (pyfacebook.exceptions.FacebookError, requests.exceptions.ConnectionError):
+        except (pyfacebook.exceptions.FacebookError,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.ReadTimeout):
             pass
 
     def get_login_url(self):

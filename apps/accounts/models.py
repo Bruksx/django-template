@@ -66,7 +66,7 @@ class User(AbstractUser, BaseModel):
     email_verified = models.BooleanField(default=False)
     type = models.CharField(max_length=16, null=True, choices=UserType.choices())
     username = models.CharField(max_length=32, null=True)
-    auth_mode = models.CharField(max_length=20, choices=AuthType.choices,
+    auth_mode = models.CharField(max_length=20, choices=AuthType.choices(),
                                  default=AuthType.EMAIL.value)
     facebook_id = models.CharField(max_length=32, null=True, unique=True)
     linkedin_id = models.CharField(max_length=32, null=True)

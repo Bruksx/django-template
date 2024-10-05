@@ -1,13 +1,7 @@
-from ninja.errors import HttpError
 import uuid
-from django.db import models, router, transaction, connections
-from django.core.exceptions import FieldDoesNotExist
-from django.utils.functional import cached_property
-from django.db.models.utils import AltersData, resolve_callables
-from django.db.models import Manager, Q, signals
-from django.db.models.query import QuerySet
-import warnings
-from django.utils.deprecation import RemovedInDjango60Warning
+
+from django.db import router
+from ninja.errors import HttpError
 
 
 class Deferred:
