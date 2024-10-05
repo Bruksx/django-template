@@ -1,3 +1,4 @@
+import json
 import logging
 from typing import List
 
@@ -46,7 +47,7 @@ class Conversation(BaseModel):
                 chat_id = str(self.uid),
                 sender=user.get_full_name(),
                 action="read_message",
-                data=ChatMessageListSchema.from_orm(message).model_dump_json(),
+                data=json.loads(ChatMessageListSchema.from_orm(message).model_dump_json()),
                 data_type="message")
              )
         ReadMessageLog.objects.bulk_create(logs)
@@ -73,7 +74,7 @@ class Message(BaseModel):
             sender=self.sender.get_full_name(),
             chat_id = str(self.conversation.uid),
             action="new_message",
-            data=ChatMessageListSchema.from_orm(self).model_dump_json(),
+            data=json.loads(ChatMessageListSchema.from_orm(self).model_dump_json()),
             data_type="message")
         )
 

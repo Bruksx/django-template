@@ -204,13 +204,6 @@ CHANNEL_LAYERS = {
         },
     },
 }
-CHANNEL_LAYERS["default"]["MIDDLEWARE"] = [
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.common.CommonMiddleware",
-    "channels.middleware.http.HttpConsumerMiddleware",
-    "channels.middleware.auth.AuthMiddlewareStack",
-]
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join("media")
 

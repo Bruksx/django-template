@@ -12,6 +12,7 @@ import os
 from channels.auth import AuthMiddlewareStack
 from channels.routing import URLRouter, ProtocolTypeRouter
 from channels.security.websocket import AllowedHostsOriginValidator
+from django.conf import settings
 from django.core.asgi import get_asgi_application
 import django
 
@@ -23,13 +24,13 @@ from config.websocket_routes import urlpatterns
 
 
 http_application = get_asgi_application()
-websocket_application = AllowedHostsOriginValidator(
-        AuthMiddlewareStack(
-            URLRouter(
+websocket_application = QueryAuthMiddleware(URLRouter(
                 urlpatterns
-            )
-        )
-)
+            ))
+if not settings.DEBUG:
+    websocket_application = AllowedHostsOriginValidator(websocket_application)
+
+
 
 
 application = ProtocolTypeRouter({
