@@ -182,7 +182,8 @@ class JobFilter(BaseModel):
 
     def get_queryset(self, queryset):
         # queryset for job posts
-        queryset = queryset.filter(job__years_of_experience=self.years_of_experience)
+        if self.years_of_experience > 0:
+            queryset = queryset.filter(job__years_of_experience=self.years_of_experience)
         if self.office_location:
             queryset = queryset.filter(country=self.office_location)
         if self.employment_type:

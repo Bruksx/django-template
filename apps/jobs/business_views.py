@@ -5,7 +5,7 @@ from ninja.responses import Response
 
 from .schemas import (
     EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
-    JobDetailSchema
+    JobDetailSchema, JobLevelSchema
 )
 from .models import (
     EmploymentType, AvailableDay, Language, BusinessModel, JobLevel, JobPost, Job, ScreeningQuestion, QuestionOption,
@@ -50,6 +50,13 @@ def get_roles(request, search=""):
                                    Q(department__name__icontains=search))
     return queryset
 
+@router.get("job-levels", response=list[JobLevelSchema], tags=["Common"])
+def get_job_levels(request, search=""):
+    queryset = JobLevel.objects.all()
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    return queryset
+
 
 @router.get("skill-categories", response={200: list[SkillCategorySchema]}, tags=["Common"])
 def get_skills(request, search=""):
@@ -60,9 +67,12 @@ def get_skills(request, search=""):
     return Response(data=[SkillCategorySchema.from_orm(q, context={"search": search}) for q in queryset])
 
 
-@router.get("business-models", response=list[GenericNameAndUidSchema])
-def get_business_models(request):
-    return BusinessModel.objects.all()
+@router.get("business-models", response=list[GenericNameAndUidSchema], tags=["Common"])
+def get_business_models(request, search=""):
+    queryset = BusinessModel.objects.all()
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    return queryset
 
 
 @router.post("", response=JobDetailSchema, auth=JWTAuth())
@@ -78,10 +88,11 @@ def create_job(request, data:CreateJobSchema):
 @router.patch("set-required-attributes/{job_uid}", response=job_schemas.RequiredAttributeSchema, auth=JWTAuth())
 def set_required_attributes(request, data:job_schemas.MutateRequiredAttributeSchema, job_uid:UUID):
     request_data = data.dict()
-    job = Job.objects.filter(created_by=request.user, uid=job_uid).first()
+    user = request.user
+    job = Job.objects.filter(created_by=user.businessuser, uid=job_uid).first()
     if not job:
         raise HttpError(404, "Job not found")
-    if job.created_by != request.user:
+    if job.created_by != user.businessuser:
         raise HttpError(403, "not allowed")
     required_attributes, _ = RequiredAttribute.objects.get_or_create(job=job)
     required_attributes.skills.set(request_data.pop("skills"))

@@ -47,6 +47,21 @@ def talent_saved_jobs(request, search="", use_filter=False, **kwargs):
         queryset = user.talent.jobfilter.get_queryset(queryset)
     return queryset
 
+@router.get("talent/jobs-posts", auth=JWTAuth(), response=List[TalentJobPostListSchema], tags=["Talent Dashboard"])
+@paginate
+def job_posts_by_talent_country(request, search="", use_filter=False, **kwargs):
+    user = request.user
+    if not hasattr(user, "talent"):
+        raise HttpError(403, "Only Talents are allowed")
+    queryset = JobPost.objects.filter(country=user.talent.country)
+    if search:
+        if not hasattr(user.talent, "jobfilter"):
+            raise HttpError(400, "You have not set a job filter yet")
+        queryset = queryset.filter(job__title__icontains=search)
+    if use_filter:
+        queryset = user.talent.jobfilter.get_queryset(queryset)
+    return queryset
+
 @router.get("talent/applied-jobs", auth=JWTAuth(), response=List[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate
 def talent_applied_jobs(request, search="", use_filter=False, **kwargs):
@@ -143,6 +158,19 @@ def save_job(request, job_post_id:UUID):
     SavedJob.objects.create(job_post=job_post, talent=user.talent)
     return Response(status=200, data={"message": "Saved successfully"})
 
+@router.post("talent/job-posts/{job_post_id}/discard", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
+def discard_saved_job(request, job_post_id:UUID):
+    user = request.user
+    if not hasattr(user, "talent"):
+        raise HttpError(403, "Only Talents are allowed")
+    job_post = JobPost.objects.filter(uid=job_post_id).first()
+    if not job_post:
+        raise HttpError(404, "Job post not found")
+    saved_job = user.talent.savedjob_set.filter(job_post=job_post).first()
+    if not saved_job:
+        raise HttpError(400, "Already saved")
+    saved_job.delete()
+    return Response(status=200, data={"message": "Discarded successfully"})
 
 
 
