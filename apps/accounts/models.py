@@ -278,7 +278,7 @@ class Talent(BaseModel):
             score -=1
         if  required_attribute.years_of_experience and job.years_of_experience < job.years_of_experience:
             score -=1
-        if required_attribute.business_model.count() > 0 and business_model.intersection(self.business_models.all()).count() == 0:
+        if required_attribute.business_model.count() > 0 and required_attribute.business_model.intersection(self.business_models.all()).count() == 0:
             score -= 1
         if required_attribute.minimum_education_level and not self.education_set.filter(level=job.minimum_education_level).exists():
             score -= 1

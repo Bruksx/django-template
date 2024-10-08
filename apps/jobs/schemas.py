@@ -281,8 +281,6 @@ class TalentJobPostListSchema(ModelSchema):
         score = talent.job_match_score(obj)
         return score
 
-
-
 class MutateTalentJobFilterSchema(ModelSchema):
     location_type:WorkStructureEnum
     office_location: Optional[UUID]

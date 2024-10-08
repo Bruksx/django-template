@@ -65,8 +65,8 @@ class ChatTest(TestCase):
         response = self.client.get(f"{str(self.conversation.uid)}/messages", headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(len(data), 2)
-        self.assertEqual(data["items"][0]["uid"], str(self.message3.uid))
+        self.assertEqual(len(data["results"]), 2)
+        self.assertEqual(data["results"][0]["uid"], str(self.message3.uid))
         # # test to check read message count
         # self.user3.refresh_from_db()
         # self.assertEqual(self.user2.readmessagelog_set.count(), 1)

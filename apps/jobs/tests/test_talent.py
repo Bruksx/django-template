@@ -100,7 +100,7 @@ class TalentJobListTests(TestCase):
         response = self.client.get("talent/job-recommendations", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 0)
-        response = self.client.get("talent/job-recommendations?use_filter=false&limit=100&offset=0", headers=headers)
+        response = self.client.get("talent/job-recommendations?use_filter=false&page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 0)
 
@@ -115,7 +115,7 @@ class TalentJobListTests(TestCase):
         response = self.client.get("talent/saved-jobs", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
-        response = self.client.get("talent/saved-jobs?use_filter=false&limit=100&offset=0", headers=headers)
+        response = self.client.get("talent/saved-jobs?use_filter=false&page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
 
@@ -134,7 +134,7 @@ class TalentJobListTests(TestCase):
         response = self.client.get("talent/applied-jobs", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
-        response = self.client.get("talent/applied-jobs?use_filter=false&limit=100&offset=0", headers=headers)
+        response = self.client.get("talent/applied-jobs?use_filter=false&page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
 

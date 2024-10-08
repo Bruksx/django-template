@@ -4,8 +4,9 @@ from uuid import UUID
 from django_q.tasks import async_task
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
-from ninja.pagination import paginate
 from ninja.responses import Response
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema, NinjaPaginationResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from jobs import tasks
@@ -17,8 +18,8 @@ from pyexpat.errors import messages
 
 router = Router()
 
-@router.get("talent/job-recommendations", auth=JWTAuth(), response=List[TalentJobPostListSchema], tags=["Talent Dashboard"])
-@paginate
+@router.get("talent/job-recommendations", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
+@paginate(PageNumberPaginationExtra, page_size=50)
 def talent_job_recommendations(request, search="", use_filter=False, **kwargs):
     user = request.user
     if not hasattr(user, "talent"):
@@ -32,8 +33,8 @@ def talent_job_recommendations(request, search="", use_filter=False, **kwargs):
         queryset = user.talent.jobfilter.get_queryset(queryset)
     return queryset
 
-@router.get("talent/saved-jobs", auth=JWTAuth(), response=List[TalentJobPostListSchema], tags=["Talent Dashboard"])
-@paginate
+@router.get("talent/saved-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
+@paginate(PageNumberPaginationExtra, page_size=50)
 def talent_saved_jobs(request, search="", use_filter=False, **kwargs):
     user = request.user
     if not hasattr(user, "talent"):
@@ -47,8 +48,8 @@ def talent_saved_jobs(request, search="", use_filter=False, **kwargs):
         queryset = user.talent.jobfilter.get_queryset(queryset)
     return queryset
 
-@router.get("talent/jobs-posts", auth=JWTAuth(), response=List[TalentJobPostListSchema], tags=["Talent Dashboard"])
-@paginate
+@router.get("talent/jobs-posts", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
+@paginate(PageNumberPaginationExtra, page_size=50)
 def job_posts_by_talent_country(request, search="", use_filter=False, **kwargs):
     user = request.user
     if not hasattr(user, "talent"):
@@ -60,10 +61,10 @@ def job_posts_by_talent_country(request, search="", use_filter=False, **kwargs):
         queryset = queryset.filter(job__title__icontains=search)
     if use_filter:
         queryset = user.talent.jobfilter.get_queryset(queryset)
-    return queryset
+    return queryset.order_by("-created_at")
 
-@router.get("talent/applied-jobs", auth=JWTAuth(), response=List[TalentJobPostListSchema], tags=["Talent Dashboard"])
-@paginate
+@router.get("talent/applied-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
+@paginate(PageNumberPaginationExtra, page_size=50)
 def talent_applied_jobs(request, search="", use_filter=False, **kwargs):
     user = request.user
     if not hasattr(user, "talent"):

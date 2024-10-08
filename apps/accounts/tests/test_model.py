@@ -215,14 +215,14 @@ class TalentModelTest(TestCase):
 
     def test_job_match_score(self):
         match_score = self.talent.job_match_score(self.job_post)
-        self.assertEqual(match_score, 45)
+        self.assertEqual(match_score, 54)
         self.talent.business_models.set(BusinessModel.objects.all()[:3])
         self.talent.refresh_from_db()
         self.job_required_attrs.secondary_language = False
         self.job_required_attrs.save()
         self.job_required_attrs.refresh_from_db()
         match_score = self.talent.job_match_score(self.job_post)
-        self.assertEqual(match_score, 60)
+        self.assertEqual(match_score, 70)
 
     def test_job_applications(self):
         applications = self.talent.job_applications()
