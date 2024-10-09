@@ -1,4 +1,3 @@
-import logging
 from datetime import timezone, date
 from decimal import Decimal
 
@@ -8,7 +7,7 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import PreferredCommunicationType, GenderType, NoticePeriodType, Days, BusinessUserRoleType
 from accounts.models import User, VerificationCode, Country, Talent, EducationLevel, Industry, \
-    Skill, Department, SkillCategory, Role, Business, BusinessUser, Experience, Education, TalentAvailableDay, \
+    Skill, Department, SkillCategory, Role, Business, BusinessUser, Experience, TalentAvailableDay, \
     CustomerCase
 from accounts.views import router
 from chats.models import Conversation, Message
@@ -18,6 +17,19 @@ from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, R
     JobApplication, JobInterview
 
 
+class CreateAccountTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = "/create-account"
+        self.country =  Country.objects.create(name="Nigeria", code="NG")
+        self.user_data = {
+            "email": "test@example.com"
+        }
+
+    def test_email_verification_endpoint(self):
+        response = self.client.post(self.url, json=self.user_data)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(VerificationCode.objects.filter(email=self.user_data["email"]).exists())
 
 class ValidateOtpTests(TestCase):
     def setUp(self):
@@ -761,7 +773,6 @@ class CustomerCaseTest(TestCase):
                                     headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertTrue(CustomerCase.objects.filter(user=self.user).exists())
-
 
 
 

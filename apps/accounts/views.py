@@ -19,7 +19,7 @@ from accounts.schemas import  talent as talent_schemas
 
 router = Router(tags=["Account"])
 
-@router.post("create-account/")
+@router.post("create-account")
 def create_account(request, data: common_schemas.RegisterSchema):
     existing_user = User.objects.filter(email=data.email).exists()
     if existing_user:

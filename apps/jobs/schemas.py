@@ -294,7 +294,7 @@ class MutateTalentJobFilterSchema(ModelSchema):
         optional_fields = fields
 
 class TalentJobFilterSchema(ModelSchema):
-    location_type: WorkStructureEnum
+    location_type: Optional[WorkStructureEnum]
     office_location: Optional[CountrySchema]
     employment_type: Optional[EmploymentTypeSchema]
     department: Optional[DepartmentSchema]

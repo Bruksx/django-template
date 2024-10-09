@@ -31,7 +31,7 @@ def talent_job_recommendations(request, search="", use_filter=False, **kwargs):
         if not hasattr(user.talent, "jobfilter"):
             raise HttpError(400, "You have not set a job filter yet")
         queryset = user.talent.jobfilter.get_queryset(queryset)
-    return queryset
+    return queryset.order_by("-created_at")
 
 @router.get("talent/saved-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
@@ -46,9 +46,9 @@ def talent_saved_jobs(request, search="", use_filter=False, **kwargs):
         queryset = queryset.filter(job__title__icontains=search)
     if use_filter:
         queryset = user.talent.jobfilter.get_queryset(queryset)
-    return queryset
+    return queryset.order_by("-savedjob__created_at")
 
-@router.get("talent/jobs-posts", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
+@router.get("talent/job-posts", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
 def job_posts_by_talent_country(request, search="", use_filter=False, **kwargs):
     user = request.user
@@ -56,10 +56,10 @@ def job_posts_by_talent_country(request, search="", use_filter=False, **kwargs):
         raise HttpError(403, "Only Talents are allowed")
     queryset = JobPost.objects.filter(country=user.talent.country)
     if search:
-        if not hasattr(user.talent, "jobfilter"):
-            raise HttpError(400, "You have not set a job filter yet")
         queryset = queryset.filter(job__title__icontains=search)
     if use_filter:
+        if not hasattr(user.talent, "jobfilter"):
+            raise HttpError(400, "You have not set a job filter yet")
         queryset = user.talent.jobfilter.get_queryset(queryset)
     return queryset.order_by("-created_at")
 
@@ -76,7 +76,7 @@ def talent_applied_jobs(request, search="", use_filter=False, **kwargs):
         if not hasattr(user.talent, "jobfilter"):
             raise HttpError(400, "You have not set a job filter yet")
         queryset = user.talent.jobfilter.get_queryset(queryset)
-    return queryset
+    return queryset.order_by("-jobapplication__created_at")
 
 
 @router.patch("talent/job-filter", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentJobFilterSchema)
@@ -169,7 +169,7 @@ def discard_saved_job(request, job_post_id:UUID):
         raise HttpError(404, "Job post not found")
     saved_job = user.talent.savedjob_set.filter(job_post=job_post).first()
     if not saved_job:
-        raise HttpError(400, "Already saved")
+        raise HttpError(404, "This job post is not saved")
     saved_job.delete()
     return Response(status=200, data={"message": "Discarded successfully"})
 

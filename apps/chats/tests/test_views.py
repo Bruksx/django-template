@@ -1,11 +1,9 @@
-import logging
-
 from django.test import TestCase
+from ninja.testing import TestClient
 
 from accounts.models import User, Talent, BusinessUser, Business
 from chats.models import Conversation, Message
 from chats.views import router
-from ninja.testing import TestClient
 
 
 class ChatTest(TestCase):

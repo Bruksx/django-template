@@ -1,12 +1,10 @@
-import logging
 from datetime import date, timezone, datetime
 from decimal import Decimal
-from xmlrpc.client import DateTime
 
 from django.test import TestCase
 
 from accounts.enums import BusinessUserRoleType, Days
-from accounts.models import User, Talent, SkillCategory, Skill, Department, Experience, Role, Education, EducationLevel, \
+from accounts.models import User, Talent, Skill, Department, Experience, Role, Education, EducationLevel, \
     BusinessUser, Business, Country, TalentAvailableDay
 from accounts.schemas.talent import TalentSkillSchema, MonthlyChartSchema, TalentAvailableDaySchema
 from chats.models import Conversation, Message
