@@ -1,26 +1,16 @@
 import uuid
 
-from django.db import models
 from django.db.models.fields.related_descriptors import ForwardManyToOneDescriptor, ManyToManyDescriptor
 from django_softdelete.managers import SoftDeleteManager, SoftDeleteQuerySet
 from django_softdelete.models import SoftDeleteModel
 
 from monkeypatches.patched_related_descriptors import ManyToManyDescriptor as PatchedManyToManyDescriptor
-from .monkeypatches import patched_set
+from core.patches.monkeypatches import patched_set
 
 ForwardManyToOneDescriptor.__set__ = patched_set
 ManyToManyDescriptor.related_manager_cls = PatchedManyToManyDescriptor.related_manager_cls
 
-
-
-from django.db import models
-from django.db.models import ForeignKey
-from uuid import UUID
-
 # Custom QuerySet class
-
-from django.db.models.signals import post_migrate
-from django.db import models
 
 from django.db import models
 from django.db.models import ForeignKey

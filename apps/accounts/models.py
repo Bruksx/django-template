@@ -1,4 +1,3 @@
-import logging
 import random
 import secrets
 import string
@@ -266,33 +265,33 @@ class Talent(BaseModel):
     def job_match_score(self, job_post):
         job = job_post.job
         if not hasattr(job, "requiredattribute"):
-            return 0
+            return 100
         required_attribute = job.requiredattribute
-        score = 0
-        if required_attribute.skills.intersection(self.skills.all()).count()  > 0:
-            score += 1
-        if required_attribute.role and self.experience_set.filter(role=job.role).exists():
-            score +=1
-        if  required_attribute.job_level and self.experience_set.filter(level=job.job_level).exists():
-            score +=1
-        if  required_attribute.years_of_experience and job.years_of_experience >= job.years_of_experience:
-            score +=1
-        if required_attribute.business_model.intersection(self.business_models.all()).count() > 0:
-            score += 1
-        if required_attribute.minimum_education_level and self.education_set.filter(level=job.minimum_education_level).exists():
-            score += 1
+        requirement_score = required_attribute.total_score()
+        score = requirement_score
+        if required_attribute.skills.count() > 0 and required_attribute.skills.intersection(self.skills.all()).count()  == 0:
+            score -= 1
+        if required_attribute.role and not self.experience_set.filter(role=job.role).exists():
+            score -=1
+        if  required_attribute.job_level and not self.experience_set.filter(level=job.job_level).exists():
+            score -=1
+        if  required_attribute.years_of_experience and job.years_of_experience < job.years_of_experience:
+            score -=1
+        if required_attribute.business_model.count() > 0 and required_attribute.business_model.intersection(self.business_models.all()).count() == 0:
+            score -= 1
+        if required_attribute.minimum_education_level and not self.education_set.filter(level=job.minimum_education_level).exists():
+            score -= 1
 
-        if required_attribute.first_language and self.native_language == job.first_language:
-            score += 1
-        if required_attribute.secondary_language and job.additional_languages.intersection(self.additional_languages.all()).count() > 0:
-            score += 1
+        if required_attribute.first_language and self.native_language != job.first_language:
+            score -= 1
+        if required_attribute.secondary_language and job.additional_languages.intersection(self.additional_languages.all()).count() == 0:
+            score -= 1
         if required_attribute.working_hours:
             working_hours_query = self.availability_query()
-            if job.availableday_set.filter(working_hours_query).exists():
-                score += 1
-        if required_attribute.location and self.country == job_post.country:
-            score += 1
-        requirement_score = required_attribute.total_score()
+            if not job.availableday_set.filter(working_hours_query).exists():
+                score -= 1
+        if required_attribute.location and self.country != job_post.country:
+            score -= 1
         return int((score/requirement_score) * 100)
 
 
@@ -326,7 +325,7 @@ class Talent(BaseModel):
 
     def invitations_to_apply(self, start_date:date=None, end_date:date=None)->int:
         from chats.models import Message
-        query = Q(conversation__users__id=self.user.id)
+        query = Q(conversation__users__id=self.user.id, job_post__isnull=False)
         if start_date and end_date:
             query = Q(query, created_at__range=[start_date, end_date])
         return Message.objects.filter(query).only("job_post_id").distinct("job_post_id").count()

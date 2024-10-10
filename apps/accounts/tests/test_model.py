@@ -1,12 +1,10 @@
-import logging
 from datetime import date, timezone, datetime
 from decimal import Decimal
-from xmlrpc.client import DateTime
 
 from django.test import TestCase
 
 from accounts.enums import BusinessUserRoleType, Days
-from accounts.models import User, Talent, SkillCategory, Skill, Department, Experience, Role, Education, EducationLevel, \
+from accounts.models import User, Talent, Skill, Department, Experience, Role, Education, EducationLevel, \
     BusinessUser, Business, Country, TalentAvailableDay
 from accounts.schemas.talent import TalentSkillSchema, MonthlyChartSchema, TalentAvailableDaySchema
 from chats.models import Conversation, Message
@@ -215,14 +213,14 @@ class TalentModelTest(TestCase):
 
     def test_job_match_score(self):
         match_score = self.talent.job_match_score(self.job_post)
-        self.assertEqual(match_score, 45)
+        self.assertEqual(match_score, 54)
         self.talent.business_models.set(BusinessModel.objects.all()[:3])
         self.talent.refresh_from_db()
         self.job_required_attrs.secondary_language = False
         self.job_required_attrs.save()
         self.job_required_attrs.refresh_from_db()
         match_score = self.talent.job_match_score(self.job_post)
-        self.assertEqual(match_score, 60)
+        self.assertEqual(match_score, 70)
 
     def test_job_applications(self):
         applications = self.talent.job_applications()

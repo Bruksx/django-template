@@ -10,7 +10,7 @@ from accounts.enums import BusinessUserRoleType
 from accounts.models import Country, Industry, User, Talent, BusinessUser, Business, Role, EducationLevel, Department
 from core.models import Currency
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, StageType
-from jobs.models import JobPost, JobLevel, EmploymentType, Job, SavedJob, JobApplication
+from jobs.models import JobPost, JobLevel, EmploymentType, Job, SavedJob, JobApplication, JobFilter
 from jobs.views import router
 
 
@@ -100,7 +100,7 @@ class TalentJobListTests(TestCase):
         response = self.client.get("talent/job-recommendations", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 0)
-        response = self.client.get("talent/job-recommendations?use_filter=false&limit=100&offset=0", headers=headers)
+        response = self.client.get("talent/job-recommendations?use_filter=false&page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 0)
 
@@ -115,7 +115,7 @@ class TalentJobListTests(TestCase):
         response = self.client.get("talent/saved-jobs", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
-        response = self.client.get("talent/saved-jobs?use_filter=false&limit=100&offset=0", headers=headers)
+        response = self.client.get("talent/saved-jobs?use_filter=false&page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
 
@@ -134,9 +134,34 @@ class TalentJobListTests(TestCase):
         response = self.client.get("talent/applied-jobs", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
-        response = self.client.get("talent/applied-jobs?use_filter=false&limit=100&offset=0", headers=headers)
+        response = self.client.get("talent/applied-jobs?use_filter=false&page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
+
+    def test_job_post_list_endpoints(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get("talent/job-posts", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+
+        # when talent has no job filter
+        response = self.client.get("talent/job-posts?use_filter=true&page_size=100&page=1", headers=headers)
+        self.assertEqual(response.status_code, 400)
+
+        response = self.client.get("talent/job-posts?search=test", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 0)
+
+        # when talent now has a job filter
+        JobFilter.objects.create(
+            talent=self.talent,
+        )
+        response = self.client.get("talent/job-posts?use_filter=true&page_size=100&page=1", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 0)
+
 
 class UpdateTalentJobFilterTest(TestCase):
     def setUp(self):
@@ -183,6 +208,37 @@ class UpdateTalentJobFilterTest(TestCase):
         self.talent.refresh_from_db()
         self.assertEqual(self.talent.jobfilter.remove_applied_jobs, True)
         self.assertEqual(self.talent.jobfilter.department, Department.objects.first())
+
+class GetTalentJobFilterTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.user = User.objects.create_user(email="testuser1@example.com",
+                                             password="securedPassword1",
+                                             first_name="Test1",
+                                             last_name="User1",
+                                             phone_number="9098866699")
+        self.country = Country.objects.first()
+        self.talent = Talent.objects.create(
+            user=self.user,
+            country=self.country
+        )
+
+    def test_get_job_filter_endpoint_without_job_filter(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get("talent/job-filter", headers=headers)
+        self.assertEqual(response.status_code, 400)
+
+    def test_get_job_filter_endpoint_with_job_filter(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        JobFilter.objects.create(
+            talent=self.talent,
+        )
+        response = self.client.get("talent/job-filter", headers=headers)
+        self.assertEqual(response.status_code, 200)
 
 class ApplyToJobPostTest(TestCase):
     def setUp(self):
@@ -358,3 +414,51 @@ class SaveJobTest(TestCase):
         response = self.client.post(f"talent/job-posts/{job_post_id}/save",
                                     headers=headers)
         self.assertEqual(response.status_code, 400)
+
+class DiscardSavedJobTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.user = User.objects.create_user(email="testuser1@example.com",
+                                             password="securedPassword1",
+                                             first_name="Test1",
+                                             last_name="User1",
+                                             phone_number="9098866699")
+        self.country = Country.objects.first()
+        self.talent = Talent.objects.create(
+            user=self.user,
+            country=self.country
+        )
+        self.job = Job.objects.create(
+            title="Test Job"
+        )
+        self.job_post = JobPost.objects.create(
+            job=self.job,)
+
+    def test_discard_saved_job_endpoint_without_job_post_saved(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        self.assertEqual(self.talent.saved_jobs().count(), 0)
+        job_post_id = str(JobPost.objects.first().uid)
+        response = self.client.post(f"talent/job-posts/{job_post_id}/discard",
+                                    headers=headers)
+        self.assertEqual(response.status_code, 404)
+        self.talent.refresh_from_db()
+
+    def test_discard_saved_job_endpoint_with_job_post_saved(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        SavedJob.objects.create(
+            job_post=self.job_post,
+            talent=self.talent
+        )
+        self.assertEqual(self.talent.saved_jobs().count(), 1)
+        job_post_id = str(JobPost.objects.first().uid)
+        response = self.client.post(f"talent/job-posts/{job_post_id}/discard",
+                                    headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        self.assertEqual(self.talent.saved_jobs().count(), 0)
+
+

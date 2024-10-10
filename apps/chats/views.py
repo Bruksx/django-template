@@ -7,8 +7,10 @@ from django.db.models import Q
 from django_q.tasks import async_task
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
-from ninja.pagination import paginate
 from ninja.responses import Response
+
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import User
@@ -31,16 +33,18 @@ def get_chats(request, search:str=""):
 
     return queryset
 
-@router.get("{conversation_uid}/messages", auth=JWTAuth(), response=List[ChatMessageSchema])
-@paginate(pass_parameter="pagination_info")
+@router.get("{conversation_uid}/messages", auth=JWTAuth(), response=PaginatedResponseSchema[ChatMessageSchema])
+@paginate(PageNumberPaginationExtra, page_size=50, pass_parameter="pagination_info")
 def get_messages(request, conversation_uid:UUID, **kwargs):
     user = request.user
     conversation = Conversation.objects.filter(users__id=user.id, uid=conversation_uid).first()
     if not conversation:
         raise HttpError(403, "Not allowed")
     pagination = kwargs.get("pagination_info")
-    start = pagination.offset * pagination.limit
-    end = start + pagination.limit
+    page = pagination.page
+    page_size = pagination.page_size
+    start = (page - 1) * page_size
+    end = start + page_size
     queryset = Message.objects.filter(conversation__uid=conversation_uid).order_by("-created_at")[start:end]
     async_task(conversation.read_messages, message_ids=list(queryset.values_list("id", flat=True)), user_id=user.id)
     return queryset

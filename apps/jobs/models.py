@@ -176,13 +176,14 @@ class JobFilter(BaseModel):
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     department = models.ForeignKey("accounts.Department", on_delete=models.SET_NULL, null=True)
     minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
-    location_type = models.CharField(choices=WorkStructureEnum.choices(), default=WorkStructureEnum.IN_OFFICE)
+    location_type = models.CharField(choices=WorkStructureEnum.choices(), default=WorkStructureEnum.IN_OFFICE.value)
     remove_applied_jobs = models.BooleanField(default=False)
 
 
     def get_queryset(self, queryset):
         # queryset for job posts
-        queryset = queryset.filter(job__years_of_experience=self.years_of_experience)
+        if self.years_of_experience > 0:
+            queryset = queryset.filter(job__years_of_experience=self.years_of_experience)
         if self.office_location:
             queryset = queryset.filter(country=self.office_location)
         if self.employment_type:

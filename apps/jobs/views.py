@@ -4,8 +4,9 @@ from uuid import UUID
 from django_q.tasks import async_task
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
-from ninja.pagination import paginate
 from ninja.responses import Response
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema, NinjaPaginationResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from jobs import tasks
@@ -17,8 +18,8 @@ from pyexpat.errors import messages
 
 router = Router()
 
-@router.get("talent/job-recommendations", auth=JWTAuth(), response=List[TalentJobPostListSchema], tags=["Talent Dashboard"])
-@paginate
+@router.get("talent/job-recommendations", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
+@paginate(PageNumberPaginationExtra, page_size=50)
 def talent_job_recommendations(request, search="", use_filter=False, **kwargs):
     user = request.user
     if not hasattr(user, "talent"):
@@ -30,10 +31,10 @@ def talent_job_recommendations(request, search="", use_filter=False, **kwargs):
         if not hasattr(user.talent, "jobfilter"):
             raise HttpError(400, "You have not set a job filter yet")
         queryset = user.talent.jobfilter.get_queryset(queryset)
-    return queryset
+    return queryset.order_by("-created_at")
 
-@router.get("talent/saved-jobs", auth=JWTAuth(), response=List[TalentJobPostListSchema], tags=["Talent Dashboard"])
-@paginate
+@router.get("talent/saved-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
+@paginate(PageNumberPaginationExtra, page_size=50)
 def talent_saved_jobs(request, search="", use_filter=False, **kwargs):
     user = request.user
     if not hasattr(user, "talent"):
@@ -45,10 +46,25 @@ def talent_saved_jobs(request, search="", use_filter=False, **kwargs):
         queryset = queryset.filter(job__title__icontains=search)
     if use_filter:
         queryset = user.talent.jobfilter.get_queryset(queryset)
-    return queryset
+    return queryset.order_by("-savedjob__created_at")
 
-@router.get("talent/applied-jobs", auth=JWTAuth(), response=List[TalentJobPostListSchema], tags=["Talent Dashboard"])
-@paginate
+@router.get("talent/job-posts", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
+@paginate(PageNumberPaginationExtra, page_size=50)
+def job_posts_by_talent_country(request, search="", use_filter=False, **kwargs):
+    user = request.user
+    if not hasattr(user, "talent"):
+        raise HttpError(403, "Only Talents are allowed")
+    queryset = JobPost.objects.filter(country=user.talent.country)
+    if search:
+        queryset = queryset.filter(job__title__icontains=search)
+    if use_filter:
+        if not hasattr(user.talent, "jobfilter"):
+            raise HttpError(400, "You have not set a job filter yet")
+        queryset = user.talent.jobfilter.get_queryset(queryset)
+    return queryset.order_by("-created_at")
+
+@router.get("talent/applied-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
+@paginate(PageNumberPaginationExtra, page_size=50)
 def talent_applied_jobs(request, search="", use_filter=False, **kwargs):
     user = request.user
     if not hasattr(user, "talent"):
@@ -60,7 +76,7 @@ def talent_applied_jobs(request, search="", use_filter=False, **kwargs):
         if not hasattr(user.talent, "jobfilter"):
             raise HttpError(400, "You have not set a job filter yet")
         queryset = user.talent.jobfilter.get_queryset(queryset)
-    return queryset
+    return queryset.order_by("-jobapplication__created_at")
 
 
 @router.patch("talent/job-filter", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentJobFilterSchema)
@@ -143,6 +159,19 @@ def save_job(request, job_post_id:UUID):
     SavedJob.objects.create(job_post=job_post, talent=user.talent)
     return Response(status=200, data={"message": "Saved successfully"})
 
+@router.post("talent/job-posts/{job_post_id}/discard", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
+def discard_saved_job(request, job_post_id:UUID):
+    user = request.user
+    if not hasattr(user, "talent"):
+        raise HttpError(403, "Only Talents are allowed")
+    job_post = JobPost.objects.filter(uid=job_post_id).first()
+    if not job_post:
+        raise HttpError(404, "Job post not found")
+    saved_job = user.talent.savedjob_set.filter(job_post=job_post).first()
+    if not saved_job:
+        raise HttpError(404, "This job post is not saved")
+    saved_job.delete()
+    return Response(status=200, data={"message": "Discarded successfully"})
 
 
 

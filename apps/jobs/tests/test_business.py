@@ -154,3 +154,88 @@ class JobCreationTest(TestCase):
         question_options = QuestionOption.objects.filter(question=screening_questions[0])
         self.assertEqual(question_options.count(), 2)
         self.assertEqual(job.skills.count(), 5)
+
+class EmploymentTypeListTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = "/employment-types"
+
+    def test_employment_type_list_endpoint(self):
+        response = self.client.get(self.url)
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(len(data), 0)
+
+    def test_employment_type_list_with_search(self):
+        response = self.client.get(f"{self.url}?search=test")
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data), 0)
+
+class DepartmentListTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = "/departments"
+
+    def test_department_list_endpoint(self):
+        response = self.client.get(self.url)
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(len(data), 0)
+
+    def test_department_list_with_search(self):
+        response = self.client.get(f"{self.url}?search=test")
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data), 0)
+
+class RoleListTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = "/roles"
+
+    def test_role_list_endpoint(self):
+        response = self.client.get(self.url)
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(len(data), 2)
+
+    def test_role_list_with_search(self):
+        response = self.client.get(f"{self.url}?search=test")
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data), 2)
+
+class JobLevelListTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = "/job-levels"
+
+    def test_job_level_list_endpoint(self):
+        response = self.client.get(self.url)
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(len(data), 0)
+
+    def test_job_level_list_with_search(self):
+        response = self.client.get(f"{self.url}?search=test")
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data), 0)
+
+class SkillCategoryListTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = "/skill-categories"
+
+    def test_skill_category_list_endpoint(self):
+        response = self.client.get(self.url)
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(len(data), 3)
+
+    def test_skill_category_list_with_search(self):
+        response = self.client.get(f"{self.url}?search=test")
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data), 3)
