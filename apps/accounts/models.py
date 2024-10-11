@@ -535,12 +535,13 @@ class Business(BaseModel):
 
 
     def applicants_years_of_experience(self):
+        from jobs.models import JobApplication
         ranges = (0, [1,2], (2,3), (3,4), 5)
         data_list = list()
         applicants_ids = JobApplication.objects.filter(
             recruiter__business=self
         ).only("id").values_list("id", flat=True)
-        applicants = JobApplication.objects.filter(id__in=applicants_ids).only("years_of_experience").distict()
+        applicants = Talent.objects.filter(id__in=applicants_ids).only("years_of_experience").distict()
 
         for range_value in ranges:
             data = dict()
