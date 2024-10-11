@@ -32,3 +32,10 @@ class StageType(BaseEnum):
     HIRED = "hired"
     ONBOARDING = "onboarding"
     REJECTED = "rejected"
+
+class WithdrawalFeedbackType(BaseEnum):
+    SKILLS = "Skills and/or Qualification Mismatch"
+    JOB_OFFER = "Accepted Another Job Offer"
+    WORK_HOURS = "Conflict with Work Hours"
+    COMPENSATION = "Compensation"
+    OTHERS = "Others"

@@ -114,12 +114,13 @@ def apply_to_job_post(request, job_post_id:UUID, data: PatchDict[TalentJobApplyS
     if JobApplication.objects.filter(job_post=job_post, applicant=user.talent).exists():
         raise HttpError(400, "Already applied")
     JobApplication.objects.create(job_post=job_post_id, applicant=user.talent,
+                                  recruiter=job_post.recruiter,
                                  **data, match=user.talent.job_match_score(job_post))
     return Response(status=200, data={"message": "Applied successfully"})
 
 
 @router.post("talent/job-posts/applications/{application_id}/withdraw", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
-def withdraw_job_applications(request, application_id:UUID, data: PatchDict[TalentJobApplicationWithdrawalSchema]):
+def withdraw_job_applications(request, application_id:UUID, data: TalentJobApplicationWithdrawalSchema):
     user = request.user
     if not hasattr(user, "talent"):
         raise HttpError(403, "Only Talents are allowed")
@@ -128,8 +129,9 @@ def withdraw_job_applications(request, application_id:UUID, data: PatchDict[Tale
         raise HttpError(404, "Application not found")
     if application.stage:
         raise HttpError(400, "You cannot withdraw this application at this time")
+    feedback_type = JobApplicationWithdrawal.feedback_type_to_number(data.feedback_type)
     JobApplicationWithdrawal.objects.create(job_post=application.job_post,
-                                            talent=user.talent, **data)
+                                            talent=user.talent, feedback_type=feedback_type, feedback=data.feedback)
     application.delete()
     return Response(status=200, data={"message": "Withdrawn successfully"})
 

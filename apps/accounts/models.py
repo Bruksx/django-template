@@ -7,7 +7,8 @@ from typing import List
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, Count, F, Value, Avg, Min, Max
+from django.db.models.functions import Concat
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
 from ninja_jwt.exceptions import AuthenticationFailed
@@ -16,6 +17,8 @@ from ninja_jwt.tokens import RefreshToken
 from accounts.dtos import TokenDto
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days
 from core.models import BaseModel
+from jobs.enums import StageType
+
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -70,13 +73,19 @@ class User(AbstractUser, BaseModel):
     facebook_id = models.CharField(max_length=32, null=True, unique=True)
     linkedin_id = models.CharField(max_length=32, null=True)
     google_id = models.CharField(max_length=32, null=True)
+    fullname = models.GeneratedField(
+        expression=Concat(F("first_name"), Value(" "),
+                          F("last_name")),
+        output_field=models.CharField(),
+        db_persist=True,
+    )
 
 
     USERNAME_FIELD = "email"
 
     def __str__(self) -> str:
         return f"{self.email}"
-    
+
     @property
     def token(self):
         refresh = RefreshToken.for_user(self)
@@ -175,6 +184,7 @@ class Talent(BaseModel):
     skills = models.ManyToManyField("accounts.Skill")
     additional_languages = models.ManyToManyField("core.Language", related_name="other_languages")
     business_models = models.ManyToManyField("jobs.BusinessModel")
+    years_of_experience = models.FloatField(default=0)
 
     @property
     def photo_url(self):
@@ -219,13 +229,13 @@ class Talent(BaseModel):
     def education_history(self):
         return self.education_set.all()
 
-    def years_of_experience(self):
-        experiences = Experience.objects.filter(talent=self).only("start_date", "end_date")
+    def get_years_of_experience(self):
+        experiences = self.experience_set.only("start_date", "end_date")
         if not experiences:
             return 0
         start_date: date = experiences.order_by("start_date").first().start_date
         end_date: date = experiences.order_by("end_date").last().end_date
-        return (end_date - start_date).days//365
+        return (end_date - start_date).days/365
 
     def job_post_matches(self, job_only=False, start_date: date=None, end_date: date=None):
         from jobs.models import AvailableDay, JobPost
@@ -233,7 +243,7 @@ class Talent(BaseModel):
         from jobs.models import Job
         experiences = self.experience_set.only("level_id", "employment_type_id", "role_id")
         job_level_ids = experiences.values_list("level_id", flat=True)
-        years_of_experience = self.years_of_experience()
+        years_of_experience = int(self.years_of_experience)
         education_level_ids = self.education_set.only("level_id").values_list("level_id", flat=True)
         business_model_ids = self.business_models.only("id").values_list("id", flat=True)
         role_ids=experiences.values_list("role_id", flat=True)
@@ -275,7 +285,7 @@ class Talent(BaseModel):
             score -=1
         if  required_attribute.job_level and not self.experience_set.filter(level=job.job_level).exists():
             score -=1
-        if  required_attribute.years_of_experience and job.years_of_experience < job.years_of_experience:
+        if  required_attribute.years_of_experience and required_attribute.years_of_experience > job.years_of_experience:
             score -=1
         if required_attribute.business_model.count() > 0 and required_attribute.business_model.intersection(self.business_models.all()).count() == 0:
             score -= 1
@@ -391,6 +401,177 @@ class Business(BaseModel):
             return
         return self.logo.url
 
+    def total_hires(self, start_date:date=None, end_date:date=None):
+        from jobs.models import JobApplication
+        return JobApplication.objects.filter(job_post__recruiter__business=self,
+                                      stage=StageType.HIRED.value).count()
+
+    def total_open_roles(self, start_date:date=None, end_date:date=None):
+        from jobs.models import JobPost
+        return JobPost.objects.filter(
+            recruiter_business=self,
+            is_posted=True
+        ).count()
+
+
+    def total_applicants(self, start_date:date=None, end_date:date=None):
+        from jobs.models import JobApplication
+
+        return JobApplication.objects.filter(job_post__recruiter__business=self)\
+                    .distinct("applicants").count()
+
+    def average_days_to_hire(self, start_date:date=None, end_date:date=None):
+        from jobs.models import JobApplication
+        return JobApplication.objects.filter(
+            recruiter__business=self,
+            stage=StageType.HIRED.value
+        ).aggregate(value=Avg("days_to_hire"))["value"] or 0
+
+    def total_invitations_sent(self, start_date:date=None, end_date:date=None):
+        from chats.models import Message
+        return Message.objects.filter(job_post__recuiter__business=self).count()
+
+    def total_application_withdrawal(self):
+        from jobs.models import JobApplicationWithdrawal
+        return JobApplicationWithdrawal.objects.filter(
+            recruiter__business=self
+        ).count()
+
+    def total_location_of_hires(self):
+        from jobs.models import JobPost
+        return JobPost.objects.filter(created_by__business=self, jobapplication__stage=StageType.HIRED.value)\
+            .only("country").distinct("country").count()
+
+
+    def recruiter_performance(self):
+        from jobs.models import JobApplication
+        return (self.total_hires(),
+                JobApplication.objects
+                .filter(stage=StageType.HIRED.value, recruiter__business=self)
+                .values("recruiter_id").annotate(
+                    recruiter=F("recruiter__user__fullname"),
+                    count=Count("recruiter_id"))
+                .values("recruiter", "count")
+                .order_by("-count"))
+
+    def location_of_hires(self):
+        from jobs.models import JobApplication
+        return (self.total_location_of_hires(),
+                JobApplication.objects
+                .filter(stage=StageType.HIRED.value, recruiter__business=self)
+                .values("country_id").annotate(
+                    country=F("country__name"),
+                    count=Count("country_id"))
+                .order_by("-count")
+                .values("country", "count"))
+
+
+    def hired_genders(self):
+        from jobs.models import JobApplication
+        return (self.total_hires(), JobApplication.objects
+                .prefetch_related("applicant")
+                .filter(stage=StageType.HIRED.value, recruiter__business=self)
+                .values("applicant__user__gender").annotate(
+                    gender=F("applicant__user__gender"),
+                    count=Count("country_id"))
+                .values("gender", "count")
+                .order_by("-count"))
+
+    def time_to_hire(self):
+        from jobs.models import JobApplication
+        data_list = (JobApplication.objects.prefetch_related("jobpost__job__role")
+        .filter(recruiter__business=self)
+        .values("jobpost__job__role")
+        .annotate(
+            role=F("jobpost__job__role__name"),
+            avg_posted_timeline=Avg("posted_timeline"),
+            avg_screening_timeline=Avg("screening_timeline"),
+            avg_first_interview_timeline=Avg("first_interview_timeline"),
+            avg_second_interview_timeline=Avg("second_interview_timeline"),
+            avg_onboarding_timeline=Avg("onboarding_timeline")
+        ))
+        data_list = [dict(**data,
+                          final_days_to_hire=sum([
+                              data["avg_onboarding_timeline"],
+                              data["avg_second_interview_timeline"],
+                              data["avg_first_interview_timeline"],
+                              data["screening_timeline"],
+                              data["posted_timeline"]
+                              ]
+                          )) for data in  data_list]
+        return sorted(data_list, key=lambda x: x["final_days_to_hire"], reverse=True)
+
+
+    def withdrawal_reasons(self):
+        from jobs.models import JobApplicationWithdrawal
+
+        data_list = (JobApplicationWithdrawal.objects.filter(
+            job_post__recruiter__business=self
+        ).values("feedback_type")
+        .annotate(
+            count=F("feedback_type")
+        ))
+        data_list =  [data(feedback=JobApplicationWithdrawal.number_to_feedback(data["feedback_type"]),
+                     count=data["count"]) for data in data_list]
+        return self.total_application_withdrawal(), sorted(data_list, key=lambda x:x["count"], reverse=True)
+
+
+    def hires_last_3_months(self):
+        from jobs.models import JobApplication
+        date_time = timezone.now() - timedelta(days=90)
+        return JobApplication.objects\
+        .prefetch_related("recruiter", "applicant__user", "job_post__job__role")\
+                .filter(
+            recruiter__business=self,
+            stage=StageType.HIRED.value,
+            stage_date_updated__gte=date_time
+        ).annotate(
+            role=F("job_post__job__role__name"),
+            talent=F("applicant__user__fullname"),
+            hired_by=F("recruiter__user__fullname")
+        ).order_by("-stage_date_updated").values("role", "talent", "hired_by")
+
+
+
+
+    def applicants_years_of_experience(self):
+        ranges = (0, [1,2], (2,3), (3,4), 5)
+        data_list = list()
+        applicants_ids = JobApplication.objects.filter(
+            recruiter__business=self
+        ).only("id").values_list("id", flat=True)
+        applicants = JobApplication.objects.filter(id__in=applicants_ids).only("years_of_experience").distict()
+
+        for range_value in ranges:
+            data = dict()
+            data["years_of_experience"] = str(range_value) if isinstance(range_value, int) else " - ".join(map(lambda x: str(x), range_value))
+            if range_value == 0:
+                data["count"] = applicants.filter(years_of_experience=0).count()
+            elif isinstance(range_value, tuple):
+                data["count"] = applicants.filter(years_of_experience__gte=range_value[0],
+                                                  years_of_experience__lt=range_value[1])
+            else:
+                data["count"] = applicants.filter(years_of_experience__gte=range_value)
+            data_list.append(data)
+        return data_list
+
+
+    def talent_at_each_stage(self):
+        from jobs.models import JobApplication
+        return JobApplication.objects.filter(
+                recruiter__business=self,
+                stage__isnull=False
+        ).values("stage").annotate(count=Count("stage")).order_by("-count")
+
+
+
+
+
+
+
+
+
+
 class VerificationCode(BaseModel):
     def default_code():
         characters = string.ascii_letters + string.digits
@@ -406,7 +587,7 @@ class VerificationCode(BaseModel):
 
     def save(self, *args, **kwargs):
         unhashed_code = self.code
-        if not self.pk: 
+        if not self.pk:
             self.code = make_password(self.code)
         super().save(*args, **kwargs)
         return unhashed_code
@@ -416,7 +597,7 @@ class VerificationCode(BaseModel):
 
     def __str__(self):
         return f"VerificationCode(email={self.email})"
-    
+
     def has_expired(self):
         return timezone.now() > self.expires_at
 
