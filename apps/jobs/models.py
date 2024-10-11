@@ -154,7 +154,6 @@ class JobApplication(BaseModel):
         null=True,
         on_delete=models.SET_NULL
     )
-    applicant_years_of_experience = models.PositiveSmallIntegerField(default=0)
     is_available = models.BooleanField()
     accept_privacy = models.BooleanField(default=True)
     stage = models.CharField(max_length=16, choices=StageType.choices(), null=True, default=None)
