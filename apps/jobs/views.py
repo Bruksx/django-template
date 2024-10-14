@@ -54,7 +54,7 @@ def job_posts_by_talent_country(request, search="", use_filter=False, **kwargs):
     user = request.user
     if not hasattr(user, "talent"):
         raise HttpError(403, "Only Talents are allowed")
-    queryset = JobPost.objects.filter(country=user.talent.country)
+    queryset = JobPost.objects.filter(country=user.talent.country, is_posted=True)
     if search:
         queryset = queryset.filter(job__title__icontains=search)
     if use_filter:
@@ -111,6 +111,8 @@ def apply_to_job_post(request, job_post_id:UUID, data: PatchDict[TalentJobApplyS
     job_post = JobPost.objects.filter(uid=job_post_id).first()
     if not job_post:
         raise HttpError(404, "Job post not found")
+    if not job_post.is_posted:
+        raise HttpError(400, "Job post is no longer available")
     if JobApplication.objects.filter(job_post=job_post, applicant=user.talent).exists():
         raise HttpError(400, "Already applied")
     JobApplication.objects.create(job_post=job_post_id, applicant=user.talent,

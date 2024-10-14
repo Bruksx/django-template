@@ -48,11 +48,11 @@ def handle_stage_update(sender, instance,  **kwargs):
                         setattr(instance, current_attribute, 0)
                     """ 
                         if current stage value doesnt change 
-                        and stage_date_updated is updated to the current stage value at 
+                        and stage_date_updated is updated to the stage_date_updated at 
                         the time initial stage movement happened
                     """
-                    stage_date_updated = application.stage_date_updated - timedelta(days=subtracted_days)
-                    setattr(instance, "stage_date_updated", stage_date_updated)
+                    # stage_date_updated = application.stage_date_updated - timedelta(days=subtracted_days)
+                    # setattr(instance, "stage_date_updated", stage_date_updated)
 
                     """
                         if current stage value changes, then stage_date_updated is not updated

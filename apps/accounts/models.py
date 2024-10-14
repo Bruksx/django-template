@@ -3,6 +3,7 @@ import secrets
 import string
 from datetime import timedelta, date, datetime
 from typing import List
+from uuid import UUID
 
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -379,6 +380,7 @@ class Talent(BaseModel):
             )
         return data
 
+
 class Business(BaseModel):
     created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING)
     name = models.CharField(max_length=128)
@@ -401,87 +403,215 @@ class Business(BaseModel):
             return
         return self.logo.url
 
-    def total_hires(self, start_date:date=None, end_date:date=None):
+    def total_hires(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
-        return JobApplication.objects.filter(job_post__recruiter__business=self,
-                                      stage=StageType.HIRED.value).count()
+        queryset = JobApplication.objects.filter(job_post__recruiter__business=self,
+                                      stage=StageType.HIRED.value)
+        # filtering based on date hired not date created
+        if start_date and not end_date:
+            queryset = queryset.filter(stage_date_updated__gte=start_date)
+        elif end_date and not start_date:
+            queryset = queryset.filter(stage_date_updated__lte=end_date)
+        elif start_date and end_date:
+            queryset = queryset.filter(stage_date_updated__range=[start_date, end_date])
+        if role_id:
+            queryset = queryset.filter(job_post__job__role_id=role_id)
+        if client:
+            queryset = queryset.filter(job_post__job__client=client)
+        return queryset.count()
 
-    def total_open_roles(self, start_date:date=None, end_date:date=None):
+    def total_open_roles(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobPost
-        return JobPost.objects.filter(
+        # open roles are job posts that are posted
+        queryset = JobPost.objects.filter(
             recruiter_business=self,
             is_posted=True
-        ).count()
+        )
+        if start_date and not end_date:
+            queryset = queryset.filter(created_at__gte=start_date)
+        elif end_date and not start_date:
+            queryset = queryset.filter(created_at__lte=end_date)
+        elif start_date and end_date:
+            queryset = queryset.filter(created_at__range=[start_date, end_date])
+        if role_id:
+            queryset = queryset.filter(job__role_id=role_id)
+        if client:
+            queryset = queryset.filter(job__client=client)
+        return queryset.count()
 
+    def total_applicants(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
 
-    def total_applicants(self, start_date:date=None, end_date:date=None):
         from jobs.models import JobApplication
 
-        return JobApplication.objects.filter(job_post__recruiter__business=self)\
-                    .distinct("applicants").count()
+        queryset = JobApplication.objects.filter(job_post__recruiter__business=self)
 
-    def average_days_to_hire(self, start_date:date=None, end_date:date=None):
+        if start_date and not end_date:
+            queryset = queryset.filter(created_at__gte=start_date)
+        elif end_date and not start_date:
+            queryset = queryset.filter(created_at__lte=end_date)
+        elif start_date and end_date:
+            queryset = queryset.filter(created_at__range=[start_date, end_date])
+        if role_id:
+            queryset = queryset.filter(job_post__job__role_id=role_id)
+        if client:
+            queryset = queryset.filter(job_post__job__client=client)
+
+        return queryset.distinct("applicants").count()
+
+    def average_days_to_hire(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
-        return JobApplication.objects.filter(
+        queryset = JobApplication.objects.filter(
             recruiter__business=self,
             stage=StageType.HIRED.value
-        ).aggregate(value=Avg("days_to_hire"))["value"] or 0
+        )
+        # filtering based on date hired not date created
+        if start_date and not end_date:
+            queryset = queryset.filter(stage_date_updated__gte=start_date)
+        elif end_date and not start_date:
+            queryset = queryset.filter(stage_date_updated__lte=end_date)
+        elif start_date and end_date:
+            queryset = queryset.filter(stage_date_updated__range=[start_date, end_date])
+        if role_id:
+            queryset = queryset.filter(job_post__job__role_id=role_id)
+        if client:
+            queryset = queryset.filter(job_post__job__client=client)
 
-    def total_invitations_sent(self, start_date:date=None, end_date:date=None):
+        return queryset.aggregate(value=Avg("days_to_hire"))["value"] or 0
+
+    def total_invitations_sent(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from chats.models import Message
-        return Message.objects.filter(job_post__recuiter__business=self).count()
 
-    def total_application_withdrawal(self):
+        queryset = Message.objects.filter(job_post__recuiter__business=self)
+        if start_date and not end_date:
+            queryset = queryset.filter(created_at__gte=start_date)
+        elif end_date and not start_date:
+            queryset = queryset.filter(created_at__lte=end_date)
+        elif start_date and end_date:
+            queryset = queryset.filter(created_at__range=[start_date, end_date])
+        if role_id:
+            queryset = queryset.filter(job__role_id=role_id)
+        if client:
+            queryset = queryset.filter(job__client=client)
+        return queryset.count()
+
+    def total_application_withdrawal(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplicationWithdrawal
-        return JobApplicationWithdrawal.objects.filter(
-            recruiter__business=self
-        ).count()
+        queryset = JobApplicationWithdrawal.objects.prefetch_related("job_post").filter(
+            job_post__recruiter__business=self)
+        if start_date and not end_date:
+            queryset = queryset.filter(created_at__gte=start_date)
+        elif end_date and not start_date:
+            queryset = queryset.filter(created_at__lte=end_date)
+        elif start_date and end_date:
+            queryset = queryset.filter(created_at__range=[start_date, end_date])
+        if role_id:
+            queryset = queryset.filter(job_post__job__role_id=role_id)
+        if client:
+            queryset = queryset.filter(job_post__job__client=client)
+        return queryset.count()
 
-    def total_location_of_hires(self):
+    def total_location_of_hires(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobPost
-        return JobPost.objects.filter(created_by__business=self, jobapplication__stage=StageType.HIRED.value)\
-            .only("country").distinct("country").count()
+        queryset = JobPost.objects.filter(created_by__business=self, jobapplication__stage=StageType.HIRED.value)
+        if start_date and not end_date:
+            queryset = queryset.filter(stage_date_updated__gte=start_date)
+        elif end_date and not start_date:
+            queryset = queryset.filter(stage_date_updated__lte=end_date)
+        elif start_date and end_date:
+            queryset = queryset.filter(stage_date_updated__range=[start_date, end_date])
+        if role_id:
+            queryset = queryset.filter(job__role_id=role_id)
+        if client:
+            queryset = queryset.filter(job__client=client)
+        return queryset.only("country").distinct("country").count()
 
 
-    def recruiter_performance(self):
+    def recruiter_performance(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
-        return (self.total_hires(),
-                JobApplication.objects
+        total_hires = self.total_hires(start_date, end_date, role_id, client)
+        performance = JobApplication.objects\
                 .filter(stage=StageType.HIRED.value, recruiter__business=self)
-                .values("recruiter_id").annotate(
+        if start_date and not end_date:
+            performance = performance.filter(stage_date_updated__gte=start_date)
+        elif end_date and not start_date:
+            performance = performance.filter(stage_date_updated__lte=end_date)
+        elif start_date and end_date:
+            performance = performance.filter(stage_date_updated__range=[start_date, end_date])
+        if role_id:
+            performance = performance.filter(job_post__job__role_id=role_id)
+        if client:
+            performance = performance.filter(job_post__job__client=client)
+        return (total_hires,
+                performance.values("recruiter_id").annotate(
                     recruiter=F("recruiter__user__fullname"),
                     count=Count("recruiter_id"))
                 .values("recruiter", "count")
                 .order_by("-count"))
 
-    def location_of_hires(self):
+    def location_of_hires(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
-        return (self.total_location_of_hires(),
-                JobApplication.objects
+        total_location_of_hires = self.total_location_of_hires(start_date, end_date, role_id, client)
+        hires_location = JobApplication.objects\
                 .filter(stage=StageType.HIRED.value, recruiter__business=self)
-                .values("country_id").annotate(
+        if start_date and not end_date:
+            hires_location = hires_location.filter(stage_date_updated__gte=start_date)
+        elif end_date and not start_date:
+            hires_location = hires_location.filter(stage_date_updated__lte=end_date)
+        elif start_date and end_date:
+            hires_location = hires_location.filter(stage_date_updated__range=[start_date, end_date])
+        if role_id:
+            hires_location = hires_location.filter(job_post__job__role_id=role_id)
+        if client:
+            hires_location = hires_location.filter(job_post__job__client=client)
+
+        return (total_location_of_hires,
+                hires_location.values("country_id").annotate(
                     country=F("country__name"),
                     count=Count("country_id"))
                 .order_by("-count")
                 .values("country", "count"))
 
 
-    def hired_genders(self):
+    def hired_genders(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
-        return (self.total_hires(), JobApplication.objects
-                .prefetch_related("applicant")
+        total_hires = self.total_hires(start_date, end_date, role_id, client)
+        genders_aggregate = JobApplication.objects\
+                .prefetch_related("applicant")\
                 .filter(stage=StageType.HIRED.value, recruiter__business=self)
-                .values("applicant__user__gender").annotate(
+        if start_date and not end_date:
+            genders_aggregate = genders_aggregate.filter(stage_date_updated__gte=start_date)
+        elif end_date and not start_date:
+            genders_aggregate = genders_aggregate.filter(stage_date_updated__lte=end_date)
+        elif start_date and end_date:
+            genders_aggregate = genders_aggregate.filter(stage_date_updated__range=[start_date, end_date])
+        if role_id:
+            genders_aggregate = genders_aggregate.filter(job_post__job__role_id=role_id)
+        if client:
+            genders_aggregate = genders_aggregate.filter(job_post__job__client=client)
+        return (total_hires,
+                genders_aggregate.values("applicant__user__gender").annotate(
                     gender=F("applicant__user__gender"),
                     count=Count("country_id"))
                 .values("gender", "count")
                 .order_by("-count"))
 
-    def time_to_hire(self):
+    def time_to_hire(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
-        data_list = (JobApplication.objects.prefetch_related("jobpost__job__role")
-        .filter(recruiter__business=self)
-        .values("jobpost__job__role")
+        data_list = JobApplication.objects.prefetch_related("jobpost__job__role")\
+        .filter(recruiter__business=self, stage=StageType.HIRED.value)
+
+        if start_date and not end_date:
+            data_list = data_list.filter(stage_date_updated__gte=start_date)
+        elif end_date and not start_date:
+            data_list = data_list.filter(stage_date_updated__lte=end_date)
+        elif start_date and end_date:
+            data_list = data_list.filter(stage_date_updated__range=[start_date, end_date])
+        if role_id:
+            data_list = data_list.filter(jobpost__job__role_id=role_id)
+        if client:
+            data_list = data_list.filter(jobpost__job__client=client)
+
+        data_list = data_list.values("jobpost__job__role")\
         .annotate(
             role=F("jobpost__job__role__name"),
             avg_posted_timeline=Avg("posted_timeline"),
@@ -489,7 +619,7 @@ class Business(BaseModel):
             avg_first_interview_timeline=Avg("first_interview_timeline"),
             avg_second_interview_timeline=Avg("second_interview_timeline"),
             avg_onboarding_timeline=Avg("onboarding_timeline")
-        ))
+        )
         data_list = [dict(**data,
                           final_days_to_hire=sum([
                               data["avg_onboarding_timeline"],
@@ -502,30 +632,53 @@ class Business(BaseModel):
         return sorted(data_list, key=lambda x: x["final_days_to_hire"], reverse=True)
 
 
-    def withdrawal_reasons(self):
+    def withdrawal_reasons(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplicationWithdrawal
 
-        data_list = (JobApplicationWithdrawal.objects.filter(
+        data_list = JobApplicationWithdrawal.objects.filter(
             job_post__recruiter__business=self
-        ).values("feedback_type")
+        )
+        if start_date and not end_date:
+            data_list = data_list.filter(created_at__gte=start_date)
+        elif end_date and not start_date:
+            data_list = data_list.filter(created_at__lte=end_date)
+        elif start_date and end_date:
+            data_list = data_list.filter(created_at__range=[start_date, end_date])
+        if role_id:
+            data_list = data_list.filter(job_post__job__role_id=role_id)
+        if client:
+            data_list = data_list.filter(job_post__job__client=client)
+        data_list = data_list.values("feedback_type")\
         .annotate(
             count=F("feedback_type")
-        ))
-        data_list =  [data(feedback=JobApplicationWithdrawal.number_to_feedback(data["feedback_type"]),
+        )
+        data_list =  [data(reason=JobApplicationWithdrawal.number_to_feedback(data["feedback_type"]),
                      count=data["count"]) for data in data_list]
         return self.total_application_withdrawal(), sorted(data_list, key=lambda x:x["count"], reverse=True)
 
 
-    def hires_last_3_months(self):
+    def hires_last_3_months(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
         date_time = timezone.now() - timedelta(days=90)
-        return JobApplication.objects\
+        queryset = JobApplication.objects\
         .prefetch_related("recruiter", "applicant__user", "job_post__job__role")\
                 .filter(
             recruiter__business=self,
             stage=StageType.HIRED.value,
             stage_date_updated__gte=date_time
-        ).annotate(
+        )
+        if start_date and not end_date:
+            queryset = queryset.filter(stage_date_updated__gte=start_date)
+        elif end_date and not start_date:
+            queryset = queryset.filter(stage_date_updated__lte=end_date)
+        elif start_date and end_date:
+            queryset = queryset.filter(stage_date_updated__range=[start_date, end_date])
+        if role_id:
+            queryset = queryset.filter(job_post__job__role_id=role_id)
+        if client:
+            queryset = queryset.filter(job_post__job__client=client)
+
+        return  queryset.annotate(
             role=F("job_post__job__role__name"),
             talent=F("applicant__user__fullname"),
             hired_by=F("recruiter__user__fullname")
@@ -534,13 +687,24 @@ class Business(BaseModel):
 
 
 
-    def applicants_years_of_experience(self):
+    def applicants_years_of_experience(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
         ranges = (0, [1,2], (2,3), (3,4), 5)
         data_list = list()
-        applicants_ids = JobApplication.objects.filter(
+        application = JobApplication.objects.filter(
             recruiter__business=self
-        ).only("id").values_list("id", flat=True)
+        )
+        if start_date and not end_date:
+            application = application.filter(created_at__gte=start_date)
+        elif end_date and not start_date:
+            application = application.filter(created_at__lte=end_date)
+        elif start_date and end_date:
+            application = application.filter(created_at__range=[start_date, end_date])
+        if role_id:
+            application = application.filter(job_post__job__role_id=role_id)
+        if client:
+            application = application.filter(job_post__job__client=client)
+        applicants_ids = application.values("applicant_id").distinct().only("id").values_list("id", flat=True)
         applicants = Talent.objects.filter(id__in=applicants_ids).only("years_of_experience").distict()
 
         for range_value in ranges:
@@ -557,12 +721,24 @@ class Business(BaseModel):
         return data_list
 
 
-    def talent_at_each_stage(self):
+    def talent_at_each_stage(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
-        return JobApplication.objects.filter(
+        application = JobApplication.objects.filter(
                 recruiter__business=self,
                 stage__isnull=False
-        ).values("stage").annotate(count=Count("stage")).order_by("-count")
+        )
+        if start_date and not end_date:
+            application = application.filter(created_at__gte=start_date)
+        elif end_date and not start_date:
+            application = application.filter(created_at__lte=end_date)
+        elif start_date and end_date:
+            application = application.filter(created_at__range=[start_date, end_date])
+        if role_id:
+            application = application.filter(job_post__job__role_id=role_id)
+        if client:
+            application = application.filter(job_post__job__client=client)
+
+        return application.only("stage").values("stage").annotate(count=Count("stage")).order_by("-count")
 
 
 
