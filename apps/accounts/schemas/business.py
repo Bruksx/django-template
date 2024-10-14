@@ -1,16 +1,11 @@
-from ninja import ModelSchema, Schema
-from pydantic import EmailStr
-from pydantic.fields import FieldInfo, Field
-from twisted.words.protocols.jabber.jstrports import client
-
-from accounts.models import User, Business
-from jobs.models import EmploymentType
 from typing import Optional, List, TypedDict
 from uuid import UUID
 
+from ninja import ModelSchema, Schema
+from pydantic import EmailStr
 
-
-
+from accounts.models import Business
+from jobs.models import EmploymentType
 
 
 class ValidateOTPSchema(Schema):
