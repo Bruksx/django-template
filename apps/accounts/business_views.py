@@ -1,4 +1,8 @@
+from datetime import date
+from uuid import UUID
+
 from django_q.tasks import async_task
+from future.backports.xmlrpc.client import DateTime
 from ninja import Router, Schema
 from .schemas import business as business_schema
 from .schemas import common as common_schema
@@ -82,3 +86,17 @@ def complete_company_profile(request, data: business_schema.BusinessSchema):
             return business
     else:
         raise HttpError(403, "Not allowed")
+
+@router.get("dashboard", auth=JWTAuth(), response=business_schema.DashboardSchema)
+def business_dashboard(request, start_date: date=None, end_date: date=None, role_id: UUID=None, client: str=None):
+    business_user = BusinessUser.objects.filter(user=request.user).first()
+    if not business_user:
+        raise HttpError(403, "Not allowed")
+    business = business_user.business
+    context = dict(
+        start_date=start_date,
+        end_date=end_date,
+        role_id=role_id,
+        client=client
+    )
+    return business_schema.DashboardSchema.from_orm(business, context=context)
