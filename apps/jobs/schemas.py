@@ -9,7 +9,8 @@ from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySche
 from ninja import ModelSchema
 from ninja.schema import Schema
 
-from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum
+from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
+    WithdrawalFeedbackType
 from .models import BusinessModel, JobFilter, JobApplication
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
 from .models import (
@@ -313,6 +314,7 @@ class TalentJobApplySchema(ModelSchema):
         fields = ("accept_privacy", "is_available")
 
 class TalentJobApplicationWithdrawalSchema(Schema):
+       feedback_type: WithdrawalFeedbackType
        feedback: str
 
 class ShareJobPostViaEmailSchema(Schema):

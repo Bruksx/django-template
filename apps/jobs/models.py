@@ -1,9 +1,10 @@
 from django.db import models
+from django.db.models import F
 from timezone_field import TimeZoneField
 
 from accounts.enums import Days
 from core.models import BaseModel, Language
-from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, StageType
+from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, StageType, WithdrawalFeedbackType
 from .managers import JobManager
 
 
@@ -83,6 +84,7 @@ class Job(BaseModel):
         null=True, 
         related_name="recruiting_jobs"
     )
+    same_job_post_recruiter = models.BooleanField(default=False)
     benefits = models.TextField(null=True)
     share_compensation = models.BooleanField(default=True)
     is_draft = models.BooleanField(default=False)
@@ -112,6 +114,7 @@ class Job(BaseModel):
 class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     is_posted = models.BooleanField(default=False)
+    date_posted = models.DateTimeField(null=True)
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     province = models.CharField(max_length=64, null=True)
     postal_code = models.CharField(max_length=8, null=True)
@@ -146,10 +149,26 @@ class JobPost(BaseModel):
 class JobApplication(BaseModel):
     job_post = models.ForeignKey(JobPost, on_delete=models.SET_NULL, null=True)
     applicant = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE)
+    recruiter = models.ForeignKey(
+        "accounts.BusinessUser",
+        null=True,
+        on_delete=models.SET_NULL
+    )
     is_available = models.BooleanField()
     accept_privacy = models.BooleanField(default=True)
     stage = models.CharField(max_length=16, choices=StageType.choices(), null=True, default=None)
     match = models.DecimalField(max_digits=12, decimal_places=2)
+    posted_timeline = models.PositiveSmallIntegerField(default=0)
+    screening_timeline = models.PositiveSmallIntegerField(default=0)
+    first_interview_timeline = models.PositiveSmallIntegerField(default=0)
+    second_interview_timeline = models.PositiveSmallIntegerField(default=0)
+    onboarding_timeline = models.PositiveSmallIntegerField(default=0)
+    days_to_hire = models.GeneratedField(
+        expression=F("posted_timeline") + F("screening_timeline") + F("first_interview_timeline") + F("second_interview_timeline") + F("onboarding_timeline"),
+        output_field=models.PositiveIntegerField(),
+        db_persist=True,
+    )
+    stage_date_updated = models.DateTimeField(null=True)
 
     def __str__(self) -> str:
         return f"{self.job_post} ({self.applicant})"
@@ -277,7 +296,30 @@ class OtherSkill(BaseModel):
 class JobApplicationWithdrawal(BaseModel):
     job_post = models.ForeignKey(JobPost, on_delete=models.SET_NULL, null=True, default=None)
     talent = models.ForeignKey("accounts.Talent", on_delete=models.DO_NOTHING)
+    feedback_type = models.PositiveSmallIntegerField(default=0)
     feedback = models.TextField()
+
+    @staticmethod
+    def feedback_type_to_number(feedback_type: WithdrawalFeedbackType):
+        data = {
+            WithdrawalFeedbackType.SKILLS.name: 0,
+            WithdrawalFeedbackType.JOB_OFFER.name: 1,
+            WithdrawalFeedbackType.WORK_HOURS.name: 2,
+            WithdrawalFeedbackType.COMPENSATION.name: 3
+        }
+        return data.get(feedback_type.name, 4)
+
+    @staticmethod
+    def number_to_feedback(number:int):
+        data = {
+            0: WithdrawalFeedbackType.SKILLS.value,
+            1: WithdrawalFeedbackType.JOB_OFFER.value,
+            2: WithdrawalFeedbackType.WORK_HOURS.value,
+            3: WithdrawalFeedbackType.COMPENSATION.value,
+            4: WithdrawalFeedbackType.OTHERS.value
+        }
+        return data.get(number)
+
 
 
 
