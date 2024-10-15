@@ -81,5 +81,7 @@ ehthumbs.db
 /files
 static
 *~
-ws_client.py
-ws_test.py
+
+# local utility test files
+ws_test_client.py
+email_test_client.py

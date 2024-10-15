@@ -154,7 +154,7 @@ class JobApplication(BaseModel):
         null=True,
         on_delete=models.SET_NULL
     )
-    is_available = models.BooleanField()
+    is_available = models.BooleanField(default=True)
     accept_privacy = models.BooleanField(default=True)
     stage = models.CharField(max_length=16, choices=StageType.choices(), null=True, default=None)
     match = models.DecimalField(max_digits=12, decimal_places=2)

@@ -117,3 +117,20 @@ class CompleteCompanyProfileTestCase(TestCase):
         response = self.client.patch("/complete-company-profile", json=data, headers=headers)
 
         self.assertEqual(response.status_code, 403)
+
+class BusinessDashboardTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.user = User.objects.create_user(email='testuser@mail.com', password='testpass')
+        self.business = Business.objects.create(name="Test Business", created_by=self.user)
+        self.business_user = BusinessUser.objects.create(user=self.user, business=self.business)
+
+        self.auth = JWTAuth()
+        self.auth.authenticate = lambda r: self.user
+
+    def test_dashboard(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get("dashboard", headers=headers)
+        self.assertEqual(response.status_code, 200)

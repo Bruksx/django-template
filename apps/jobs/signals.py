@@ -1,14 +1,14 @@
 from datetime import timedelta
 
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 
 from jobs.enums import StageType
-from jobs.models import JobApplication
+from jobs.models import JobApplication, JobPost
 
 
-@receiver(post_save, sender=JobApplication)
+@receiver(pre_save, sender=JobApplication)
 def handle_stage_update(sender, instance,  **kwargs):
     stages = [StageType.SCREENING.value, StageType.INTERVIEW.value, StageType.INTERVIEW_2.value,
               StageType.ONBOARDING.value, StageType.HIRED.value]
@@ -62,3 +62,16 @@ def handle_stage_update(sender, instance,  **kwargs):
                     current_timeline = getattr(instance, current_attribute)
                     current_timeline += subtracted_days
                     setattr(instance, current_attribute, current_timeline)
+
+@receiver(pre_save, sender=JobPost)
+def handle_job_post_date(sender, instance, **kwargs):
+    if instance.id:
+        existing_instance = JobPost.objects.get(id=instance.id)
+        if instance.is_posted and existing_instance.is_posted is False:
+            instance.date_posted = timezone.now()
+
+@receiver(pre_save, sender=JobApplication)
+def handle_new_application_match(sender, instance,  **kwargs):
+    if not instance.id:
+        instance.match = instance.applicant.job_match_score(instance.job_post)
+

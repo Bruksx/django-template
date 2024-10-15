@@ -89,7 +89,7 @@ class JobCreationTest(TestCase):
                 "postal_code": "500000"
                 }
               ],
-            "recruiter_uid": str(self.recruiter_business_user.uid),
+            "recruiter_uid": str(self.recruiter__business_user.uid),
             "annual_salary_min": 0,
             "annual_salary_max": 0,
             "annual_salary_currency": "string",
@@ -133,7 +133,7 @@ class JobCreationTest(TestCase):
         self.assertEqual(job.employment_type, self.employment_type)
         self.assertEqual(job.role, self.role)
         self.assertEqual(job.job_level, self.job_level)
-        self.assertEqual(job.recruiter, self.recruiter_business_user)
+        self.assertEqual(job.recruiter, self.recruiter__business_user)
      
         #Check availability
         available_days = AvailableDay.objects.filter(job=job)

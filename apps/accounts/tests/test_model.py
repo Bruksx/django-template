@@ -274,4 +274,53 @@ class TalentModelTest(TestCase):
         self.assertIn("availability", available_days[0])
         self.assertEqual(type(available_days[0]["availability"]), TalentAvailableDaySchema)
 
+class BusinessModelTests(TestCase):
+
+    def setUp(self):
+        ...
+
+    def test_total_hires(self):
+        ...
+
+    def test_open_roles(self):
+        ...
+
+    def test_total_applicants(self):
+        ...
+
+    def test_average_days_to_hire(self):
+        ...
+
+    def test_total_invitations_sent(self):
+        ...
+
+    def test_total_application_withdrawal(self):
+        ...
+
+    def test_total_location_of_hires(self):
+        ...
+
+    def test_recruiter_performance(self):
+        ...
+
+    def test_location_of_hires(self):
+        ...
+
+    def test_hired_genders(self):
+        ...
+
+    def test_time_to_hire(self):
+        ...
+
+    def withdrawal_reasons(self):
+        ...
+
+    def test_hired_last_3_months(self):
+        ...
+
+    def test_applicants_years_of_experience(self):
+        ...
+
+    def test_talent_at_each_stage(self):
+        ...
 
