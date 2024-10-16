@@ -1,14 +1,15 @@
 import factory
+from factory.django import DjangoModelFactory
+from faker import Faker
 
 from accounts.enums import GenderType, PreferredCommunicationType, BusinessUserRoleType, Days
 from accounts.models import User, Talent, Business, BusinessUser, Education, Role, TalentAvailableDay, CustomerCase, \
-    EducationLevel, Industry, Country, AdditionalSkill
-from factory.django import DjangoModelFactory
-import datetime
+    EducationLevel, Industry, Country, AdditionalSkill, Department
 
+fake = Faker()
 from core.models import Currency, Language
-from jobs.enums import WorkStructureEnum, LunchBreakEnum
-from jobs.models import JobLevel, EmploymentType, JobPost, Job, JobApplication, Qualification
+from jobs.enums import WorkStructureEnum, LunchBreakEnum, WithdrawalFeedbackType
+from jobs.models import JobLevel, EmploymentType, JobPost, Job, JobApplication, Qualification, JobApplicationWithdrawal
 
 
 class CountryFactory(DjangoModelFactory):
@@ -21,7 +22,7 @@ class CurrencyFactory(DjangoModelFactory):
     class Meta:
         model = Currency
 
-    code = factory.Faker('currency_code')
+    abbreviation = factory.Faker('currency_code')
     name = factory.Faker('currency_name')
 
 class LanguageFactory(DjangoModelFactory):
@@ -35,49 +36,41 @@ class JobLevelFactory(DjangoModelFactory):
     class Meta:
         model = JobLevel
 
-    name = factory.Faker('job_level')
+    name = factory.LazyAttribute(lambda _: fake.name()[:15])
+
 
 class EmploymentTypeFactory(DjangoModelFactory):
     class Meta:
         model = EmploymentType
 
-    name = factory.Faker('job_level')
-
-class UserFactory(DjangoModelFactory):
-    class Meta:
-        model = User
-
-    first_name = factory.Faker('name')
-    last_name = factory.Faker('name')
-    email = factory.Faker('email')
-    phone_number = factory.Faker('phone_number')
-    password = factory.Faker('password')
-
-    @factory.post_generation
-    def talent(self, create, extracted, **kwargs):
-        if not create:
-            return
-
-        if extracted:
-            self.talent = extracted
-            self.talent.user = self
-            self.talent.save()
-
-    @factory.post_generation
-    def business(self, create, extracted, **kwargs):
-        if not create:
-            return
-
-        if extracted:
-            self.business = extracted
-            self.business.user = self
-            self.business.save()
+    name = factory.Faker("name")
 
 class IndustryFactory(DjangoModelFactory):
     class Meta:
         model = Industry
 
     name = factory.Faker('company')
+
+
+class DepartmentFactory(DjangoModelFactory):
+    class Meta:
+        model = Department
+
+    name = factory.Faker("name")
+    industry = factory.SubFactory(IndustryFactory)
+
+
+class UserFactory(DjangoModelFactory):
+    class Meta:
+        model = User
+
+    first_name = factory.Faker('first_name', )
+    last_name = factory.Faker('last_name')
+    gender = factory.Iterator(GenderType.values())
+    email = factory.Faker('email')
+    phone_number = factory.LazyAttribute(lambda _: fake.phone_number()[:15])
+    password = factory.Faker('password')
+
 
 class EducationLevelFactory(DjangoModelFactory):
     class Meta:
@@ -91,9 +84,8 @@ class TalentFactory(DjangoModelFactory):
         model = Talent
 
     user = factory.SubFactory(UserFactory)
-    gender = factory.Iterator(GenderType.choices)
     country = factory.SubFactory(CountryFactory)
-    preferred_communication = factory.Iterator(PreferredCommunicationType.choices)
+    preferred_communication = factory.Iterator(PreferredCommunicationType.values())
 
 class AdditionalSkillFactory(DjangoModelFactory):
     class Meta:
@@ -108,7 +100,8 @@ class RoleFactory(DjangoModelFactory):
     class Meta:
         model = Role
 
-    name = factory.Faker('job')
+    name = factory.Faker("job")
+    department = factory.SubFactory(DepartmentFactory)
 
 class BusinessFactory(DjangoModelFactory):
     class Meta:
@@ -126,8 +119,7 @@ class BusinessUserFactory(DjangoModelFactory):
         model = BusinessUser
     business = factory.SubFactory(BusinessFactory)
     user = factory.SubFactory(UserFactory)
-    added_by = factory.SubFactory(UserFactory)
-    role = factory.Iterator(BusinessUserRoleType.choices)
+    role = factory.Iterator(BusinessUserRoleType.values())
 
 class EducationFactory(DjangoModelFactory):
     class Meta:
@@ -161,7 +153,7 @@ class TalentAvailableDayFactory(DjangoModelFactory):
         model = TalentAvailableDay
 
     talent = factory.SubFactory(TalentFactory)
-    day = factory.Iterator(Days.choices())
+    day = factory.Iterator(Days.values())
     start_time = factory.Faker('time')
     end_time = factory.Faker('time')
 
@@ -179,10 +171,8 @@ class QualificationFactory(DjangoModelFactory):
     class Meta:
         model = Qualification
 
-    talent = factory.SubFactory(TalentFactory)
-    start_date = factory.Faker('date_this_decade', before_today=True)
-    end_date = factory.Faker('date_this_decade', before_today=True)
-    name = factory.Faker('sentence', nb_words=20)
+    name = factory.LazyAttribute(lambda _: fake.name())
+
 
 class JobFactory(DjangoModelFactory):
     class Meta:
@@ -190,16 +180,16 @@ class JobFactory(DjangoModelFactory):
     created_by = factory.SubFactory(BusinessUserFactory)
     hiring_company_name = factory.Faker('company')
     hiring_company_description = factory.Faker('sentence', nb_words=100)
-    title = factory.Faker('sentence', nb_words=20)
+    title = factory.lazy_attribute(lambda _: fake.sentence()[:15])
     about = factory.Faker('sentence', nb_words=100)
     years_of_experience = factory.Faker('pyint', min_value=1, max_value=10)
     minimum_education_level = factory.SubFactory(EducationLevelFactory)
     job_level = factory.SubFactory(JobLevelFactory)
     qualification = factory.SubFactory(QualificationFactory)
     role = factory.SubFactory(RoleFactory)
-    work_structure = factory.Iterator(WorkStructureEnum.choices)
+    work_structure = factory.Iterator(WorkStructureEnum.values())
     office_address = factory.Faker('address')
-    lunch_break = factory.Iterator(LunchBreakEnum.choices())
+    lunch_break = factory.Iterator(LunchBreakEnum.values())
     annual_salary_min = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
     annual_salary_max = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
     annual_salary_currency = factory.SubFactory(CurrencyFactory)
@@ -220,6 +210,7 @@ class JobPostFactory(DjangoModelFactory):
     recruiter = factory.SubFactory(BusinessUserFactory)
     province = factory.Faker('city')
     postal_code = factory.Faker('postcode')
+    date_posted = factory.Faker("date_this_decade", before_today=True)
     annual_salary_min = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
     annual_salary_max = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
     annual_salary_currency = factory.SubFactory(CurrencyFactory)
@@ -232,5 +223,11 @@ class JobApplicationFactory(DjangoModelFactory):
     applicant = factory.SubFactory(UserFactory)
     recruiter = factory.SubFactory(BusinessUserFactory)
 
+class JobApplicationWithdrawalFactory(DjangoModelFactory):
+    class Meta:
+        model = JobApplicationWithdrawal
+    job_post = factory.SubFactory(JobPostFactory)
+    feedback = factory.Faker('sentence', nb_words=50)
+    feedback_type = factory.Iterator(WithdrawalFeedbackType.indices())
 
 
