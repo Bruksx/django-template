@@ -1,7 +1,7 @@
+import logging
 from collections import defaultdict
 from datetime import date, timezone, datetime
 from decimal import Decimal
-from random import randint
 
 from django.test import TestCase
 
@@ -12,7 +12,8 @@ from accounts.schemas.talent import TalentSkillSchema, MonthlyChartSchema, Talen
 from chats.models import Conversation, Message
 from core.models import Currency
 from factories import JobPostFactory, TalentFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
-    BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory
+    BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, ConversationFactory, \
+    MessageFactory
 from jobs.enums import LunchBreakEnum, WorkStructureEnum, StageType
 from jobs.models import JobLevel, EmploymentType, Job, JobPost, RequiredAttribute, BusinessModel, AvailableDay, \
     JobApplication, JobInterview, SavedJob
@@ -279,8 +280,9 @@ class TalentModelTest(TestCase):
         self.assertEqual(type(available_days[0]["availability"]), TalentAvailableDaySchema)
 
 class BusinessModelTests(TestCase):
-    max_data = 2
-    sub_data = 1
+    max_data = 5
+    sub_data = 3
+
     def setUp(self):
         business = BusinessFactory.create()
         recruiters = BusinessUserFactory.create_batch(size=5, business=business)
@@ -295,18 +297,27 @@ class BusinessModelTests(TestCase):
             recruiter=recruiters[0]
 
         )
-
         index = 0
         for job in jobs:
             job.recruiter = recruiters[0]
             job.save()
             job_post_list.append(JobPostFactory.create(recruiter=recruiters[index],
-                                                       is_posted=True,
+                                              is_posted=True,
                                                        country=country,
                                                        job=job))
             index += 1
 
         talents = TalentFactory.create_batch(size=self.max_data, country=country)
+        for index in range(self.sub_data):
+            conversation = ConversationFactory.create(
+                users=[recruiters[index].user, talents[index].user]
+            )
+            MessageFactory.create(
+                conversation=conversation,
+                sender=recruiters[index].user,
+                job_post=job_post_list[index]
+            )
+
         job_applications = defaultdict(list)
         job_withdrawals = defaultdict(list)
         for talent in talents:
@@ -356,35 +367,104 @@ class BusinessModelTests(TestCase):
                          sum(days_to_hire_list)/self.sub_data)
 
     def test_total_invitations_sent(self):
-        ...
+        self.assertEqual(self.business.total_invitations_sent(), self.sub_data)
+        talent = Talent.objects.last()
+        recruiter = BusinessUser.objects.last()
+        convo = ConversationFactory.create(users=[talent.user, recruiter.user])
+        MessageFactory.create(conversation=convo, sender=recruiter.user)
+        self.assertEqual(self.business.total_invitations_sent(), self.sub_data)
+        MessageFactory.create(conversation=convo, sender=recruiter.user, job_post=JobPost.objects.last())
+        self.assertEqual(self.business.total_invitations_sent(), self.sub_data+1)
+
+
 
     def test_total_application_withdrawal(self):
-        ...
+        self.assertEqual(self.business.total_application_withdrawal(), self.sub_data * self.sub_data)
+        job_post = JobPost.objects.last()
+        talent = Talent.objects.last()
+        JobApplicationWithdrawalFactory.create(job_post=job_post, talent=talent)
+        self.assertEqual(self.business.total_application_withdrawal(), (self.sub_data * self.sub_data)+1)
+
+
 
     def test_total_location_of_hires(self):
-        ...
+        last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
+                                   :self.sub_data]
+        self.assertEqual(self.business.total_location_of_hires(), 0)
+        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=StageType.HIRED.value)
+        self.assertEqual(self.business.total_location_of_hires(), 1)
 
     def test_recruiter_performance(self):
-        ...
+        last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
+                                   :self.sub_data]
+        count, _ = self.business.recruiter_performance()
+        self.assertEqual(count, 0)
+        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=StageType.HIRED.value)
+        count, _ = self.business.recruiter_performance()
+        self.assertEqual(count, self.sub_data)
+
 
     def test_location_of_hires(self):
-        ...
+        last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
+                                   :self.sub_data]
+        count, _ = self.business.location_of_hires()
+        self.assertEqual(count, 0)
+        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=StageType.HIRED.value)
+        count, _ = self.business.location_of_hires()
+        self.assertEqual(count, 1)
 
     def test_hired_genders(self):
-        ...
+        last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
+                                   :self.sub_data]
+        count, _ = self.business.hired_genders()
+        self.assertEqual(count, 0)
+        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=StageType.HIRED.value)
+        count, _ = self.business.hired_genders()
+        self.assertEqual(count, self.sub_data)
 
     def test_time_to_hire(self):
-        ...
+        last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
+                                   :self.sub_data]
+        for app_id in last_sub_application_ids:
+            j = JobApplication.objects.get(id=app_id)
+            j.update(stage=StageType.HIRED.value)
+        data = self.business.time_to_hire()
+        self.assertGreater(len(data), 0)
+        self.assertGreater(data[0]["final_days_to_hire"], 0)
 
-    def withdrawal_reasons(self):
-        ...
+    def test_withdrawal_reasons(self):
+        count, _ = self.business.withdrawal_reasons()
+        self.assertEqual(count, self.sub_data * self.sub_data)
+        job_post = JobPost.objects.last()
+        talent = Talent.objects.last()
+        JobApplicationWithdrawalFactory.create(job_post=job_post, talent=talent)
+        count, _ = self.business.withdrawal_reasons()
+        self.assertEqual(count, (self.sub_data * self.sub_data)+1)
 
-    def test_hired_last_3_months(self):
-        ...
+    def test_hires_last_3_months(self):
+        data = self.business.hires_last_3_months()
+        self.assertEqual(len(data), 0)
+        last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
+                                   :self.sub_data]
+        for app_id in last_sub_application_ids:
+            j = JobApplication.objects.get(id=app_id)
+            j.update(stage=StageType.HIRED.value)
+        data = self.business.hires_last_3_months()
+        self.assertEqual(len(data), self.sub_data)
 
     def test_applicants_years_of_experience(self):
-        ...
+        data = self.business.applicants_years_of_experience()
+        self.assertEqual(data[0]["count"], self.max_data)
+
 
     def test_talent_at_each_stage(self):
-        ...
+        data = self.business.talent_at_each_stage()
+        self.assertNotEqual(data[0]["stage"], "hired")
+        self.assertEqual(data[0]["count"], 0)
+        last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
+                                   :self.sub_data]
+        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=StageType.HIRED.value)
+        data = self.business.talent_at_each_stage()
+        self.assertEqual(data[0]["stage"], "hired")
+        self.assertGreater(data[0]["count"], 0)
 

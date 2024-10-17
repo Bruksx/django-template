@@ -6,6 +6,7 @@ from datetime import timedelta, date, datetime
 from typing import List
 from uuid import UUID
 
+from Tools.scripts.make_ctype import values
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
@@ -19,7 +20,7 @@ from ninja_jwt.tokens import RefreshToken
 from accounts.dtos import TokenDto
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days
 from core.models import BaseModel
-from jobs.enums import StageType
+from jobs.enums import StageType, WithdrawalFeedbackType
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -625,14 +626,17 @@ class Business(BaseModel):
             avg_first_interview_timeline=Avg("first_interview_timeline"),
             avg_second_interview_timeline=Avg("second_interview_timeline"),
             avg_onboarding_timeline=Avg("onboarding_timeline")
-        )
+        )\
+        .values("role", "avg_posted_timeline",
+                "avg_screening_timeline", "avg_first_interview_timeline",
+                "avg_second_interview_timeline", "avg_onboarding_timeline")
         data_list = [dict(**data,
                           final_days_to_hire=sum([
                               data["avg_onboarding_timeline"],
                               data["avg_second_interview_timeline"],
                               data["avg_first_interview_timeline"],
-                              data["screening_timeline"],
-                              data["posted_timeline"]
+                              data["avg_screening_timeline"],
+                              data["avg_posted_timeline"]
                               ]
                           )) for data in  data_list]
         return sorted(data_list, key=lambda x: x["final_days_to_hire"], reverse=True)
@@ -654,13 +658,16 @@ class Business(BaseModel):
             data_list = data_list.filter(job_post__job__role_id=role_id)
         if client:
             data_list = data_list.filter(job_post__job__hiring_company_name=client)
-        data_list = data_list.values("feedback_type")\
-        .annotate(
-            count=Count("feedback_type")
-        )
-        data_list =  [dict(reason=JobApplicationWithdrawal.number_to_feedback(data["feedback_type"]),
-                     count=data["count"]) for data in data_list]
-        return self.total_application_withdrawal(), sorted(data_list, key=lambda x:x["count"], reverse=True)
+        result_data_list = []
+        for reason in WithdrawalFeedbackType:
+            feed_back_type = JobApplicationWithdrawal.feedback_type_to_number(reason)
+            result_data_list.append({
+                "reason": reason.value,
+                "count": data_list.filter(
+                    feedback_type=feed_back_type
+                ).count()
+            })
+        return self.total_application_withdrawal(), sorted(result_data_list, key=lambda x:x["count"], reverse=True)
 
 
     def hires_last_3_months(self, role_id: UUID=None, client: str=None):
@@ -673,6 +680,7 @@ class Business(BaseModel):
             stage=StageType.HIRED.value,
             stage_date_updated__gte=date_time
         )
+
         if role_id:
             queryset = queryset.filter(job_post__job__role_id=role_id)
         if client:
@@ -683,9 +691,6 @@ class Business(BaseModel):
             talent=F("applicant__user__fullname"),
             hired_by=F("recruiter__user__fullname")
         ).order_by("-stage_date_updated").values("role", "talent", "hired_by")
-
-
-
 
     def applicants_years_of_experience(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
@@ -709,7 +714,7 @@ class Business(BaseModel):
 
         for range_value in ranges:
             data = dict()
-            data["years_of_experience"] = str(range_value) if isinstance(range_value, int) else " - ".join(map(lambda x: str(x), range_value))
+            data["years_of_experience"] = str(range_value if range_value == 0 else f"{range_value}+") if isinstance(range_value, int) else " - ".join(map(lambda x: str(x), range_value))
             if range_value == 0:
                 data["count"] = applicants.filter(years_of_experience=0).count()
             elif isinstance(range_value, tuple):
@@ -719,7 +724,6 @@ class Business(BaseModel):
                 data["count"] = applicants.filter(years_of_experience__gte=range_value).count()
             data_list.append(data)
         return data_list
-
 
     def talent_at_each_stage(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication

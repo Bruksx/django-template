@@ -5,6 +5,7 @@ from faker import Faker
 from accounts.enums import GenderType, PreferredCommunicationType, BusinessUserRoleType, Days
 from accounts.models import User, Talent, Business, BusinessUser, Education, Role, TalentAvailableDay, CustomerCase, \
     EducationLevel, Industry, Country, AdditionalSkill, Department
+from chats.models import Conversation, Message
 
 fake = Faker()
 from core.models import Currency, Language
@@ -231,3 +232,28 @@ class JobApplicationWithdrawalFactory(DjangoModelFactory):
     feedback_type = factory.Iterator(WithdrawalFeedbackType.indices())
 
 
+class ConversationFactory(DjangoModelFactory):
+    class Meta:
+        model = Conversation
+
+    @factory.post_generation
+    def users(self, create, extracted, **kwargs):
+        if not create:
+            return
+
+        if extracted:
+            for user in extracted:
+                self.users.add(user)
+        else:
+            # Create default authors if none were passed.
+            user1 = UserFactory()
+            user2 = UserFactory()
+            self.users.add(user1, user2)
+
+class MessageFactory(DjangoModelFactory):
+    class Meta:
+        model = Message
+
+    conversation = factory.SubFactory(ConversationFactory)
+    sender = factory.SubFactory(UserFactory)
+    body = factory.Faker('sentence', nb_words=50)
