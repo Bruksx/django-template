@@ -8,3 +8,7 @@ class BaseEnum(Enum):
     @classmethod
     def values(cls):
         return [item.value for item in cls]
+
+    @classmethod
+    def indices(cls):
+        return [i for i, x in enumerate(cls)]

@@ -154,10 +154,10 @@ class JobApplication(BaseModel):
         null=True,
         on_delete=models.SET_NULL
     )
-    is_available = models.BooleanField()
+    is_available = models.BooleanField(default=True)
     accept_privacy = models.BooleanField(default=True)
     stage = models.CharField(max_length=16, choices=StageType.choices(), null=True, default=None)
-    match = models.DecimalField(max_digits=12, decimal_places=2)
+    match = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     posted_timeline = models.PositiveSmallIntegerField(default=0)
     screening_timeline = models.PositiveSmallIntegerField(default=0)
     first_interview_timeline = models.PositiveSmallIntegerField(default=0)

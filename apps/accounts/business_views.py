@@ -4,6 +4,9 @@ from uuid import UUID
 from django_q.tasks import async_task
 from future.backports.xmlrpc.client import DateTime
 from ninja import Router, Schema
+from ninja.responses import Response
+
+from jobs.models import Job
 from .schemas import business as business_schema
 from .schemas import common as common_schema
 from accounts.models import User, Business, BusinessUser, VerificationCode
@@ -87,8 +90,9 @@ def complete_company_profile(request, data: business_schema.BusinessSchema):
     else:
         raise HttpError(403, "Not allowed")
 
-@router.get("dashboard", auth=JWTAuth(), response=business_schema.DashboardSchema)
+@router.get("dashboard", auth=JWTAuth(), response={200: business_schema.DashboardSchema})
 def business_dashboard(request, start_date: date=None, end_date: date=None, role_id: UUID=None, client: str=None):
+    # will require caching
     business_user = BusinessUser.objects.filter(user=request.user).first()
     if not business_user:
         raise HttpError(403, "Not allowed")
@@ -99,4 +103,15 @@ def business_dashboard(request, start_date: date=None, end_date: date=None, role
         role_id=role_id,
         client=client
     )
-    return business_schema.DashboardSchema.from_orm(business, context=context)
+    return Response(data=business_schema.DashboardSchema.from_orm(business, context=context))
+
+
+@router.get("job-clients", auth=JWTAuth(), response={200: List[str]})
+def get_job_clients(request):
+    business_user = BusinessUser.objects.filter(user=request.user).first()
+    if not business_user:
+        raise HttpError(403, "Not allowed")
+    return Response(data=list(Job.objects.filter(created_by__business=business_user.business,
+                                                hiring_company_name__isnull=False).only("hiring_company_name")\
+                  .distinct("hiring_company_name").values_list("hiring_company_name", flat=True)))
+

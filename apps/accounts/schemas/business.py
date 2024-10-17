@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, List, TypedDict
 from uuid import UUID
 
@@ -86,7 +87,7 @@ class WithdrawalReasonSchema(Schema):
 
 
 class ApplicantsYearsOfExperienceSchema(Schema):
-    years_of_experience:int
+    years_of_experience:str
     count:int
 
 
@@ -143,11 +144,12 @@ class DashboardSchema(ModelSchema):
     @staticmethod
     def resolve_invitations_sent(obj, context):
         return obj.total_invitations_sent(**DashboardSchema.get_context(obj, context))
-
     @staticmethod
     def resolve_hires_last_3_months(obj, context):
         return [Last3MonthHiresSchema(**data)
-                for data in obj.hires_last_3_months(**DashboardSchema.get_context(obj, context))]
+                for data in obj.hires_last_3_months
+                (role_id=context.get("role_id"),
+                 client=context.get("client"))]
 
 
     @staticmethod
@@ -187,8 +189,8 @@ class DashboardSchema(ModelSchema):
     def resolve_withdrawal_reasons(obj, context):
         data = dict(total_withdrawal=0, data=list())
         data["total_withdrawal"], data["data"] = obj.withdrawal_reasons(
-            **DashboardSchema.get_context(obj, context)
-        )
+                **DashboardSchema.get_context(obj, context)
+            )
         return WithdrawalReasonSchema.from_orm(data)
 
     @staticmethod
@@ -196,6 +198,7 @@ class DashboardSchema(ModelSchema):
         return [ApplicantsYearsOfExperienceSchema(**data) for data in obj.applicants_years_of_experience(
             **DashboardSchema.get_context(obj, context)
         )]
+
 
     @staticmethod
     def resolve_talent_per_stage(obj, context):
