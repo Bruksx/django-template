@@ -1,8 +1,14 @@
+import logging
+from collections import defaultdict
+
 from accounts.models import User, VerificationCode, Business, BusinessUser
 from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 from accounts.business_views import router
+from accounts.schemas.business import DashboardSchema
+from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
+    TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory
 
 
 class ValidateOtpTests(TestCase):
@@ -119,18 +125,84 @@ class CompleteCompanyProfileTestCase(TestCase):
         self.assertEqual(response.status_code, 403)
 
 class BusinessDashboardTestCase(TestCase):
+    max_data = 2
+    sub_data = 1
     def setUp(self):
         self.client = TestClient(router)
-        self.user = User.objects.create_user(email='testuser@mail.com', password='testpass')
-        self.business = Business.objects.create(name="Test Business", created_by=self.user)
-        self.business_user = BusinessUser.objects.create(user=self.user, business=self.business)
 
-        self.auth = JWTAuth()
-        self.auth.authenticate = lambda r: self.user
+        business = BusinessFactory.create()
+        recruiters = BusinessUserFactory.create_batch(size=self.max_data, business=business)
+        job_post_list = []
+        country = CountryFactory.create()
+        currency = CurrencyFactory.create()
+        jobs = JobFactory.create_batch(
+            size=self.max_data,
+            created_by=recruiters[0],
+            annual_salary_currency=currency,
+            annual_bonus_currency=currency,
+            recruiter=recruiters[0]
 
-    def test_dashboard(self):
+        )
+        index = 0
+        for job in jobs:
+            job.recruiter = recruiters[0]
+            job.save()
+            job_post_list.append(JobPostFactory.create(recruiter=recruiters[index],
+                                                       is_posted=True,
+                                                       country=country,
+                                                       job=job))
+            index += 1
+
+        talent = TalentFactory.create()
+        for index in range(self.sub_data):
+            conversation = ConversationFactory.create(
+                users=[recruiters[index].user, talent.user]
+            )
+            MessageFactory.create(
+                conversation=conversation,
+                sender=recruiters[index].user,
+                job_post=job_post_list[index]
+            )
+
+        for index in range(self.max_data):
+            JobApplicationFactory.create(applicant=talent, job_post=job_post_list[index])
+
+        for index in range(0, self.sub_data):
+            JobApplicationWithdrawalFactory.create(job_post=job_post_list[index], talent=talent)
+
+        self.business = business
+        self.country = country
+        self.talent = talent
+        self.staff = recruiters[0]
+
+    def test_dashboard_by_talent(self):
         headers = {
-            "authorization": f"bearer {self.user.token}"
+            "authorization": f"bearer {self.talent.user.token}"
         }
         response = self.client.get("dashboard", headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_dashboard_by_business_staff(self):
+        headers = {
+            "authorization": f"bearer {self.staff.user.token}"
+        }
+        dashboard_keys = [
+            "hires",
+            "open_roles",
+            "applicants",
+            "avg_days_to_hire",
+            "invitations_sent",
+            "hires_last_3_months",
+            "recruiter_performance",
+            "applicant_gender",
+            "hires_location",
+            "time_to_hire",
+            "withdrawal_reasons",
+            "applicants_years_of_experience",
+            "talent_per_stage",
+            "uid"
+        ]
+        response = self.client.get("dashboard", headers=headers)
+        for key in dashboard_keys:
+            self.assertIn(key, response.json())
         self.assertEqual(response.status_code, 200)

@@ -280,12 +280,12 @@ class TalentModelTest(TestCase):
         self.assertEqual(type(available_days[0]["availability"]), TalentAvailableDaySchema)
 
 class BusinessModelTests(TestCase):
-    max_data = 5
-    sub_data = 3
+    max_data = 2
+    sub_data = 1
 
     def setUp(self):
         business = BusinessFactory.create()
-        recruiters = BusinessUserFactory.create_batch(size=5, business=business)
+        recruiters = BusinessUserFactory.create_batch(size=self.max_data, business=business)
         job_post_list = []
         country = CountryFactory.create()
         currency = CurrencyFactory.create()
@@ -318,18 +318,12 @@ class BusinessModelTests(TestCase):
                 job_post=job_post_list[index]
             )
 
-        job_applications = defaultdict(list)
-        job_withdrawals = defaultdict(list)
         for talent in talents:
             for index in range(self.max_data):
-                job_applications[talent.id].append(
-                    JobApplicationFactory.create(applicant=talent, job_post=job_post_list[index])
-                )
+                JobApplicationFactory.create(applicant=talent, job_post=job_post_list[index])
+
         for talent in talents[:self.sub_data]:
-            for index in range(0, self.sub_data):
-                job_withdrawals[talent.id].append(
-                    JobApplicationWithdrawalFactory.create(job_post=job_post_list[index], talent=talent)
-                )
+                JobApplicationWithdrawalFactory.create(job_post=job_post_list[index], talent=talent)
         self.business = business
         self.country = country
 
