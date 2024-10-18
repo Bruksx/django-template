@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from urllib.parse import urlencode
 
 from accounts.models import User, VerificationCode, Business, BusinessUser
 from django.test import TestCase
@@ -9,6 +10,9 @@ from accounts.business_views import router
 from accounts.schemas.business import DashboardSchema
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory
+from jobs.business_views import job_list
+from jobs.enums import StageType
+from jobs.models import JobPost, JobApplication
 
 
 class ValidateOtpTests(TestCase):
@@ -125,8 +129,8 @@ class CompleteCompanyProfileTestCase(TestCase):
         self.assertEqual(response.status_code, 403)
 
 class BusinessDashboardTestCase(TestCase):
-    max_data = 2
-    sub_data = 1
+    max_data = 3
+    sub_data = 2
     def setUp(self):
         self.client = TestClient(router)
 
@@ -153,26 +157,30 @@ class BusinessDashboardTestCase(TestCase):
                                                        job=job))
             index += 1
 
-        talent = TalentFactory.create()
-        for index in range(self.sub_data):
-            conversation = ConversationFactory.create(
-                users=[recruiters[index].user, talent.user]
-            )
-            MessageFactory.create(
-                conversation=conversation,
-                sender=recruiters[index].user,
-                job_post=job_post_list[index]
-            )
+        talents = TalentFactory.create_batch(size=self.max_data)
+        for talent in talents:
+            for index in range(self.sub_data):
+                conversation = ConversationFactory.create(
+                    users=[recruiters[index].user, talent.user]
+                )
+                MessageFactory.create(
+                    conversation=conversation,
+                    sender=recruiters[index].user,
+                    job_post=job_post_list[index]
+                )
 
-        for index in range(self.max_data):
-            JobApplicationFactory.create(applicant=talent, job_post=job_post_list[index])
+            for index in range(self.max_data):
+                JobApplicationFactory.create(applicant=talent, job_post=job_post_list[index])
+            for index in range(self.sub_data, self.max_data):
+                application = JobApplication.objects.filter(applicant=talent, job_post=job_post_list[index]).first()
+                application.update(stage=StageType.HIRED.value)
 
-        for index in range(0, self.sub_data):
-            JobApplicationWithdrawalFactory.create(job_post=job_post_list[index], talent=talent)
+            for index in range(0, self.sub_data):
+                JobApplicationWithdrawalFactory.create(job_post=job_post_list[index], talent=talent)
 
         self.business = business
         self.country = country
-        self.talent = talent
+        self.talent = talents[0]
         self.staff = recruiters[0]
 
     def test_dashboard_by_talent(self):
@@ -205,4 +213,42 @@ class BusinessDashboardTestCase(TestCase):
         response = self.client.get("dashboard", headers=headers)
         for key in dashboard_keys:
             self.assertIn(key, response.json())
+        self.assertEqual(response.status_code, 200)
+
+    def test_dashboard_by_business_staff_with_filters(self):
+        headers = {
+            "authorization": f"bearer {self.staff.user.token}"
+        }
+        job_application = JobApplication.objects.filter(
+            stage=StageType.HIRED.value
+        ).last()
+        job = job_application.job_post.job
+
+        filters = {
+            "start_date": "2020-01-01",
+            "end_date": "2023-12-31",
+            "role": job.role.uid,
+            "client": job.hiring_company_name
+        }
+        query = "/dashboard?" + urlencode(filters)
+        dashboard_keys = [
+            "hires",
+            "open_roles",
+            "applicants",
+            "avg_days_to_hire",
+            "invitations_sent",
+            "hires_last_3_months",
+            "recruiter_performance",
+            "applicant_gender",
+            "hires_location",
+            "time_to_hire",
+            "withdrawal_reasons",
+            "applicants_years_of_experience",
+            "talent_per_stage",
+            "uid"
+        ]
+        response = self.client.get(query, headers=headers)
+        for key in dashboard_keys:
+            self.assertIn(key, response.json())
+
         self.assertEqual(response.status_code, 200)

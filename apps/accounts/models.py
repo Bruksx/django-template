@@ -10,8 +10,8 @@ from Tools.scripts.make_ctype import values
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
-from django.db.models import Q, Count, F, Value, Avg, Min, Max, Sum
-from django.db.models.functions import Concat
+from django.db.models import Q, Count, F, Value, Avg, Min, Max, Sum, IntegerField
+from django.db.models.functions import Concat, Cast
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
 from ninja_jwt.exceptions import AuthenticationFailed
@@ -478,29 +478,13 @@ class Business(BaseModel):
         if client:
             queryset = queryset.filter(job_post__job__hiring_company_name=client)
 
-        return queryset.aggregate(value=Avg("days_to_hire"))["value"] or 0
+        return int(queryset.aggregate(value=Avg("days_to_hire"))["value"] or 0)
 
     def total_invitations_sent(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from chats.models import Message
         from jobs.models import JobPost
         job_post_ids = JobPost.objects.filter(recruiter__business=self).only("id").values_list("id", flat=True)
         queryset = Message.objects.filter(job_post_id__in=job_post_ids)
-        if start_date and not end_date:
-            queryset = queryset.filter(created_at__gte=start_date)
-        elif end_date and not start_date:
-            queryset = queryset.filter(created_at__lte=end_date)
-        elif start_date and end_date:
-            queryset = queryset.filter(created_at__range=[start_date, end_date])
-        if role_id:
-            queryset = queryset.filter(job__role_id=role_id)
-        if client:
-            queryset = queryset.filter(job__hiring_company_name=client)
-        return queryset.count()
-
-    def total_application_withdrawal(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
-        from jobs.models import JobApplicationWithdrawal
-        queryset = JobApplicationWithdrawal.objects.prefetch_related("job_post").filter(
-            job_post__recruiter__business=self)
         if start_date and not end_date:
             queryset = queryset.filter(created_at__gte=start_date)
         elif end_date and not start_date:
@@ -517,11 +501,11 @@ class Business(BaseModel):
         from jobs.models import JobPost
         queryset = JobPost.objects.filter(recruiter__business=self, jobapplication__stage=StageType.HIRED.value)
         if start_date and not end_date:
-            queryset = queryset.filter(stage_date_updated__gte=start_date)
+            queryset = queryset.filter(jobapplication__stage_date_updated__gte=start_date)
         elif end_date and not start_date:
-            queryset = queryset.filter(stage_date_updated__lte=end_date)
+            queryset = queryset.filter(jobapplication__stage_date_updated__lte=end_date)
         elif start_date and end_date:
-            queryset = queryset.filter(stage_date_updated__range=[start_date, end_date])
+            queryset = queryset.filter(jobapplication__stage_date_updated__range=[start_date, end_date])
         if role_id:
             queryset = queryset.filter(job__role_id=role_id)
         if client:
@@ -618,34 +602,34 @@ class Business(BaseModel):
         if client:
             data_list = data_list.filter(job_post__job__hiring_company_name=client)
 
-        data_list = data_list.values("job_post__job__role")\
-        .annotate(
+        data_list = data_list.values("job_post__job__role") \
+            .annotate(
             role=F("job_post__job__role__name"),
-            avg_posted_timeline=Avg("posted_timeline"),
-            avg_screening_timeline=Avg("screening_timeline"),
-            avg_first_interview_timeline=Avg("first_interview_timeline"),
-            avg_second_interview_timeline=Avg("second_interview_timeline"),
-            avg_onboarding_timeline=Avg("onboarding_timeline")
+            posted=Cast(Avg("posted_timeline"), output_field=IntegerField()),
+            screening=Cast(Avg("screening_timeline"), output_field=IntegerField()),
+            first_interview=Cast(Avg("first_interview_timeline"), output_field=IntegerField()),
+            second_interview=Cast(Avg("second_interview_timeline"), output_field=IntegerField()),
+            onboarding=Cast(Avg("onboarding_timeline"), output_field=IntegerField())
         )\
-        .values("role", "avg_posted_timeline",
-                "avg_screening_timeline", "avg_first_interview_timeline",
-                "avg_second_interview_timeline", "avg_onboarding_timeline")
+        .values("role", "posted",
+                "screening", "first_interview", "second_interview", "onboarding")
         data_list = [dict(**data,
-                          final_days_to_hire=sum([
-                              data["avg_onboarding_timeline"],
-                              data["avg_second_interview_timeline"],
-                              data["avg_first_interview_timeline"],
-                              data["avg_screening_timeline"],
-                              data["avg_posted_timeline"]
+                          days_to_hire=sum([
+                              data["posted"],
+                              data["screening"],
+                              data["first_interview"],
+                              data["second_interview"],
+                              data["onboarding"],
                               ]
                           )) for data in  data_list]
-        return sorted(data_list, key=lambda x: x["final_days_to_hire"], reverse=True)
+        return sorted(data_list, key=lambda x: x["days_to_hire"], reverse=True)
 
 
     def withdrawal_reasons(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplicationWithdrawal
 
-        data_list = JobApplicationWithdrawal.objects.filter(
+        data_list = JobApplicationWithdrawal.objects.prefetch_related("job_post")\
+        .filter(
             job_post__recruiter__business=self
         )
         if start_date and not end_date:
@@ -667,7 +651,7 @@ class Business(BaseModel):
                     feedback_type=feed_back_type
                 ).count()
             })
-        return self.total_application_withdrawal(), sorted(result_data_list, key=lambda x:x["count"], reverse=True)
+        return data_list.count(), sorted(result_data_list, key=lambda x:x["count"], reverse=True)
 
 
     def hires_last_3_months(self, role_id: UUID=None, client: str=None):

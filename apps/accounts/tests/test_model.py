@@ -371,16 +371,6 @@ class BusinessModelTests(TestCase):
         self.assertEqual(self.business.total_invitations_sent(), self.sub_data+1)
 
 
-
-    def test_total_application_withdrawal(self):
-        self.assertEqual(self.business.total_application_withdrawal(), self.sub_data * self.sub_data)
-        job_post = JobPost.objects.last()
-        talent = Talent.objects.last()
-        JobApplicationWithdrawalFactory.create(job_post=job_post, talent=talent)
-        self.assertEqual(self.business.total_application_withdrawal(), (self.sub_data * self.sub_data)+1)
-
-
-
     def test_total_location_of_hires(self):
         last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
                                    :self.sub_data]

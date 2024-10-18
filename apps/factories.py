@@ -4,7 +4,7 @@ from faker import Faker
 
 from accounts.enums import GenderType, PreferredCommunicationType, BusinessUserRoleType, Days
 from accounts.models import User, Talent, Business, BusinessUser, Education, Role, TalentAvailableDay, CustomerCase, \
-    EducationLevel, Industry, Country, AdditionalSkill, Department
+    EducationLevel, Industry, Country, AdditionalSkill, Department, Experience
 from chats.models import Conversation, Message
 
 fake = Faker()
@@ -68,7 +68,7 @@ class UserFactory(DjangoModelFactory):
     first_name = factory.Faker('first_name', )
     last_name = factory.Faker('last_name')
     gender = factory.Iterator(GenderType.values())
-    email = factory.Faker('email')
+    email = email = factory.Sequence(lambda n: f'user{n}@example.com')
     phone_number = factory.LazyAttribute(lambda _: fake.phone_number()[:15])
     password = factory.Faker('password')
 
@@ -87,6 +87,15 @@ class TalentFactory(DjangoModelFactory):
     user = factory.SubFactory(UserFactory)
     country = factory.SubFactory(CountryFactory)
     preferred_communication = factory.Iterator(PreferredCommunicationType.values())
+
+    @factory.post_generation
+    def education(self, create, extracted, **kwargs):
+        EducationFactory(talent=self)
+        EducationFactory(talent=self)
+        ExperienceFactory(talent=self)
+        ExperienceFactory(talent=self)
+        ExperienceFactory(talent=self)
+
 
 class AdditionalSkillFactory(DjangoModelFactory):
     class Meta:
@@ -129,18 +138,19 @@ class EducationFactory(DjangoModelFactory):
     talent = factory.SubFactory(TalentFactory)
     start_date = factory.Faker('date_this_decade', before_today=True)
     end_date = factory.Faker('date_this_decade', before_today=True)
-    major = factory.Faker('sentence', nb_words=20)
+    major = factory.lazy_attribute(lambda _: fake.job()[:20])
     level = factory.SubFactory(EducationLevelFactory)
-    university = factory.Faker('sentence', nb_words=20)
+    university = factory.lazy_attribute(lambda _: fake.sentence()[:20])
 
 class ExperienceFactory(DjangoModelFactory):
     class Meta:
-        model = Education
+        model = Experience
 
     talent = factory.SubFactory(TalentFactory)
     start_date = factory.Faker('date_this_decade', before_today=True)
     end_date = factory.Faker('date_this_decade', before_today=True)
-    company = factory.Faker('sentence', nb_words=20)
+    company = factory.Faker('company')
+    currently_works_here = factory.Faker('pybool')
     annual_salary = factory.Faker('pyfloat', min_value=4, max_value=6, positive=True)
     annual_salary_currency = factory.SubFactory(CurrencyFactory)
     annual_salary_bonus = factory.Faker('pyfloat', min_value=4, max_value=6, positive=True)
@@ -157,6 +167,7 @@ class TalentAvailableDayFactory(DjangoModelFactory):
     day = factory.Iterator(Days.values())
     start_time = factory.Faker('time')
     end_time = factory.Faker('time')
+
 
 
 class CustomerCaseFactory(DjangoModelFactory):
