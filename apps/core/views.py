@@ -2,11 +2,9 @@ from typing import List
 
 from django.db.models import Q
 from ninja.router import Router
-from ninja.pagination import paginate
 
 from core.models import Currency, Language
 from core.schemas import CurrencySchema, LanguageSchema
-
 
 # Create your views here.
 router = Router(tags=["core"])

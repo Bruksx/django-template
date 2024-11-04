@@ -179,6 +179,7 @@ class TalentUserListSchema(ModelSchema):
     first_name: str =  Field(alias="user.first_name")
     last_name: str = Field(alias="user.last_name")
     email: EmailStr = Field(alias="user.email")
+    user_uid: UUID = Field(alias="user.uid")
     phone_number: Optional[str] = Field(alias="user.phone_number")
     photo_url:Optional[str]
     class Meta:

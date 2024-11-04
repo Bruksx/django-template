@@ -1,14 +1,16 @@
+import logging
 from datetime import time
 from decimal import Decimal
 from typing import List
 from typing import Optional
 from uuid import UUID
 
-from accounts.models import Department, Role, Skill, SkillCategory
-from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySchema, EducationLevelSchema
 from ninja import ModelSchema
 from ninja.schema import Schema
+from pydantic import Field, EmailStr
 
+from accounts.models import Department, Role, Skill, SkillCategory, Talent
+from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySchema, EducationLevelSchema
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType
 from .models import BusinessModel, JobFilter, JobApplication
@@ -319,4 +321,27 @@ class TalentJobApplicationWithdrawalSchema(Schema):
 
 class ShareJobPostViaEmailSchema(Schema):
     emails: List[str]
-    talents: List[UUID]
+
+
+class ShareJobPostViaChatSchema(Schema):
+    talent_ids: List[UUID]
+
+class TalentListJobPostSchema(ModelSchema):
+    first_name: str = Field(alias="user.first_name")
+    last_name: str = Field(alias="user.last_name")
+    user_uid: UUID = Field(alias="user.uid")
+    email: EmailStr = Field(alias="user.email")
+    phone_number: Optional[str] = Field(alias="user.phone_number")
+    photo_url: Optional[str]
+    match_score: Optional[int]
+
+    class Meta:
+        model = Talent
+        fields = ("uid",)
+
+    @staticmethod
+    def resolve_match_score(obj, context)->Optional[int]:
+        request = context.get("request")
+        job_post = request.context.get("job_post")
+        score = obj.job_match_score(job_post)
+        return score

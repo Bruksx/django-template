@@ -1,20 +1,18 @@
-from typing import List, Optional
 from uuid import UUID
 
+from django.db import transaction
 from django_q.tasks import async_task
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
 from ninja.responses import Response
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
-from ninja_extra.schemas import PaginatedResponseSchema, NinjaPaginationResponseSchema
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from jobs import tasks
-from jobs.enums import StageType
 from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
-    TalentJobApplySchema, TalentJobApplicationWithdrawalSchema, ShareJobPostViaEmailSchema
-from pyexpat.errors import messages
+    TalentJobApplySchema, TalentJobApplicationWithdrawalSchema, ShareJobPostViaEmailSchema, ShareJobPostViaChatSchema
 
 router = Router()
 
@@ -138,6 +136,7 @@ def withdraw_job_applications(request, application_id:UUID, data: TalentJobAppli
     return Response(status=200, data={"message": "Withdrawn successfully"})
 
 @router.post("talent/job-posts/{job_post_id}/share-via-email", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
+@transaction.atomic
 def share_job_post_via_email(request, job_post_id:UUID, data: ShareJobPostViaEmailSchema):
     user = request.user
     if not hasattr(user, "talent"):
@@ -146,9 +145,25 @@ def share_job_post_via_email(request, job_post_id:UUID, data: ShareJobPostViaEma
     if not job_post:
         raise HttpError(404, "Job post not found")
     async_task(tasks.send_shared_job_email,
-        job_post_id=job_post.id, talent_ids=data.talents, emails=data.emails
+        job_post_id=job_post.id, emails=data.emails
     )
     return Response(status=200, data={"message": "Shared successfully"})
+
+@router.post("talent/job-posts/{job_post_id}/share-via-chat", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
+@transaction.atomic
+def share_job_post_via_chat(request, job_post_id:UUID, data: ShareJobPostViaChatSchema):
+    user = request.user
+    if not hasattr(user, "talent"):
+        raise HttpError(403, "Only Talents are allowed")
+    job_post = JobPost.objects.filter(uid=job_post_id).first()
+    if not job_post:
+        raise HttpError(404, "Job post not found")
+    async_task(tasks.send_shared_job_chat,
+        job_post_id=job_post.id, talent_ids=data.talent_ids, sender_id=user.id
+    )
+    return Response(status=200, data={"message": "Shared successfully"})
+
+
 
 @router.post("talent/job-posts/{job_post_id}/save", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 def save_job(request, job_post_id:UUID):

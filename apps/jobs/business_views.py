@@ -1,27 +1,25 @@
+from uuid import UUID
+
+from django.db import transaction
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from ninja import Router
 from ninja.errors import HttpError
 from ninja.responses import Response
-
-from .schemas import (
-    EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
-    JobDetailSchema, JobLevelSchema
-)
-from .models import (
-    EmploymentType, AvailableDay, Language, BusinessModel, JobLevel, JobPost, Job, ScreeningQuestion, QuestionOption,
-    RequiredAttribute
-)
-from accounts.models import Department, Role, SkillCategory, Country, User, BusinessUser, Skill
-from copy import copy
-from django.db import transaction
-from ninja_jwt.authentication import JWTAuth
-from . import schemas as job_schemas
-from uuid import UUID
-from django.shortcuts import get_object_or_404
 from ninja_extra.pagination import (
     paginate, PageNumberPaginationExtra, PaginatedResponseSchema
 )
+from ninja_jwt.authentication import JWTAuth
 
+from accounts.models import Department, Role, SkillCategory, Country, BusinessUser
+from . import schemas as job_schemas
+from .models import (
+    EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute
+)
+from .schemas import (
+    EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
+    JobDetailSchema, JobLevelSchema, TalentListJobPostSchema
+)
 
 router = Router(tags=["Business Jobs"])
 
@@ -150,6 +148,20 @@ def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
     )
     job_post.save()
     return job_post
+
+@router.get("job-post/{job_post_uid}/talents", response=list[TalentListJobPostSchema], auth=JWTAuth())
+def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
+    business_user = BusinessUser.objects.filter(user=request.user).first()
+    if not business_user:
+        raise HttpError(403, "Not allowed")
+    job_post = JobPost.objects.filter(uid=job_post_uid).first()
+    if not job_post:
+        raise HttpError(404, "Job Post not found")
+    request.context = dict(job_post=job_post)
+    query = None
+    if search:
+        query = Q(user__first_name__icontains=search) | Q(user__last_name__icontains=search)
+    return job_post.get_talents().filter(query)
 
 
 "TODO: add custom pagination class to control page size"
