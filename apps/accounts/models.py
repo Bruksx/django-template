@@ -87,7 +87,11 @@ class User(AbstractUser, BaseModel):
     USERNAME_FIELD = "email"
 
     def __str__(self) -> str:
-        return f"{self.email}"
+        return f"{self.get_full_name()}"
+
+    @property
+    def notification_group_name(self):
+        return f"user_{self.id}"
 
     @property
     def token(self):
@@ -180,7 +184,6 @@ class Talent(BaseModel):
     instagram = models.URLField(null=True)
     linkedin = models.URLField(null=True)
     facebook = models.URLField(null=True)
-    twitter_x = models.URLField(null=True)
     twitter_x = models.URLField(null=True)
     cv = models.FileField(upload_to="cvs")
     photo = models.ImageField(upload_to="talents")

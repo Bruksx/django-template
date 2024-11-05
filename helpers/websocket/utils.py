@@ -8,7 +8,7 @@ from ..decorators import test_env_decorator
 
 
 @test_env_decorator()
-def send_ws(channel:str, data: ChatWebsocketSchema):
+def send_ws(channel:str, data: ChatWebsocketSchema|dict):
     channel_layer = get_channel_layer()
     async_to_sync(channel_layer.group_send)(
         channel,

@@ -13,3 +13,5 @@ class ChatWebsocketSchema(TypedDictSchema):
     data: NotRequired[AnyObject]
     data_type: NotRequired[Literal["chat", "message"]]
 
+class NotificationWebsocketSchema(TypedDictSchema):
+    ...

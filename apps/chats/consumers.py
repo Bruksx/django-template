@@ -1,5 +1,6 @@
 import json
 
+from asgiref.sync import sync_to_async
 from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 
@@ -10,6 +11,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(args, kwargs)
+        self.group_name = None
         self.chat = None
         self.user = None
 
@@ -31,21 +33,23 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not chat:
             await self.close()
             return
-        self.chat = chat
-        await self.channel_layer.group_add(str(self.chat.uid), self.channel_name)
+        recipient = await sync_to_async(lambda x: x.users.exclude(id=user.id).first().__str__())(chat)
+        self.group_name = chat.chat_group_name
+        await self.channel_layer.group_add(self.group_name, self.channel_name)
         await self.accept()
+        await self.send(f"{self.user} just connected to {recipient} chat")
 
 
     async def websocket_receive(self, data):
         data = json.loads(data["text"])
         await self.channel_layer.group_send(
-            str(self.chat.uid), {"type": "notify", "data": json.dumps(data)}
+            self.group_name, {"type": "notify", "data": json.dumps(data)}
         )
 
     async def disconnect(self, code):
-        if self.chat:
-            await self.channel_layer.group_discard(str(self.chat.uid), self.channel_name)
-        self.chat = None
+        if self.group_name:
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
+            self.group_name = None
         self.user = None
         await super().disconnect(code)
 
