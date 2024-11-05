@@ -1,4 +1,4 @@
-import logging
+import random
 import random
 import secrets
 import string
@@ -6,21 +6,19 @@ from datetime import timedelta, date, datetime
 from typing import List
 from uuid import UUID
 
-from Tools.scripts.make_ctype import values
-from django.contrib.auth.hashers import check_password, make_password
-from django.contrib.auth.models import AbstractUser, BaseUserManager
-from django.db import models
-from django.db.models import Q, Count, F, Value, Avg, Min, Max, Sum, IntegerField
-from django.db.models.functions import Concat, Cast
-from django.utils import timezone
-from django_softdelete.managers import SoftDeleteManager
-from ninja_jwt.exceptions import AuthenticationFailed
-from ninja_jwt.tokens import RefreshToken
-
 from accounts.dtos import TokenDto
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days
 from core.models import BaseModel
+from django.contrib.auth.hashers import check_password, make_password
+from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.db import models
+from django.db.models import Q, Count, F, Value, Avg, IntegerField
+from django.db.models.functions import Concat, Cast
+from django.utils import timezone
+from django_softdelete.managers import SoftDeleteManager
 from jobs.enums import StageType, WithdrawalFeedbackType
+from ninja_jwt.exceptions import AuthenticationFailed
+from ninja_jwt.tokens import RefreshToken
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
