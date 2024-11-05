@@ -1,8 +1,11 @@
+from idlelib.query import Query
+
 from django.db import models
-from django.db.models import F
+from django.db.models import F, Q
 from timezone_field import TimeZoneField
 
 from accounts.enums import Days
+from accounts.models import Talent, TalentAvailableDay
 from core.models import BaseModel, Language
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, StageType, WithdrawalFeedbackType
 from .managers import JobManager
@@ -110,6 +113,20 @@ class Job(BaseModel):
     def business_name(self):
         return self.created_by.business.name
 
+    def availability_query(self):
+        working_hours_query = Q()
+
+        for availability in self.availableday_set.all():
+            day_query = Q(
+                day=availability.day,
+                start_time__lte=availability.end_time,
+                end_time__gte=availability.start_time
+            )
+            working_hours_query |= day_query
+        return working_hours_query
+
+
+
 
 class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
@@ -142,8 +159,40 @@ class JobPost(BaseModel):
         related_name="recruiting_job_posts"
     )
 
+
     def __str__(self) -> str:
         return f"{self.job}({self.country})"
+
+    def get_talents(self):
+        query = Q(country=self.country)
+        job = self.job
+        if not hasattr(job, "requiredattribute"):
+            return Talent.objects.select_related("user").filter(query).distinct()
+        required_attribute = job.requiredattribute
+        if required_attribute.skills.count() > 0:
+            query = query | Q(skills__in=required_attribute.skills.all())
+        if required_attribute.role and job.role:
+            query = query | Q(experience__role=job.role)
+        if required_attribute.job_level and job.job_level:
+            query = query | Q(experience__level=job.job_level)
+        if required_attribute.years_of_experience:
+            query = query | Q(years_of_experience__gte=job.years_of_experience)
+        if required_attribute.business_model.count() > 0:
+            ids = required_attribute.business_model.values_list("id", flat=True)
+            query = query | Q(business_models__id__in=ids)
+        if required_attribute.minimum_education_level and job.minimum_education_level:
+            query = query | Q(education__level=job.minimum_education_level)
+        if required_attribute.first_language:
+            query = query | Q(native_language=job.first_language)
+        if required_attribute.secondary_language and job.additional_languages.count() > 0:
+            ids = job.additional_languages.values_list("id", flat=True)
+            query = query | Q(additional_languages__id__in=ids)
+        if required_attribute.working_hours:
+            query = query | Q(talentavailableday__id__in=TalentAvailableDay.objects.filter(job.availability_query()).only("id").values_list("id", flat=True))
+        print(query)
+        return Talent.objects.select_related("user").filter(query).distinct()
+
+
 
 
 class JobApplication(BaseModel):
@@ -284,6 +333,8 @@ class RequiredAttribute(BaseModel):
         if self.location:
             score += 1
         return score
+
+
 
 
 

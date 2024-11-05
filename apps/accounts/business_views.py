@@ -115,3 +115,4 @@ def get_job_clients(request):
                                                 hiring_company_name__isnull=False).only("hiring_company_name")\
                   .distinct("hiring_company_name").values_list("hiring_company_name", flat=True)))
 
+

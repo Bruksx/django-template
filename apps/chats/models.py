@@ -16,7 +16,16 @@ from .enums import ChatMessageAttachmentType
 # Create your models here.
 class Conversation(BaseModel):
     users = models.ManyToManyField(User)
-    last_message_time = models.DateTimeField(default=None, null=True)
+    locked = models.BooleanField(default=False)
+    last_message_time = models.DateTimeField(null=True)
+
+    def last_message(self):
+        return self.message_set.last()
+
+    def __str__(self):
+        return f"{self.users.first()} - {self.users.last()}"
+
+    #TODO When a conversation is created, a notification should sent to the concerned users
 
     def save(self, *args, **kwargs):
         """if self.pk is None:
@@ -27,9 +36,6 @@ class Conversation(BaseModel):
             if existing_conversations.exists():
                 raise ValueError("A conversation between these users already exists.")"""
         super().save(*args, **kwargs)
-
-    def last_message(self):
-        return self.message_set.last()
 
     def read_messages(self, message_ids:List[int], user_id:int):
         from .schemas import ChatMessageListSchema

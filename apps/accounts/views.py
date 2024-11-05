@@ -393,3 +393,5 @@ def upload_talent_profile_picture(request, file: UploadedFile):
 
 
 
+
+

@@ -36,6 +36,7 @@ class SkillCategoryAdmin(admin.ModelAdmin):
 # Register your models here.
 admin.site.register(models.Business)
 admin.site.register(models.User)
+admin.site.register(models.Talent)
 admin.site.register(models.Industry, IndustryAdmin)
 admin.site.register(models.Department, DepartmentAdmin)
 admin.site.register(models.SkillCategory, SkillCategoryAdmin)

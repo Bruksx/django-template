@@ -1,11 +1,11 @@
 from django.db import models
 
-from apps.accounts.models import User
-from apps.core.models import BaseModel
+from core.models import BaseModel
 
 
 # Create your models here.
 
 
 class Notification(BaseModel):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    # this may be removed in the future as true schema is yet to be determined
+    user = models.ForeignKey("accounts.User", on_delete=models.CASCADE)

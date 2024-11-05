@@ -3,7 +3,7 @@ from typing import List
 from uuid import UUID
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, F
 from django_q.tasks import async_task
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
@@ -13,6 +13,7 @@ from ninja_extra.pagination import PageNumberPaginationExtra, paginate
 from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
+from accounts.enums import UserType
 from accounts.models import User
 from chats.models import Message, Conversation, ReadMessageLog, MessageAttachment
 from chats.schemas import ChatListSchema, ChatMessageSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema
@@ -23,7 +24,7 @@ router = Router(tags=["Chats"])
 @router.get("", auth=JWTAuth(), response=List[ChatListSchema])
 def get_chats(request, search:str=""):
     user = request.user
-    queryset = Conversation.objects.filter(users__id=user.id).order_by("-last_message_time")
+    queryset = Conversation.objects.filter(users__id=user.id).order_by(F("last_message_time").desc(nulls_last=True))
 
     if search:
         queryset = queryset.filter(Q(message__body__icontains=search)|
@@ -31,7 +32,7 @@ def get_chats(request, search:str=""):
                                    Q(users__last_name__icontains=search)
                                    )
 
-    return queryset
+    return queryset.distinct()
 
 @router.get("{conversation_uid}/messages", auth=JWTAuth(), response=PaginatedResponseSchema[ChatMessageSchema])
 @paginate(PageNumberPaginationExtra, page_size=50, pass_parameter="pagination_info")
@@ -65,10 +66,52 @@ def create_chat_message(request, conversation_uid:UUID, data: PatchDict[MutateCh
     user = request.user
     conversation = Conversation.objects.filter(uid=conversation_uid, users__id=user.id).first()
     if not conversation:
+        raise HttpError(404, "You have no conversation with this user")
+    recipient = conversation.users.exclude(id=user.id).first()
+    if user.type == UserType.TALENT.value and recipient.type == UserType.TALENT.value:
         raise HttpError(403, "Not allowed")
+    if conversation.message_set.count() == 0 and user.type == UserType.TALENT.value and recipient.type == UserType.BUSINESS.value:
+        raise HttpError(403, "Not allowed")
+    if conversation.locked and user.type == UserType.TALENT.value and recipient.type == UserType.BUSINESS.value:
+        raise HttpError(403, "Conversation is locked")
+    if recipient.type == UserType.BUSINESS.value and user.type == UserType.BUSINESS.value:
+        raise HttpError(403, "Not allowed")
+
     attachments = data.pop("attachments", [])
     message = Message.objects.create(conversation=conversation, sender=user, **data)
     MessageAttachment.objects.bulk_create([
         MessageAttachment(message=message, file=attachment["file"], file_type=attachment["file_type"].value) for attachment in attachments
     ])
     return Response(status=200, data={"message": "Message sent successfully"})
+
+@router.post("users/{user_id}/start-conversation", auth=JWTAuth(), response={200: ResponseSchema})
+@transaction.atomic
+def start_conversation(request, user_id:UUID, data: PatchDict[MutateChatMessageSchema]):
+    user = request.user
+    if user.id == user_id:
+        raise HttpError(403, "Not allowed")
+    recipient = User.objects.filter(uid=user_id).first()
+    if not recipient:
+        raise HttpError(404, "User not found")
+    if not recipient.type:
+        raise HttpError(400, "This user type is invalid")
+
+    if recipient.type == UserType.TALENT.value and user.type == UserType.TALENT.value:
+        raise HttpError(403, "Not allowed")
+    if recipient.type == UserType.BUSINESS.value and user.type == UserType.BUSINESS.value:
+        raise HttpError(403, "Not allowed")
+    if recipient.type == UserType.BUSINESS.value and user.type == UserType.TALENT.value:
+        raise HttpError(403, "Not allowed")
+    conversation = Conversation.objects.filter(users__id=user.id).filter(users__id=recipient.id).first()
+    if conversation:
+        raise HttpError(400, "Conversation already exists")
+    conversation = Conversation.objects.create()
+    conversation.users.add(user, recipient)
+    conversation.save()
+    attachments = data.pop("attachments", [])
+    message = Message.objects.create(conversation=conversation, sender=user, **data)
+    MessageAttachment.objects.bulk_create([
+        MessageAttachment(message=message, file=attachment["file"], file_type=attachment["file_type"].value) for
+        attachment in attachments
+    ])
+    return Response(status=200, data={"message": "conversation started successfully"})

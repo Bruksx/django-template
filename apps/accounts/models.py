@@ -112,6 +112,9 @@ class Country(BaseModel):
     name = models.CharField(max_length=64)
     code = models.CharField(max_length=4)
 
+    def __str__(self) -> str:
+        return self.name
+
 
 class SkillCategory(BaseModel):
     name = models.CharField(max_length=128)
@@ -177,6 +180,7 @@ class Talent(BaseModel):
     instagram = models.URLField(null=True)
     linkedin = models.URLField(null=True)
     facebook = models.URLField(null=True)
+    twitter_x = models.URLField(null=True)
     twitter_x = models.URLField(null=True)
     cv = models.FileField(upload_to="cvs")
     photo = models.ImageField(upload_to="talents")
