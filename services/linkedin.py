@@ -91,11 +91,11 @@ def get_profile_details(access_token:str)->Optional[ProfileSchema]:
     try:
         profile_response = requests.get(profile_url, headers=headers).json()
         email_response = requests.get(email_url, headers=headers).json()
-
         return ProfileSchema(
             email= email_response['elements'][0]['handle~']['emailAddress'],
             first_name= profile_response.get("localizedFirstName"),
-            last_name=  profile_response.get("localizedLastName")
+            last_name=  profile_response.get("localizedLastName"),
+            id= profile_response.get("id"),
         )
     except Exception as e:
         logging.critical(f"LinkedIn Profile Error: {e}")

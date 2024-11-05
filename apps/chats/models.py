@@ -19,6 +19,10 @@ class Conversation(BaseModel):
     locked = models.BooleanField(default=False)
     last_message_time = models.DateTimeField(null=True)
 
+    @property
+    def chat_group_name(self):
+        return f"chat_{self.uid}"
+
     def last_message(self):
         return self.message_set.last()
 

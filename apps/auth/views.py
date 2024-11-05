@@ -1,13 +1,14 @@
+from accounts.enums import SocialType
 from accounts.models import User
 from accounts.schemas import common as common_schema
 from ninja import Router
 from ninja.errors import HttpError
 
 from helpers.utils import failure_response
-from services import google
+from services import google, linkedin
 from services.facebook import facebook_client
-from auth.schema import LoginSchema, GoogleAuthSchema, FaceBookLoginSchema
-from auth.services import google_auth_login, validate_login
+from auth.schema import LoginSchema, GoogleAuthSchema, FaceBookLoginSchema, LinkedInAuthSchema
+from auth.services import handle_social_login, validate_login
 
 # Create your views here.
 router = Router(tags=["Auth"])
@@ -30,10 +31,22 @@ def google_login(request, data: GoogleAuthSchema):
     profile = google.get_profile_details(tokens.access_token)
     if not profile:
         return failure_response(message="Profile not found", status=404)
-    user = google_auth_login(profile, data.user_type)
+    user = handle_social_login(profile, data.user_type, SocialType.GOOGLE)
     validate_login(user)
     return user
 
+
+@router.post("linkedin/login", response=common_schema.UserSchema)
+def linkedin_login(request, data: LinkedInAuthSchema):
+    tokens = linkedin.get_tokens(code=data.code)
+    if not tokens:
+        return failure_response(message= "Tokens not found", status=404)
+    profile = linkedin.get_profile_details(tokens.access_token)
+    if not profile:
+        return failure_response(message="Profile not found", status=404)
+    user = handle_social_login(profile, data.user_type, SocialType.LINKEDIN)
+    validate_login(user)
+    return user
 
 
 @router.post('facebook/login', response=common_schema.UserSchema)
