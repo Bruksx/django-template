@@ -48,4 +48,3 @@ class LoginEndpointTests(TestCase):
         self.assertEqual(response.json()['detail'], "You don't have an account with us")
 
 
-
