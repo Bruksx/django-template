@@ -15,7 +15,7 @@ from django.db.models import Q, Count, F, Value, Avg, IntegerField
 from django.db.models.functions import Concat, Cast
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from jobs.enums import StageType, WithdrawalFeedbackType
+from jobs.enums import StageType, WithdrawalFeedbackType, JobStatusType
 from ninja_jwt.exceptions import AuthenticationFailed
 from ninja_jwt.tokens import RefreshToken
 
@@ -88,7 +88,7 @@ class User(AbstractUser, BaseModel):
 
     @property
     def notification_group_name(self):
-        return f"user_{self.id}"
+        return f"user_{self.uid}"
 
     @property
     def token(self):
@@ -431,7 +431,7 @@ class Business(BaseModel):
         # open roles are job posts that are posted
         queryset = JobPost.objects.filter(
             recruiter__business=self,
-            is_posted=True
+            status=JobStatusType.POSTED.value
         )
         if start_date and not end_date:
             queryset = queryset.filter(created_at__gte=start_date)

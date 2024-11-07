@@ -1,7 +1,7 @@
 from datetime import date
 from uuid import UUID
 
-from django_q.tasks import async_task
+from monkeypatches.q_cluster import async_task
 from future.backports.xmlrpc.client import DateTime
 from ninja import Router, Schema
 from ninja.responses import Response

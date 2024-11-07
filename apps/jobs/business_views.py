@@ -13,6 +13,7 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Department, Role, SkillCategory, Country, BusinessUser
 from . import schemas as job_schemas
+from .enums import JobStatusType
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute
 )
@@ -105,7 +106,7 @@ def post_job_post(request, job_post_uid: UUID):
     if not business_user:
         raise HttpError(403, "Not Allowed")
     job_post = get_object_or_404(JobPost, uid=job_post_uid, job__created_by=business_user)
-    job_post.update(is_posted=True)
+    job_post.update(status=JobStatusType.POSTED.value)
     return job_post
 
 
@@ -149,7 +150,7 @@ def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
     job_post.save()
     return job_post
 
-@router.get("job-post/{job_post_uid}/talents", response=list[TalentListJobPostSchema], auth=JWTAuth())
+@router.get("job-posts/{job_post_uid}/talents", response=list[TalentListJobPostSchema], auth=JWTAuth())
 def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
     business_user = BusinessUser.objects.filter(user=request.user).first()
     if not business_user:
@@ -158,7 +159,7 @@ def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
     if not job_post:
         raise HttpError(404, "Job Post not found")
     request.context = dict(job_post=job_post)
-    query = None
+    query = Q()
     if search:
         query = Q(user__first_name__icontains=search) | Q(user__last_name__icontains=search)
     return job_post.get_talents().filter(query)

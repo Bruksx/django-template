@@ -52,7 +52,7 @@ class Conversation(BaseModel):
         logs = list()
         for message in messages:
             logs.append(ReadMessageLog(reader=user, message=message))
-            send_ws(channel=str(self.uid), data=ChatWebsocketSchema(
+            send_ws(channel=self.chat_group_name, data=ChatWebsocketSchema(
                 sender_id=str(user.uid),
                 chat_id = str(self.uid),
                 sender=user.get_full_name(),
@@ -79,7 +79,7 @@ class Message(BaseModel):
 
     def notify_chat(self):
         from .schemas import ChatMessageListSchema
-        send_ws(channel=str(self.conversation.uid), data=ChatWebsocketSchema(
+        send_ws(channel=self.conversation.chat_group_name, data=ChatWebsocketSchema(
             sender_id=str(self.sender.uid),
             sender=self.sender.get_full_name(),
             chat_id = str(self.conversation.uid),

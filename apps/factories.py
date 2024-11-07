@@ -10,7 +10,9 @@ from chats.models import Conversation, Message
 fake = Faker()
 from core.models import Currency, Language
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, WithdrawalFeedbackType
-from jobs.models import JobLevel, EmploymentType, JobPost, Job, JobApplication, Qualification, JobApplicationWithdrawal
+from jobs.models import JobLevel, EmploymentType, JobPost, Job, JobApplication, Qualification, JobApplicationWithdrawal, \
+    RequiredAttribute
+
 
 
 class CountryFactory(DjangoModelFactory):
@@ -212,6 +214,22 @@ class JobFactory(DjangoModelFactory):
     additional_hours_min = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
     additional_hours_max = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
     employment_type = factory.SubFactory(EmploymentTypeFactory)
+
+
+class RequiredAttributeFactory(DjangoModelFactory):
+    class Meta:
+        model = RequiredAttribute
+    job = factory.SubFactory(JobFactory)
+    role = factory.Iterator([True, False])
+    job_level = factory.Iterator([True, False])
+    years_of_experience = factory.Iterator([True, False])
+    minimum_education_level = factory.Iterator([True, False])
+    work_structure = factory.Iterator([True, False])
+    technological_requirement = factory.Iterator([True, False])
+    first_language = factory.Iterator([True, False])
+    secondary_language = factory.Iterator([True, False])
+    working_hours = factory.Iterator([True, False])
+    location = factory.Iterator([True, False])
 
 
 class JobPostFactory(DjangoModelFactory):
