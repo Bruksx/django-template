@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from django.db import transaction
-from django_q.tasks import async_task
+from monkeypatches.q_cluster import async_task
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
 from ninja.responses import Response

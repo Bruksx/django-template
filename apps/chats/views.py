@@ -4,7 +4,7 @@ from uuid import UUID
 
 from django.db import transaction
 from django.db.models import Q, F
-from django_q.tasks import async_task
+from monkeypatches.q_cluster import async_task
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
 from ninja.responses import Response
@@ -66,7 +66,7 @@ def create_chat_message(request, conversation_uid:UUID, data: PatchDict[MutateCh
     user = request.user
     conversation = Conversation.objects.filter(uid=conversation_uid, users__id=user.id).first()
     if not conversation:
-        raise HttpError(404, "You have no conversation with this user")
+        raise HttpError(404, "This conversation does not exist")
     recipient = conversation.users.exclude(id=user.id).first()
     if user.type == UserType.TALENT.value and recipient.type == UserType.TALENT.value:
         raise HttpError(403, "Not allowed")
