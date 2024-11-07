@@ -1,9 +1,15 @@
+import logging
+import uuid
+
+from Tools.scripts.generate_opcode_h import header
 from django.test import TestCase
 from ninja.testing import TestClient
+
+from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory
 from jobs.models import (
-    Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel
-    )
-from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country
+    Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, RequiredAttribute
+)
+from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent
 from ninja_jwt.authentication import JWTAuth
 from jobs.business_views import router
 
@@ -239,3 +245,52 @@ class SkillCategoryListTests(TestCase):
         data = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(data), 3)
+
+
+class TestTalentsByJobList(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        country = Country.objects.first()
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(user=self.business.created_by, business=self.business)
+        self.job_post = JobPostFactory.create(country=country, recruiter=self.business_user)
+        RequiredAttributeFactory.create(job=self.job_post.job)
+        TalentFactory.create_batch(10, country=country)
+
+
+    def test_talents_by_job_list_endpoint(self):
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(f"/job-posts/{self.job_post.uid}/talents", headers=headers)
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data), 10)
+
+    def test_wrong_job_post_uid(self):
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(f"/job-posts/{uuid.uuid4()}/talents", headers=headers)
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.data["detail"], "Job Post not found")
+
+    def test_endpoint_call_by_talent(self):
+        talent = Talent.objects.first()
+        headers = {
+            "authorization": f"bearer {talent.user.token}"
+        }
+        response = self.client.get(f"/job-posts/{self.job_post.uid}/talents", headers=headers)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.data["detail"], "Not allowed")
+
+
+    def test_talents_by_job_list_endpoint_with_search(self):
+        search = Talent.objects.first().user.first_name
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(f"/job-posts/{self.job_post.uid}/talents?search={search}", headers=headers)
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(len(data), 1)

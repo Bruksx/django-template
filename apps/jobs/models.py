@@ -304,7 +304,6 @@ class RequiredAttribute(BaseModel):
     secondary_language = models.BooleanField(default=False)
     working_hours = models.BooleanField(default=False)
     location = models.BooleanField(default=False)
-    years_of_experience = models.BooleanField(default=False)
 
     def __str__(self) -> str:
         return f"{self.job}({self.uid})"
