@@ -12,7 +12,7 @@ from accounts.models import User, VerificationCode, Country, Talent, EducationLe
 from accounts.views import router
 from chats.models import Conversation, Message
 from core.models import Language, Currency
-from jobs.enums import LunchBreakEnum, WorkStructureEnum, StageType
+from jobs.enums import LunchBreakEnum, WorkStructureEnum, StageType, JobStatusType
 from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, RequiredAttribute, AvailableDay, \
     JobApplication, JobInterview
 
@@ -614,7 +614,7 @@ class TalentDashboardTests(TestCase):
         )
         self.job_post = JobPost.objects.create(
             job=job,
-            is_posted=False,  # Can be changed to True for posting
+            status=JobStatusType.CLOSED.value,  # Can be changed to True for posting
             country=self.country,
             province="Ontario",
             postal_code="M5V 1T6",  # Replace with actual postal code

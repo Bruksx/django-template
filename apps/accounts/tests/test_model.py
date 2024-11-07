@@ -14,7 +14,7 @@ from core.models import Currency
 from factories import JobPostFactory, TalentFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
     BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, ConversationFactory, \
     MessageFactory
-from jobs.enums import LunchBreakEnum, WorkStructureEnum, StageType
+from jobs.enums import LunchBreakEnum, WorkStructureEnum, StageType, JobStatusType
 from jobs.models import JobLevel, EmploymentType, Job, JobPost, RequiredAttribute, BusinessModel, AvailableDay, \
     JobApplication, JobInterview, SavedJob
 
@@ -111,7 +111,7 @@ class TalentModelTest(TestCase):
         )
         self.job_post = JobPost.objects.create(
             job=job,
-            is_posted=False,  # Can be changed to True for posting
+            status=JobStatusType.CLOSED.value,  # Can be changed to True for posting
             country=self.country,
             province="Ontario",
             postal_code="M5V 1T6",  # Replace with actual postal code
@@ -302,7 +302,7 @@ class BusinessModelTests(TestCase):
             job.recruiter = recruiters[0]
             job.save()
             job_post_list.append(JobPostFactory.create(recruiter=recruiters[index],
-                                              is_posted=True,
+                                              status=JobStatusType.POSTED.value,
                                                        country=country,
                                                        job=job))
             index += 1
@@ -336,7 +336,7 @@ class BusinessModelTests(TestCase):
     def test_open_roles(self):
         self.assertEqual(self.business.total_open_roles(), self.max_data)
         first_sub_job_ids = JobPost.objects.only("id").order_by("-id").values_list("id", flat=True)[:self.sub_data]
-        JobPost.objects.filter(id__in=first_sub_job_ids).update(is_posted=False)
+        JobPost.objects.filter(id__in=first_sub_job_ids).update(status=JobStatusType.CLOSED.value)
         self.assertEqual(self.business.total_open_roles(), self.max_data-self.sub_data)
 
     def test_total_applicants(self):

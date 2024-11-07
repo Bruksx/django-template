@@ -39,3 +39,9 @@ class WithdrawalFeedbackType(BaseEnum):
     WORK_HOURS = "Conflict with Work Hours"
     COMPENSATION = "Compensation"
     OTHERS = "Others"
+
+class JobStatusType(BaseEnum):
+    DRAFT = "draft"
+    PAUSED = "paused"
+    POSTED = "posted"
+    CLOSED = "closed"

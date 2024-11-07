@@ -4,7 +4,7 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
 
-from jobs.enums import StageType
+from jobs.enums import StageType, JobStatusType
 from jobs.models import JobApplication, JobPost
 
 
@@ -67,7 +67,7 @@ def handle_stage_update(sender, instance,  **kwargs):
 def handle_job_post_date(sender, instance, **kwargs):
     if instance.id:
         existing_instance = JobPost.objects.get(id=instance.id)
-        if instance.is_posted and existing_instance.is_posted is False:
+        if instance.status == JobStatusType.POSTED.value and existing_instance.status != JobStatusType.POSTED.value:
             instance.date_posted = timezone.now()
 
 @receiver(pre_save, sender=JobApplication)
@@ -75,3 +75,9 @@ def handle_new_application(sender, instance,  **kwargs):
     if not instance.id:
         instance.match = instance.applicant.job_match_score(instance.job_post)
         instance.recruiter = instance.job_post.recruiter
+
+
+@receiver(pre_save, sender=JobPost)
+def handle_job_post_recruiter(sender, instance, **kwargs):
+    if not instance.recruiter:
+        instance.recruiter = instance.job.recruiter

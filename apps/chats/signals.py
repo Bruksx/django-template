@@ -11,3 +11,5 @@ def handle_new_message(sender, instance, created, **kwargs):
         instance.conversation.last_message_time = instance.created_at
         instance.conversation.save()
         instance.notify_chat()
+
+#todo: notification to signal new chat

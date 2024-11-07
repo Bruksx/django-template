@@ -13,6 +13,7 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Department, Role, SkillCategory, Country, BusinessUser
 from . import schemas as job_schemas
+from .enums import JobStatusType
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute
 )
@@ -105,7 +106,7 @@ def post_job_post(request, job_post_uid: UUID):
     if not business_user:
         raise HttpError(403, "Not Allowed")
     job_post = get_object_or_404(JobPost, uid=job_post_uid, job__created_by=business_user)
-    job_post.update(is_posted=True)
+    job_post.update(status=JobStatusType.POSTED.value)
     return job_post
 
 

@@ -44,7 +44,7 @@ class MutateJobPostSchema(ModelSchema):
     country_code: str
     class Meta:
         model = JobPost
-        fields = ["uid", "province", "postal_code", "is_posted"]
+        fields = ["uid", "province", "postal_code", "status"]
 
 
 class QuestionOptionSchema(ModelSchema):
@@ -165,7 +165,7 @@ class JobPostDetailSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "province", "postal_code", "is_posted"]
+        fields = ["uid", "province", "postal_code", "status"]
 
     @staticmethod
     def resolve_annual_bonus_currency(obj: JobPost):

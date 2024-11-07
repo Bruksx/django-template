@@ -7,7 +7,7 @@ from timezone_field import TimeZoneField
 from accounts.enums import Days
 from accounts.models import Talent, TalentAvailableDay
 from core.models import BaseModel, Language
-from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, StageType, WithdrawalFeedbackType
+from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, StageType, WithdrawalFeedbackType, JobStatusType
 from .managers import JobManager
 
 
@@ -90,8 +90,7 @@ class Job(BaseModel):
     same_job_post_recruiter = models.BooleanField(default=False)
     benefits = models.TextField(null=True)
     share_compensation = models.BooleanField(default=True)
-    is_draft = models.BooleanField(default=False)
-    is_paused = models.BooleanField(default=False)
+    status = models.CharField(max_length=16, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
     additional_hours_min = models.IntegerField(default=0)
     additional_hours_max = models.IntegerField(default=0)
     additional_hours_description = models.TextField(null=True)
@@ -130,7 +129,7 @@ class Job(BaseModel):
 
 class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
-    is_posted = models.BooleanField(default=False)
+    status = models.CharField(max_length=16, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
     date_posted = models.DateTimeField(null=True)
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     province = models.CharField(max_length=64, null=True)
@@ -170,7 +169,8 @@ class JobPost(BaseModel):
             return Talent.objects.select_related("user").filter(query).distinct()
         required_attribute = job.requiredattribute
         if required_attribute.skills.count() > 0:
-            query = query | Q(skills__in=required_attribute.skills.all())
+            ids = required_attribute.skills.values_list("id", flat=True)
+            query = query | Q(skills__id__in=ids)
         if required_attribute.role and job.role:
             query = query | Q(experience__role=job.role)
         if required_attribute.job_level and job.job_level:

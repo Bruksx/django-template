@@ -11,7 +11,7 @@ from accounts.schemas.business import DashboardSchema
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory
 from jobs.business_views import job_list
-from jobs.enums import StageType
+from jobs.enums import StageType, JobStatusType
 from jobs.models import JobPost, JobApplication
 
 
@@ -152,7 +152,7 @@ class BusinessDashboardTestCase(TestCase):
             job.recruiter = recruiters[0]
             job.save()
             job_post_list.append(JobPostFactory.create(recruiter=recruiters[index],
-                                                       is_posted=True,
+                                                       status=JobStatusType.POSTED.value,
                                                        country=country,
                                                        job=job))
             index += 1

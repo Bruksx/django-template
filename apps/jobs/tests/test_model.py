@@ -7,7 +7,7 @@ from ninja_jwt.authentication import JWTAuth
 from accounts.enums import BusinessUserRoleType
 from accounts.models import Country, Industry, User, Talent, BusinessUser, Business, Department, Role, EducationLevel
 from core.models import Currency
-from jobs.enums import LunchBreakEnum, WorkStructureEnum
+from jobs.enums import LunchBreakEnum, WorkStructureEnum, JobStatusType
 from jobs.models import JobPost, Job, JobLevel, EmploymentType, JobFilter, JobApplication
 
 
@@ -77,7 +77,7 @@ class JobFilterModelTest(TestCase):
         )
         self.job_post = JobPost.objects.create(
             job=job,
-            is_posted=False,  # Can be changed to True for posting
+            status=JobStatusType.CLOSED.value,  # Can be changed to True for posting
             country=self.country,
             province="Ontario",
             postal_code="M5V 1T6",  # Replace with actual postal code
