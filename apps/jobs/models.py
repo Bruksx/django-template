@@ -189,7 +189,6 @@ class JobPost(BaseModel):
             query = query | Q(additional_languages__id__in=ids)
         if required_attribute.working_hours:
             query = query | Q(talentavailableday__id__in=TalentAvailableDay.objects.filter(job.availability_query()).only("id").values_list("id", flat=True))
-        print(query)
         return Talent.objects.select_related("user").filter(query).distinct()
 
 
