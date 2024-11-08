@@ -7,8 +7,8 @@ from accounts.models import Country, Industry, User, Talent, BusinessUser, Busin
 from core.models import Currency
 from django.test import TestCase
 
-from factories import TalentFactory, JobPostFactory, BusinessUserFactory
-from jobs.enums import WorkStructureEnum, LunchBreakEnum, StageType, JobStatusType
+from factories import TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory
+from jobs.enums import WorkStructureEnum, LunchBreakEnum, StageType, JobStatusType, WithdrawalFeedbackType
 from jobs.models import JobPost, JobLevel, EmploymentType, Job, SavedJob, JobApplication, JobFilter
 from jobs.views import router
 from ninja.testing import TestClient
@@ -80,7 +80,7 @@ class TalentJobListTests(TestCase):
         )
         self.job_post = JobPost.objects.create(
             job=job,
-            status=JobStatusType.CLOSED.value,  # Can be changed to True for posting
+            status=JobStatusType.POSTED.value,  # Can be changed to True for posting
             country=self.country,
             province="Ontario",
             postal_code="M5V 1T6",  # Replace with actual postal code
@@ -251,10 +251,11 @@ class ApplyToJobPostTest(TestCase):
             user=self.user,
             country=self.country
         )
-        self.job = Job.objects.create(
+        self.job = JobFactory.create(
             title="Test Job"
         )
-        self.job_post = JobPost.objects.create(
+        self.job_post = JobPostFactory.create(
+            status=JobStatusType.POSTED.value,
             job=self.job,)
 
     def test_apply_to_job_post(self):
@@ -294,7 +295,9 @@ class WithdrawJobApplicationTest(TestCase):
             title="Test Job"
         )
         self.job_post = JobPost.objects.create(
-            job=self.job,)
+            job=self.job,
+            status=JobStatusType.POSTED.value
+        )
 
         self.job_application = JobApplication.objects.create(
             job_post=self.job_post,
@@ -311,6 +314,7 @@ class WithdrawJobApplicationTest(TestCase):
         }
         job_application_id = str(JobApplication.objects.first().uid)
         data = {
+            "feedback_type": WithdrawalFeedbackType.SKILLS.value,
             "feedback": "Test Feedback"
         }
         self.assertEqual(self.talent.applied_jobs().count(), 1)
@@ -329,6 +333,7 @@ class WithdrawJobApplicationTest(TestCase):
         }
         job_application_id = str(JobApplication.objects.first().uid)
         data = {
+            "feedback_type": WithdrawalFeedbackType.SKILLS.value,
             "feedback": "Test Feedback"
         }
         self.assertEqual(self.talent.applied_jobs().count(), 1)

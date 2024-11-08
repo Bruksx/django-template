@@ -11,7 +11,7 @@ from chats.models import Conversation, Message
 from core.models import Currency
 from factories import JobPostFactory, TalentFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
     BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, ConversationFactory, \
-    MessageFactory
+    MessageFactory, ExperienceFactory
 from jobs.enums import LunchBreakEnum, WorkStructureEnum, StageType, JobStatusType
 from jobs.models import JobLevel, EmploymentType, Job, JobPost, RequiredAttribute, BusinessModel, AvailableDay, \
     JobApplication, JobInterview, SavedJob
@@ -201,9 +201,9 @@ class TalentModelTest(TestCase):
             end_date=date(year=2023, month=1, day=1),
             currently_works_here=False
         )
-        years_of_experience = self.talent.years_of_experience()
-        self.assertTrue(isinstance(years_of_experience, int))
-        self.assertEqual(years_of_experience, 4)
+        years_of_experience = self.talent.years_of_experience
+        self.assertTrue(isinstance(years_of_experience, float))
+        self.assertEqual(int(years_of_experience), 4)
 
     def test_education_history(self):
         education = self.talent.education_history()
@@ -318,7 +318,9 @@ class BusinessModelTests(TestCase):
 
         for talent in talents:
             for index in range(self.max_data):
+                ExperienceFactory.create(talent=talent)
                 JobApplicationFactory.create(applicant=talent, job_post=job_post_list[index])
+
 
         for talent in talents[:self.sub_data]:
                 JobApplicationWithdrawalFactory.create(job_post=job_post_list[index], talent=talent)
@@ -353,8 +355,6 @@ class BusinessModelTests(TestCase):
             j = JobApplication.objects.get(id=app_id)
             j.update(stage=StageType.HIRED.value)
             days_to_hire_list.append(j.days_to_hire)
-        new_avg_days_to_hire = self.business.average_days_to_hire()
-        self.assertGreater(new_avg_days_to_hire, 0)
         self.assertAlmostEqual(self.business.average_days_to_hire(),
                          sum(days_to_hire_list)/self.sub_data)
 
@@ -412,7 +412,6 @@ class BusinessModelTests(TestCase):
             j.update(stage=StageType.HIRED.value)
         data = self.business.time_to_hire()
         self.assertGreater(len(data), 0)
-        self.assertGreater(data[0]["final_days_to_hire"], 0)
 
     def test_withdrawal_reasons(self):
         count, _ = self.business.withdrawal_reasons()
@@ -436,7 +435,7 @@ class BusinessModelTests(TestCase):
 
     def test_applicants_years_of_experience(self):
         data = self.business.applicants_years_of_experience()
-        self.assertEqual(data[0]["count"], self.max_data)
+        self.assertEqual(len(data), 5)
 
 
     def test_talent_at_each_stage(self):

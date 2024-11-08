@@ -5,13 +5,20 @@ from channels.layers import get_channel_layer
 
 from .schemas import ChatWebsocketSchema
 from ..decorators import test_env_decorator
+from ..loggers import Logger
 
 
 @test_env_decorator()
 def send_ws(channel:str, data: ChatWebsocketSchema|dict):
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        channel,
-        {"type": "notify", "data": json.dumps(data)}
-    )
-    # async_to_sync(channel_layer.send)(channel, data)
+    try:
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            channel,
+            {"type": "notify", "data": json.dumps(data)}
+        )
+    except Exception as e:
+        Logger.error(dict(
+            sender="Websocket Service",
+            title="An Error Occurred",
+            description=str(e)
+        ))
