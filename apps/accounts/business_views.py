@@ -15,7 +15,7 @@ from django.db import transaction
 from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
 from .enums import UserType
-from helpers.images import convert_base64_to_image_file
+from helpers.utils import convert_base64_to_image_file
 from typing import List
 
 

@@ -1,17 +1,14 @@
-import logging
 import uuid
 
-from Tools.scripts.generate_opcode_h import header
-from django.test import TestCase
-from ninja.testing import TestClient
-
-from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory
-from jobs.models import (
-    Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, RequiredAttribute
-)
 from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent
-from ninja_jwt.authentication import JWTAuth
+from django.test import TestCase
+from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory
 from jobs.business_views import router
+from jobs.models import (
+    Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel
+)
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
 
 
 class JobCreationTest(TestCase):
@@ -294,3 +291,5 @@ class TestTalentsByJobList(TestCase):
         data = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertGreaterEqual(len(data), 1)
+
+

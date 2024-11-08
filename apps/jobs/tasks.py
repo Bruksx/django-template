@@ -1,38 +1,25 @@
 from typing import List
 from uuid import UUID
 
-from django.conf import settings
-from django.core.mail import send_mail, EmailMultiAlternatives
-from django.db.models import Q
-from django.template import loader
-
-from accounts.enums import UserType
-from accounts.models import Talent, User
+from accounts.models import Talent
 from chats.models import Conversation, Message
 from jobs.models import JobPost
 
+from helpers.email.jobs import send_shared_job_email
+from helpers.loggers import Logger
 
-def send_shared_job_email(job_post_id:int, emails: List[str]=None):
+
+def share_job_via_email(job_post_id:int, emails: List[str]=None, language:str="en"):
     job_post = JobPost.objects.filter(id=job_post_id).select_related('job').first()
     if not job_post:
-        raise Exception("Job post not found")
-    template = loader.get_template('jobs/share_job.html')
-    if emails:
-        context = {
-            'talent': "User",
-            'job_title': job_post.job.title
-        }
-        html_content = template.render(context)
-
-        email =EmailMultiAlternatives(
-            subject='Shared Job Post',
-            body=html_content,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            bcc=emails,
-        )
-        email.attach_alternative(html_content, "text/html")
-        email.send()
+        Logger.warning(dict(
+            sender="Job Task",
+            title="Invalid Job ID",
+            description=f"Job ID is {job_post_id}"
+        ))
         return
+    send_shared_job_email(job_post, emails, language)
+    return
 
 
 def send_shared_job_chat(
@@ -50,3 +37,4 @@ def send_shared_job_chat(
         if chat.message_set.filter(job_post_id=job_post_id).exists():
             continue
         Message.objects.create(conversation=chat, sender_id=sender_id, job_post_id=job_post_id)
+

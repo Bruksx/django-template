@@ -5,7 +5,7 @@ from uuid import UUID
 from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q
-from helpers.images import convert_base64_to_image_file
+from helpers.utils import convert_base64_to_image_file
 from ninja import Router, PatchDict, UploadedFile
 from ninja.errors import HttpError
 from ninja.responses import Response

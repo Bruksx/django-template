@@ -1,9 +1,7 @@
-import logging
+from django.urls import path
 
-from django.urls import re_path, path
 from apps.chats.consumers import ChatConsumer
 from apps.notification.consumers import NotificationConsumer
-
 
 urlpatterns = [
     path("ws/chats/<uuid:conversation_uid>/", ChatConsumer.as_asgi()),

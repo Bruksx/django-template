@@ -1,12 +1,10 @@
-from logging import exception
-
 import pyfacebook
 import requests
-from config.settings import FACEBOOK_APP_ID, FACEBOOK_APP_SECRET
-import urllib
+from ninja.errors import HttpError
 from pyfacebook import GraphAPI, FacebookApi
 from pyfacebook.exceptions import FacebookError
-from ninja.errors import HttpError
+
+from config.settings import FACEBOOK_APP_ID, FACEBOOK_APP_SECRET
 
 
 class Facebook():

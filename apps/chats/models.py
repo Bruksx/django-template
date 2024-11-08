@@ -1,15 +1,14 @@
 import json
-import logging
 from typing import List
+
+from django.db import models
+from django.db.models import Q
+from helpers.websocket.schemas import ChatWebsocketSchema
+from helpers.websocket.utils import send_ws
 
 from accounts.models import User
 from core.models import BaseModel
-from django.db import models
-from django.db.models import Q
 from jobs.models import JobPost
-
-from helpers.websocket.schemas import ChatWebsocketSchema
-from helpers.websocket.utils import send_ws
 from .enums import ChatMessageAttachmentType
 
 

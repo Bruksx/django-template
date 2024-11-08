@@ -1,16 +1,15 @@
-import logging
 from datetime import time
 from decimal import Decimal
 from typing import List
 from typing import Optional
 from uuid import UUID
 
+from accounts.models import Department, Role, Skill, SkillCategory, Talent
+from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySchema, EducationLevelSchema
 from ninja import ModelSchema
 from ninja.schema import Schema
 from pydantic import Field, EmailStr
 
-from accounts.models import Department, Role, Skill, SkillCategory, Talent
-from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySchema, EducationLevelSchema
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType
 from .models import BusinessModel, JobFilter, JobApplication

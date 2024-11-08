@@ -1,19 +1,17 @@
-import logging
+import uuid
 from datetime import timezone
 from decimal import Decimal
-
-from django.test import TestCase
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import BusinessUserRoleType
 from accounts.models import Country, Industry, User, Talent, BusinessUser, Business, Role, EducationLevel, Department
 from core.models import Currency
+from django.test import TestCase
+
+from factories import TalentFactory, JobPostFactory, BusinessUserFactory
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, StageType, JobStatusType
 from jobs.models import JobPost, JobLevel, EmploymentType, Job, SavedJob, JobApplication, JobFilter
 from jobs.views import router
-
-
+from ninja.testing import TestClient
 
 
 class TalentJobListTests(TestCase):
@@ -461,4 +459,62 @@ class DiscardSavedJobTest(TestCase):
         self.talent.refresh_from_db()
         self.assertEqual(self.talent.saved_jobs().count(), 0)
 
+class TestShareJobViaChat(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.talent = TalentFactory.create()
+        TalentFactory.create_batch(3)
+        self.job_post = JobPostFactory.create()
 
+    def test_share_job_post_via_chat(self):
+        header = {
+            "Authorization": f"Bearer {self.talent.user.token}"
+        }
+        data = {
+            "talent_ids" : list(Talent.objects.only("uid").exclude(uid=self.talent.uid).values_list("uid", flat=True))
+        }
+        response = self.client.post(f"talent/job-posts/{self.job_post.uid}/share-via-chat", headers=header, json=data)
+        self.assertEqual(response.status_code, 200)
+
+    def test_request_by_business_user(self):
+        business_user = BusinessUserFactory.create()
+        header = {
+            "Authorization": f"Bearer {business_user.user.token}"
+        }
+        data = {
+            "talent_ids" : list(Talent.objects.only("uid").exclude(uid=self.talent.uid).values_list("uid", flat=True))
+        }
+        response = self.client.post(f"talent/job-posts/{self.job_post.uid}/share-via-chat", headers=header, json=data)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["detail"], "Only Talents are allowed")
+
+    def test_wrong_job_post_id(self):
+        header = {
+            "Authorization": f"Bearer {self.talent.user.token}"
+        }
+        data = {
+            "talent_ids" : list(Talent.objects.only("uid").exclude(uid=self.talent.uid).values_list("uid", flat=True))
+        }
+        response = self.client.post(f"talent/job-posts/{uuid.uuid4()}/share-via-chat", headers=header, json=data)
+        self.assertEqual(response.status_code, 404)
+
+    def test_empty_talent_ids(self):
+        header = {
+            "Authorization": f"Bearer {self.talent.user.token}"
+        }
+        data = {
+            "talent_ids" : []
+        }
+        response = self.client.post(f"talent/job-posts/{self.job_post.uid}/share-via-chat", headers=header, json=data)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "No talents selected")
+
+    def test_wrong_talent_ids_data(self):
+        header = {
+            "Authorization": f"Bearer {self.talent.user.token}"
+        }
+        data = {
+            "talent_ids" : [uuid.uuid4(), uuid.uuid4(), uuid.uuid4()]
+        }
+        response = self.client.post(f"talent/job-posts/{self.job_post.uid}/share-via-chat", headers=header, json=data)
+        self.assertEqual(response.status_code, 200)
