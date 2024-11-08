@@ -1,7 +1,6 @@
 from datetime import date
 from typing import List
 from uuid import UUID
-
 from accounts.models import User, Business, BusinessUser, VerificationCode
 from django.core.mail import send_mail
 from django.db import transaction
