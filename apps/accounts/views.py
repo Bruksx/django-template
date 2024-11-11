@@ -2,13 +2,18 @@ from datetime import date, timedelta
 from typing import List
 from uuid import UUID
 
+from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Q
-from helpers.utils import convert_base64_to_image_file
+from django.http import HttpResponse
+from django.shortcuts import render
+from ninja.responses import Response
+
+from apps.accounts.schemas.talent import TalentUserSchema
+from helpers.utils import convert_base64_to_image_file, html_to_pdf
 from ninja import Router, PatchDict, UploadedFile
 from ninja.errors import HttpError
-from ninja.responses import Response
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import UserType, AuthType
@@ -379,6 +384,24 @@ def upload_talent_cv(request, file: UploadedFile):
     talent_user.update(cv=file)
     return Response(status=200, data={"message": "CV uploaded successfully"})
 
+@router.get("talent/cv", auth=JWTAuth())
+def download_talent_cv(request):
+    talent_user = Talent.objects.filter(user=request.user).first()
+    if not talent_user:
+        raise HttpError(403, "Not allowed")
+    cv_data = TalentUserSchema.from_orm(talent_user).dict()
+    cv_data["image_url"] = settings.IMAGE_URL
+    cv_data["css_url"] = settings.CSS_URL
+    rendered_html = render(
+        request, "accounts/en/talent-cv.html",
+        context=cv_data
+    ).content.decode()
+    #todo: design the cv html
+    file_name = f"talent-cv-{talent_user.uid}.pdf"
+    pdf_file = html_to_pdf(rendered_html)
+    response = HttpResponse(pdf_file, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{file_name}"'
+    return response
 
 @router.post("talent/profile-pic", auth=JWTAuth())
 def upload_talent_profile_picture(request, file: UploadedFile):

@@ -207,3 +207,6 @@ CHANNEL_LAYERS = {
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join("media")
 
+
+IMAGE_URL = "http://localhost:8000/static/img"
+CSS_URL =  "http://localhost:8000/static/css"

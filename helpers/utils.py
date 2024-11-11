@@ -4,6 +4,7 @@ import string
 import uuid
 from typing import Optional
 
+import pdfkit
 from django.core.files.base import ContentFile
 from ninja.responses import Response
 
@@ -34,8 +35,29 @@ def convert_base64_to_image_file(base64_string, * ,name=None)->Optional[ContentF
         Logger.error(dict(
             sender="Helper Utils",
             title="Error converting base64 image to file",
-            descrition=str(e)
+            description=str(e)
         ), exc_info=True)
+
+
+
+def html_to_pdf(html: str):
+    try:
+        pdf_file = pdfkit.from_string(
+            html,
+            False,
+            cover_first=False,
+            options={"enable-local-file-access": ""},
+        )
+        return pdf_file
+    except OSError as e:
+        Logger.error(dict(
+            sender="Helper Utils",
+            title="HTML TO PDF OS Error",
+            description=str(e)
+        ))
+        return
+
+
 
 
 
