@@ -140,7 +140,7 @@ def withdraw_job_applications(request, application_id:UUID, data: TalentJobAppli
 @transaction.atomic
 def share_job_post_via_email(request, job_post_id:UUID, data: ShareJobPostViaEmailSchema):
     user = request.user
-    if not hasattr(user, "talent") or not hasattr(user, "businessuser"):
+    if not (hasattr(user, "talent") or  hasattr(user, "businessuser")):
         raise HttpError(403, "Not allowed")
     job_post = JobPost.objects.filter(uid=job_post_id).first()
     if not job_post:
@@ -156,7 +156,7 @@ def share_job_post_via_chat(request, job_post_id:UUID, data: ShareJobPostViaChat
     user = request.user
     if not data.talent_ids:
         raise HttpError(400, "No talents selected")
-    if not hasattr(user, "talent") or not hasattr(user, "businessuser"):
+    if not (hasattr(user, "talent") or hasattr(user, "businessuser")):
         raise HttpError(403, "Not allowed")
     job_post = JobPost.objects.filter(uid=job_post_id).first()
     if not job_post:

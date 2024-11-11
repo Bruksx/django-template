@@ -20,7 +20,7 @@ from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, R
 class CreateAccountTests(TestCase):
     def setUp(self):
         self.client = TestClient(router)
-        self.url = "/create-account"
+        self.url = "/initiate-account-creation"
         self.country =  Country.objects.create(name="Nigeria", code="NG")
         self.user_data = {
             "email": "test@example.com"
@@ -34,7 +34,7 @@ class CreateAccountTests(TestCase):
 class ValidateOtpTests(TestCase):
     def setUp(self):
         self.client = TestClient(router)
-        self.url = "/validate-otp"
+        self.url = "/create-account"
         self.country =  Country.objects.create(name="Nigeria", code="NG")
         self.user_data = {
             "email": "test@example.com",
@@ -302,7 +302,7 @@ class GetTalentProfileTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.get("/talent/profile", headers=headers)
+        response = self.client.get("/profile", headers=headers)
         self.assertEqual(response.status_code, 200)
 
     def test_after_profile_completion(self):
@@ -315,7 +315,7 @@ class GetTalentProfileTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.get("/talent/profile", headers=headers)
+        response = self.client.get("/profile", headers=headers)
         self.assertEqual(response.status_code, 200)
 
 
@@ -354,7 +354,7 @@ class UpdateTalentProfileTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.patch("/talent/profile", headers=headers, json=data)
+        response = self.client.patch("/profile", headers=headers, json=data)
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
         self.talent.refresh_from_db()
@@ -374,7 +374,7 @@ class UpdateTalentProfileTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.delete(f"/talent/education/{education_uid}", headers=headers)
+        response = self.client.delete(f"/education/{education_uid}", headers=headers)
         self.assertEqual(response.status_code, 204)
         self.assertEqual(self.talent.education_set.count(), 0)
 
@@ -387,7 +387,7 @@ class UpdateTalentProfileTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.delete(f"/talent/experience/{experience_uid}", headers=headers)
+        response = self.client.delete(f"/experience/{experience_uid}", headers=headers)
         self.assertEqual(response.status_code, 204)
         self.assertEqual(self.talent.experience_set.count(), 0)
 
@@ -500,40 +500,6 @@ class UpdateTalentProfileTests(TestCase):
         self.assertFalse(self.talent.additionalskill_set.filter(name="Jumping").exists())
         self.assertTrue(self.talent.additionalskill_set.filter(name="Baking").exists())
         self.assertTrue(self.talent.additionalskill_set.filter(name="Skipping").exists())
-
-
-class CommonListTests(TestCase):
-    def setUp(self):
-        self.client = TestClient(router)
-        self.country = Country.objects.first()
-        self.industry = Industry.objects.first()
-        self.user_data = dict(
-            first_name="Test",
-            last_name="User",
-            email="testuser@example.com",
-            password="securepassword",
-        )
-        self.user = User.objects.create_user(**self.user_data)
-        self.talent = Talent.objects.create(
-            user=self.user,
-            country=self.country
-        )
-        self.auth = JWTAuth()
-        self.auth.authenticate = lambda r: self.user
-
-    def test_country_list_endpoint(self):
-        headers = {
-            "authorization": f"bearer {self.user.token}"
-        }
-        response = self.client.get("/countries", headers=headers)
-        self.assertEqual(response.status_code, 200)
-
-    def test_educational_level_list_endpoint(self):
-        headers = {
-            "authorization": f"bearer {self.user.token}"
-        }
-        response = self.client.get("/educational-levels", headers=headers)
-        self.assertEqual(response.status_code, 200)
 
 
 class TalentDashboardTests(TestCase):
@@ -686,12 +652,12 @@ class TalentDashboardTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.get("/talent/dashboard-report", headers=headers)
+        response = self.client.get("/dashboard-report", headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("jobs_applied", data)
         self.assertEqual(data["jobs_applied"], 1)
-        response = self.client.get("/talent/dashboard-report?start_date=2022-02-02&end_date=2022-09-02", headers=headers)
+        response = self.client.get("/dashboard-report?start_date=2022-02-02&end_date=2022-09-02", headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("jobs_applied", data)
@@ -702,7 +668,7 @@ class TalentDashboardTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.get("/talent/applications-chart", headers=headers)
+        response = self.client.get("/applications-chart", headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(isinstance(data, list))
@@ -712,7 +678,7 @@ class TalentDashboardTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.get("/talent/interviews-chart", headers=headers)
+        response = self.client.get("/interviews-chart", headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertTrue(isinstance(data, list))
@@ -748,31 +714,3 @@ class ChangeTalentPasswordTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(self.user.check_password("newtestpassword"))
         self.assertTrue(self.user.check_password("testpassword"))
-
-class CustomerCaseTest(TestCase):
-    def setUp(self):
-        self.client = TestClient(router)
-        self.user = User.objects.create_user(
-            email="kx5GQ@example.com",
-            password="testpassword",
-            is_active=True,
-            email_verified=True
-        )
-        self.talent = Talent.objects.create(user=self.user)
-
-    def test_customer_case_endpoint(self):
-        headers = {
-            "authorization": f"bearer {self.user.token}"
-        }
-        self.assertFalse(CustomerCase.objects.filter(user=self.user).exists())
-
-        response = self.client.post("customer-cases",
-                                    json=dict(reason="test reason",
-                                            description="test description",
-                                              subject="test subject",),
-                                    headers=headers)
-        self.assertEqual(response.status_code, 200)
-        self.assertTrue(CustomerCase.objects.filter(user=self.user).exists())
-
-
-

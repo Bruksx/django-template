@@ -2,50 +2,43 @@ from datetime import date, timedelta
 from typing import List
 from uuid import UUID
 
+from apps.accounts.schemas.talent import TalentUserSchema
 from django.conf import settings
-from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import render
-from ninja.responses import Response
-
-from apps.accounts.schemas.talent import TalentUserSchema
+from helpers.email.users import send_verification_code
 from helpers.utils import convert_base64_to_image_file, html_to_pdf
+from monkeypatches.q_cluster import async_task
 from ninja import Router, PatchDict, UploadedFile
 from ninja.errors import HttpError
+from ninja.responses import Response
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import UserType, AuthType
-from accounts.models import Talent, AdditionalSkill, TalentAvailableDay, Country, EducationLevel, CustomerCase
+from accounts.models import Talent, AdditionalSkill, TalentAvailableDay
 from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
-from accounts.schemas import  talent as talent_schemas
+from accounts.schemas import talent as talent_schemas
 
 router = Router(tags=["Account"])
 
-@router.post("create-account")
-def create_account(request, data: common_schemas.RegisterSchema):
+@router.post("initiate-account-creation", response={200:talent_schemas.LoggedInUserSchema})
+def initiate_account_creation(request, data: common_schemas.RegisterSchema):
     existing_user = User.objects.filter(email=data.email).exists()
     if existing_user:
         raise HttpError(400, "An account with this email already exists")
     verification_code = VerificationCode(email=data.email)
     raw_code = verification_code.save()
-    send_mail(
-        "OTP",
-        f"{raw_code}",
-        "from@example.com",
-        [data.email],
-        fail_silently=False,
-    )
+    async_task(send_verification_code, email=data.email, code=raw_code, user="", company=None)
     return {
         "message": "verification mail sent!"
     }
 
 
-@router.post("validate-otp", response={200:talent_schemas.LoggedInUserSchema})
+@router.post("create-account", response={200:talent_schemas.LoggedInUserSchema})
 @transaction.atomic
-def validate_otp(request, data: talent_schemas.ValidateTalentOTPSchema):
+def create_account(request, data: talent_schemas.ValidateTalentOTPSchema):
     existing_user = User.objects.filter(email=data.email).exists()
     if existing_user:
         raise HttpError(400, "An account with this email already exists")
@@ -160,42 +153,14 @@ def complete_talent_profile3(request, data: PatchDict[talent_schemas.CompleteTal
                 Experience(**experience, talent=talent_user).save()
     return talent_user.user
 
-@router.get("talent/profile", response=talent_schemas.TalentUserSchema, auth=JWTAuth())
+@router.get("profile", response=talent_schemas.TalentUserSchema, auth=JWTAuth())
 def talent_profile(request):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
         raise HttpError(403, "Not allowed")
     return talent_user
 
-@router.get("talents", response=list[talent_schemas.TalentUserListSchema], auth=JWTAuth())
-def talent_lists(request, search=""):
-    talents = Talent.objects.prefetch_related("user").all()
-    if search:
-        talents = talents.filter(Q(user__first_name__icontains=search)|
-                                 Q(user__last_name__icontains=search)|
-                                 Q(user__email__icontains=search)
-                                 )
-    return talents
-
-
-# @router.patch("talent-profile", response=talent_schemas.UserSchema, auth=JWTAuth())
-# def update_talent_profile(request, data: talent_schemas.UpdateTalentProfileSchema):
-#     talent_user = Talent.objects.filter(user=request.user).first()
-#     if not talent_user:
-#         raise HttpError(403, "Not allowed")
-#     talent_user.user.update(first_name=data.first_name,
-#                                     last_name=data.last_name,
-#                                     phone_number=data.phone_number)
-#     talent_user = talent_user.update(
-#         country=data.country,
-#         preferred_communication=data.preferred_communication.value,
-#         state=data.state,
-#         city=data.city,
-#         postal_code=data.postal_code
-#     )
-#     return talent_user.user
-
-@router.delete("talent/education/{education_uid}",
+@router.delete("education/{education_uid}",
                response={204: None},
                auth=JWTAuth())
 def delete_talent_education(request, education_uid:UUID):
@@ -209,7 +174,7 @@ def delete_talent_education(request, education_uid:UUID):
     return Response(status=204, data=None)
 
 
-@router.delete("talent/experience/{experience_uid}",
+@router.delete("experience/{experience_uid}",
                response={204: None}, auth=JWTAuth())
 def delete_talent_experience(request, experience_uid:UUID):
     talent_user = Talent.objects.filter(user=request.user).first()
@@ -222,24 +187,7 @@ def delete_talent_experience(request, experience_uid:UUID):
     return Response(status=204, data=None)
 
 
-@router.get("countries", response=List[talent_schemas.CountrySchema], tags=["Common"])
-def country_list(request, search:str=""):
-    queryset = Country.objects.all()
-    if search:
-        queryset = queryset.filter(name__icontains=search)
-    return queryset
-
-
-@router.get("educational-levels", response=List[talent_schemas.EducationLevelSchema], auth=JWTAuth(),
-            tags=["Common"])
-def educational_levels(request, search=""):
-    queryset = EducationLevel.objects.all()
-    if search:
-        queryset = queryset.filter(name__icontains=search)
-    return queryset
-
-
-@router.get("talent/dashboard-report", response=talent_schemas.TalentDashboardReport, auth=JWTAuth(),
+@router.get("dashboard-report", response=talent_schemas.TalentDashboardReport, auth=JWTAuth(),
             tags=["Talent Dashboard"])
 def talent_dashboard_report(request, start_date: date=None, end_date: date=None):
     user = request.user
@@ -255,7 +203,7 @@ def talent_dashboard_report(request, start_date: date=None, end_date: date=None)
 
     return Response(data=talent_schemas.TalentDashboardReport.from_orm(user.talent))
 
-@router.get("talent/applications-chart", response=List[talent_schemas.MonthlyChartSchema], auth=JWTAuth(),
+@router.get("applications-chart", response=List[talent_schemas.MonthlyChartSchema], auth=JWTAuth(),
             tags=["Talent Dashboard"])
 def talent_applications_chart(request):
     user = request.user
@@ -264,7 +212,7 @@ def talent_applications_chart(request):
     return user.talent.applications_made_chart()
 
 
-@router.get("talent/interviews-chart", response=List[talent_schemas.MonthlyChartSchema],
+@router.get("interviews-chart", response=List[talent_schemas.MonthlyChartSchema],
             tags=["Talent Dashboard"], auth=JWTAuth())
 def talent_interview_chart(request):
     user = request.user
@@ -273,7 +221,7 @@ def talent_interview_chart(request):
     return user.talent.interviews_chart()
 
 
-@router.patch("talent/profile", auth=JWTAuth())
+@router.patch("profile", auth=JWTAuth())
 def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentProfileSchema2]):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
@@ -299,7 +247,7 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
     return Response(status=200, data={"message": "Profile updated successfully"})
 
 
-@router.patch("talent/education-history", auth=JWTAuth())
+@router.patch("education-history", auth=JWTAuth())
 def update_education_history(request, data: List[PatchDict[talent_schemas.MutateEducationSchema]]):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
@@ -314,7 +262,7 @@ def update_education_history(request, data: List[PatchDict[talent_schemas.Mutate
             Education(**education, talent=talent_user).save()
     return Response(status=200, data={"message": "Education history updated successfully"})
 
-@router.patch("talent/experience-history", auth=JWTAuth())
+@router.patch("experience-history", auth=JWTAuth())
 def update_experience_history(request, data:List[PatchDict[talent_schemas.MutateExperienceSchema]]):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
@@ -329,7 +277,7 @@ def update_experience_history(request, data:List[PatchDict[talent_schemas.Mutate
             Experience(**experience, talent=talent_user).save()
     return Response(status=200, data={"message": "Experience history updated successfully"})
 
-@router.patch("talent/availability", auth=JWTAuth())
+@router.patch("availability", auth=JWTAuth())
 def update_talent_availability(request, data: List[PatchDict[talent_schemas.MutateTalentAvailableDaySchema]]):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
@@ -349,7 +297,7 @@ def update_talent_availability(request, data: List[PatchDict[talent_schemas.Muta
             TalentAvailableDay.objects.create(**available_day, talent=talent_user)
     return Response(status=200, data={"message": "Availability updated successfully"})
 
-@router.patch("talent/change-password", auth=JWTAuth())
+@router.patch("change-password", auth=JWTAuth())
 def change_talent_password(request, data: talent_schemas.TalentChangePasswordSchema):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
@@ -361,20 +309,7 @@ def change_talent_password(request, data: talent_schemas.TalentChangePasswordSch
     user.save()
     return Response(status=200, data={"message": "Password changed successfully"})
 
-@router.post("customer-cases", auth=JWTAuth())
-def create_customer_case(request, data:common_schemas.MutateCustomerCaseSchema):
-    user = request.user
-    if user.customercase_set.filter(**data.dict()).exists():
-        raise HttpError(400, "Case already exists")
-    CustomerCase.objects.create(**data.dict(), user=user).save()
-    return Response(status=200, data={"message": "Case created successfully"})
-
-@router.get("customer-cases", auth=JWTAuth(), response=List[common_schemas.CustomerCaseSchema])
-def customer_case_list(request):
-    user = request.user
-    return user.customercase_set.order_by("-id")
-
-@router.post("talent/cv", auth=JWTAuth())
+@router.post("cv", auth=JWTAuth())
 def upload_talent_cv(request, file: UploadedFile):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
@@ -384,7 +319,7 @@ def upload_talent_cv(request, file: UploadedFile):
     talent_user.update(cv=file)
     return Response(status=200, data={"message": "CV uploaded successfully"})
 
-@router.get("talent/cv", auth=JWTAuth())
+@router.get("cv", auth=JWTAuth())
 def download_talent_cv(request):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:
@@ -403,7 +338,7 @@ def download_talent_cv(request):
     response["Content-Disposition"] = f'attachment; filename="{file_name}"'
     return response
 
-@router.post("talent/profile-pic", auth=JWTAuth())
+@router.post("profile-pic", auth=JWTAuth())
 def upload_talent_profile_picture(request, file: UploadedFile):
     talent_user = Talent.objects.filter(user=request.user).first()
     if not talent_user:

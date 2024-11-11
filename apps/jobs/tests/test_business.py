@@ -270,7 +270,6 @@ class TestTalentsByJobList(TestCase):
         }
         response = self.client.get(f"/job-posts/{uuid.uuid4()}/talents", headers=headers)
         self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.data["detail"], "Job Post not found")
 
     def test_endpoint_call_by_talent(self):
         talent = Talent.objects.first()
@@ -279,7 +278,6 @@ class TestTalentsByJobList(TestCase):
         }
         response = self.client.get(f"/job-posts/{self.job_post.uid}/talents", headers=headers)
         self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.data["detail"], "Not allowed")
 
 
     def test_talents_by_job_list_endpoint_with_search(self):

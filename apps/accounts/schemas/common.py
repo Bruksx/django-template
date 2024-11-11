@@ -34,3 +34,18 @@ class CustomerCaseSchema(ModelSchema):
     class Meta:
         model = CustomerCase
         exclude = [*READ_EXCLUDE_FIELDS]
+
+class InitiateEmailChangeSchema(Schema):
+    email: EmailStr
+
+class ChangeEmailSchema(Schema):
+    email: EmailStr
+    otp: str
+
+class ChangePasswordSchema(Schema):
+    old_password: str
+    new_password: str
+
+class ChangePhoneSchema(Schema):
+    password: str
+    phone_number : str
