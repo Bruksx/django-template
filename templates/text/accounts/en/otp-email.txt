@@ -4,4 +4,4 @@ Dear {{user}},
 Your One Time Password (OTP) is {{otp}}
 
 Best Regards,
-{{company_name}}
+{{company}}
