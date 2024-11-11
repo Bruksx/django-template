@@ -1,17 +1,16 @@
-from typing import Optional, Literal, NotRequired
-
-from ninja import Schema
-from ninja.orm.fields import AnyObject
-from pydantic_core.core_schema import TypedDictSchema
+from dataclasses import dataclass
+from typing import Literal, Optional, Any
 
 
-class ChatWebsocketSchema(TypedDictSchema):
-    sender_id: NotRequired[str]
-    sender: NotRequired[str]
-    chat_id: NotRequired[str]
+@dataclass
+class ChatWebsocketSchema:
+    sender_id: str
+    sender: str
+    chat_id: str
     action: Literal["new_message", "is_typing", "stopped_typing", "new_user", "read_message"]
-    data: NotRequired[AnyObject]
-    data_type: NotRequired[Literal["chat", "message"]]
+    data: Optional[Any] = None
+    data_type: Optional[Literal["chat", "message"]] = None
 
-class NotificationWebsocketSchema(TypedDictSchema):
+@dataclass
+class NotificationWebsocketSchema:
     ...

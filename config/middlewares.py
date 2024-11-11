@@ -1,4 +1,3 @@
-import logging
 from urllib.parse import parse_qsl
 
 from channels.db import database_sync_to_async

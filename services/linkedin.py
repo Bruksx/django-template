@@ -1,4 +1,3 @@
-import logging
 from json import JSONDecodeError
 from typing import Optional
 from urllib.parse import urlencode
@@ -6,6 +5,7 @@ from urllib.parse import urlencode
 import requests
 from django.conf import settings
 
+from helpers.loggers import Logger
 from services.schema import FreshTokenSchema, TokenSchema, ProfileSchema
 
 LINKEDIN_CLIENT_ID = settings.LINKEDIN_CLIENT_ID
@@ -44,10 +44,18 @@ def get_tokens(code: str)->Optional[FreshTokenSchema|TokenSchema]:
         elif "access_token" in response_data:
             return TokenSchema(**response_data)
         else:
-            logging.critical(f"Linkedin Token Error: access token not found: {response}", )
+            Logger.error(dict(
+                sender="LinkedIn service",
+                title="LinkedIn Token Error",
+                description=f"access token not found: {response}"
+            ))
             return None
     except JSONDecodeError as e:
-        logging.critical(f"Linkedin Token Error: {e}")
+        Logger.error(dict(
+            sender="LinkedIn service",
+            title="LinkedIn Token Error",
+            description=str(e)
+        ))
         return None
 
 
@@ -72,10 +80,18 @@ def refresh_tokens(refresh_token: str)->Optional[FreshTokenSchema|TokenSchema]:
         elif "access_token" in response_data:
             return TokenSchema(**response_data)
         else:
-            logging.critical(f"Linkedin Token Error: access token not found: {response}", )
+            Logger.error(dict(
+                sender="LinkedIn service",
+                title="LinkedIn Token Error",
+                description=f"access token not found: {response}"
+            ))
             return None
     except JSONDecodeError as e:
-        logging.critical(f"Linkedin Token Error: {e}")
+        Logger.error(dict(
+            sender="LinkedIn service",
+            title="LinkedIn Token Error",
+            description=str(e)
+        ))
         return None
 
 
@@ -98,5 +114,9 @@ def get_profile_details(access_token:str)->Optional[ProfileSchema]:
             id= profile_response.get("id"),
         )
     except Exception as e:
-        logging.critical(f"LinkedIn Profile Error: {e}")
+        Logger.error(dict(
+            sender="LinkedIn service",
+            title="LinkedIn Profile Error",
+            description=str(e)
+        ))
         return None

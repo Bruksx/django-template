@@ -1,18 +1,15 @@
-import logging
-from collections import defaultdict
 from urllib.parse import urlencode
 
-from accounts.models import User, VerificationCode, Business, BusinessUser
 from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
+
 from accounts.business_views import router
-from accounts.schemas.business import DashboardSchema
+from accounts.models import User, VerificationCode, Business, BusinessUser
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory
-from jobs.business_views import job_list
 from jobs.enums import StageType, JobStatusType
-from jobs.models import JobPost, JobApplication
+from jobs.models import JobApplication
 
 
 class ValidateOtpTests(TestCase):

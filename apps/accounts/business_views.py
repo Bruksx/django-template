@@ -1,23 +1,20 @@
 from datetime import date
+from typing import List
 from uuid import UUID
-
-from monkeypatches.q_cluster import async_task
-from future.backports.xmlrpc.client import DateTime
-from ninja import Router, Schema
-from ninja.responses import Response
-
-from jobs.models import Job
-from .schemas import business as business_schema
-from .schemas import common as common_schema
 from accounts.models import User, Business, BusinessUser, VerificationCode
 from django.core.mail import send_mail
 from django.db import transaction
+from jobs.models import Job
+from ninja import Router
 from ninja.errors import HttpError
+from ninja.responses import Response
 from ninja_jwt.authentication import JWTAuth
-from .enums import UserType
-from helpers.images import convert_base64_to_image_file
-from typing import List
 
+from helpers.utils import convert_base64_to_image_file
+from monkeypatches.q_cluster import async_task
+from .enums import UserType
+from .schemas import business as business_schema
+from .schemas import common as common_schema
 
 router = Router(tags=["Business Account"])
 

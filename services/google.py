@@ -1,10 +1,10 @@
-import logging
 from typing import Optional
 
 import requests
 from django.conf import settings
 from requests import JSONDecodeError
 
+from helpers.loggers import Logger
 from services.schema import FreshTokenSchema, TokenSchema, ProfileSchema
 
 GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
@@ -45,10 +45,18 @@ def get_tokens(code:str)->Optional[FreshTokenSchema|TokenSchema]:
                 scope=response_data["scope"]
             )
         else:
-            logging.critical(f"Gmail Token Error: access token not found: {response}", )
+            Logger.error(dict(
+                sender="Google service",
+                title="Gmail Token Error",
+                description=f"access token not found: {response}"
+            ))
             return None
     except JSONDecodeError as e:
-        logging.critical(f"Gmail Token Error: {e}")
+        Logger.error(dict(
+            sender="Google service",
+            title="Gmail Token Error",
+            description=str(e)
+        ))
         return None
 
 
@@ -80,10 +88,18 @@ def refresh_tokens(refresh_token:str)->Optional[FreshTokenSchema|TokenSchema]:
                 scope=response_data["scope"]
             )
         else:
-            logging.critical(f"Gmail Token Error: access token not found: {response}", )
+            Logger.error(dict(
+                sender="Google service",
+                title="Gmail Token Error",
+                description=f"access token not found: {response}"
+            ))
             return None
     except JSONDecodeError as e:
-        logging.critical(f"Gmail Token Error: {e}")
+        Logger.error(dict(
+            sender="Google service",
+            title="Gmail Token Error",
+            description=str(e)
+        ))
         return None
 
 def get_profile_details(access_token:str)->Optional[ProfileSchema]:

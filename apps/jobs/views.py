@@ -145,7 +145,7 @@ def share_job_post_via_email(request, job_post_id:UUID, data: ShareJobPostViaEma
     job_post = JobPost.objects.filter(uid=job_post_id).first()
     if not job_post:
         raise HttpError(404, "Job post not found")
-    async_task(tasks.send_shared_job_email,
+    async_task(tasks.share_job_via_email,
         job_post_id=job_post.id, emails=data.emails
     )
     return Response(status=200, data={"message": "Shared successfully"})
@@ -154,6 +154,8 @@ def share_job_post_via_email(request, job_post_id:UUID, data: ShareJobPostViaEma
 @transaction.atomic
 def share_job_post_via_chat(request, job_post_id:UUID, data: ShareJobPostViaChatSchema):
     user = request.user
+    if not data.talent_ids:
+        raise HttpError(400, "No talents selected")
     if not hasattr(user, "talent"):
         raise HttpError(403, "Only Talents are allowed")
     job_post = JobPost.objects.filter(uid=job_post_id).first()

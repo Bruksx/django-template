@@ -69,6 +69,9 @@ def handle_job_post_date(sender, instance, **kwargs):
         existing_instance = JobPost.objects.get(id=instance.id)
         if instance.status == JobStatusType.POSTED.value and existing_instance.status != JobStatusType.POSTED.value:
             instance.date_posted = timezone.now()
+    else:
+        if instance.status == JobStatusType.POSTED.value:
+            instance.date_posted = timezone.now()
 
 @receiver(pre_save, sender=JobApplication)
 def handle_new_application(sender, instance,  **kwargs):

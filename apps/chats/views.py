@@ -1,22 +1,20 @@
-import logging
 from typing import List
 from uuid import UUID
-
-from django.db import transaction
-from django.db.models import Q, F
-from monkeypatches.q_cluster import async_task
-from ninja import Router, PatchDict
-from ninja.errors import HttpError
-from ninja.responses import Response
-
-from ninja_extra.pagination import PageNumberPaginationExtra, paginate
-from ninja_extra.schemas import PaginatedResponseSchema
-from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import UserType
 from accounts.models import User
 from chats.models import Message, Conversation, ReadMessageLog, MessageAttachment
 from chats.schemas import ChatListSchema, ChatMessageSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema
+from django.db import transaction
+from django.db.models import Q, F
+from ninja import Router, PatchDict
+from ninja.errors import HttpError
+from ninja.responses import Response
+from ninja_extra.pagination import PageNumberPaginationExtra, paginate
+from ninja_extra.schemas import PaginatedResponseSchema
+from ninja_jwt.authentication import JWTAuth
+
+from monkeypatches.q_cluster import async_task
 
 # Create your views here.
 router = Router(tags=["Chats"])
