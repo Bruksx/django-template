@@ -1,5 +1,6 @@
 from uuid import UUID
 
+from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
@@ -11,7 +12,7 @@ from ninja_extra.pagination import (
 )
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import Department, Role, SkillCategory, Country, BusinessUser
+from accounts.models import Department, Role, SkillCategory, Country
 from . import schemas as job_schemas
 from .enums import JobStatusType
 from .models import (
@@ -77,18 +78,19 @@ def get_business_models(request, search=""):
 @router.post("", response=JobDetailSchema, auth=JWTAuth())
 @transaction.atomic
 def create_job(request, data:CreateJobSchema):
-    business_user = BusinessUser.objects.filter(user=request.user).first()
-    if not business_user:
-        raise HttpError(403, "Not Allowed")
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
     job = Job.objects.create_job(business_user=business_user, data=data)
     return job
 
 
 @router.patch("set-required-attributes/{job_uid}", response=job_schemas.RequiredAttributeSchema, auth=JWTAuth())
 def set_required_attributes(request, data:job_schemas.MutateRequiredAttributeSchema, job_uid:UUID):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
     request_data = data.dict()
     user = request.user
-    job = Job.objects.filter(created_by=user.businessuser, uid=job_uid).first()
+    job = Job.objects.filter(created_by=business_user, uid=job_uid).first()
     if not job:
         raise HttpError(404, "Job not found")
     if job.created_by != user.businessuser:
@@ -102,9 +104,8 @@ def set_required_attributes(request, data:job_schemas.MutateRequiredAttributeSch
 
 @router.patch("job-post/{job_post_uid}/post", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
 def post_job_post(request, job_post_uid: UUID):
-    business_user = BusinessUser.objects.filter(user=request.user).first()
-    if not business_user:
-        raise HttpError(403, "Not Allowed")
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
     job_post = get_object_or_404(JobPost, uid=job_post_uid, job__created_by=business_user)
     job_post.update(status=JobStatusType.POSTED.value)
     return job_post
@@ -112,18 +113,16 @@ def post_job_post(request, job_post_uid: UUID):
 
 @router.delete("job-post/{job_post_uid}", auth=JWTAuth())
 def delete_job_post(request, job_post_uid:UUID):
-    business_user = BusinessUser.objects.filter(user=request.user).first()
-    if not business_user:
-        raise HttpError(403, "Not Allowed")
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
     get_object_or_404(JobPost, uid=job_post_uid, job__created_by=business_user).delete()
     return {"message": "deleted"}
 
 
 @router.put("job-post/{job_post_uid}", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
 def edit_job_post(request, job_post_uid, data: job_schemas.JobPostDetailSchema):
-    business_user = BusinessUser.objects.filter(user=request.user).first()
-    if not business_user:
-        raise HttpError(403, "Not Allowed")
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
     job_post = get_object_or_404(JobPost, uid=job_post_uid, job__created_by=business_user)
     del data.uid
     job_post.update(**data.dict())
@@ -132,9 +131,8 @@ def edit_job_post(request, job_post_uid, data: job_schemas.JobPostDetailSchema):
 
 @router.post("job-post/add/{job_uid}", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
 def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
-    business_user = BusinessUser.objects.filter(user=request.user).first()
-    if not business_user:
-        raise HttpError(403, "Not Allowed")
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
     job = get_object_or_404(Job, uid=job_uid, created_by=business_user)
     request_data = data.dict()
     annual_bonus_currency = request_data.pop("annual_bonus_currency_uid")
@@ -152,9 +150,7 @@ def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
 
 @router.get("job-posts/{job_post_uid}/talents", response=list[TalentListJobPostSchema], auth=JWTAuth())
 def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
-    business_user = BusinessUser.objects.filter(user=request.user).first()
-    if not business_user:
-        raise HttpError(403, "Not allowed")
+    IsBusinessUser.check(request)
     job_post = JobPost.objects.filter(uid=job_post_uid).first()
     if not job_post:
         raise HttpError(404, "Job Post not found")
@@ -169,7 +165,6 @@ def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
 @router.get("list", response=PaginatedResponseSchema[JobDetailSchema], auth=JWTAuth())
 @paginate(PageNumberPaginationExtra, page_size=50)
 def job_list(request):
-    business_user = BusinessUser.objects.filter(user=request.user).first()
-    if not business_user:
-        raise HttpError(403, "Not Allowed")
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
     return Job.objects.filter(created_by=business_user)

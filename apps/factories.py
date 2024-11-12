@@ -122,7 +122,8 @@ class BusinessFactory(DjangoModelFactory):
     size = factory.Iterator([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     description = factory.Faker('sentence', nb_words=20)
     website = factory.Faker('url')
-    location = factory.Faker('address')
+    address = factory.Faker('address')
+    country = factory.SubFactory(CountryFactory)
     industry = factory.Faker("company")
     name = factory.Faker('company')
 

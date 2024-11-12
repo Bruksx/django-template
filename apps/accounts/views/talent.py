@@ -7,6 +7,8 @@ from django.conf import settings
 from django.db import transaction
 from django.http import HttpResponse
 from django.shortcuts import render
+
+from config.permissions import IsTalentUser
 from helpers.email.users import send_verification_code
 from helpers.utils import convert_base64_to_image_file, html_to_pdf
 from monkeypatches.q_cluster import async_task
@@ -74,9 +76,8 @@ def create_account(request, data: talent_schemas.ValidateTalentOTPSchema):
              auth=JWTAuth())
 @transaction.atomic
 def complete_talent_profile(request, data: PatchDict[talent_schemas.CompleteTalentProfileSchema]):
-    talent_user = Talent.objects.filter(user=request.user).first()
-    if not talent_user:
-        raise HttpError(403, "Not allowed")
+    IsTalentUser.check(request)
+    talent_user = request.user.talent
     if "gender" in data:
         talent_user.user.update(gender=data.pop("gender").value)
     availability = data.pop("availability", list())
@@ -104,9 +105,8 @@ def complete_talent_profile(request, data: PatchDict[talent_schemas.CompleteTale
 @router.patch("complete-profile/next_step", response=talent_schemas.UserSchema, auth=JWTAuth())
 @transaction.atomic
 def complete_talent_profile2(request, data: PatchDict[talent_schemas.CompleteTalentProfileSchema2]):
-    talent_user = Talent.objects.filter(user=request.user).first()
-    if not talent_user:
-        raise HttpError(403, "Not allowed")
+    IsTalentUser.check(request)
+    talent_user = request.user.talent
     education_history = data.pop("education_history", list())
     for education in education_history:
         edu_uid = education.pop("uid", None)
@@ -125,9 +125,8 @@ def complete_talent_profile2(request, data: PatchDict[talent_schemas.CompleteTal
 @router.patch("complete-profile/last_step", response=talent_schemas.UserSchema, auth=JWTAuth())
 @transaction.atomic
 def complete_talent_profile3(request, data: PatchDict[talent_schemas.CompleteTalentProfileSchema3]):
-    talent_user: Talent = Talent.objects.filter(user=request.user).first()
-    if not talent_user:
-        raise HttpError(403, "Not allowed")
+    IsTalentUser.check(request)
+    talent_user = request.user.talent
     if "skills" in data:
         talent_user.skills.set(data["skills"])
     if "business_models" in data:
@@ -155,18 +154,15 @@ def complete_talent_profile3(request, data: PatchDict[talent_schemas.CompleteTal
 
 @router.get("profile", response=talent_schemas.TalentUserSchema, auth=JWTAuth())
 def talent_profile(request):
-    talent_user = Talent.objects.filter(user=request.user).first()
-    if not talent_user:
-        raise HttpError(403, "Not allowed")
-    return talent_user
+    IsTalentUser.check(request)
+    return request.user.talent
 
 @router.delete("education/{education_uid}",
                response={204: None},
                auth=JWTAuth())
 def delete_talent_education(request, education_uid:UUID):
-    talent_user = Talent.objects.filter(user=request.user).first()
-    if not talent_user:
-        raise HttpError(403, "Not allowed")
+    IsTalentUser.check(request)
+    talent_user = request.user.talent
     education = talent_user.education_set.filter(uid=education_uid).first()
     if not education:
         raise HttpError(404, "This education does not exist")
@@ -177,9 +173,8 @@ def delete_talent_education(request, education_uid:UUID):
 @router.delete("experience/{experience_uid}",
                response={204: None}, auth=JWTAuth())
 def delete_talent_experience(request, experience_uid:UUID):
-    talent_user = Talent.objects.filter(user=request.user).first()
-    if not talent_user:
-        raise HttpError(403, "Not allowed")
+    IsTalentUser.check(request)
+    talent_user = request.user.talent
     experience = talent_user.experience_set.filter(uid=experience_uid).first()
     if not experience:
         raise HttpError(404, "This experience does not exist")
@@ -190,42 +185,35 @@ def delete_talent_experience(request, experience_uid:UUID):
 @router.get("dashboard-report", response=talent_schemas.TalentDashboardReport, auth=JWTAuth(),
             tags=["Talent Dashboard"])
 def talent_dashboard_report(request, start_date: date=None, end_date: date=None):
-    user = request.user
-    if not hasattr(user, "talent"):
-        raise HttpError(403, "Only talents are allowed here")
+    IsTalentUser.check(request)
     if start_date and end_date:
         # if the range is inclusive
         end_date = end_date + timedelta(days=1)
-        return Response(data=talent_schemas.TalentDashboardReport.from_orm(user.talent, context={
+        return Response(data=talent_schemas.TalentDashboardReport.from_orm(request.user.talent, context={
                 "start_date": start_date,
                 "end_date": end_date
             }))
 
-    return Response(data=talent_schemas.TalentDashboardReport.from_orm(user.talent))
+    return Response(data=talent_schemas.TalentDashboardReport.from_orm(request.user.talent))
 
 @router.get("applications-chart", response=List[talent_schemas.MonthlyChartSchema], auth=JWTAuth(),
             tags=["Talent Dashboard"])
 def talent_applications_chart(request):
-    user = request.user
-    if not hasattr(user, "talent", ):
-        raise HttpError(403, "Only talents are allowed here")
-    return user.talent.applications_made_chart()
+    IsTalentUser.check(request)
+    return request.user.talent.applications_made_chart()
 
 
 @router.get("interviews-chart", response=List[talent_schemas.MonthlyChartSchema],
             tags=["Talent Dashboard"], auth=JWTAuth())
 def talent_interview_chart(request):
-    user = request.user
-    if not hasattr(user, "talent", ):
-        raise HttpError(403, "Only talents are allowed here")
-    return user.talent.interviews_chart()
+    IsTalentUser.check(request)
+    return request.user.talent.interviews_chart()
 
 
 @router.patch("profile", auth=JWTAuth())
 def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentProfileSchema2]):
-    talent_user = Talent.objects.filter(user=request.user).first()
-    if not talent_user:
-        raise HttpError(403, "Not allowed")
+    IsTalentUser.check(request)
+    talent_user = request.user.talent
     if "gender" in data:
         data["gender"] = data["gender"].value
     if "preferred_communication" in data:
@@ -249,9 +237,8 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
 
 @router.patch("education-history", auth=JWTAuth())
 def update_education_history(request, data: List[PatchDict[talent_schemas.MutateEducationSchema]]):
-    talent_user = Talent.objects.filter(user=request.user).first()
-    if not talent_user:
-        raise HttpError(403, "Not allowed")
+    IsTalentUser.check(request)
+    talent_user = request.user.talent
     for education in data:
         edu_uid = education.pop("uid", None)
         if edu_uid:
@@ -264,9 +251,8 @@ def update_education_history(request, data: List[PatchDict[talent_schemas.Mutate
 
 @router.patch("experience-history", auth=JWTAuth())
 def update_experience_history(request, data:List[PatchDict[talent_schemas.MutateExperienceSchema]]):
-    talent_user = Talent.objects.filter(user=request.user).first()
-    if not talent_user:
-        raise HttpError(403, "Not allowed")
+    IsTalentUser.check(request)
+    talent_user = request.user.talent
     for experience in data:
         experience_uid = experience.pop("uid", None)
         if experience_uid:
@@ -279,9 +265,8 @@ def update_experience_history(request, data:List[PatchDict[talent_schemas.Mutate
 
 @router.patch("availability", auth=JWTAuth())
 def update_talent_availability(request, data: List[PatchDict[talent_schemas.MutateTalentAvailableDaySchema]]):
-    talent_user = Talent.objects.filter(user=request.user).first()
-    if not talent_user:
-        raise HttpError(403, "Not allowed")
+    IsTalentUser.check(request)
+    talent_user = request.user.talent
     for available_day in data:
         available_day["day"] = available_day["day"].value
         uid =  available_day.pop("uid", None)
@@ -299,9 +284,7 @@ def update_talent_availability(request, data: List[PatchDict[talent_schemas.Muta
 
 @router.patch("change-password", auth=JWTAuth())
 def change_talent_password(request, data: talent_schemas.TalentChangePasswordSchema):
-    talent_user = Talent.objects.filter(user=request.user).first()
-    if not talent_user:
-        raise HttpError(403, "Not allowed")
+    IsTalentUser.check(request)
     user = request.user
     if not user.check_password(data.old_password):
         raise HttpError(400, "Incorrect Password")
@@ -311,9 +294,8 @@ def change_talent_password(request, data: talent_schemas.TalentChangePasswordSch
 
 @router.post("cv", auth=JWTAuth())
 def upload_talent_cv(request, file: UploadedFile):
-    talent_user = Talent.objects.filter(user=request.user).first()
-    if not talent_user:
-        raise HttpError(403, "Not allowed")
+    IsTalentUser.check(request)
+    talent_user = request.user.talent
     if file.name.split(".")[-1] != "pdf":
         raise HttpError(400, "This file type is not supported. Only PDF files")
     talent_user.update(cv=file)
@@ -321,9 +303,8 @@ def upload_talent_cv(request, file: UploadedFile):
 
 @router.get("cv", auth=JWTAuth())
 def download_talent_cv(request):
-    talent_user = Talent.objects.filter(user=request.user).first()
-    if not talent_user:
-        raise HttpError(403, "Not allowed")
+    IsTalentUser.check(request)
+    talent_user = request.user.talent
     cv_data = TalentUserSchema.from_orm(talent_user).dict()
     cv_data["image_url"] = settings.IMAGE_URL
     cv_data["css_url"] = settings.CSS_URL
@@ -340,9 +321,8 @@ def download_talent_cv(request):
 
 @router.post("profile-pic", auth=JWTAuth())
 def upload_talent_profile_picture(request, file: UploadedFile):
-    talent_user = Talent.objects.filter(user=request.user).first()
-    if not talent_user:
-        raise HttpError(403, "Not allowed")
+    IsTalentUser.check(request)
+    talent_user = request.user.talent
     extension = file.name.split(".")[-1]
     if extension not in ["jpg", "jpeg", "png"]:
         raise HttpError(400, "This file type is not supported. Only JPG/JPEG/PNG files")

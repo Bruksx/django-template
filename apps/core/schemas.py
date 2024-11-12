@@ -28,7 +28,7 @@ class StringSchema(Schema):
 
 MUTATE_EXCLUDE_FIELDS =  ("id", "created_at", "updated_at", "transaction_id", "deleted_at", "restored_at")
 
-READ_EXCLUDE_FIELDS = ("id","transaction_id", "restored_at", "deleted_at")
+READ_EXCLUDE_FIELDS = ("id", "transaction_id", "restored_at", "deleted_at")
 
 class CurrencySchema(ModelSchema):
     class Meta:

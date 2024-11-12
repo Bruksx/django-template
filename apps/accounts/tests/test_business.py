@@ -1,10 +1,14 @@
+import logging
+from http.client import responses
 from urllib.parse import urlencode
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.views.business_views import router
+from accounts.enums import BusinessUserRoleType
+from accounts.views.business import router
 from accounts.models import User, VerificationCode, Business, BusinessUser
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory
@@ -249,5 +253,112 @@ class BusinessDashboardTestCase(TestCase):
             self.assertIn(key, response.json())
 
         self.assertEqual(response.status_code, 200)
+
+class UpdateBusinessDetailTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(business=self.business,
+                                                        role=BusinessUserRoleType.OWNER.value)
+        user = self.business_user.user
+        user.set_password("TestPassword")
+        user.save()
+        self.url = ""
+
+    def test_update_business_detail(self):
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        data = {
+            "password": "TestPassword",
+            "name": "Test Company",
+            "description": "Good company",
+            "industry": "Software"
+        }
+        self.assertNotEqual(self.business.name, data["name"])
+        self.assertNotEqual(self.business.description, data["description"])
+        self.assertNotEqual(self.business.industry, data["industry"])
+        response = self.client.patch(self.url, json=data,  headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.business.refresh_from_db()
+        self.assertEqual(self.business.name, data["name"])
+        self.assertEqual(self.business.description, data["description"])
+        self.assertEqual(self.business.industry, data["industry"])
+
+    def test_data_without_password(self):
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        data = {
+            "name": "Test Company",
+            "description": "Good company",
+            "industry": "Software"
+        }
+        response = self.client.patch(self.url, json=data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+        self.business.refresh_from_db()
+        self.assertNotEqual(self.business.name, data["name"])
+        self.assertNotEqual(self.business.description, data["description"])
+        self.assertNotEqual(self.business.industry, data["industry"])
+
+    def test_data_with_incorrect_password(self):
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        data = {
+            "password": "TestPassword2",
+            "name": "Test Company",
+            "description": "Good company",
+            "industry": "Software"
+        }
+        response = self.client.patch(self.url, json=data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+        self.business.refresh_from_db()
+        self.assertNotEqual(self.business.name, data["name"])
+        self.assertNotEqual(self.business.description, data["description"])
+        self.assertNotEqual(self.business.industry, data["industry"])
+
+    def test_request_by_team_member(self):
+        self.business_user.update(role=BusinessUserRoleType.TEAM_MEMBER.value)
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        data = {
+            "name": "Test Company",
+            "description": "Good company",
+            "industry": "Software"
+        }
+        response = self.client.patch(self.url, json=data, headers=headers)
+        self.assertEqual(response.status_code, 403)
+        self.business.refresh_from_db()
+        self.assertNotEqual(self.business.name, data["name"])
+        self.assertNotEqual(self.business.description, data["description"])
+        self.assertNotEqual(self.business.industry, data["industry"])
+
+
+class GetBusinessDetailTest(TestCase):
+    def setUp(self):
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business = self.business,
+            user=self.business.created_by
+        )
+        self.url = ""
+        self.client = TestClient(router)
+
+
+    def test_business_detail_endpoint(self):
+        headers = {
+            "authorization": f"bearer {self.business.created_by.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        business_uid = response.json()["uid"]
+        self.assertEqual(str(self.business.uid), business_uid)
+
+
+
+
+
 
 

@@ -1,16 +1,14 @@
-import logging
 from typing import List
 
+from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode
+from accounts.schemas import common as common_schemas
+from accounts.schemas import talent as talent_schemas
 from django.db import transaction
 from django.db.models import Q
 from ninja import Router
 from ninja.errors import HttpError
 from ninja.responses import Response
 from ninja_jwt.authentication import JWTAuth
-
-from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode
-from accounts.schemas import common as common_schemas
-from accounts.schemas import talent as talent_schemas
 
 from helpers.email.users import send_verification_code
 from monkeypatches.q_cluster import async_task

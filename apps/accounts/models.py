@@ -393,7 +393,8 @@ class Business(BaseModel):
     size = models.IntegerField(null=True)
     description = models.TextField(null=True)
     website = models.URLField(null=True)
-    location = models.CharField(max_length=128, null=True)
+    address = models.CharField(max_length=128, null=True)
+    country = models.ForeignKey("Country", on_delete=models.SET_NULL, null=True)
     logo = models.ImageField(upload_to="media/logo/", null=True)
     instagram = models.URLField(null=True)
     linkedin = models.URLField(null=True)
@@ -403,6 +404,9 @@ class Business(BaseModel):
 
     def __str__(self):
         return self.name
+
+    def location(self):
+        return f"{self.address}, {self.country}"
 
     def get_logo(self):
         if not self.logo:

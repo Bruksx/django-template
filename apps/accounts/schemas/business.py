@@ -2,10 +2,12 @@ from typing import Optional, List, TypedDict
 from uuid import UUID
 
 from ninja import ModelSchema, Schema
-from pydantic import EmailStr
+from pydantic import EmailStr, Field
 
 from accounts.models import Business
 from jobs.models import EmploymentType
+from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS
+
 
 
 class ValidateOTPSchema(Schema):
@@ -21,7 +23,7 @@ class ValidateOTPSchema(Schema):
 class BusinessSchema(ModelSchema):
     class Meta:
         model = Business
-        fields = ["size", "description", "website", "industry", "location", "logo", "instagram", "linkedin", "facebook",
+        fields = ["size", "description", "website", "industry", "address", "country", "logo", "instagram", "linkedin", "facebook",
                   "twitter_x"]
 
 
@@ -205,6 +207,19 @@ class DashboardSchema(ModelSchema):
             **DashboardSchema.get_context(obj, context)
         )]
 
+class MutateBusinessSchema(ModelSchema):
+    password:str
+    country: UUID
+    class Meta:
+        model = Business
+        exclude = (*MUTATE_EXCLUDE_FIELDS, "logo", "created_by", "uid")
 
+
+class BusinessDetailSchema(ModelSchema):
+    logo: Optional[str] = Field(alias="get_logo")
+    location: str = Field(alias="location")
+    class Meta:
+        model = Business
+        exclude = (*READ_EXCLUDE_FIELDS,)
 
 
