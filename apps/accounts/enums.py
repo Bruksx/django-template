@@ -14,7 +14,7 @@ class AuthType(BaseEnum):
     GOOGLE = "Google"
     LINKEDIN = "LinkedIn"
     FACEBOOK = "Facebook"
-    EMAIL = "email"
+    EMAIL = "Email"
 
 class BusinessUserRoleType(BaseEnum):
     OWNER = "owner"

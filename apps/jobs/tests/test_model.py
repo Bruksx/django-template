@@ -48,7 +48,8 @@ class JobFilterModelTest(TestCase):
             size=50,
             description="A sample business description.",
             website="https://example.com",
-            location="Lekki, Lagos, Nigeria",
+            address="Lekki, Lagos, Nigeria",
+            country=Country.objects.first().uid,
             industry="Technology"
         )
         self.business_user = BusinessUser.objects.create(

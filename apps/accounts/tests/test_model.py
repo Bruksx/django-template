@@ -1,4 +1,5 @@
-from datetime import date, timezone, datetime
+import logging
+from datetime import date, timezone, datetime, timedelta
 from decimal import Decimal
 
 from django.test import TestCase
@@ -61,7 +62,8 @@ class TalentModelTest(TestCase):
             size=50,
             description="A sample business description.",
             website="https://example.com",
-            location="Lekki, Lagos, Nigeria",
+            address="Lekki, Lagos, Nigeria",
+            country=Country.objects.first().uid,
             industry="Technology"
         )
         self.business_user = BusinessUser.objects.create(
@@ -430,6 +432,12 @@ class BusinessModelTests(TestCase):
         for app_id in last_sub_application_ids:
             j = JobApplication.objects.get(id=app_id)
             j.update(stage=StageType.HIRED.value)
+        date_time = datetime.now() - timedelta(days=90)
+        logging.critical(JobApplication.objects.filter(
+            recruiter__business=self.business,
+            stage=StageType.HIRED.value,
+
+        ).values("stage_date_updated"))
         data = self.business.hires_last_3_months()
         self.assertEqual(len(data), self.sub_data)
 

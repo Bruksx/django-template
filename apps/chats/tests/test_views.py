@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from django.test import TestCase

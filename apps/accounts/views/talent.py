@@ -25,7 +25,7 @@ from accounts.schemas import talent as talent_schemas
 
 router = Router(tags=["Account"])
 
-@router.post("initiate-account-creation", response={200:talent_schemas.LoggedInUserSchema})
+@router.post("initiate-account-creation")
 def initiate_account_creation(request, data: common_schemas.RegisterSchema):
     existing_user = User.objects.filter(email=data.email).exists()
     if existing_user:
