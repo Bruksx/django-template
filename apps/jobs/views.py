@@ -136,12 +136,12 @@ def withdraw_job_applications(request, application_id:UUID, data: TalentJobAppli
     application.delete()
     return Response(status=200, data={"message": "Withdrawn successfully"})
 
-@router.post("talent/job-posts/{job_post_id}/share-via-email", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
+@router.post("job-posts/{job_post_id}/share-via-email", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 @transaction.atomic
 def share_job_post_via_email(request, job_post_id:UUID, data: ShareJobPostViaEmailSchema):
     user = request.user
-    if not hasattr(user, "talent"):
-        raise HttpError(403, "Only Talents are allowed")
+    if not (hasattr(user, "talent") or  hasattr(user, "businessuser")):
+        raise HttpError(403, "Not allowed")
     job_post = JobPost.objects.filter(uid=job_post_id).first()
     if not job_post:
         raise HttpError(404, "Job post not found")
@@ -150,14 +150,14 @@ def share_job_post_via_email(request, job_post_id:UUID, data: ShareJobPostViaEma
     )
     return Response(status=200, data={"message": "Shared successfully"})
 
-@router.post("talent/job-posts/{job_post_id}/share-via-chat", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
+@router.post("job-posts/{job_post_id}/share-via-chat", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 @transaction.atomic
 def share_job_post_via_chat(request, job_post_id:UUID, data: ShareJobPostViaChatSchema):
     user = request.user
     if not data.talent_ids:
         raise HttpError(400, "No talents selected")
-    if not hasattr(user, "talent"):
-        raise HttpError(403, "Only Talents are allowed")
+    if not (hasattr(user, "talent") or hasattr(user, "businessuser")):
+        raise HttpError(403, "Not allowed")
     job_post = JobPost.objects.filter(uid=job_post_id).first()
     if not job_post:
         raise HttpError(404, "Job post not found")

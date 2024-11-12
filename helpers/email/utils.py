@@ -1,6 +1,8 @@
 from typing import List
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
+from django.template import loader
+from django.template.loader import render_to_string
 from pydantic import EmailStr
 
 from helpers.decorators import test_env_decorator
@@ -28,4 +30,19 @@ def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_b
                 title="Email was not successfully sent",
                 description=str(e)
             ), exc_info=True)
+
+
+def render_text_email(file: str, context: dict):
+    context["frontend_url"] = settings.FRONTEND_URL
+    if not context.get("company"):
+        context["company"] = settings.COMPANY_NAME
+    return render_to_string(file, context)
+
+def render_html_email(file: str, context: dict):
+    context["frontend_url"] = settings.FRONTEND_URL
+    if not context.get("company"):
+        context["company"] = settings.COMPANY_NAME
+    template = loader.get_template(file)
+    return template.render(context)
+
 

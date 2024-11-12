@@ -4,7 +4,7 @@ from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.business_views import router
+from accounts.views.business_views import router
 from accounts.models import User, VerificationCode, Business, BusinessUser
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory
@@ -15,7 +15,7 @@ from jobs.models import JobApplication
 class ValidateOtpTests(TestCase):
     def setUp(self):
         self.client = TestClient(router)
-        self.url = "/validate-otp"  
+        self.url = "/create-account"
         self.user_data = {
             "email": "test@example.com",
             "otp": "1234",
@@ -249,3 +249,5 @@ class BusinessDashboardTestCase(TestCase):
             self.assertIn(key, response.json())
 
         self.assertEqual(response.status_code, 200)
+
+

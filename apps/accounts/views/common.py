@@ -1,0 +1,112 @@
+import logging
+from typing import List
+
+from django.db import transaction
+from django.db.models import Q
+from ninja import Router
+from ninja.errors import HttpError
+from ninja.responses import Response
+from ninja_jwt.authentication import JWTAuth
+
+from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode
+from accounts.schemas import common as common_schemas
+from accounts.schemas import talent as talent_schemas
+
+from helpers.email.users import send_verification_code
+from monkeypatches.q_cluster import async_task
+
+router = Router(tags=["Common Account APIs"])
+
+
+@router.get("talents", response=list[talent_schemas.TalentUserListSchema], auth=JWTAuth())
+def talent_lists(request, search=""):
+    talents = Talent.objects.prefetch_related("user").all()
+    if search:
+        talents = talents.filter(Q(user__first_name__icontains=search)|
+                                 Q(user__last_name__icontains=search)|
+                                 Q(user__email__icontains=search)
+                                 )
+    return talents
+
+@router.get("countries", response=List[talent_schemas.CountrySchema], tags=["Common"])
+def country_list(request, search:str=""):
+    queryset = Country.objects.all()
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    return queryset
+
+
+@router.get("educational-levels", response=List[talent_schemas.EducationLevelSchema], auth=JWTAuth(),
+            tags=["Common"])
+def educational_levels(request, search=""):
+    queryset = EducationLevel.objects.all()
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    return queryset
+
+@router.post("customer-cases", auth=JWTAuth())
+def create_customer_case(request, data:common_schemas.MutateCustomerCaseSchema):
+    user = request.user
+    if user.customercase_set.filter(**data.dict()).exists():
+        raise HttpError(400, "Case already exists")
+    CustomerCase.objects.create(**data.dict(), user=user).save()
+    return Response(status=200, data={"message": "Case created successfully"})
+
+@router.get("customer-cases", auth=JWTAuth(), response=List[common_schemas.CustomerCaseSchema])
+def customer_case_list(request):
+    user = request.user
+    return user.customercase_set.order_by("-id")
+
+@router.post("initiate-email-change", auth=JWTAuth())
+@transaction.atomic
+def initiate_email_change(request, data: common_schemas.InitiateEmailChangeSchema):
+    user = request.user
+    if data.email == user.email:
+        raise HttpError(400, "Your current email is the same as the new one")
+    if User.objects.filter(email=data.email).exclude(id=user.id).exists():
+        raise HttpError(400, "An account with this email already exists")
+    verification_code = VerificationCode(email=data.email)
+    raw_code = verification_code.save()
+    async_task(send_verification_code, email=data.email, code=raw_code, user=user.get_full_name(), company=None)
+    return Response(data={"message": "please check your email address for otp code"})
+
+
+@router.post("change-email", auth=JWTAuth())
+@transaction.atomic
+def change_email(request, data: common_schemas.ChangeEmailSchema):
+    verification_code = VerificationCode.objects.filter(email=data.email).last()
+    if not verification_code:
+        raise HttpError(400, "Invalid otp")
+    correct_otp = verification_code.verify_code(data.otp)
+    if not correct_otp:
+        raise HttpError(400, "Incorrect otp")
+    user = request.user
+    if User.objects.filter(email=data.email).exclude(id=user.id).exists():
+        raise HttpError(400, "An account with this email already exists")
+    user.email = data.email
+    user.save(update_fields=["email"])
+    verification_code.delete()
+    return Response(data={"message": "email changed successfully"})
+
+@router.post("change-password", auth=JWTAuth())
+@transaction.atomic
+def password_change(request, data: common_schemas.ChangePasswordSchema):
+    user = request.user
+    if not user.check_password(data.old_password):
+        raise HttpError(400, "Incorrect password")
+    user.set_password(data.new_password)
+    user.save()
+    return Response(data={"message": "password changed successfully"})
+
+@router.post("change-phone-number", auth=JWTAuth())
+@transaction.atomic
+def phone_number_change(request, data: common_schemas.ChangePhoneSchema):
+    user = request.user
+    if not user.check_password(data.password):
+        raise HttpError(400, "Incorrect password")
+    user.phone_number = data.phone_number
+    user.save()
+    return Response(data={"message": "phone number changed successfully"})
+
+
+

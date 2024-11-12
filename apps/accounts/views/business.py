@@ -1,8 +1,8 @@
 from datetime import date
 from typing import List
 from uuid import UUID
+
 from accounts.models import User, Business, BusinessUser, VerificationCode
-from django.core.mail import send_mail
 from django.db import transaction
 from jobs.models import Job
 from ninja import Router
@@ -10,37 +10,32 @@ from ninja.errors import HttpError
 from ninja.responses import Response
 from ninja_jwt.authentication import JWTAuth
 
+from helpers.email.users import send_verification_code
 from helpers.utils import convert_base64_to_image_file
 from monkeypatches.q_cluster import async_task
-from .enums import UserType
-from .schemas import business as business_schema
-from .schemas import common as common_schema
+from ..enums import UserType
+from ..schemas import business as business_schema
+from ..schemas import common as common_schema
 
 router = Router(tags=["Business Account"])
 
 
-@router.post("create-account/")
-def create_account(request, data: common_schema.RegisterSchema):
+@router.post("initiate-account-creation")
+def initiate_account_creation(request, data: common_schema.RegisterSchema):
     existing_user = User.objects.filter(email=data.email).exists()
     if existing_user:
         raise HttpError(400, "An account withn this email already exists")
     verification_code = VerificationCode(email=data.email)
     raw_code = verification_code.save()
-    async_task(send_mail,
-        "OTP",
-        f"{raw_code}",
-        "from@example.com",
-        [data.email],
-        fail_silently=False,
-    )
+    async_task(send_verification_code, email=data.email, code=raw_code, user="", company=None)
     return {
         "message": "verification mail sent!"
     }
 
 
-@router.post("validate-otp", response={200:common_schema.UserSchema})
+@router.post("create-account", response={200:common_schema.UserSchema})
 @transaction.atomic
-def validate_otp(request, data: business_schema.ValidateOTPSchema):
+def create_account(request, data: business_schema.ValidateOTPSchema):
     existing_user = User.objects.filter(email=data.email).exists()
     if existing_user:
         raise HttpError(400, "An account withn this email already exists")
@@ -111,5 +106,4 @@ def get_job_clients(request):
     return Response(data=list(Job.objects.filter(created_by__business=business_user.business,
                                                 hiring_company_name__isnull=False).only("hiring_company_name")\
                   .distinct("hiring_company_name").values_list("hiring_company_name", flat=True)))
-
 

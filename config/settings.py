@@ -207,3 +207,11 @@ CHANNEL_LAYERS = {
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join("media")
 
+# pdf rendering settings
+IMAGE_URL = "http://localhost:8000/static/img"
+CSS_URL =  "http://localhost:8000/static/css"
+
+
+# email rendering service
+FRONTEND_URL = "http://localhost:3000"
+COMPANY_NAME = "1840 GTC"

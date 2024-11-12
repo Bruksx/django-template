@@ -369,6 +369,7 @@ class ShareJobPostViaEmailTest(TestCase):
         )
         self.job_post = JobPost.objects.create(
             job=self.job,)
+        self.url = f"job-posts/{self.job_post.uid}/share-via-email"
 
     def test_share_job_post_via_email(self):
         headers = {
@@ -379,7 +380,7 @@ class ShareJobPostViaEmailTest(TestCase):
          "talents": [str(self.talent2.user.uid)],
          "emails": ["testuser3@example.com", "testuser4@example.com"]
         }
-        response = self.client.post(f"talent/job-posts/{job_post_id}/share-via-email",
+        response = self.client.post(self.url,
                                     headers=headers, json=data)
         self.assertEqual(response.status_code, 200)
 
@@ -470,6 +471,7 @@ class TestShareJobViaChat(TestCase):
         self.talent = TalentFactory.create()
         TalentFactory.create_batch(3)
         self.job_post = JobPostFactory.create()
+        self.url = f"job-posts/{self.job_post.uid}/share-via-chat"
 
     def test_share_job_post_via_chat(self):
         header = {
@@ -478,7 +480,7 @@ class TestShareJobViaChat(TestCase):
         data = {
             "talent_ids" : list(Talent.objects.only("uid").exclude(uid=self.talent.uid).values_list("uid", flat=True))
         }
-        response = self.client.post(f"talent/job-posts/{self.job_post.uid}/share-via-chat", headers=header, json=data)
+        response = self.client.post(self.url, headers=header, json=data)
         self.assertEqual(response.status_code, 200)
 
     def test_request_by_business_user(self):
@@ -489,9 +491,8 @@ class TestShareJobViaChat(TestCase):
         data = {
             "talent_ids" : list(Talent.objects.only("uid").exclude(uid=self.talent.uid).values_list("uid", flat=True))
         }
-        response = self.client.post(f"talent/job-posts/{self.job_post.uid}/share-via-chat", headers=header, json=data)
-        self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.json()["detail"], "Only Talents are allowed")
+        response = self.client.post(self.url, headers=header, json=data)
+        self.assertEqual(response.status_code, 200)
 
     def test_wrong_job_post_id(self):
         header = {
@@ -500,7 +501,8 @@ class TestShareJobViaChat(TestCase):
         data = {
             "talent_ids" : list(Talent.objects.only("uid").exclude(uid=self.talent.uid).values_list("uid", flat=True))
         }
-        response = self.client.post(f"talent/job-posts/{uuid.uuid4()}/share-via-chat", headers=header, json=data)
+        self.url = f"job-posts/{uuid.uuid4()}/share-via-chat"
+        response = self.client.post(self.url, headers=header, json=data)
         self.assertEqual(response.status_code, 404)
 
     def test_empty_talent_ids(self):
@@ -510,9 +512,8 @@ class TestShareJobViaChat(TestCase):
         data = {
             "talent_ids" : []
         }
-        response = self.client.post(f"talent/job-posts/{self.job_post.uid}/share-via-chat", headers=header, json=data)
+        response = self.client.post(self.url, headers=header, json=data)
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["detail"], "No talents selected")
 
     def test_wrong_talent_ids_data(self):
         header = {
@@ -521,5 +522,5 @@ class TestShareJobViaChat(TestCase):
         data = {
             "talent_ids" : [uuid.uuid4(), uuid.uuid4(), uuid.uuid4()]
         }
-        response = self.client.post(f"talent/job-posts/{self.job_post.uid}/share-via-chat", headers=header, json=data)
+        response = self.client.post(self.url, headers=header, json=data)
         self.assertEqual(response.status_code, 200)
