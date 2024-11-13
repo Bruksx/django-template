@@ -11,6 +11,15 @@ class ChatWebsocketSchema:
     data: Optional[Any] = None
     data_type: Optional[Literal["chat", "message"]] = None
 
+
+
+
 @dataclass
 class NotificationWebsocketSchema:
-    ...
+    title: str
+    description: str
+    action: Optional[str]=None
+    entity_uid: Optional[str] = None
+    entity_str: Optional[str] = None
+    notification_type: Optional[str] = None
+    entity: Optional[str] = None

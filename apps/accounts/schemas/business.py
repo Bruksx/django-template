@@ -1,13 +1,14 @@
+from datetime import date
 from typing import Optional, List, TypedDict
 from uuid import UUID
 
 from ninja import ModelSchema, Schema
 from pydantic import EmailStr, Field
 
-from accounts.models import Business
-from jobs.models import EmploymentType
+from accounts.enums import BusinessUserRoleType
+from accounts.models import Business, BusinessUser
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS
-
+from jobs.models import EmploymentType
 
 
 class ValidateOTPSchema(Schema):
@@ -222,4 +223,24 @@ class BusinessDetailSchema(ModelSchema):
         model = Business
         exclude = (*READ_EXCLUDE_FIELDS,)
 
+class BusinessUserListSchema(ModelSchema):
+    fullname:str = Field(alias="user.fullname")
+    email: EmailStr = Field(alias="user.email")
+    user_uid: UUID = Field(alias="user.uid")
+    added_by: str = Field(alias="added_by.name")
+    last_active: Optional[date]
+    class Meta:
+        model = BusinessUser
+        fields = ("role", "uid", "status", "created_at")
+
+
+class AddBusinessUserSchema(Schema):
+    first_name: str
+    last_name: str
+    email: EmailStr
+    role: BusinessUserRoleType
+
+class AcceptBusinessUserInviteSchema(Schema):
+    code: UUID
+    password: str
 

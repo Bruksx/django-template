@@ -42,9 +42,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def websocket_receive(self, data):
         data = json.loads(data["text"])
-        await self.channel_layer.group_send(
-            self.group_name, {"type": "notify", "data": json.dumps(data)}
-        )
+        if data.pop("channel", None) == self.group_name:
+            await self.channel_layer.group_send(
+                self.group_name, {"type": "notify", "data": json.dumps(data)}
+            )
 
     async def disconnect(self, code):
         if self.group_name:

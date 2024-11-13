@@ -6,7 +6,8 @@ from typing import List
 from uuid import UUID
 
 from accounts.dtos import TokenDto
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
+    BusinessUserStatusType
 from core.models import BaseModel
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -18,6 +19,8 @@ from django_softdelete.managers import SoftDeleteManager
 from jobs.enums import StageType, WithdrawalFeedbackType, JobStatusType
 from ninja_jwt.exceptions import AuthenticationFailed
 from ninja_jwt.tokens import RefreshToken
+
+from notification.enums import NotificationGroup
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -61,7 +64,6 @@ class User(AbstractUser, BaseModel):
     objects = CustomUserManager()
     REQUIRED_FIELDS = []
 
-
     gender = models.CharField(max_length=32, choices=GenderType.choices(), default=GenderType.OTHERS.value)
     phone_number = models.CharField(max_length=16, null=True)
     email = models.EmailField(unique=True, null=True)
@@ -89,6 +91,22 @@ class User(AbstractUser, BaseModel):
     @property
     def notification_group_name(self):
         return f"user_{self.uid}"
+
+    def user_notification_groups(self):
+        # all users and the user
+        groups = {self.notification_group_name, NotificationGroup.ALL_USERS.value}
+        if hasattr(self, "talents"):
+            # all talents
+            groups.add(NotificationGroup.TALENTS.value)
+        elif hasattr(self, "businessuser"):
+            # all business users
+            groups.add(NotificationGroup.BUSINESS_USERS.value)
+            business_user = self.businessuser
+            # all business users of a business
+            groups.add(f"{NotificationGroup.BUSINESS_USERS.value}_{business_user.business.uid}")
+            # business user role of a business
+            groups.add(f"{business_user.role}_{business_user.business.uid}")
+        return groups
 
     @property
     def token(self):
@@ -783,11 +801,23 @@ class EducationLevel(BaseModel):
 class BusinessUser(BaseModel):
     business = models.ForeignKey(Business, on_delete=models.CASCADE)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    added_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="added_business_users", null=True)
+    added_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.DO_NOTHING, null=True)
     role = models.CharField(max_length=32, choices=BusinessUserRoleType.choices())
+    status = models.CharField(max_length=32, choices=BusinessUserStatusType.choices(),
+                              default=BusinessUserStatusType.ACTIVE.value)
 
     def __str__(self) -> str:
-        return self.user.email
+        return str(self.user)
+
+    def name(self):
+        return str(self.user)
+
+    def last_active(self):
+        if self.user.last_login:
+            return self.user.last_login.date()
+        return None
+
+
 
 
 class Education(BaseModel):

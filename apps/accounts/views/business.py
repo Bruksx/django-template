@@ -4,7 +4,10 @@ from uuid import UUID
 
 from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from django.db import transaction
-from helpers.email.users import send_verification_code
+from django.db.models import Q
+
+from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
+from helpers.email.auth import send_verification_code
 from helpers.utils import convert_base64_to_image_file
 from monkeypatches.q_cluster import async_task
 from ninja import Router, UploadedFile, PatchDict, Form
@@ -14,9 +17,10 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import User, Business, BusinessUser, VerificationCode
 from jobs.models import Job
-from ..enums import UserType
+from ..enums import UserType, BusinessUserStatusType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
+
 
 router = Router(tags=["Business Account"])
 
@@ -140,4 +144,66 @@ def get_business_details(request):
     IsBusinessUser.check(request)
     return request.user.businessuser.business
 
+@router.get("users", auth=JWTAuth(), response=List[business_schema.BusinessUserListSchema])
+def get_business_users(request, search: str = ""):
+    IsBusinessOwnerOrAdmin.check(request)
+    business = request.user.businessuser.business
+    query = Q()
+    if search:
+        query = (Q(user__first_name__icontains=search)
+                 | Q(user__last_name__icontains=search)|
+                 Q(user__email__icontains=search))
 
+    return business.businessuser_set.filter(query).order_by("user__first_name", "user__last_name")
+
+@router.post("users", auth=JWTAuth())
+@transaction.atomic
+def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
+    IsBusinessOwnerOrAdmin.check(request)
+    business = request.user.businessuser.business
+    user = User.objects.create_user(
+        first_name=data.first_name,
+        last_name=data.last_name,
+        type=UserType.BUSINESS.value,
+        email=data.email,
+        is_active=False
+    )
+    business_user = BusinessUser(
+        business=business,
+        user=user,
+        role=data.role.value,
+        status=BusinessUserStatusType.PENDING.value
+    )
+    business_user.save()
+    async_task(send_business_user_invitation_email,
+        user=user.fullname,
+        email=user.email,
+        business=business.name,
+        user_uid=str(user.uid)
+    )
+    return user
+
+@router.post("users/accept-invite")
+@transaction.atomic
+def accept_business_user_invite(request, data: business_schema.AcceptBusinessUserInviteSchema):
+    user = User.objects.filter(uid=data.code).first()
+    if not user:
+        raise HttpError(400, "This link is invalid")
+    if user.type != UserType.BUSINESS.value:
+        raise HttpError(400, "This link is invalid")
+    if user.is_active or user.email_verified:
+        raise HttpError(400, "This link has expired")
+    if user.businessuser.status == BusinessUserStatusType.ACTIVE.value:
+        raise HttpError(400, "You have already accepted this invite")
+
+    user.email_verified = True
+    user.is_active = True
+    user.save(update_fields=["email_verified", "is_active"])
+    user.set_password(data.password)
+    user.save()
+    business_user = user.businessuser
+    business_user.status = BusinessUserStatusType.ACTIVE.value
+    business_user.save(update_fields=["status"])
+    async_task(send_business_user_welcome_email,
+               user=user.fullname, email=user.email, business=business_user.business.name)
+    return Response(status=200, data={"message": "You have successfully accepted the invite"})

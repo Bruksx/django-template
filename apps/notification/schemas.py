@@ -1,21 +1,18 @@
-from uuid import UUID
+from ninja import ModelSchema
 
-from typing_extensions import TypedDict, Literal
-
-
-class NotificationSchema(TypedDict):
-    # to be sent via ws
-    entity: Literal["chat", ] # can add more entities
-    entity_id: UUID
-    entity_str: str
-    action: Literal["new", "update", "delete", "add"] # can add more actions
-    title: str
-    description: str
-
-    # db types
-    recipient_ids: list[UUID]
-    recipient_types: Literal["talent", "business", "all"]
-    viewers : list[UUID]
+from notification.models import Notification, BusinessUserNotificationSettings
 
 
+class NotificationSchema(ModelSchema):
+    class Meta:
+        model = Notification
+        fields = ("title", "description", "action",
+                  "entity", "entity_uid", "entity_str",
+                  "notification_type")
 
+class NotificationSettingsSchema(ModelSchema):
+    class Meta:
+        model = BusinessUserNotificationSettings
+        fields = ("applicants_notification", "matching_notification",
+                  "sharing_notification", "performance_notification",
+                  "user_notification", "assignment_notification")

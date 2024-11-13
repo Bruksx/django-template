@@ -21,6 +21,11 @@ class BusinessUserRoleType(BaseEnum):
     ADMIN = "admin"
     TEAM_MEMBER = "team_member"
 
+class BusinessUserStatusType(BaseEnum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    PENDING = "pending"
+
 class NoticePeriodType(BaseEnum):
     DAYS = "days"
     WEEKS = "weeks"

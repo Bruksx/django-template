@@ -9,7 +9,7 @@ from django.http import HttpResponse
 from django.shortcuts import render
 
 from config.permissions import IsTalentUser
-from helpers.email.users import send_verification_code
+from helpers.email.auth import send_verification_code
 from helpers.utils import convert_base64_to_image_file, html_to_pdf
 from monkeypatches.q_cluster import async_task
 from ninja import Router, PatchDict, UploadedFile

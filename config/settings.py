@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     'jobs',
     'chats',
     "core",
+    "notification",
 ]
 
 MIDDLEWARE = [
