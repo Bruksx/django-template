@@ -1,20 +1,16 @@
-import logging
-from http.client import responses
 from urllib.parse import urlencode
 from uuid import uuid4
 
-from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
-
 from accounts.enums import BusinessUserRoleType, BusinessUserStatusType
-from accounts.views.business import router
 from accounts.models import User, VerificationCode, Business, BusinessUser
+from accounts.views.business import router
+from django.test import TestCase
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory
 from jobs.enums import StageType, JobStatusType
 from jobs.models import JobApplication
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
 
 
 class ValidateOtpTests(TestCase):
@@ -370,7 +366,7 @@ class GetBusinessUsersTest(TestCase):
             business=business
         )
         BusinessUser.objects.exclude(id=owner.id).update(added_by=owner)
-        self.user = business_users[0].user
+        self.user = owner.user
         self.url = "users"
         self.client = TestClient(router)
 

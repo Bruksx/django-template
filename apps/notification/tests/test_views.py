@@ -2,8 +2,8 @@ from django.test import TestCase
 from ninja.testing import TestClient
 
 from factories import BusinessUserFactory
-from .models import BusinessUserNotificationSettings
-from .views import router
+from notification.models import BusinessUserNotificationSettings
+from notification.views import router
 
 # Create your tests here.
 
