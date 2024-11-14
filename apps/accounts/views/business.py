@@ -160,7 +160,10 @@ def get_business_users(request, search: str = ""):
 @transaction.atomic
 def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
     IsBusinessOwnerOrAdmin.check(request)
-    business = request.user.businessuser.business
+    business_user = request.user.businessuser
+    business = business_user.business
+    if BusinessUser.objects.filter(user__email=data.email).exists():
+        raise HttpError(400, "User with this email already exists")
     user = User.objects.create_user(
         first_name=data.first_name,
         last_name=data.last_name,
@@ -172,7 +175,8 @@ def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
         business=business,
         user=user,
         role=data.role.value,
-        status=BusinessUserStatusType.PENDING.value
+        status=BusinessUserStatusType.PENDING.value,
+        added_by=business_user
     )
     business_user.save()
     async_task(send_business_user_invitation_email,
@@ -181,27 +185,42 @@ def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
         business=business.name,
         user_uid=str(user.uid)
     )
-    return user
+    return Response(status=201, data={"message": "User invited successfully"})
+
+@router.post("users/{business_user_uid}/resend-invite", auth=JWTAuth())
+@transaction.atomic
+def resend_business_user_invite(request, business_user_uid: UUID):
+    IsBusinessOwnerOrAdmin.check(request)
+    business = request.user.businessuser.business
+    business_user = BusinessUser.objects.filter(uid=business_user_uid, business=business).first()
+    if not business_user:
+        raise HttpError(404, "User not found")
+    if business_user.status == BusinessUserStatusType.ACTIVE.value:
+        raise HttpError(400, "User is already active")
+    async_task(send_business_user_invitation_email,
+        user=business_user.user.fullname,
+        email=business_user.user.email,
+        business=business_user.business.name,
+        user_uid=str(business_user.user.uid)
+    )
+    return Response(status=200, data={"message": "Invite resent successfully"})
 
 @router.post("users/accept-invite")
 @transaction.atomic
 def accept_business_user_invite(request, data: business_schema.AcceptBusinessUserInviteSchema):
-    user = User.objects.filter(uid=data.code).first()
-    if not user:
+    business_user = BusinessUser.objects.filter(uid=data.code).first()
+    if not business_user:
         raise HttpError(400, "This link is invalid")
-    if user.type != UserType.BUSINESS.value:
-        raise HttpError(400, "This link is invalid")
-    if user.is_active or user.email_verified:
+    if business_user.user.is_active or business_user.user.email_verified:
         raise HttpError(400, "This link has expired")
-    if user.businessuser.status == BusinessUserStatusType.ACTIVE.value:
+    if business_user.status != BusinessUserStatusType.PENDING.value:
         raise HttpError(400, "You have already accepted this invite")
-
+    user = business_user.user
     user.email_verified = True
     user.is_active = True
     user.save(update_fields=["email_verified", "is_active"])
     user.set_password(data.password)
     user.save()
-    business_user = user.businessuser
     business_user.status = BusinessUserStatusType.ACTIVE.value
     business_user.save(update_fields=["status"])
     async_task(send_business_user_welcome_email,

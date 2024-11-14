@@ -227,7 +227,7 @@ class BusinessUserListSchema(ModelSchema):
     fullname:str = Field(alias="user.fullname")
     email: EmailStr = Field(alias="user.email")
     user_uid: UUID = Field(alias="user.uid")
-    added_by: str = Field(alias="added_by.name")
+    added_by: Optional[str] = Field(alias="get_added_by")
     last_active: Optional[date]
     class Meta:
         model = BusinessUser

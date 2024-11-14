@@ -809,8 +809,10 @@ class BusinessUser(BaseModel):
     def __str__(self) -> str:
         return str(self.user)
 
-    def name(self):
-        return str(self.user)
+    def get_added_by(self):
+        if not self.added_by:
+            return None
+        return str(self.added_by)
 
     def last_active(self):
         if self.user.last_login:
