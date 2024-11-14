@@ -1,4 +1,5 @@
 import json
+import logging
 
 from asgiref.sync import sync_to_async
 from channels.db import database_sync_to_async
@@ -39,14 +40,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.accept()
         await self.send(f"{self.user} just connected to {recipient} chat")
 
-
-    async def websocket_receive(self, data):
-        data = json.loads(data["text"])
-        if data.pop("channel", None) == self.group_name:
-            await self.channel_layer.group_send(
-                self.group_name, {"type": "notify", "data": json.dumps(data)}
-            )
-
     async def disconnect(self, code):
         if self.group_name:
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
@@ -54,8 +47,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.user = None
         await super().disconnect(code)
 
+    async def websocket_receive(self, data):
+        data = json.loads(data["text"])
+        await self.channel_layer.group_send(
+            self.group_name, {"type": "notify", "data": json.dumps(data)}
+        )
+
     async def notify(self, event):
-        await self.send(text_data=event["data"])
+        data = json.loads(event["data"])
+        if data.pop("channel", None) == self.group_name:
+            event["data"] = json.dumps(data)
+            await self.send(text_data=event["data"])
 
 
 

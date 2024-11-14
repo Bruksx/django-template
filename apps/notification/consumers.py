@@ -26,15 +26,20 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
         async def websocket_receive(self, data):
             data = json.loads(data["text"])
-            notification_type = data.get("notification_type", None)
-            channel = data.pop("channel")
-            if channel and BusinessUserNotificationSettings.should_send_notification(self.user, notification_type):
+            channel = data.get("channel")
+            if channel in self.groups:
                 await self.channel_layer.group_send(
                     channel, {"type": "notify", "data": json.dumps(data)}
                 )
 
         async def notify(self, event):
-            await self.send(text_data=event["data"])
+            data = json.loads(event["data"])
+            notification_type = data.get("notification_type", None)
+            channel = data.pop("channel")
+            should_send = await sync_to_async(BusinessUserNotificationSettings.should_send_notification)(self.user, notification_type)
+            if channel and channel in self.groups and should_send:
+                event["data"] = json.dumps(data)
+                await self.send(text_data=event["data"])
 
         async def disconnect(self, code):
             if self.user:

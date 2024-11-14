@@ -21,6 +21,12 @@ class Conversation(BaseModel):
     def chat_group_name(self):
         return f"chat_{self.uid}"
 
+    def get_recipient(self, user):
+        recipient = self.users.exclude(id=user.id).first()
+        if not recipient:
+            return None
+        return recipient.fullname
+
     def last_message(self):
         return self.message_set.last()
 
