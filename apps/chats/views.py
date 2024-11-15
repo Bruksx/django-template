@@ -3,7 +3,7 @@ from uuid import UUID
 
 from accounts.enums import UserType
 from accounts.models import User
-from chats.models import Message, Conversation, ReadMessageLog, MessageAttachment
+from chats.models import Message, Conversation, MessageAttachment
 from chats.schemas import ChatListSchema, ChatMessageSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema
 from django.db import transaction
 from django.db.models import Q, F
@@ -52,10 +52,10 @@ def get_messages(request, conversation_uid:UUID, **kwargs):
 @router.get("messages/{message_uid}/read-by", auth=JWTAuth(), response=List[ChatUserSchema])
 def get_chat_message_readers(request, message_uid:UUID):
     user = request.user
-    if not Message.objects.filter(uid=message_uid, sender=user).exists():
+    message = Message.objects.filter(uid=message_uid, sender=user).first()
+    if not message:
         raise HttpError(404, "This message does not exist")
-    user_ids = ReadMessageLog.objects.filter(message__uid=message_uid).values_list("reader_id", flat=True)
-    return User.objects.filter(id__in=user_ids)
+    return message.readers.all()
 
 
 @router.post("{conversation_uid}/messages", auth=JWTAuth(), response={200: ResponseSchema})

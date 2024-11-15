@@ -45,17 +45,18 @@ class Conversation(BaseModel):
                 raise ValueError("A conversation between these users already exists.")"""
         super().save(*args, **kwargs)
 
+    def unread_messages(self, user_id:int):
+        return self.message_set.exclude(sender_id=user_id).exclude(readers__id=user_id)
+
     def read_messages(self, message_ids:List[int], user_id:int):
         from .schemas import ChatMessageListSchema
         user = User.objects.filter(id=user_id).first()
         if not user:
             return
-        read_message_ids = user.readmessagelog_set.filter(message_id__in=message_ids).only("message_id").values_list("message_id", flat=True)
-        ids = [msg_id for msg_id in message_ids if msg_id not in read_message_ids]
-        messages = Message.objects.filter(~Q(sender=user) & Q(id__in=ids))
-        logs = list()
+        messages = self.unread_messages(user_id=user_id).filter(id__in=message_ids)
         for message in messages:
-            logs.append(ReadMessageLog(reader=user, message=message))
+            message.readers.add(user)
+            message.save()
             send_ws(channel=self.chat_group_name, data=dict(
                 sender_id=str(user.uid),
                 chat_id = str(self.uid),
@@ -64,19 +65,18 @@ class Conversation(BaseModel):
                 data=json.loads(ChatMessageListSchema.from_orm(message).model_dump_json()),
                 data_type="message")
              )
-        ReadMessageLog.objects.bulk_create(logs)
         return
 
     def unread_messages_count(self, user):
-        read_message_ids = user.readmessagelog_set.values_list("message_id", flat=True)
-        return self.message_set.exclude(Q(id__in=read_message_ids)|Q(sender=user)).count()
+        return self.unread_messages(user_id=user.id).count()
 
 
 class Message(BaseModel):
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, null=True)
-    sender = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    sender = models.ForeignKey(User, on_delete=models.SET_NULL, related_name="sender", null=True)
     job_post = models.ForeignKey(JobPost, on_delete=models.SET_NULL, null=True, default=None)
     body = models.TextField()
+    readers = models.ManyToManyField(User, blank=True, related_name="readers")
 
     def __str__(self) -> str:
         return f"{self.sender}"
@@ -91,12 +91,6 @@ class Message(BaseModel):
             data=json.loads(ChatMessageListSchema.from_orm(self).model_dump_json()),
             data_type="message")
         )
-
-
-class ReadMessageLog(BaseModel):
-    reader = models.ForeignKey(User, on_delete=models.DO_NOTHING)
-    message = models.ForeignKey(Message, on_delete=models.DO_NOTHING)
-
 
 class MessageAttachment(BaseModel):
     message = models.ForeignKey("Message", on_delete=models.CASCADE)

@@ -29,3 +29,5 @@ def update_notification_settings(request, data: PatchDict[NotificationSettingsSc
     else:
         settings.update(**data)
     return Response(status=200, data={"message": "Notification settings updated successfully"})
+
+

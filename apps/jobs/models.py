@@ -14,7 +14,7 @@ from .managers import JobManager
 # Create your models here.
 class EmploymentType(BaseModel):
     name = models.CharField(max_length=128)
-    parent = models.ForeignKey("EmploymentType", on_delete=models.DO_NOTHING, null=True, blank=True)
+    parent = models.ForeignKey("EmploymentType", on_delete=models.CASCADE, null=True, blank=True)
     description = models.TextField(null=True)
 
     def __str__(self) -> str:
@@ -36,7 +36,7 @@ class Qualification(BaseModel):
 
 
 class AvailableDay(BaseModel):
-    job = models.ForeignKey("Job", on_delete=models.DO_NOTHING)
+    job = models.ForeignKey("Job", on_delete=models.CASCADE)
     day = models.CharField(max_length=32, choices=Days.choices())
     end_time = models.TimeField(null=True)
     start_time = models.TimeField(null=True)
@@ -49,17 +49,17 @@ class Job(BaseModel):
         (PAID, PAID),
         (UNPAID, UNPAID)
     )
-    created_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.DO_NOTHING, null=True)
+    created_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True)
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     hiring_company_name = models.CharField(max_length=64, null=True)
     hiring_company_description = models.TextField(null=True)
     title = models.CharField(max_length=32, null=True)
     about = models.TextField(null=True)
     years_of_experience = models.IntegerField(null=True)
-    minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.DO_NOTHING, null=True)
+    minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
     business_models = models.ManyToManyField("BusinessModel")
-    job_level = models.ForeignKey(JobLevel, on_delete=models.DO_NOTHING, null=True)
-    qualification = models.ForeignKey(Qualification, on_delete=models.DO_NOTHING, null=True)
+    job_level = models.ForeignKey(JobLevel, on_delete=models.SET_NULL, null=True)
+    qualification = models.ForeignKey(Qualification, on_delete=models.SET_NULL, null=True)
     work_structure = models.CharField(choices=WorkStructureEnum.choices(), null=True)
     first_language = models.ForeignKey(Language, on_delete=models.SET_NULL, null=True)
     additional_languages = models.ManyToManyField(Language, related_name="jobs")
@@ -231,7 +231,7 @@ class SavedJob(BaseModel):
 
 
 class JobDraft(BaseModel):
-    user = models.OneToOneField("accounts.BusinessUser", on_delete=models.DO_NOTHING)
+    user = models.OneToOneField("accounts.BusinessUser", on_delete=models.CASCADE)
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
 
 
@@ -344,7 +344,7 @@ class OtherSkill(BaseModel):
 
 class JobApplicationWithdrawal(BaseModel):
     job_post = models.ForeignKey(JobPost, on_delete=models.SET_NULL, null=True, default=None)
-    talent = models.ForeignKey("accounts.Talent", on_delete=models.DO_NOTHING)
+    talent = models.ForeignKey("accounts.Talent", on_delete=models.SET_NULL, null=True)
     feedback_type = models.PositiveSmallIntegerField(default=0)
     feedback = models.TextField()
 

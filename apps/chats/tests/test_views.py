@@ -62,7 +62,6 @@ class TestGetChatEndpoints(TestCase):
         headers = {
             "authorization": f"bearer {self.user2.token}"
         }
-        self.assertEqual(self.user2.readmessagelog_set.count(), 0)
         response = self.client.get(f"{str(self.conversation.uid)}/messages", headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()

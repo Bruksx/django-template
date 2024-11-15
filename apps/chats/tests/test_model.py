@@ -46,8 +46,11 @@ class TestChatModel(TestCase):
         )
 
     def test_read_message(self):
-        self.assertEqual(self.user.readmessagelog_set.count(), 0)
-        self.conversation.read_messages(message_ids=[self.message.id, self.message3.id], user_id=self.user.id)
+        unread_msg_count = self.conversation.unread_messages_count(self.user)
+        self.assertEqual(unread_msg_count, 1)
+        message_ids = [self.message.id, self.message3.id]
+        self.conversation.read_messages(message_ids=message_ids, user_id=self.user.id)
         self.user.refresh_from_db()
-        self.assertEqual(self.user.readmessagelog_set.count(), 1)
+        unread_msg_count = self.conversation.unread_messages_count(self.user)
+        self.assertEqual(unread_msg_count, 0)
 

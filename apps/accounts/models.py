@@ -183,7 +183,7 @@ class AdditionalSkill(BaseModel):
 
 
 class Talent(BaseModel):
-    user = models.OneToOneField(User, on_delete=models.DO_NOTHING)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
     whatsapp_number = models.CharField(max_length=16, null=True)
     viber_number = models.CharField(max_length=16, null=True)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
@@ -406,7 +406,7 @@ class Talent(BaseModel):
 
 
 class Business(BaseModel):
-    created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     name = models.CharField(max_length=128)
     size = models.IntegerField(null=True)
     description = models.TextField(null=True)
@@ -801,7 +801,7 @@ class EducationLevel(BaseModel):
 class BusinessUser(BaseModel):
     business = models.ForeignKey(Business, on_delete=models.CASCADE)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    added_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.DO_NOTHING, null=True)
+    added_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True)
     role = models.CharField(max_length=32, choices=BusinessUserRoleType.choices())
     status = models.CharField(max_length=32, choices=BusinessUserStatusType.choices(),
                               default=BusinessUserStatusType.ACTIVE.value)
