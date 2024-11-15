@@ -20,7 +20,7 @@ from .models import (
 )
 from .schemas import (
     EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
-    JobDetailSchema, JobLevelSchema, TalentListJobPostSchema
+    JobFullDetailSchema, JobLevelSchema, TalentListJobPostSchema
 )
 
 router = Router(tags=["Business Jobs"])
@@ -75,7 +75,7 @@ def get_business_models(request, search=""):
     return queryset
 
 
-@router.post("", response=JobDetailSchema, auth=JWTAuth())
+@router.post("", response=JobFullDetailSchema, auth=JWTAuth())
 @transaction.atomic
 def create_job(request, data:CreateJobSchema):
     IsBusinessUser.check(request)
@@ -162,7 +162,7 @@ def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
 
 
 "TODO: add custom pagination class to control page size"
-@router.get("list", response=PaginatedResponseSchema[JobDetailSchema], auth=JWTAuth())
+@router.get("list", response=PaginatedResponseSchema[JobFullDetailSchema], auth=JWTAuth())
 @paginate(PageNumberPaginationExtra, page_size=50)
 def job_list(request):
     IsBusinessUser.check(request)

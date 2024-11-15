@@ -115,6 +115,8 @@ class BusinessUserNotificationSettings(BaseModel):
 
     @classmethod
     def should_send_notification(cls, user, notification_type:Optional[str]):
+        if not user:
+            return False
         notification_settings = cls.objects.filter(business_user__user_id=user.id).first()
         if not notification_settings:
             return True

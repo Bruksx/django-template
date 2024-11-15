@@ -18,7 +18,6 @@ class EntityActionType(BaseEnum):
     NEW = "new"
     UPDATE = "update"
     DELETE = "delete"
-    ADD = "add"
 
 class NotificationType(BaseEnum):
     APPLICANTS = "applicants"

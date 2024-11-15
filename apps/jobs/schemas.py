@@ -184,7 +184,6 @@ class JobDetailSchema(Schema):
     annual_bonus_max: float
     employment_type: GenericNameAndUidSchema
     availability: list[AvailabilitySchema]
-    job_posts: list[JobPostDetailSchema]
 
     class Meta:
         model = Job
@@ -203,10 +202,15 @@ class JobDetailSchema(Schema):
     def resolve_availability(obj):
         return AvailableDay.objects.filter(job=obj)
 
+
+class JobFullDetailSchema(JobDetailSchema):
+    job_posts: list[JobPostDetailSchema]
+
     @staticmethod
     def resolve_job_posts(obj):
         return JobPost.objects.filter(job=obj)
-    
+
+
 class JobLevelSchema(ModelSchema):
     class Meta:
         model = JobLevel
@@ -256,6 +260,8 @@ class RequiredAttributeSchema(ModelSchema):
             )
             result.append(category_json)
         return result
+
+
 class JobListSchema(ModelSchema):
     business_logo: Optional[str]
     business_name: str
@@ -282,6 +288,11 @@ class TalentJobPostListSchema(ModelSchema):
         talent = user.talent
         score = talent.job_match_score(obj)
         return score
+
+
+class TalentJobPostSchema(TalentJobPostListSchema):
+    job: JobDetailSchema
+
 
 class MutateTalentJobFilterSchema(ModelSchema):
     location_type:WorkStructureEnum

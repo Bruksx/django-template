@@ -7,7 +7,7 @@ from jobs.models import JobPost
 
 from helpers.email.jobs import send_shared_job_email
 from helpers.loggers import Logger
-
+from notification import notifications
 
 def share_job_via_email(job_post_id:int, emails: List[str]=None, language:str="en"):
     job_post = JobPost.objects.filter(id=job_post_id).select_related('job').first()
@@ -36,5 +36,8 @@ def send_shared_job_chat(
             chat.save()
         if chat.message_set.filter(job_post_id=job_post_id).exists():
             continue
-        Message.objects.create(conversation=chat, sender_id=sender_id, job_post_id=job_post_id)
+        msg = Message.objects.create(conversation=chat, sender_id=sender_id, job_post_id=job_post_id)
+        notifications.send_job_sharing_notification(job_post=msg.job_post, sender=msg.sender,
+                                                    talent=chat.get_recipient(msg.sender))
+
 

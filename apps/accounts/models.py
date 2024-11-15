@@ -127,6 +127,19 @@ class User(AbstractUser, BaseModel):
             return self.businessuser.business.get_logo()
         return None
 
+    def delete_account(self):
+        self.delete()
+        self.is_active = False
+        self.save(update_fields=["is_active"])
+        if hasattr(self, "talent"):
+            self.talent.delete()
+        elif hasattr(self, "businessuser"):
+            self.businessuser.delete()
+            self.businessuser.status = BusinessUserStatusType.DELETED.value
+            self.businessuser.save(update_fields=["status"])
+        return
+
+
 class Country(BaseModel):
     name = models.CharField(max_length=64)
     code = models.CharField(max_length=4)
@@ -818,6 +831,7 @@ class BusinessUser(BaseModel):
         if self.user.last_login:
             return self.user.last_login.date()
         return None
+
 
 
 

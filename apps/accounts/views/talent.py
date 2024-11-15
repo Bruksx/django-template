@@ -27,7 +27,10 @@ router = Router(tags=["Account"])
 
 @router.post("initiate-account-creation")
 def initiate_account_creation(request, data: common_schemas.RegisterSchema):
-    existing_user = User.objects.filter(email=data.email).exists()
+    if User.deleted_objects.filter(email__iexact=data.email).exists():
+        raise HttpError(400, "Reach out to get your account restored")
+
+    existing_user = User.objects.filter(email__iexact=data.email).exists()
     if existing_user:
         raise HttpError(400, "An account with this email already exists")
     verification_code = VerificationCode(email=data.email)
@@ -44,7 +47,7 @@ def create_account(request, data: talent_schemas.ValidateTalentOTPSchema):
     existing_user = User.objects.filter(email=data.email).exists()
     if existing_user:
         raise HttpError(400, "An account with this email already exists")
-    verification_code = VerificationCode.objects.filter(email=data.email).last()
+    verification_code = VerificationCode.objects.filter(email__iexact=data.email).last()
     if not verification_code:
         raise HttpError(400, "Incorrect otp")
     is_correct = verification_code.verify_code(data.otp)
@@ -52,7 +55,7 @@ def create_account(request, data: talent_schemas.ValidateTalentOTPSchema):
         raise HttpError(400, "This OTP is invalid")
     user = User.objects.create_user(first_name=data.first_name,
                                     last_name=data.last_name,
-                                    email=data.email,
+                                    email=data.email.lower(),
                                     password=data.password,
                                     username=None,
                                     phone_number=data.phone_number,

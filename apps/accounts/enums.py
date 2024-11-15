@@ -25,6 +25,7 @@ class BusinessUserStatusType(BaseEnum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     PENDING = "pending"
+    DELETED = "deleted"
 
 class NoticePeriodType(BaseEnum):
     DAYS = "days"

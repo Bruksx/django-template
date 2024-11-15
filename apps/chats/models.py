@@ -25,7 +25,7 @@ class Conversation(BaseModel):
         recipient = self.users.exclude(id=user.id).first()
         if not recipient:
             return None
-        return recipient.fullname
+        return recipient
 
     def last_message(self):
         return self.message_set.last()

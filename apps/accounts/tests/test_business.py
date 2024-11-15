@@ -1,3 +1,4 @@
+import logging
 from urllib.parse import urlencode
 from uuid import uuid4
 
@@ -549,3 +550,31 @@ class AcceptBusinessUserInviteTest(TestCase):
         }
         response = self.client.post(self.url, json=data)
         self.assertEqual(response.status_code, 400)
+
+
+class DeleteBusinessUserAccountTest(TestCase):
+    def setUp(self):
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business = self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.url = "users"
+        self.client = TestClient(router)
+
+    def test_delete_business_user_account(self):
+        headers = {
+            "authorization": f"bearer {self.business.created_by.token}"
+        }
+        response = self.client.delete(self.url, headers=headers)
+        self.assertEqual(response.status_code, 204)
+        user = User.objects.filter(id=self.business.created_by.id).first()
+        self.assertIsNone(user)
+        business_user = BusinessUser.objects.filter(business=self.business).first()
+        self.assertIsNone(business_user)
+        user = User.deleted_objects.filter(id=self.business.created_by.id).first()
+        business_user = BusinessUser.deleted_objects.filter(business=self.business).first()
+        self.assertFalse(user.is_active)
+        self.assertEqual(business_user.status, BusinessUserStatusType.DELETED.value)
+

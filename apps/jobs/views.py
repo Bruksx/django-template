@@ -15,7 +15,9 @@ from jobs import tasks
 from jobs.enums import JobStatusType
 from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
-    TalentJobApplySchema, TalentJobApplicationWithdrawalSchema, ShareJobPostViaEmailSchema, ShareJobPostViaChatSchema
+    TalentJobApplySchema, TalentJobApplicationWithdrawalSchema, ShareJobPostViaEmailSchema, ShareJobPostViaChatSchema, \
+    TalentJobPostSchema
+from notification import notifications
 
 router = Router()
 
@@ -113,6 +115,19 @@ def apply_to_job_post(request, job_post_id:UUID, data: PatchDict[TalentJobApplyS
                                   recruiter=job_post.recruiter,
                                  **data, match=talent.job_match_score(job_post))
     return Response(status=200, data={"message": "Applied successfully"})
+
+
+@router.post("talent/job-posts/{job_post_id}", auth=JWTAuth(),
+             description="this will notify the business connected to the job post if there is a match",
+             response=TalentJobPostSchema, tags=["Talent Jobs"])
+def view_job_post(request, job_post_id:UUID):
+    IsTalentUser.check(request)
+    talent = request.user.talent
+    job_post = JobPost.objects.filter(uid=job_post_id).first()
+    if not job_post:
+        raise HttpError(404, "Job post not found")
+    notifications.send_talent_job_matching_notification(talent, job_post)
+    return job_post
 
 
 @router.post("talent/job-posts/applications/{application_id}/withdraw", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])

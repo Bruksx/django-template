@@ -17,6 +17,7 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import User, Business, BusinessUser, VerificationCode
 from jobs.models import Job
+from notification import notifications
 from ..enums import UserType, BusinessUserStatusType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
@@ -162,7 +163,9 @@ def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
     IsBusinessOwnerOrAdmin.check(request)
     business_user = request.user.businessuser
     business = business_user.business
-    if BusinessUser.objects.filter(user__email=data.email).exists():
+    if BusinessUser.deleted_objects.filter(user__email__iexact=data.email).exists():
+        raise HttpError(400, "This user's account has been deleted")
+    if BusinessUser.objects.filter(user__email__iexact=data.email).exists():
         raise HttpError(400, "User with this email already exists")
     user = User.objects.create_user(
         first_name=data.first_name,
@@ -223,6 +226,25 @@ def accept_business_user_invite(request, data: business_schema.AcceptBusinessUse
     user.save()
     business_user.status = BusinessUserStatusType.ACTIVE.value
     business_user.save(update_fields=["status"])
+    notifications.send_business_user_notification(
+        business_user=business_user,
+        action=notifications.EntityActionType.NEW,
+        action_str="has joined your business"
+    )
     async_task(send_business_user_welcome_email,
                user=user.fullname, email=user.email, business=business_user.business.name)
     return Response(status=200, data={"message": "You have successfully accepted the invite"})
+
+
+@router.delete("users", auth=JWTAuth())
+@transaction.atomic
+def delete_account(request):
+    IsBusinessUser.check(request)
+    notifications.send_business_user_notification(
+        business_user=request.user.businessuser,
+        action=notifications.EntityActionType.DELETE,
+        action_str="has deleted their account"
+    )
+    request.user.delete_account()
+    return Response(status=204, data={"message": "Account deleted successfully"})
+
