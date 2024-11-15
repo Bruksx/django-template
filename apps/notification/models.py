@@ -14,18 +14,18 @@ from notification.enums import EntityType, EntityActionType, NotificationType, N
 
 
 class Notification(BaseModel):
-    title = models.CharField(max_length=128)
+    title = models.CharField(max_length=200)
     description = models.TextField()
-    action = models.CharField(max_length=100, choices=EntityActionType.choices, null=True)
-    entity = models.CharField(max_length=100, choices=EntityType.choices, null=True)
+    action = models.CharField(max_length=150, choices=EntityActionType.choices, null=True)
+    entity = models.CharField(max_length=150, choices=EntityType.choices, null=True)
     entity_uid = models.UUIDField(default=None, null=True)
-    entity_str = models.CharField(max_length=100, null=True)
+    entity_str = models.CharField(max_length=255, null=True)
     recipient_groups = models.JSONField(default=list)
     recipient_users = models.ManyToManyField("accounts.User", blank=True)
-    notification_type = models.CharField(max_length=100, choices=NotificationType.choices, null=True)
+    notification_type = models.CharField(max_length=150, choices=NotificationType.choices, null=True)
     viewers = models.ManyToManyField("accounts.User", blank=True, related_name="viewers")
     business = models.ForeignKey("accounts.Business", on_delete=models.SET_NULL, null=True)
-    role = models.CharField(max_length=100, choices=BusinessUserRoleType.choices, null=True)
+    role = models.CharField(max_length=150, choices=BusinessUserRoleType.choices, null=True)
 
     def notify(self):
         from notification.schemas import NotificationSchema #noqa
