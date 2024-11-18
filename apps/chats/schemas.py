@@ -80,7 +80,7 @@ class ChatMessageListSchema(ModelSchema):
         user = request.user
         if user == obj.sender:
             return None
-        return obj.readmessagelog_set.filter(reader=user).exist()
+        return obj.readers.filter(id=user.id).exist()
 
 class ChatListSchema(ModelSchema):
     last_message : Optional[ChatMessageListSchema]
@@ -132,7 +132,7 @@ class ChatMessageSchema(ModelSchema):
         user = request.user
         if user == obj.sender:
             return None
-        return obj.readmessagelog_set.filter(reader=user).exist()
+        return obj.readers.filter(id=user.id).exist()
 
     @staticmethod
     def resolve_attachments(obj):

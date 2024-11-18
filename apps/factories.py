@@ -70,7 +70,7 @@ class UserFactory(DjangoModelFactory):
     first_name = factory.Faker('first_name', )
     last_name = factory.Faker('last_name')
     gender = factory.Iterator(GenderType.values())
-    email = email = factory.Sequence(lambda n: f'user{n}@example.com')
+    email  = factory.Sequence(lambda n: f'user{n}@example.com')
     phone_number = factory.LazyAttribute(lambda _: fake.phone_number()[:15])
     password = factory.Faker('password')
 
@@ -122,7 +122,8 @@ class BusinessFactory(DjangoModelFactory):
     size = factory.Iterator([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     description = factory.Faker('sentence', nb_words=20)
     website = factory.Faker('url')
-    location = factory.Faker('address')
+    address = factory.Faker('address')
+    country = factory.SubFactory(CountryFactory)
     industry = factory.Faker("company")
     name = factory.Faker('company')
 

@@ -1,10 +1,13 @@
+from datetime import date
 from typing import Optional, List, TypedDict
 from uuid import UUID
 
 from ninja import ModelSchema, Schema
-from pydantic import EmailStr
+from pydantic import EmailStr, Field
 
-from accounts.models import Business
+from accounts.enums import BusinessUserRoleType
+from accounts.models import Business, BusinessUser
+from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS
 from jobs.models import EmploymentType
 
 
@@ -21,7 +24,7 @@ class ValidateOTPSchema(Schema):
 class BusinessSchema(ModelSchema):
     class Meta:
         model = Business
-        fields = ["size", "description", "website", "industry", "location", "logo", "instagram", "linkedin", "facebook",
+        fields = ["size", "description", "website", "industry", "address", "country", "logo", "instagram", "linkedin", "facebook",
                   "twitter_x"]
 
 
@@ -205,6 +208,39 @@ class DashboardSchema(ModelSchema):
             **DashboardSchema.get_context(obj, context)
         )]
 
+class MutateBusinessSchema(ModelSchema):
+    password:str
+    country: UUID
+    class Meta:
+        model = Business
+        exclude = (*MUTATE_EXCLUDE_FIELDS, "logo", "created_by", "uid")
 
 
+class BusinessDetailSchema(ModelSchema):
+    logo: Optional[str] = Field(alias="get_logo")
+    location: str = Field(alias="location")
+    class Meta:
+        model = Business
+        exclude = (*READ_EXCLUDE_FIELDS,)
+
+class BusinessUserListSchema(ModelSchema):
+    fullname:str = Field(alias="user.fullname")
+    email: EmailStr = Field(alias="user.email")
+    user_uid: UUID = Field(alias="user.uid")
+    added_by: Optional[str] = Field(alias="get_added_by")
+    last_active: Optional[date]
+    class Meta:
+        model = BusinessUser
+        fields = ("role", "uid", "status", "created_at")
+
+
+class AddBusinessUserSchema(Schema):
+    first_name: str
+    last_name: str
+    email: EmailStr
+    role: BusinessUserRoleType
+
+class AcceptBusinessUserInviteSchema(Schema):
+    code: UUID
+    password: str
 

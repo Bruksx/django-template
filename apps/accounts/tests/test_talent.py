@@ -7,9 +7,8 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import PreferredCommunicationType, GenderType, NoticePeriodType, Days, BusinessUserRoleType
 from accounts.models import User, VerificationCode, Country, Talent, EducationLevel, Industry, \
-    Skill, Department, SkillCategory, Role, Business, BusinessUser, Experience, TalentAvailableDay, \
-    CustomerCase
-from accounts.views import router
+    Skill, Department, SkillCategory, Role, Business, BusinessUser, Experience, TalentAvailableDay
+from accounts.views.talent import router
 from chats.models import Conversation, Message
 from core.models import Language, Currency
 from jobs.enums import LunchBreakEnum, WorkStructureEnum, StageType, JobStatusType
@@ -540,7 +539,8 @@ class TalentDashboardTests(TestCase):
             size=50,
             description="A sample business description.",
             website="https://example.com",
-            location="Lekki, Lagos, Nigeria",
+            address="Lekki, Lagos, Nigeria",
+            country=Country.objects.first().uid,
             industry="Technology"
         )
         self.business_user = BusinessUser.objects.create(
@@ -566,6 +566,7 @@ class TalentDashboardTests(TestCase):
         )
         job = Job.objects.create(
             created_by=self.business_user,
+            recruiter=self.business_user,
             job_level=self.job_level,
             employment_type=self.employment_type,
             hiring_company_name="Example Company",
@@ -700,7 +701,7 @@ class ChangeTalentPasswordTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.patch("talent/change-password", json={"old_password": "testpassword", "new_password": "newtestpassword"}, headers=headers)
+        response = self.client.patch("change-password", json={"old_password": "testpassword", "new_password": "newtestpassword"}, headers=headers)
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password("newtestpassword"))
@@ -710,7 +711,7 @@ class ChangeTalentPasswordTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.patch("talent/change-password", json={"old_password": "wrongpassword", "new_password": "newtestpassword"}, headers=headers)
+        response = self.client.patch("change-password", json={"old_password": "wrongpassword", "new_password": "newtestpassword"}, headers=headers)
         self.assertEqual(response.status_code, 400)
         self.assertFalse(self.user.check_password("newtestpassword"))
         self.assertTrue(self.user.check_password("testpassword"))

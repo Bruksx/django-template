@@ -1,6 +1,7 @@
 from copy import deepcopy
 
 from django.db.models import Q
+from django.utils import timezone
 from ninja.errors import HttpError
 from ninja_jwt.exceptions import AuthenticationFailed
 from services.schema import ProfileSchema
@@ -20,6 +21,8 @@ def validate_login(user: User, raise_exception=True):
             raise HttpError(401, "Your email is not verified")
         if not user.is_active:
             raise HttpError(401, "Your account is not active")
+        user.last_login = timezone.now()
+        user.save(update_fields=["last_login"])
         return True
     except HttpError as e:
         if raise_exception:
@@ -46,6 +49,8 @@ def handle_social_login(profile: ProfileSchema, user_type: UserType, social_type
         profile_dict["facebook_id"] = profile.id
     else:
         raise HttpError(400, "Invalid social type")
+    if User.deleted_objects.filter(social_query).exists():
+        raise HttpError(400, "Reach out to get your account restored")
     user = User.objects.filter(social_query).first()
     if user:
         if user.auth_mode == AuthType.EMAIL.value:

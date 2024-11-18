@@ -17,7 +17,7 @@ router = Router(tags=["Auth"])
 
 @router.post("login", response=common_schema.UserSchema)
 def login(request, data:LoginSchema):
-    user = User.objects.filter(email=data.email).first()
+    user = User.objects.filter(email__iexact=data.email).first()
     validate_login(user)
     if not user.check_password(data.password):
         raise HttpError(401, "Invalid login credentials")

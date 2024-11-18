@@ -6,7 +6,8 @@ from typing import List
 from uuid import UUID
 
 from accounts.dtos import TokenDto
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
+    BusinessUserStatusType
 from core.models import BaseModel
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -18,6 +19,8 @@ from django_softdelete.managers import SoftDeleteManager
 from jobs.enums import StageType, WithdrawalFeedbackType, JobStatusType
 from ninja_jwt.exceptions import AuthenticationFailed
 from ninja_jwt.tokens import RefreshToken
+
+from notification.enums import NotificationGroup
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -61,7 +64,6 @@ class User(AbstractUser, BaseModel):
     objects = CustomUserManager()
     REQUIRED_FIELDS = []
 
-
     gender = models.CharField(max_length=32, choices=GenderType.choices(), default=GenderType.OTHERS.value)
     phone_number = models.CharField(max_length=16, null=True)
     email = models.EmailField(unique=True, null=True)
@@ -90,6 +92,22 @@ class User(AbstractUser, BaseModel):
     def notification_group_name(self):
         return f"user_{self.uid}"
 
+    def user_notification_groups(self):
+        # all users and the user
+        groups = {self.notification_group_name, NotificationGroup.ALL_USERS.value}
+        if hasattr(self, "talents"):
+            # all talents
+            groups.add(NotificationGroup.TALENTS.value)
+        elif hasattr(self, "businessuser"):
+            # all business users
+            groups.add(NotificationGroup.BUSINESS_USERS.value)
+            business_user = self.businessuser
+            # all business users of a business
+            groups.add(f"{NotificationGroup.BUSINESS_USERS.value}_{business_user.business.uid}")
+            # business user role of a business
+            groups.add(f"{business_user.role}_{business_user.business.uid}")
+        return groups
+
     @property
     def token(self):
         refresh = RefreshToken.for_user(self)
@@ -108,6 +126,19 @@ class User(AbstractUser, BaseModel):
         elif hasattr(self, "businessuser"):
             return self.businessuser.business.get_logo()
         return None
+
+    def delete_account(self):
+        self.delete()
+        self.is_active = False
+        self.save(update_fields=["is_active"])
+        if hasattr(self, "talent"):
+            self.talent.delete()
+        elif hasattr(self, "businessuser"):
+            self.businessuser.delete()
+            self.businessuser.status = BusinessUserStatusType.DELETED.value
+            self.businessuser.save(update_fields=["status"])
+        return
+
 
 class Country(BaseModel):
     name = models.CharField(max_length=64)
@@ -165,7 +196,7 @@ class AdditionalSkill(BaseModel):
 
 
 class Talent(BaseModel):
-    user = models.OneToOneField(User, on_delete=models.DO_NOTHING)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
     whatsapp_number = models.CharField(max_length=16, null=True)
     viber_number = models.CharField(max_length=16, null=True)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
@@ -388,12 +419,13 @@ class Talent(BaseModel):
 
 
 class Business(BaseModel):
-    created_by = models.ForeignKey(User, on_delete=models.DO_NOTHING)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     name = models.CharField(max_length=128)
     size = models.IntegerField(null=True)
     description = models.TextField(null=True)
     website = models.URLField(null=True)
-    location = models.CharField(max_length=128, null=True)
+    address = models.CharField(max_length=128, null=True)
+    country = models.ForeignKey("Country", on_delete=models.SET_NULL, null=True)
     logo = models.ImageField(upload_to="media/logo/", null=True)
     instagram = models.URLField(null=True)
     linkedin = models.URLField(null=True)
@@ -403,6 +435,9 @@ class Business(BaseModel):
 
     def __str__(self):
         return self.name
+
+    def location(self):
+        return f"{self.address}, {self.country}"
 
     def get_logo(self):
         if not self.logo:
@@ -779,11 +814,26 @@ class EducationLevel(BaseModel):
 class BusinessUser(BaseModel):
     business = models.ForeignKey(Business, on_delete=models.CASCADE)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    added_by = models.ForeignKey(User, on_delete=models.DO_NOTHING, related_name="added_business_users", null=True)
+    added_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True)
     role = models.CharField(max_length=32, choices=BusinessUserRoleType.choices())
+    status = models.CharField(max_length=32, choices=BusinessUserStatusType.choices(),
+                              default=BusinessUserStatusType.ACTIVE.value)
 
     def __str__(self) -> str:
-        return self.user.email
+        return str(self.user)
+
+    def get_added_by(self):
+        if not self.added_by:
+            return None
+        return str(self.added_by)
+
+    def last_active(self):
+        if self.user.last_login:
+            return self.user.last_login.date()
+        return None
+
+
+
 
 
 class Education(BaseModel):

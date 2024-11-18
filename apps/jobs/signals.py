@@ -1,11 +1,12 @@
-from datetime import timedelta
+import logging
 
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 from django.utils import timezone
 
 from jobs.enums import StageType, JobStatusType
 from jobs.models import JobApplication, JobPost
+from notification import notifications
 
 
 @receiver(pre_save, sender=JobApplication)
@@ -28,6 +29,7 @@ def handle_stage_update(sender, instance,  **kwargs):
                 current_attribute = attributes[index]
                 setattr(instance, current_attribute, (today - instance.job_post.date_posted).days)
                 setattr(instance, "stage_date_updated", today)
+
             else:
                 # if an application is moved from a stage to another in a forward movement
                 prev_index = stages.index(application.stage)
@@ -84,3 +86,22 @@ def handle_new_application(sender, instance,  **kwargs):
 def handle_job_post_recruiter(sender, instance, **kwargs):
     if not instance.recruiter:
         instance.recruiter = instance.job.recruiter
+    if not instance.pk:
+        notifications.send_job_post_assignment_notification(
+            job_post=instance)
+    else:
+        job_post = JobPost.objects.filter(id=instance.id).first()
+        if job_post.recruiter != instance.recruiter:
+            if not instance.recruiter:
+                instance.recruiter = instance.job.recruiter
+            notifications.send_job_post_assignment_notification(
+                job_post=instance, previous_recruiter=job_post.recruiter)
+
+
+
+
+@receiver(post_save, sender=JobApplication)
+def send_notification(sender, instance, created, **kwargs):
+    if created:
+        notifications.send_job_application_notification(instance)
+

@@ -52,7 +52,8 @@ class TalentJobListTests(TestCase):
             size=50,
             description="A sample business description.",
             website="https://example.com",
-            location="Lekki, Lagos, Nigeria",
+            address="Lekki, Lagos, Nigeria",
+            country=Country.objects.first().uid,
             industry="Technology"
         )
         self.business_user = BusinessUser.objects.create(
@@ -63,6 +64,7 @@ class TalentJobListTests(TestCase):
 
         job = Job.objects.create(
             created_by=self.business_user,
+            recruiter=self.business_user,
             job_level=self.job_level,
             employment_type=self.employment_type,
             hiring_company_name="Example Company",
@@ -291,10 +293,10 @@ class WithdrawJobApplicationTest(TestCase):
             user=self.user,
             country=self.country
         )
-        self.job = Job.objects.create(
+        self.job = JobFactory.create(
             title="Test Job"
         )
-        self.job_post = JobPost.objects.create(
+        self.job_post = JobPostFactory.create(
             job=self.job,
             status=JobStatusType.POSTED.value
         )
@@ -364,11 +366,12 @@ class ShareJobPostViaEmailTest(TestCase):
             user=self.user,
             country=self.country
         )
-        self.job = Job.objects.create(
+        self.job = JobFactory.create(
             title="Test Job"
         )
-        self.job_post = JobPost.objects.create(
+        self.job_post = JobPostFactory.create(
             job=self.job,)
+
         self.url = f"job-posts/{self.job_post.uid}/share-via-email"
 
     def test_share_job_post_via_email(self):
@@ -397,10 +400,10 @@ class SaveJobTest(TestCase):
             user=self.user,
             country=self.country
         )
-        self.job = Job.objects.create(
+        self.job = JobFactory.create(
             title="Test Job"
         )
-        self.job_post = JobPost.objects.create(
+        self.job_post = JobPostFactory.create(
             job=self.job,)
 
     def test_save_job(self):
@@ -432,10 +435,10 @@ class DiscardSavedJobTest(TestCase):
             user=self.user,
             country=self.country
         )
-        self.job = Job.objects.create(
+        self.job = JobFactory.create(
             title="Test Job"
         )
-        self.job_post = JobPost.objects.create(
+        self.job_post = JobPostFactory.create(
             job=self.job,)
 
     def test_discard_saved_job_endpoint_without_job_post_saved(self):

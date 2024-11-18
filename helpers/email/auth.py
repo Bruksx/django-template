@@ -6,3 +6,5 @@ def send_verification_code(email:str, code:str, user:str, company: None, lang="e
     text = f"accounts/{lang}/otp-email.txt"
     text_content = render_text_email(text, context)
     send_email(subject="One Time Password", emails=[email], plain_body=text_content)
+
+

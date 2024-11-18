@@ -1,15 +1,17 @@
+import logging
 from urllib.parse import urlencode
+from uuid import uuid4
 
-from django.test import TestCase
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
-
-from accounts.views.business_views import router
+from accounts.enums import BusinessUserRoleType, BusinessUserStatusType
 from accounts.models import User, VerificationCode, Business, BusinessUser
+from accounts.views.business import router
+from django.test import TestCase
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory
 from jobs.enums import StageType, JobStatusType
 from jobs.models import JobApplication
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
 
 
 class ValidateOtpTests(TestCase):
@@ -250,4 +252,329 @@ class BusinessDashboardTestCase(TestCase):
 
         self.assertEqual(response.status_code, 200)
 
+class UpdateBusinessDetailTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(business=self.business,
+                                                        role=BusinessUserRoleType.OWNER.value)
+        user = self.business_user.user
+        user.set_password("TestPassword")
+        user.save()
+        self.url = ""
+
+    def test_update_business_detail(self):
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        data = {
+            "password": "TestPassword",
+            "name": "Test Company",
+            "description": "Good company",
+            "industry": "Software"
+        }
+        self.assertNotEqual(self.business.name, data["name"])
+        self.assertNotEqual(self.business.description, data["description"])
+        self.assertNotEqual(self.business.industry, data["industry"])
+        response = self.client.patch(self.url, json=data,  headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.business.refresh_from_db()
+        self.assertEqual(self.business.name, data["name"])
+        self.assertEqual(self.business.description, data["description"])
+        self.assertEqual(self.business.industry, data["industry"])
+
+    def test_data_without_password(self):
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        data = {
+            "name": "Test Company",
+            "description": "Good company",
+            "industry": "Software"
+        }
+        response = self.client.patch(self.url, json=data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+        self.business.refresh_from_db()
+        self.assertNotEqual(self.business.name, data["name"])
+        self.assertNotEqual(self.business.description, data["description"])
+        self.assertNotEqual(self.business.industry, data["industry"])
+
+    def test_data_with_incorrect_password(self):
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        data = {
+            "password": "TestPassword2",
+            "name": "Test Company",
+            "description": "Good company",
+            "industry": "Software"
+        }
+        response = self.client.patch(self.url, json=data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+        self.business.refresh_from_db()
+        self.assertNotEqual(self.business.name, data["name"])
+        self.assertNotEqual(self.business.description, data["description"])
+        self.assertNotEqual(self.business.industry, data["industry"])
+
+    def test_request_by_team_member(self):
+        self.business_user.update(role=BusinessUserRoleType.TEAM_MEMBER.value)
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        data = {
+            "name": "Test Company",
+            "description": "Good company",
+            "industry": "Software"
+        }
+        response = self.client.patch(self.url, json=data, headers=headers)
+        self.assertEqual(response.status_code, 403)
+        self.business.refresh_from_db()
+        self.assertNotEqual(self.business.name, data["name"])
+        self.assertNotEqual(self.business.description, data["description"])
+        self.assertNotEqual(self.business.industry, data["industry"])
+
+
+class GetBusinessDetailTest(TestCase):
+    def setUp(self):
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business = self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.url = ""
+        self.client = TestClient(router)
+
+
+    def test_business_detail_endpoint(self):
+        headers = {
+            "authorization": f"bearer {self.business.created_by.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        business_uid = response.json()["uid"]
+        self.assertEqual(str(self.business.uid), business_uid)
+
+
+
+class GetBusinessUsersTest(TestCase):
+    def setUp(self):
+        business = BusinessFactory.create()
+        owner = BusinessUserFactory.create(business=business,
+               user=business.created_by, role=BusinessUserRoleType.OWNER.value)
+        business_users = BusinessUserFactory.create_batch(
+            size=10,
+            business=business
+        )
+        BusinessUser.objects.exclude(id=owner.id).update(added_by=owner)
+        self.user = owner.user
+        self.url = "users"
+        self.client = TestClient(router)
+
+
+    def test_get_business_users(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 11)
+
+
+    def test_get_business_users_with_search(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        email = BusinessUser.objects.first().user.email
+        response = self.client.get(f"{self.url}?search={email}", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 1)
+
+
+class InviteBusinessUserTest(TestCase):
+    def setUp(self):
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business = self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.url = "users"
+        self.client = TestClient(router)
+
+
+    def test_invite_business_user(self):
+        headers = {
+            "authorization": f"bearer {self.business.created_by.token}"
+        }
+        data = {
+            "first_name": "Test",
+            "last_name": "User",
+            "email": "B2TbM@example.com",
+            "role": BusinessUserRoleType.TEAM_MEMBER.value
+        }
+        response = self.client.post(self.url, json=data, headers=headers)
+        self.assertEqual(response.status_code, 201)
+        business_user = BusinessUser.objects.last()
+        self.assertEqual(business_user.business, self.business)
+        self.assertEqual(business_user.user.email, data["email"])
+        self.assertEqual(business_user.user.first_name, data["first_name"])
+        self.assertEqual(business_user.user.last_name, data["last_name"])
+        self.assertEqual(business_user.role, data["role"])
+        self.assertEqual(business_user.status, BusinessUserStatusType.PENDING.value)
+        self.assertFalse(business_user.user.is_active)
+        self.assertFalse(business_user.user.email_verified)
+
+    def test_invite_business_user_with_existing_email(self):
+        headers = {
+            "authorization": f"bearer {self.business.created_by.token}"
+        }
+        data = {
+            "first_name": "Test",
+            "last_name": "User",
+            "email": self.business.created_by.email,
+            "role": BusinessUserRoleType.TEAM_MEMBER.value
+        }
+        response = self.client.post(self.url, json=data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+
+class ResendBusinessUserInviteTest(TestCase):
+    def setUp(self):
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business = self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.url = lambda uid: f"users/{uid}/resend-invite"
+        self.client = TestClient(router)
+        invited_business_user = BusinessUserFactory.create(
+            business=self.business
+        )
+        invited_business_user.status = BusinessUserStatusType.PENDING
+        invited_business_user.save()
+        user = invited_business_user.user
+        user.is_active = False
+        user.email_verified = False
+        user.save()
+        self.invited_business_user = invited_business_user
+
+
+    def test_resend_business_user_invite(self):
+        headers = {
+            "authorization": f"bearer {self.business.created_by.token}"
+        }
+        response = self.client.post(self.url(self.invited_business_user.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_resend_business_user_invite_with_invalid_uid(self):
+        headers = {
+            "authorization": f"bearer {self.business.created_by.token}"
+        }
+        response = self.client.post(self.url(uuid4()), headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+
+    def test_resend_business_user_invite_with_non_pending_status(self):
+        headers = {
+            "authorization": f"bearer {self.business.created_by.token}"
+        }
+        self.invited_business_user.status = BusinessUserStatusType.ACTIVE.value
+        self.invited_business_user.save()
+        response = self.client.post(self.url(self.invited_business_user.uid), headers=headers)
+        self.assertEqual(response.status_code, 400)
+
+
+
+class AcceptBusinessUserInviteTest(TestCase):
+    def setUp(self):
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business = self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.url = "users/accept-invite"
+        self.client = TestClient(router)
+        invited_business_user = BusinessUserFactory.create(
+            business=self.business
+        )
+        invited_business_user.status = BusinessUserStatusType.PENDING.value
+        invited_business_user.save()
+        user = invited_business_user.user
+        user.is_active = False
+        user.email_verified = False
+        user.save()
+        self.invited_business_user = invited_business_user
+
+    def test_accept_business_user_invite(self):
+        data = {
+            "code": self.invited_business_user.uid,
+            "password": "TestPassword"
+        }
+        response = self.client.post(self.url, json=data)
+        self.assertEqual(response.status_code, 200)
+        self.invited_business_user.refresh_from_db()
+        self.assertTrue(self.invited_business_user.user.is_active)
+        self.assertTrue(self.invited_business_user.user.email_verified)
+        self.assertTrue(self.invited_business_user.user.check_password(data["password"]))
+        self.assertEqual(self.invited_business_user.status, BusinessUserStatusType.ACTIVE.value)
+
+    def test_invalid_code(self):
+        data = {
+            "code": uuid4(),
+            "password": "TestPassword"
+        }
+        response = self.client.post(self.url, json=data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_talent_uid_as_code(self):
+        talent = TalentFactory.create()
+        data = {
+            "code": talent.uid,
+            "password": "TestPassword"
+        }
+        response = self.client.post(self.url, json=data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_accepted_invite(self):
+        self.invited_business_user.status = BusinessUserStatusType.ACTIVE.value
+        self.invited_business_user.save()
+        user = self.invited_business_user.user
+        user.is_active = True
+        user.email_verified = True
+        user.save()
+        data = {
+            "code": self.invited_business_user.uid,
+            "password": "TestPassword"
+        }
+        response = self.client.post(self.url, json=data)
+        self.assertEqual(response.status_code, 400)
+
+
+class DeleteBusinessUserAccountTest(TestCase):
+    def setUp(self):
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business = self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.url = "users"
+        self.client = TestClient(router)
+
+    def test_delete_business_user_account(self):
+        headers = {
+            "authorization": f"bearer {self.business.created_by.token}"
+        }
+        response = self.client.delete(self.url, headers=headers)
+        self.assertEqual(response.status_code, 204)
+        user = User.objects.filter(id=self.business.created_by.id).first()
+        self.assertIsNone(user)
+        business_user = BusinessUser.objects.filter(business=self.business).first()
+        self.assertIsNone(business_user)
+        user = User.deleted_objects.filter(id=self.business.created_by.id).first()
+        business_user = BusinessUser.deleted_objects.filter(business=self.business).first()
+        self.assertFalse(user.is_active)
+        self.assertEqual(business_user.status, BusinessUserStatusType.DELETED.value)
 

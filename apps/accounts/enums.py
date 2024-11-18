@@ -14,12 +14,18 @@ class AuthType(BaseEnum):
     GOOGLE = "Google"
     LINKEDIN = "LinkedIn"
     FACEBOOK = "Facebook"
-    EMAIL = "email"
+    EMAIL = "Email"
 
 class BusinessUserRoleType(BaseEnum):
     OWNER = "owner"
     ADMIN = "admin"
     TEAM_MEMBER = "team_member"
+
+class BusinessUserStatusType(BaseEnum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    PENDING = "pending"
+    DELETED = "deleted"
 
 class NoticePeriodType(BaseEnum):
     DAYS = "days"
