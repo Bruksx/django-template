@@ -8,7 +8,7 @@ from accounts.views.business import router
 from django.test import TestCase
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory
-from jobs.enums import StageType, JobStatusType
+from jobs.enums import PhaseType, JobStatusType
 from jobs.models import JobApplication
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
@@ -172,7 +172,8 @@ class BusinessDashboardTestCase(TestCase):
                 JobApplicationFactory.create(applicant=talent, job_post=job_post_list[index])
             for index in range(self.sub_data, self.max_data):
                 application = JobApplication.objects.filter(applicant=talent, job_post=job_post_list[index]).first()
-                application.update(stage=StageType.HIRED.value)
+                #TODO : Create hired stage
+                application.update(stage=PhaseType.HIRED.value)
 
             for index in range(0, self.sub_data):
                 JobApplicationWithdrawalFactory.create(job_post=job_post_list[index], talent=talent)
@@ -219,7 +220,7 @@ class BusinessDashboardTestCase(TestCase):
             "authorization": f"bearer {self.staff.user.token}"
         }
         job_application = JobApplication.objects.filter(
-            stage=StageType.HIRED.value
+            stage__phase=PhaseType.HIRED.value
         ).last()
         job = job_application.job_post.job
 

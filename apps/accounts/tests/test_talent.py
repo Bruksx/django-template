@@ -11,7 +11,7 @@ from accounts.models import User, VerificationCode, Country, Talent, EducationLe
 from accounts.views.talent import router
 from chats.models import Conversation, Message
 from core.models import Language, Currency
-from jobs.enums import LunchBreakEnum, WorkStructureEnum, StageType, JobStatusType
+from jobs.enums import LunchBreakEnum, WorkStructureEnum, PhaseType, JobStatusType
 from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, RequiredAttribute, AvailableDay, \
     JobApplication, JobInterview
 
@@ -632,7 +632,7 @@ class TalentDashboardTests(TestCase):
             applicant=self.talent,
             is_available=True,
             accept_privacy=True,
-            stage=StageType.INTERVIEW.value,
+            stage=PhaseType.INTERVIEW.value,
             match=5
         )
         JobInterview.objects.create(
