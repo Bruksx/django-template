@@ -1,15 +1,12 @@
 import json
-import logging
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List
 
+from core.models import BaseModel
 from django.db import models
 from django.template import Template, Context
 from django_q.models import Schedule
-from future.backports.datetime import timedelta
-
-from core.models import BaseModel
 from jobs.enums import PhaseType
 
 
