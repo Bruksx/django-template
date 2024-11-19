@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from datetime import datetime
 from typing import List
@@ -13,6 +14,7 @@ from jobs.enums import PhaseType
 
 
 class EmailTemplate(BaseModel):
+    name = models.CharField(max_length=255)
     sender = models.CharField(max_length=255)
     subject = models.CharField(max_length=255)
     placeholders = models.JSONField(default=list)
@@ -25,6 +27,9 @@ class EmailTemplate(BaseModel):
 
     regex = r"<([^>]*)>"
 
+    def attachments(self):
+        return self.emailtemplateattachment_set.all()
+
     @property
     def send_date(self)->datetime:
         return self.created_at + timedelta(days=self.delays)
@@ -34,12 +39,7 @@ class EmailTemplate(BaseModel):
         subject = self.convert_to_template(str(self.subject)).render(Context(context))
         message = self.convert_to_template(str(self.template)).render(Context(context))
         attachments = [attachment.file.url for attachment in self.emailtemplateattachment_set.all()]
-        Schedule.objects.create(
-            func='helpers.email.utils.send_template_email',
-            schedule_type=Schedule.ONCE,
-            next_run=self.send_date,
-            kwargs=json.dumps(
-                dict(
+        data = dict(
                     subject=subject,
                     body=message,
                     emails=to,
@@ -48,7 +48,11 @@ class EmailTemplate(BaseModel):
                     from_user=self.sender,
                     attachments=attachments
                 )
-            )
+        Schedule.objects.create(
+            func='helpers.email.utils.send_template_email',
+            schedule_type=Schedule.ONCE,
+            next_run=self.send_date,
+            kwargs=json.dumps(data)
         )
 
     @staticmethod
@@ -78,13 +82,23 @@ class EmailTemplateAttachment(BaseModel):
     email_template = models.ForeignKey(EmailTemplate, on_delete=models.CASCADE)
     file = models.FileField(upload_to="email_attachments/")
 
+
+    def file_url(self):
+        if not self.file:
+            return
+        return self.file.url
+
 class WorkFlowStage(BaseModel):
     phase = models.CharField(max_length=100, choices=PhaseType.choices())
     name = models.CharField(max_length=125)
     email_template = models.ForeignKey(EmailTemplate, on_delete=models.SET_NULL, null=True)
     created_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True)
     is_active = models.BooleanField(default=True)
-    order = models.PositiveSmallIntegerField(default=0) # for ordering stages
+
+
+
+    def can_be_deactivated(self):
+        return self.jobapplication_set.count() == 0
 
 
 

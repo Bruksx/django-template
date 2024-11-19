@@ -206,16 +206,14 @@ class JobApplication(BaseModel):
     )
     is_available = models.BooleanField(default=True)
     accept_privacy = models.BooleanField(default=True)
-    #TODO: Update stage in tests to work flow stages and create a work flow stage factory
     stage = models.ForeignKey("settings.WorkflowStage", on_delete=models.SET_NULL, null=True)
     match = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     posted_timeline = models.PositiveSmallIntegerField(default=0)
     screening_timeline = models.PositiveSmallIntegerField(default=0)
-    first_interview_timeline = models.PositiveSmallIntegerField(default=0)
-    second_interview_timeline = models.PositiveSmallIntegerField(default=0)
+    interview_timeline = models.PositiveSmallIntegerField(default=0)
     onboarding_timeline = models.PositiveSmallIntegerField(default=0)
     days_to_hire = models.GeneratedField(
-        expression=F("posted_timeline") + F("screening_timeline") + F("first_interview_timeline") + F("second_interview_timeline") + F("onboarding_timeline"),
+        expression=F("posted_timeline") + F("screening_timeline") + F("interview_timeline") + F("onboarding_timeline"),
         output_field=models.PositiveIntegerField(),
         db_persist=True,
     )
@@ -235,7 +233,7 @@ class JobApplication(BaseModel):
             return ""
 
 
-    def generate_email_context(self):
+    def get_email_context(self):
         if not self.stage:
             return dict()
         if not self.stage.email_template:

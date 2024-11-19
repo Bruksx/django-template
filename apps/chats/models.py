@@ -33,18 +33,6 @@ class Conversation(BaseModel):
     def __str__(self):
         return f"{self.users.first()} - {self.users.last()}"
 
-    #TODO When a conversation is created, a notification should sent to the concerned users
-
-    def save(self, *args, **kwargs):
-        """if self.pk is None:
-            existing_conversations = Conversation.objects.filter(
-                users__in=self.users.all()
-            ).annotate(num_users=models.Count('users')).filter(num_users=self.users.count())
-
-            if existing_conversations.exists():
-                raise ValueError("A conversation between these users already exists.")"""
-        super().save(*args, **kwargs)
-
     def unread_messages(self, user_id:int):
         return self.message_set.exclude(sender_id=user_id).exclude(readers__id=user_id)
 

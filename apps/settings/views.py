@@ -1,3 +1,137 @@
-from django.shortcuts import render
+from typing import List
+from uuid import UUID
 
-# Create your views here.
+from ninja import Router, Form, UploadedFile, PatchDict
+from ninja.errors import HttpError
+from ninja.responses import Response
+from ninja_jwt.authentication import JWTAuth
+
+from accounts.enums import BusinessUserRoleType
+from jobs.enums import PhaseType
+from settings.schemas import MutateEmailTemplateSchema, EmailTemplateListSchema, EmailTemplateDetailSchema, \
+    MutateWorkFlowStageSchema, WorkFlowStageSchema, PhaseWorkFlowStageSchema
+
+from settings.models import EmailTemplate, EmailTemplateAttachment, WorkFlowStage
+from config.permissions import IsBusinessUser
+
+router = Router(tags=["Settings"])
+
+@router.post("email-templates", auth=JWTAuth())
+def create_email_template(request, body:MutateEmailTemplateSchema=Form(), attachments: List[UploadedFile]=None):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    if EmailTemplate.objects.filter(created_by__business=business_user.business, name__iexact=body.name).exists():
+        raise HttpError("An email template with this name already exists")
+    data = body.__dict__.copy()
+    data["placeholders"] = [placeholder.value for placeholder in data["placeholders"]]
+    template = EmailTemplate.objects.create(**data, created_by=business_user)
+    if attachments:
+        EmailTemplateAttachment.objects.bulk_create(
+            [EmailTemplateAttachment(
+                email_template=template,
+                file=attachment
+            ) for attachment in attachments]
+        )
+    return Response(status=201, data={"message": "email template has been created successfully"})
+
+@router.patch("email-templates/{template_uid}", auth=JWTAuth())
+def update_email_template(request, template_uid:UUID, data:PatchDict[MutateEmailTemplateSchema]):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    template = EmailTemplate.objects.filter(uid=template_uid).first()
+    if not template:
+        raise HttpError(404, "This email template does not exist")
+    if "name" in data and EmailTemplate.objects.filter(created_by__business=business_user.business,
+                                    name__iexact=data["name"]).exclude(uid=template_uid).exists():
+        raise HttpError("An email template with this name already exists")
+    if business_user.role not in [BusinessUserRoleType.OWNER.value, BusinessUserRoleType.ADMIN.value] and \
+        template.created_by != business_user:
+        raise HttpError(403, "You do not have permission to update this email template")
+    if "placeholders" in data:
+        data["placeholders"] = [placeholder.value for placeholder in data["placeholders"]]
+    template.update(**data)
+    return Response(status=200, data={"message": "email template has been updated successfully"})
+
+@router.post("email-templates/{template_uid}/attachments", auth=JWTAuth())
+def add_attachments_to_email_template(request, template_uid:UUID, attachments: List[UploadedFile]):
+    IsBusinessUser.check(request)
+    template = EmailTemplate.objects.filter(uid=template_uid).first()
+    if not template:
+        raise HttpError(404, "This email template does not exist")
+    EmailTemplateAttachment.objects.bulk_create(
+        [EmailTemplateAttachment(
+            email_template=template,
+            file=attachment
+        ) for attachment in attachments]
+    )
+    return Response(status=201, data={"message": "attachments have been added successfully"})
+
+
+@router.delete("email-templates/{template_uid}/attachments", auth=JWTAuth())
+def remove_attachments_from_email_template(request, template_uid:UUID, data: List[UUID]):
+    IsBusinessUser.check(request)
+    template = EmailTemplate.objects.filter(uid=template_uid).first()
+    if not template:
+        raise HttpError(404, "This email template does not exist")
+    attachments = EmailTemplateAttachment.objects.filter(email_template=template, uid__in=data)
+    for attachment in attachments:
+        attachment.hard_delete()
+    return Response(status=204, data={"message": "attachments have been removed successfully"})
+
+@router.get("email-templates", auth=JWTAuth(), response=List[EmailTemplateListSchema])
+def retrieve_all_email_templates(request):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    return EmailTemplate.objects.filter(created_by__business=business_user.business).order_by("name")
+
+
+@router.get("email-templates/{template_uid}", auth=JWTAuth(), response=EmailTemplateDetailSchema)
+def retrieve_email_template(request, template_uid:UUID):
+    IsBusinessUser.check(request)
+    template = EmailTemplate.objects.filter(uid=template_uid).first()
+    if not template:
+        raise HttpError(404, "This email template does not exist")
+    return template
+
+
+@router.post("workflows/stage", auth=JWTAuth())
+def create_workflow_stage(request, data: MutateWorkFlowStageSchema):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    if WorkFlowStage.objects.filter(created_by__business=business_user.business, name__iexact=data.name,
+                                    phase=data.phase.value).exists():
+        raise HttpError("A workflow stage with this name in this phase already exists")
+    WorkFlowStage.objects.create(**data.dict(), created_by=business_user)
+    return Response(status=201, data={"message": "workflow stage has been created successfully"})
+
+@router.patch("workflows/stage/{stage_uid}", auth=JWTAuth())
+def update_workflow_stage(request, stage_uid:UUID, data:PatchDict[MutateWorkFlowStageSchema]):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    stage = WorkFlowStage.objects.filter(uid=stage_uid).first()
+    if not stage:
+        raise HttpError(404, "This workflow stage does not exist")
+    if business_user.role not in [BusinessUserRoleType.OWNER.value, BusinessUserRoleType.ADMIN.value] and \
+        stage.created_by != business_user:
+        raise HttpError(403, "You do not have permission to update this workflow stage")
+    if stage.is_active is True and data["is_active"] is False and stage.can_be_deactivated() is False:
+        raise HttpError("This workflow stage cannot be deactivated")
+    if "phase" in data:
+        data["phase"] = data["phase"].value
+    stage.update(**data)
+    return Response(status=200, data={"message": "workflow stage has been updated successfully"})
+
+
+@router.get("workflows/stage", auth=JWTAuth(), response=List[PhaseWorkFlowStageSchema])
+def retrieve_all_workflow_stages(request):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    phases = PhaseType.values()
+    workflows = WorkFlowStage.objects.filter(created_by__business=business_user.business)
+    return [
+        dict(phase=phase,
+             stages=[WorkFlowStageSchema.from_orm(stage).dict() for stage in workflows.filter(phase=phase)]
+             )
+        for phase in phases
+        ]
+

@@ -5,6 +5,7 @@ import uuid
 from typing import Optional
 
 import pdfkit
+from django.conf import settings
 from django.core.files.base import ContentFile
 from ninja.responses import Response
 
@@ -57,6 +58,20 @@ def html_to_pdf(html: str):
         ))
         return
 
+
+def delete_s3_item(key):
+    from boto3.session import Session
+    if settings.USE_AWS_S3 == False:
+        return
+    try:
+        session = Session(
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        )
+        s3 = session.resource("s3")
+        s3.Object(settings.AWS_STORAGE_BUCKET_NAME, f"media/{key}").delete()
+    except Exception as e:
+        Logger.error(msg=dict(sender="Helper Utils", title="AWS DELETE Error", description=str(e)), exc_info=True)
 
 
 

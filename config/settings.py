@@ -217,3 +217,5 @@ CSS_URL =  "http://localhost:8000/static/css"
 # email rendering service
 FRONTEND_URL = "http://localhost:3000"
 COMPANY_NAME = "1840 GTC"
+
+USE_AWS_S3 = os.environ.get("USE_AWS_S3", False)

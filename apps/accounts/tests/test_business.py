@@ -7,7 +7,8 @@ from accounts.models import User, VerificationCode, Business, BusinessUser
 from accounts.views.business import router
 from django.test import TestCase
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
-    TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory
+    TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
+    WorkflowStageFactory
 from jobs.enums import PhaseType, JobStatusType
 from jobs.models import JobApplication
 from ninja.testing import TestClient
@@ -157,6 +158,7 @@ class BusinessDashboardTestCase(TestCase):
             index += 1
 
         talents = TalentFactory.create_batch(size=self.max_data)
+        self.hired_stage = WorkflowStageFactory.create(phase=PhaseType.HIRED.value)
         for talent in talents:
             for index in range(self.sub_data):
                 conversation = ConversationFactory.create(
@@ -172,8 +174,7 @@ class BusinessDashboardTestCase(TestCase):
                 JobApplicationFactory.create(applicant=talent, job_post=job_post_list[index])
             for index in range(self.sub_data, self.max_data):
                 application = JobApplication.objects.filter(applicant=talent, job_post=job_post_list[index]).first()
-                #TODO : Create hired stage
-                application.update(stage=PhaseType.HIRED.value)
+                application.update(stage=self.hired_stage)
 
             for index in range(0, self.sub_data):
                 JobApplicationWithdrawalFactory.create(job_post=job_post_list[index], talent=talent)
@@ -207,7 +208,7 @@ class BusinessDashboardTestCase(TestCase):
             "time_to_hire",
             "withdrawal_reasons",
             "applicants_years_of_experience",
-            "talent_per_stage",
+            "talent_per_phase",
             "uid"
         ]
         response = self.client.get("dashboard", headers=headers)
@@ -244,7 +245,7 @@ class BusinessDashboardTestCase(TestCase):
             "time_to_hire",
             "withdrawal_reasons",
             "applicants_years_of_experience",
-            "talent_per_stage",
+            "talent_per_phase",
             "uid"
         ]
         response = self.client.get(query, headers=headers)

@@ -5,13 +5,15 @@ from faker import Faker
 from accounts.enums import GenderType, PreferredCommunicationType, BusinessUserRoleType, Days
 from accounts.models import User, Talent, Business, BusinessUser, Education, Role, TalentAvailableDay, CustomerCase, \
     EducationLevel, Industry, Country, AdditionalSkill, Department, Experience
+from settings.models import WorkFlowStage, EmailTemplate
 from chats.models import Conversation, Message
 
 fake = Faker()
 from core.models import Currency, Language
-from jobs.enums import WorkStructureEnum, LunchBreakEnum, WithdrawalFeedbackType
+from jobs.enums import WorkStructureEnum, LunchBreakEnum, WithdrawalFeedbackType, PhaseType
 from jobs.models import JobLevel, EmploymentType, JobPost, Job, JobApplication, Qualification, JobApplicationWithdrawal, \
     RequiredAttribute
+
 
 
 
@@ -287,3 +289,28 @@ class MessageFactory(DjangoModelFactory):
     conversation = factory.SubFactory(ConversationFactory)
     sender = factory.SubFactory(UserFactory)
     body = factory.Faker('sentence', nb_words=50)
+
+
+class EmailTemplateFactory(DjangoModelFactory):
+    class Meta:
+        model = EmailTemplate
+
+    sender = factory.Sequence(lambda n: f'sender{n}@example.com')
+    subject = factory.lazy_attribute(lambda _: fake.sentence()[:30])
+    template  = factory.lazy_attribute(lambda _: fake.sentence()[:100])
+    created_by = factory.SubFactory(BusinessUserFactory)
+    personal = factory.Iterator([True, False])
+    delays = factory.Iterator([0, 1, 2, 3, 4, 5])
+    bcc = factory.lazy_attribute(lambda _: [fake.email() for x in range(5)])
+    cc = factory.lazy_attribute(lambda _: [fake.email() for x in range(5)])
+
+
+class WorkflowStageFactory(DjangoModelFactory):
+    class Meta:
+        model = WorkFlowStage
+
+    phase = factory.Iterator(PhaseType.values())
+    name = factory.Faker('sentence', nb_words=5)
+    email_template = factory.SubFactory(EmailTemplateFactory)
+    created_by = factory.SubFactory(BusinessUserFactory)
+    is_active = factory.Iterator([True, False])

@@ -12,10 +12,9 @@ from notification import notifications
 @receiver(pre_save, sender=JobApplication)
 def handle_stage_update(sender, instance,  **kwargs):
     # might be changed too
-    phases = [PhaseType.SCREENING.value, PhaseType.INTERVIEW.value, PhaseType.INTERVIEW_2.value,
+    phases = [PhaseType.SCREENING.value, PhaseType.INTERVIEW.value,
               PhaseType.ONBOARDING.value, PhaseType.HIRED.value]
-    attributes = ["posted_timeline", "screening_timeline", "first_interview_timeline",
-                  "second_interview_timeline", "onboarding_timeline"]
+    attributes = ["posted_timeline", "screening_timeline", "interview_timeline", "onboarding_timeline"]
     today = timezone.now()
     if instance.id:
         application = JobApplication.objects.get(id=instance.id)
@@ -67,7 +66,7 @@ def handle_stage_update(sender, instance,  **kwargs):
                     setattr(instance, current_attribute, current_timeline)
             if instance.stage and instance.stage.email_template:
                 context = instance.get_email_context()
-                instance.stage.email_template.send_email(context=context, to=[instance.applicant.email])
+                instance.stage.email_template.send_email(context=context, to=[instance.applicant.user.email])
 
 @receiver(pre_save, sender=JobPost)
 def handle_job_post_date(sender, instance, **kwargs):

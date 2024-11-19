@@ -646,18 +646,16 @@ class Business(BaseModel):
             role=F("job_post__job__role__name"),
             posted=Cast(Avg("posted_timeline"), output_field=IntegerField()),
             screening=Cast(Avg("screening_timeline"), output_field=IntegerField()),
-            first_interview=Cast(Avg("first_interview_timeline"), output_field=IntegerField()),
-            second_interview=Cast(Avg("second_interview_timeline"), output_field=IntegerField()),
+            interview=Cast(Avg("interview_timeline"), output_field=IntegerField()),
             onboarding=Cast(Avg("onboarding_timeline"), output_field=IntegerField())
         )\
         .values("role", "posted",
-                "screening", "first_interview", "second_interview", "onboarding")
+                "screening", "interview", "onboarding")
         data_list = [dict(**data,
                           days_to_hire=sum([
                               data["posted"],
                               data["screening"],
-                              data["first_interview"],
-                              data["second_interview"],
+                              data["interview"],
                               data["onboarding"],
                               ]
                           )) for data in  data_list]
@@ -748,7 +746,7 @@ class Business(BaseModel):
             data_list.append(data)
         return data_list
 
-    def talent_at_each_stage(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
+    def talent_at_each_phase(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
         application = JobApplication.objects.filter(
                 recruiter__business=self,

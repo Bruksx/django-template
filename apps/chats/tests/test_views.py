@@ -226,7 +226,7 @@ class CreateMessageTest(TestCase):
         conversation.save()
         response = self.client.post(f"{str(conversation.uid)}/messages",
                                     headers=headers,
-                                    json=data)
+                                    data=data, format="multipart/form-data")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(conversation.message_set.count(), 1)
 
@@ -239,7 +239,7 @@ class CreateMessageTest(TestCase):
         }
         response = self.client.post(f"{UUID('00000000-0000-0000-0000-000000000000')}/messages",
                                     headers=headers,
-                                    json=data)
+                                    data=data, format="multipart/form-data")
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.data["detail"], "This conversation does not exist")
 
@@ -260,7 +260,7 @@ class CreateMessageTest(TestCase):
 
         response = self.client.post(f"{conversation.uid}/messages",
                                     headers=headers,
-                                    json=data)
+                                    data=data, format="multipart/form-data")
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.data["detail"], "Not allowed")
 
@@ -281,7 +281,7 @@ class CreateMessageTest(TestCase):
 
         response = self.client.post(f"{conversation.uid}/messages",
                                     headers=headers,
-                                    json=data)
+                                    data=data, format="multipart/form-data")
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.data["detail"], "Not allowed")
 
@@ -303,7 +303,7 @@ class CreateMessageTest(TestCase):
 
         response = self.client.post(f"{conversation.uid}/messages",
                                     headers=headers,
-                                    json=data)
+                                    data=data, format="multipart/form-data")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(conversation.message_set.count(), 2)
 
@@ -325,7 +325,7 @@ class CreateMessageTest(TestCase):
 
         response = self.client.post(f"{conversation.uid}/messages",
                                     headers=headers,
-                                    json=data)
+                                    data=data, format="multipart/form-data")
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.data["detail"], "Conversation is locked")
 
@@ -348,6 +348,6 @@ class CreateMessageTest(TestCase):
         conversation.save()
         response = self.client.post(f"{conversation.uid}/messages",
                                     headers=headers,
-                                    json=data)
+                                    data=data, format="multipart/form-data")
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.data["detail"], "Not allowed")
