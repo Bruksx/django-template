@@ -25,10 +25,9 @@ class QuestionTypeEnum(BaseEnum):
     FILE = "file"
     
 
-class StageType(BaseEnum):
+class PhaseType(BaseEnum):
     SCREENING = "screening"
     INTERVIEW = "interview"
-    INTERVIEW_2 = "interview 2"
     HIRED = "hired"
     ONBOARDING = "onboarding"
     REJECTED = "rejected"

@@ -4,22 +4,22 @@ from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 from django.utils import timezone
 
-from jobs.enums import StageType, JobStatusType
+from jobs.enums import PhaseType, JobStatusType
 from jobs.models import JobApplication, JobPost
 from notification import notifications
 
 
 @receiver(pre_save, sender=JobApplication)
 def handle_stage_update(sender, instance,  **kwargs):
-    stages = [StageType.SCREENING.value, StageType.INTERVIEW.value, StageType.INTERVIEW_2.value,
-              StageType.ONBOARDING.value, StageType.HIRED.value]
-    attributes = ["posted_timeline", "screening_timeline", "first_interview_timeline",
-                  "second_interview_timeline", "onboarding_timeline"]
+    # might be changed too
+    phases = [PhaseType.SCREENING.value, PhaseType.INTERVIEW.value,
+              PhaseType.ONBOARDING.value, PhaseType.HIRED.value]
+    attributes = ["posted_timeline", "screening_timeline", "interview_timeline", "onboarding_timeline"]
     today = timezone.now()
     if instance.id:
         application = JobApplication.objects.get(id=instance.id)
-        if application.stage != instance.stage and instance.stage != StageType.REJECTED.value:
-            index = stages.index(instance.stage)
+        if application.stage != instance.stage and instance.stage.phase != PhaseType.REJECTED.value:
+            index = phases.index(instance.stage.phase)
             if application.stage is None:
                 # if application is new and is being moved to next stage
                 # bypass to current stage
@@ -32,7 +32,7 @@ def handle_stage_update(sender, instance,  **kwargs):
 
             else:
                 # if an application is moved from a stage to another in a forward movement
-                prev_index = stages.index(application.stage)
+                prev_index = phases.index(application.stage.phase)
                 if prev_index < index:
                     for i in range(prev_index+1, index):
                         current_attribute = attributes[i]
@@ -64,6 +64,9 @@ def handle_stage_update(sender, instance,  **kwargs):
                     current_timeline = getattr(instance, current_attribute)
                     current_timeline += subtracted_days
                     setattr(instance, current_attribute, current_timeline)
+            if instance.stage and instance.stage.email_template:
+                context = instance.get_email_context()
+                instance.stage.email_template.send_email(context=context, to=[instance.applicant.user.email])
 
 @receiver(pre_save, sender=JobPost)
 def handle_job_post_date(sender, instance, **kwargs):

@@ -7,8 +7,8 @@ from accounts.models import Country, Industry, User, Talent, BusinessUser, Busin
 from core.models import Currency
 from django.test import TestCase
 
-from factories import TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory
-from jobs.enums import WorkStructureEnum, LunchBreakEnum, StageType, JobStatusType, WithdrawalFeedbackType
+from factories import TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory
+from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusType, WithdrawalFeedbackType
 from jobs.models import JobPost, JobLevel, EmploymentType, Job, SavedJob, JobApplication, JobFilter
 from jobs.views import router
 from ninja.testing import TestClient
@@ -120,12 +120,13 @@ class TalentJobListTests(TestCase):
         self.assertEqual(response.json()["count"], 1)
 
     def test_applied_job_endpoints(self):
+        stage = WorkflowStageFactory.create(phase=PhaseType.INTERVIEW.value)
         JobApplication.objects.create(
             job_post=self.job_post,
             applicant=self.talent,
             is_available=True,
             accept_privacy=True,
-            stage=StageType.INTERVIEW.value,
+            stage=stage,
             match=5
         )
         headers = {
@@ -327,7 +328,8 @@ class WithdrawJobApplicationTest(TestCase):
         self.assertEqual(self.talent.applied_jobs().count(), 0)
 
     def test_withdraw_for_job_application_with_stage(self):
-        self.job_application.stage = StageType.INTERVIEW.value
+        stage = WorkflowStageFactory.create(phase=PhaseType.INTERVIEW.value)
+        self.job_application.stage = stage
         self.job_application.save()
         self.job_application.refresh_from_db()
         headers = {

@@ -8,3 +8,5 @@ def async_task(func, *args, **kwargs):
         """ to enable it run synchronously in tests """
         return func(*args, **kwargs)
     return django_async_task(func, *args, **kwargs)
+
+

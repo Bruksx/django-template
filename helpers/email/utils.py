@@ -1,4 +1,6 @@
-from typing import List
+from typing import List, Any
+
+import requests
 from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template import loader
@@ -30,6 +32,38 @@ def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_b
                 title="Email was not successfully sent",
                 description=str(e)
             ), exc_info=True)
+
+@test_env_decorator(None)
+def send_template_email(subject:str, body:str, emails:List[EmailStr], from_user:str, attachment_urls:List[str],
+                        bcc:List[EmailStr]=None, cc:List[EmailStr]=None):
+    retries = 3
+    for retry in range(retries):
+        try:
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=body,
+                from_email=f"{from_user} <{settings.EMAIL_HOST_USER}>",
+                to=emails
+            )
+            if bcc:
+                email.bcc = bcc
+            if cc:
+                email.cc = cc
+            if attachment_urls:
+                for url in attachment_urls:
+                    response = requests.get(url)
+                    response.raise_for_status()
+                    email.attach(f"{url.split('/')[-1]}", response.content, mimetype=response.headers['Content-Type'])
+            email.send(fail_silently=False)
+            return
+        except Exception as e:
+            Logger.error(dict(
+                sender="Email Service",
+                title="Email Template was not successfully sent",
+                description=str(e)
+            ), exc_info=True)
+
+
 
 
 def render_text_email(file: str, context: dict):

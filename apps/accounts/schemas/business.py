@@ -74,8 +74,7 @@ class TimeToHireSchema(Schema):
     role: str
     posted: int
     screening: int
-    first_interview: int
-    second_interview: int
+    interview: int
     onboarding: int
     days_to_hire: int
 
@@ -93,8 +92,8 @@ class ApplicantsYearsOfExperienceSchema(Schema):
     count:int
 
 
-class TalentPerStage(Schema):
-    stage: str
+class TalentPerPhase(Schema):
+    phase: str
     count: int
 
 class DashboardSchema(ModelSchema):
@@ -112,7 +111,7 @@ class DashboardSchema(ModelSchema):
     time_to_hire:List[TimeToHireSchema]
     withdrawal_reasons: WithdrawalReasonSchema
     applicants_years_of_experience: List[ApplicantsYearsOfExperienceSchema]
-    talent_per_stage:List[TalentPerStage]
+    talent_per_phase:List[TalentPerPhase]
 
     class Meta:
         model = Business
@@ -203,8 +202,8 @@ class DashboardSchema(ModelSchema):
 
 
     @staticmethod
-    def resolve_talent_per_stage(obj, context):
-        return [TalentPerStage(**data) for data in obj.talent_at_each_stage(
+    def resolve_talent_per_phase(obj, context):
+        return [TalentPerPhase(**data) for data in obj.talent_at_each_phase(
             **DashboardSchema.get_context(obj, context)
         )]
 

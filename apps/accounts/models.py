@@ -16,7 +16,7 @@ from django.db.models import Q, Count, F, Value, Avg, IntegerField
 from django.db.models.functions import Concat, Cast
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from jobs.enums import StageType, WithdrawalFeedbackType, JobStatusType
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType
 from ninja_jwt.exceptions import AuthenticationFailed
 from ninja_jwt.tokens import RefreshToken
 
@@ -447,7 +447,7 @@ class Business(BaseModel):
     def total_hires(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
         queryset = JobApplication.objects.filter(job_post__recruiter__business=self,
-                                      stage=StageType.HIRED.value)
+                                                 stage__phase=PhaseType.HIRED.value)
         # filtering based on date hired not date created
         if start_date and not end_date:
             queryset = queryset.filter(stage_date_updated__gte=start_date)
@@ -503,7 +503,7 @@ class Business(BaseModel):
         from jobs.models import JobApplication
         queryset = JobApplication.objects.filter(
             recruiter__business=self,
-            stage=StageType.HIRED.value
+            stage__phase=PhaseType.HIRED.value
         )
         # filtering based on date hired not date created
         if start_date and not end_date:
@@ -538,7 +538,7 @@ class Business(BaseModel):
 
     def total_location_of_hires(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobPost
-        queryset = JobPost.objects.filter(recruiter__business=self, jobapplication__stage=StageType.HIRED.value)
+        queryset = JobPost.objects.filter(recruiter__business=self, jobapplication__stage__phase=PhaseType.HIRED.value)
         if start_date and not end_date:
             queryset = queryset.filter(jobapplication__stage_date_updated__gte=start_date)
         elif end_date and not start_date:
@@ -556,7 +556,7 @@ class Business(BaseModel):
         from jobs.models import JobApplication
         total_hires = self.total_hires(start_date, end_date, role_id, client)
         performance = JobApplication.objects\
-                .filter(stage=StageType.HIRED.value, recruiter__business=self)
+                .filter(stage__phase=PhaseType.HIRED.value, recruiter__business=self)
         if start_date and not end_date:
             performance = performance.filter(stage_date_updated__gte=start_date)
         elif end_date and not start_date:
@@ -578,7 +578,7 @@ class Business(BaseModel):
         from jobs.models import JobApplication
         total_location_of_hires = self.total_location_of_hires(start_date, end_date, role_id, client)
         hires_location = JobApplication.objects\
-                .filter(stage=StageType.HIRED.value, recruiter__business=self)
+                .filter(stage__phase=PhaseType.HIRED.value, recruiter__business=self)
         if start_date and not end_date:
             hires_location = hires_location.filter(stage_date_updated__gte=start_date)
         elif end_date and not start_date:
@@ -605,7 +605,7 @@ class Business(BaseModel):
         total_hires = self.total_hires(start_date, end_date, role_id, client)
         genders_aggregate = JobApplication.objects\
                 .prefetch_related("applicant")\
-                .filter(stage=StageType.HIRED.value, recruiter__business=self)
+                .filter(stage__phase=PhaseType.HIRED.value, recruiter__business=self)
         if start_date and not end_date:
             genders_aggregate = genders_aggregate.filter(stage_date_updated__gte=start_date)
         elif end_date and not start_date:
@@ -628,7 +628,7 @@ class Business(BaseModel):
     def time_to_hire(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
         data_list = JobApplication.objects.prefetch_related("job_post__job__role")\
-        .filter(recruiter__business=self, stage=StageType.HIRED.value)
+        .filter(recruiter__business=self, stage__phase=PhaseType.HIRED.value)
 
         if start_date and not end_date:
             data_list = data_list.filter(stage_date_updated__gte=start_date)
@@ -646,18 +646,16 @@ class Business(BaseModel):
             role=F("job_post__job__role__name"),
             posted=Cast(Avg("posted_timeline"), output_field=IntegerField()),
             screening=Cast(Avg("screening_timeline"), output_field=IntegerField()),
-            first_interview=Cast(Avg("first_interview_timeline"), output_field=IntegerField()),
-            second_interview=Cast(Avg("second_interview_timeline"), output_field=IntegerField()),
+            interview=Cast(Avg("interview_timeline"), output_field=IntegerField()),
             onboarding=Cast(Avg("onboarding_timeline"), output_field=IntegerField())
         )\
         .values("role", "posted",
-                "screening", "first_interview", "second_interview", "onboarding")
+                "screening", "interview", "onboarding")
         data_list = [dict(**data,
                           days_to_hire=sum([
                               data["posted"],
                               data["screening"],
-                              data["first_interview"],
-                              data["second_interview"],
+                              data["interview"],
                               data["onboarding"],
                               ]
                           )) for data in  data_list]
@@ -700,7 +698,7 @@ class Business(BaseModel):
         .prefetch_related("recruiter", "applicant__user", "job_post__job__role")\
                 .filter(
             recruiter__business=self,
-            stage=StageType.HIRED.value,
+            stage__phase=PhaseType.HIRED.value,
             stage_date_updated__gte=date_time
         )
 
@@ -748,7 +746,7 @@ class Business(BaseModel):
             data_list.append(data)
         return data_list
 
-    def talent_at_each_stage(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
+    def talent_at_each_phase(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
         application = JobApplication.objects.filter(
                 recruiter__business=self,
@@ -764,13 +762,13 @@ class Business(BaseModel):
             application = application.filter(job_post__job__role_id=role_id)
         if client:
             application = application.filter(job_post__job__hiring_company_name=client)
-        stages = StageType.values()
+        phase = PhaseType.values()
         data_list = list()
-        for stage in stages:
+        for phase in phase:
             data_list.append(
                 {
-                    "stage": stage,
-                    "count": application.filter(stage=stage).count()
+                    "phase": phase,
+                    "count": application.filter(stage__phase=phase).count()
                 }
             )
         return sorted(data_list, key=lambda x: x["count"], reverse=True)
@@ -877,4 +875,6 @@ class CustomerCase(BaseModel):
     reason = models.CharField(max_length=200)
     subject = models.CharField(max_length=200)
     description = models.TextField()
+
+
 

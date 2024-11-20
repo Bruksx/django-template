@@ -7,7 +7,9 @@ from timezone_field import TimeZoneField
 from accounts.enums import Days
 from accounts.models import Talent, TalentAvailableDay
 from core.models import BaseModel, Language
-from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, StageType, WithdrawalFeedbackType, JobStatusType
+from settings.enums import PlaceHolderType
+from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
+    JobStatusType
 from .managers import JobManager
 
 
@@ -204,19 +206,41 @@ class JobApplication(BaseModel):
     )
     is_available = models.BooleanField(default=True)
     accept_privacy = models.BooleanField(default=True)
-    stage = models.CharField(max_length=16, choices=StageType.choices(), null=True, default=None)
+    stage = models.ForeignKey("settings.WorkflowStage", on_delete=models.SET_NULL, null=True)
     match = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     posted_timeline = models.PositiveSmallIntegerField(default=0)
     screening_timeline = models.PositiveSmallIntegerField(default=0)
-    first_interview_timeline = models.PositiveSmallIntegerField(default=0)
-    second_interview_timeline = models.PositiveSmallIntegerField(default=0)
+    interview_timeline = models.PositiveSmallIntegerField(default=0)
     onboarding_timeline = models.PositiveSmallIntegerField(default=0)
     days_to_hire = models.GeneratedField(
-        expression=F("posted_timeline") + F("screening_timeline") + F("first_interview_timeline") + F("second_interview_timeline") + F("onboarding_timeline"),
+        expression=F("posted_timeline") + F("screening_timeline") + F("interview_timeline") + F("onboarding_timeline"),
         output_field=models.PositiveIntegerField(),
         db_persist=True,
     )
     stage_date_updated = models.DateTimeField(null=True)
+
+    def placeholders_mapper(self, placeholder:str):
+        if placeholder == PlaceHolderType.CANDIDATE_EMAIL.value:
+            if not self.applicant:
+                return ""
+            return self.applicant.user.email
+        elif placeholder == PlaceHolderType.CANDIDATE_FULL_NAME.value:
+            if not self.applicant:
+                return ""
+            return self.applicant.user.fullname
+        #TODO more placeholders will be checked
+        else:
+            return ""
+
+
+    def get_email_context(self):
+        if not self.stage:
+            return dict()
+        if not self.stage.email_template:
+            return dict()
+        stage_placeholders = self.stage.email_template.placeholders
+        return {placeholder:self.placeholders_mapper(placeholder) for placeholder in stage_placeholders}
+
 
     def __str__(self) -> str:
         return f"{self.job_post} ({self.applicant})"

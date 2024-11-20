@@ -3,11 +3,12 @@ from uuid import UUID
 
 from accounts.enums import UserType
 from accounts.models import User
+from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, Conversation, MessageAttachment
 from chats.schemas import ChatListSchema, ChatMessageSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema
 from django.db import transaction
 from django.db.models import Q, F
-from ninja import Router, PatchDict
+from ninja import Router, PatchDict, UploadedFile, Form
 from ninja.errors import HttpError
 from ninja.responses import Response
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
@@ -60,7 +61,8 @@ def get_chat_message_readers(request, message_uid:UUID):
 
 @router.post("{conversation_uid}/messages", auth=JWTAuth(), response={200: ResponseSchema})
 @transaction.atomic
-def create_chat_message(request, conversation_uid:UUID, data: PatchDict[MutateChatMessageSchema]):
+def create_chat_message(request, conversation_uid:UUID,
+                       body: MutateChatMessageSchema = Form(),  attachments: List[UploadedFile]=None):
     user = request.user
     conversation = Conversation.objects.filter(uid=conversation_uid, users__id=user.id).first()
     if not conversation:
@@ -75,11 +77,21 @@ def create_chat_message(request, conversation_uid:UUID, data: PatchDict[MutateCh
     if recipient.type == UserType.BUSINESS.value and user.type == UserType.BUSINESS.value:
         raise HttpError(403, "Not allowed")
 
-    attachments = data.pop("attachments", [])
-    message = Message.objects.create(conversation=conversation, sender=user, **data)
-    MessageAttachment.objects.bulk_create([
-        MessageAttachment(message=message, file=attachment["file"], file_type=attachment["file_type"].value) for attachment in attachments
-    ])
+    message = Message.objects.create(conversation=conversation, sender=user, body=body.body, job_post=body.job_post)
+    if attachments:
+        message_attachments = list()
+        for attachment in attachments:
+            content_type = attachment.content_type.split("/")[-1]
+            if content_type in ("jpg", "jpeg", "gif", "png"):
+                file_type = ChatMessageAttachmentType.IMAGE.value
+            elif content_type in ("mp3", "ogg", "mpeg", "wav"):
+                file_type = ChatMessageAttachmentType.AUDIO.value
+            elif content_type in ("mp4", "3gp"):
+                file_type = ChatMessageAttachmentType.VIDEO.value
+            else:
+                file_type = ChatMessageAttachmentType.DOCUMENT.value
+            message_attachments.append(MessageAttachment(message=message, file=attachment, file_type=file_type))
+        MessageAttachment.objects.bulk_create(message_attachments)
     return Response(status=200, data={"message": "Message sent successfully"})
 
 @router.post("users/{user_id}/start-conversation", auth=JWTAuth(), response={200: ResponseSchema})

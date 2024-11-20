@@ -11,7 +11,8 @@ from accounts.models import User, VerificationCode, Country, Talent, EducationLe
 from accounts.views.talent import router
 from chats.models import Conversation, Message
 from core.models import Language, Currency
-from jobs.enums import LunchBreakEnum, WorkStructureEnum, StageType, JobStatusType
+from factories import WorkflowStageFactory
+from jobs.enums import LunchBreakEnum, WorkStructureEnum, PhaseType, JobStatusType
 from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, RequiredAttribute, AvailableDay, \
     JobApplication, JobInterview
 
@@ -517,6 +518,7 @@ class TalentDashboardTests(TestCase):
             user=self.user,
             country=self.country
         )
+        stage = WorkflowStageFactory.create(phase=PhaseType.INTERVIEW.value)
         self.auth = JWTAuth()
         self.auth.authenticate = lambda r: self.user
         self.department = Department.objects.first()
@@ -632,7 +634,7 @@ class TalentDashboardTests(TestCase):
             applicant=self.talent,
             is_available=True,
             accept_privacy=True,
-            stage=StageType.INTERVIEW.value,
+            stage=stage,
             match=5
         )
         JobInterview.objects.create(
