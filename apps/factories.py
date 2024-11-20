@@ -253,8 +253,9 @@ class JobApplicationFactory(DjangoModelFactory):
     class Meta:
         model = JobApplication
     job_post = factory.SubFactory(JobPostFactory)
-    applicant = factory.SubFactory(UserFactory)
+    applicant = factory.SubFactory(TalentFactory)
     recruiter = factory.SubFactory(BusinessUserFactory)
+
 
 class JobApplicationWithdrawalFactory(DjangoModelFactory):
     class Meta:
