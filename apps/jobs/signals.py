@@ -25,7 +25,7 @@ def handle_stage_update(sender, instance,  **kwargs):
                 # bypass to current stage
                 for i in range(index):
                     current_attribute = attributes[i]
-                    setattr(instance, current_attribute, 0)
+                    setattr(instance, current_attribute, 0) # setting jumped timelines to 0
                 current_attribute = attributes[index]
                 setattr(instance, current_attribute, (today - instance.job_post.date_posted).days)
                 setattr(instance, "stage_date_updated", today)
@@ -36,7 +36,7 @@ def handle_stage_update(sender, instance,  **kwargs):
                 if prev_index < index:
                     for i in range(prev_index+1, index):
                         current_attribute = attributes[i]
-                        setattr(instance, current_attribute, 0)
+                        setattr(instance, current_attribute, 0) # setting jumped timelines to 0
                     current_attribute = attributes[index]
                     setattr(instance, current_attribute, (today - instance.stage_date_updated).days)
                     setattr(instance, "stage_date_updated", today)
