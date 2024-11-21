@@ -248,6 +248,29 @@ class JobPostFactory(DjangoModelFactory):
     annual_salary_max = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
     annual_salary_currency = factory.SubFactory(CurrencyFactory)
 
+class EmailTemplateFactory(DjangoModelFactory):
+    class Meta:
+        model = EmailTemplate
+
+    sender = factory.Sequence(lambda n: f'sender{n}@example.com')
+    subject = factory.lazy_attribute(lambda _: fake.sentence()[:30])
+    template  = factory.lazy_attribute(lambda _: fake.sentence()[:100])
+    created_by = factory.SubFactory(BusinessUserFactory)
+    personal = factory.Iterator([True, False])
+    delays = factory.Iterator([0, 1, 2, 3, 4, 5])
+    bcc = factory.lazy_attribute(lambda _: [fake.email() for x in range(5)])
+    cc = factory.lazy_attribute(lambda _: [fake.email() for x in range(5)])
+
+
+class WorkflowStageFactory(DjangoModelFactory):
+    class Meta:
+        model = WorkFlowStage
+
+    phase = factory.Iterator([*filter(lambda x: x not in (PhaseType.REJECTED.value, PhaseType.HIRED.value), PhaseType.values())])
+    name = factory.Faker('sentence', nb_words=5)
+    email_template = factory.SubFactory(EmailTemplateFactory)
+    created_by = factory.SubFactory(BusinessUserFactory)
+    is_active = factory.Iterator([True, False])
 
 class JobApplicationFactory(DjangoModelFactory):
     class Meta:
@@ -255,6 +278,15 @@ class JobApplicationFactory(DjangoModelFactory):
     job_post = factory.SubFactory(JobPostFactory)
     applicant = factory.SubFactory(TalentFactory)
     recruiter = factory.SubFactory(BusinessUserFactory)
+    stage_date_updated = factory.Faker("date_time")
+
+    @factory.post_generation
+    def create_stage(self, create, extracted, **kwargs):
+        if create:
+            if not self.stage:
+                self.stage = WorkflowStageFactory.create(created_by=self.recruiter)
+                self.save()
+
 
 
 class JobApplicationWithdrawalFactory(DjangoModelFactory):
@@ -263,6 +295,7 @@ class JobApplicationWithdrawalFactory(DjangoModelFactory):
     job_post = factory.SubFactory(JobPostFactory)
     feedback = factory.Faker('sentence', nb_words=50)
     feedback_type = factory.Iterator(WithdrawalFeedbackType.indices())
+
 
 
 class ConversationFactory(DjangoModelFactory):
@@ -292,26 +325,3 @@ class MessageFactory(DjangoModelFactory):
     body = factory.Faker('sentence', nb_words=50)
 
 
-class EmailTemplateFactory(DjangoModelFactory):
-    class Meta:
-        model = EmailTemplate
-
-    sender = factory.Sequence(lambda n: f'sender{n}@example.com')
-    subject = factory.lazy_attribute(lambda _: fake.sentence()[:30])
-    template  = factory.lazy_attribute(lambda _: fake.sentence()[:100])
-    created_by = factory.SubFactory(BusinessUserFactory)
-    personal = factory.Iterator([True, False])
-    delays = factory.Iterator([0, 1, 2, 3, 4, 5])
-    bcc = factory.lazy_attribute(lambda _: [fake.email() for x in range(5)])
-    cc = factory.lazy_attribute(lambda _: [fake.email() for x in range(5)])
-
-
-class WorkflowStageFactory(DjangoModelFactory):
-    class Meta:
-        model = WorkFlowStage
-
-    phase = factory.Iterator(PhaseType.values())
-    name = factory.Faker('sentence', nb_words=5)
-    email_template = factory.SubFactory(EmailTemplateFactory)
-    created_by = factory.SubFactory(BusinessUserFactory)
-    is_active = factory.Iterator([True, False])

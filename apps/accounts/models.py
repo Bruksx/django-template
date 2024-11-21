@@ -1,3 +1,4 @@
+import logging
 import random
 import secrets
 import string
@@ -5,10 +6,6 @@ from datetime import timedelta, date, datetime
 from typing import List
 from uuid import UUID
 
-from accounts.dtos import TokenDto
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessUserStatusType
-from core.models import BaseModel
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
@@ -16,10 +13,14 @@ from django.db.models import Q, Count, F, Value, Avg, IntegerField
 from django.db.models.functions import Concat, Cast
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType
 from ninja_jwt.exceptions import AuthenticationFailed
 from ninja_jwt.tokens import RefreshToken
 
+from accounts.dtos import TokenDto
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
+    BusinessUserStatusType
+from core.models import BaseModel
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType
 from notification.enums import NotificationGroup
 
 
@@ -661,6 +662,60 @@ class Business(BaseModel):
                           )) for data in  data_list]
         return sorted(data_list, key=lambda x: x["days_to_hire"], reverse=True)
 
+    @staticmethod
+    def job_role_stage_timeline(job_role_id, stages):
+        from jobs.models import TalentApplicationStageTimeline
+
+        stage_timelines = (
+            TalentApplicationStageTimeline.objects.filter(job_role_id=job_role_id, stage__in=stages)
+            .values("stage_id")
+            .annotate(avg_timeline=Avg("timeline"))
+        )
+
+        stage_timeline_map = {item["stage_id"]: item["avg_timeline"] or 0 for item in stage_timelines}
+
+        data_list = [
+            {
+                "stage": stage.name,
+                "avg_timeline": stage_timeline_map.pop(stage.id, 0),
+            }
+            for stage in stages
+        ]
+
+        total_timeline = sum(item["avg_timeline"] for item in data_list)
+
+        return {
+            "graph": data_list,
+            "time_to_hire": total_timeline,
+        }
+
+    def time_to_hire_stage(self):
+        from jobs.models import TalentApplicationStageTimeline
+        from settings.models import WorkFlowStage
+        stages = (
+            WorkFlowStage.objects.filter(created_by__business=self)
+            .order_by("order", "phase_order")
+            .exclude(phase__in=(PhaseType.ONBOARDING, PhaseType.REJECTED))
+        )
+        timelines = (
+            TalentApplicationStageTimeline.objects.filter(
+                stage__created_by__business=self,
+                application__stage__phase=PhaseType.HIRED.value,
+            )
+            .values("job_role")
+            .annotate(
+                role_id=F("job_role__id"),
+                role_name=F("job_role__name"),
+            )
+            .distinct()
+        )
+        return [
+            {
+                "role": role["role_name"],
+                **self.job_role_stage_timeline(role["role_id"], stages),
+            }
+            for role in timelines
+        ]
 
     def withdrawal_reasons(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplicationWithdrawal
@@ -772,6 +827,29 @@ class Business(BaseModel):
                 }
             )
         return sorted(data_list, key=lambda x: x["count"], reverse=True)
+
+    def talent_at_each_stage(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
+        from jobs.models import JobApplication
+        application = JobApplication.objects.filter(
+                recruiter__business=self,
+                stage__isnull=False
+        )
+        if start_date and not end_date:
+            application = application.filter(created_at__gte=start_date)
+        elif end_date and not start_date:
+            application = application.filter(created_at__lte=end_date)
+        elif start_date and end_date:
+            application = application.filter(created_at__range=[start_date, end_date])
+        if role_id:
+            application = application.filter(job_post__job__role_id=role_id)
+        if client:
+            application = application.filter(job_post__job__hiring_company_name=client)
+        return application.values("stage_id").annotate(
+            stage_name=F("stage__name"),
+            order=F("stage__order"),
+            phase_order=F("stage__phase_order"),
+            count=Count("stage_id")
+        ).order_by("-count", "order", "phase_order").values("stage_name", "count")
 
 
 class VerificationCode(BaseModel):

@@ -258,8 +258,17 @@ class JobApplication(BaseModel):
         return {key_converter(placeholder):self.placeholders_mapper(placeholder) for placeholder in stage_placeholders}
 
 
+
     def __str__(self) -> str:
         return f"{self.job_post} ({self.applicant})"
+
+
+
+class TalentApplicationStageTimeline(BaseModel):
+    application = models.ForeignKey(JobApplication, on_delete=models.CASCADE)
+    job_role = models.ForeignKey("accounts.Role", on_delete=models.CASCADE)
+    stage = models.ForeignKey("settings.WorkflowStage", on_delete=models.CASCADE)
+    timeline = models.PositiveSmallIntegerField(default=0)
 
 
 class SavedJob(BaseModel):

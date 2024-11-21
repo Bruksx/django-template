@@ -10,8 +10,7 @@ from notification import notifications
 
 
 @receiver(pre_save, sender=JobApplication)
-def handle_stage_update(sender, instance,  **kwargs):
-    # might be changed too
+def handle_phase_timeline_update(sender, instance,  **kwargs):
     phases = [PhaseType.SCREENING.value, PhaseType.INTERVIEW.value,
               PhaseType.ONBOARDING.value, PhaseType.HIRED.value]
     attributes = ["posted_timeline", "screening_timeline", "interview_timeline", "onboarding_timeline"]
@@ -64,9 +63,68 @@ def handle_stage_update(sender, instance,  **kwargs):
                     current_timeline = getattr(instance, current_attribute)
                     current_timeline += subtracted_days
                     setattr(instance, current_attribute, current_timeline)
+
+
+@receiver(pre_save, sender=JobApplication)
+def handle_stage_update(sender, instance,  **kwargs):
+    if instance.id:
+        application = JobApplication.objects.get(id=instance.id)
+        if application.stage != instance.stage:
             if instance.stage and instance.stage.email_template:
                 context = instance.get_email_context()
                 instance.stage.email_template.send_email(context=context, to=[instance.applicant.user.email])
+
+
+@receiver(pre_save, sender=JobApplication)
+def handle_stage_timeline_update(sender, instance,  **kwargs):
+    today = timezone.now()
+    if instance.id:
+        application = JobApplication.objects.get(id=instance.id)
+        if application.stage != instance.stage:
+            if application.stage is None:
+                # if application is new and is being moved to next stage
+                # bypass to current stage
+                instance.stage.update_talent_stage_timeline(instance)
+                previous_stages = instance.stage.previous_stages()
+                for stage in previous_stages:
+                    stage.update_talent_stage_timeline(instance)
+            else:
+                logging.critical("REACHED HERE OOOOOO")
+                # if an application is moved from a stage to another in a forward movement
+                prev_stage = application.stage
+                if instance.stage.is_after(prev_stage):
+                    previous_stages = instance.stage.previous_stages_after_stage(prev_stage)
+                    if previous_stages:
+                        for stage in previous_stages:
+                            stage.update_talent_stage_timeline(instance, 0)
+                    prev_stage.update_talent_stage_timeline(instance, (today - instance.stage_date_updated).days)
+                    instance.stage.update_talent_stage_timeline(instance)
+                    instance.stage_date_updated = today
+                elif instance.stage.is_behind(prev_stage):
+                    # if an application is moved from a stage to another in a backward movement
+                    past_stages = instance.stage.next_stages_before_stage(prev_stage)
+                    if past_stages:
+                        accumulated_days = 0
+                        for stage in past_stages:
+                            stage_timeline = stage.get_talent_stage_timeline(instance)
+                            accumulated_days += stage_timeline.timeline
+                            stage_timeline.timeline = 0
+                            stage_timeline.save()
+                        """ 
+                            if current stage value doesnt change 
+                            and stage_date_updated is updated to the stage_date_updated at 
+                            the time initial stage movement happened
+                        """
+                        # stage_date_updated = application.stage_date_updated - timedelta(days=subtracted_days)
+                        # setattr(instance, "stage_date_updated", stage_date_updated)
+
+                        """
+                            if current stage value changes, then stage_date_updated is not updated
+                            then subtracted days will be added to the current stage value
+                        """
+                        instance.stage.update_talent_stage_timeline(instance, accumulated_days)
+
+
 
 @receiver(pre_save, sender=JobPost)
 def handle_job_post_date(sender, instance, **kwargs):

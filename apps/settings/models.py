@@ -3,6 +3,8 @@ import re
 from datetime import datetime, timedelta
 from typing import List
 
+from django.db.models import Q, Avg
+
 from core.models import BaseModel
 from django.db import models
 from django.template import Template, Context, TemplateSyntaxError
@@ -113,9 +115,100 @@ class WorkFlowStage(BaseModel):
     email_template = models.ForeignKey(EmailTemplate, on_delete=models.SET_NULL, null=True)
     created_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True)
     is_active = models.BooleanField(default=True)
+    phase_order = models.PositiveSmallIntegerField(default=0)
+    order = models.PositiveSmallIntegerField(default=0)
+
+
+    def applicants(self):
+        return self.jobapplication_set
+
+
+    def average_timeline_by_talent(self):
+        return self.talentapplicationstagetimeline_set.aggregate(
+            avg_timeline=Avg("tineline")
+        )["avg_timeline"] or 0
+
+
 
     def can_be_deactivated(self):
-        return self.jobapplication_set.count() == 0
+        return self.applicants().count() == 0
+
+    def previous_stages(self):
+        """
+        stages before this stage
+        """
+        return WorkFlowStage.objects.filter(
+            created_by__business=self.created_by.business,
+            phase_order__lte=self.phase_order
+        ).filter(Q(order__lt=self.order, phase_order=self.phase_order) |
+                 ~Q(phase_order=self.phase_order))
+
+    def previous_stages_after_stage(self, stage):
+        """
+        stages before this stage then stopping at the
+        stage passed to this function
+        """
+        if not self.is_after(stage):
+            return WorkFlowStage.objects.none()
+
+        return self.previous_stages().filter(
+            phase_order__gte=stage.phase_order
+        ).exclude(
+            phase_order=stage.phase_order, order__lt=stage.order
+        )
+
+    def next_stages(self):
+        """
+        stages after this stage
+        """
+        return WorkFlowStage.objects.filter(
+            created_by__business=self.created_by.business,
+            phase_order__gte=self.phase_order
+        ).filter(Q(order__gt=self.order, phase_order=self.phase_order) |
+                 ~Q(phase_order=self.phase_order))
+
+    def next_stages_before_stage(self, stage):
+        """
+            stages after this stage but stopping at the
+            stage passed to this function
+        """
+        if self.is_behind(stage):
+            return WorkFlowStage.objects.none()
+
+        return self.next_stages().filter(
+            phase_order__lte=stage.phase_order
+        ).exclude(
+            phase_order=stage.phase_order, order__gt=stage.order
+        )
+
+    def is_behind(self, stage):
+        return (self.phase_order < stage.phase_order or
+                (self.phase_order == stage.phase_order and self.order < stage.order))
+
+    def is_after(self, stage):
+        return (self.phase_order > stage.phase_order or
+                (self.phase_order == stage.phase_order and self.order > stage.order))
+
+    def update_talent_stage_timeline(self, application, days: int = None):
+        stage_timeline, created = application.talentapplicationstagetimeline_set.get_or_create(
+            stage=self,
+            job_role=application.job_post.job.role,
+            defaults={"timeline": days if days is not None else 0},
+        )
+
+        if not created and days is not None:
+            stage_timeline.timeline = days
+            stage_timeline.save()
+
+    def get_talent_stage_timeline(self, application):
+        stage_timeline, _ = application.talentapplicationstagetimeline_set.get_or_create(
+            stage=self,
+            job_role=application.job_post.job.role,
+        )
+        return stage_timeline
+
+
+
 
 
 
