@@ -1,6 +1,7 @@
 from typing import List
 from uuid import UUID
 
+from config.permissions import IsBusinessUser
 from ninja import Router, Form, UploadedFile, PatchDict
 from ninja.errors import HttpError
 from ninja.responses import Response
@@ -8,11 +9,9 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import BusinessUserRoleType
 from jobs.enums import PhaseType
+from settings.models import EmailTemplate, EmailTemplateAttachment, WorkFlowStage
 from settings.schemas import MutateEmailTemplateSchema, EmailTemplateListSchema, EmailTemplateDetailSchema, \
     MutateWorkFlowStageSchema, WorkFlowStageSchema, PhaseWorkFlowStageSchema
-
-from settings.models import EmailTemplate, EmailTemplateAttachment, WorkFlowStage
-from config.permissions import IsBusinessUser
 
 router = Router(tags=["Settings"])
 
@@ -21,9 +20,9 @@ def create_email_template(request, body:MutateEmailTemplateSchema=Form(), attach
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     if EmailTemplate.objects.filter(created_by__business=business_user.business, name__iexact=body.name).exists():
-        raise HttpError("An email template with this name already exists")
+        raise HttpError(400, "An email template with this name already exists")
     data = body.__dict__.copy()
-    data["placeholders"] = [placeholder.value for placeholder in data["placeholders"]]
+    MutateEmailTemplateSchema.is_valid(data=data)
     template = EmailTemplate.objects.create(**data, created_by=business_user)
     if attachments:
         EmailTemplateAttachment.objects.bulk_create(
@@ -43,12 +42,11 @@ def update_email_template(request, template_uid:UUID, data:PatchDict[MutateEmail
         raise HttpError(404, "This email template does not exist")
     if "name" in data and EmailTemplate.objects.filter(created_by__business=business_user.business,
                                     name__iexact=data["name"]).exclude(uid=template_uid).exists():
-        raise HttpError("An email template with this name already exists")
+        raise HttpError(400, "An email template with this name already exists")
     if business_user.role not in [BusinessUserRoleType.OWNER.value, BusinessUserRoleType.ADMIN.value] and \
         template.created_by != business_user:
         raise HttpError(403, "You do not have permission to update this email template")
-    if "placeholders" in data:
-        data["placeholders"] = [placeholder.value for placeholder in data["placeholders"]]
+    MutateEmailTemplateSchema.is_valid(data=data, instance=template)
     template.update(**data)
     return Response(status=200, data={"message": "email template has been updated successfully"})
 
@@ -70,7 +68,7 @@ def add_attachments_to_email_template(request, template_uid:UUID, attachments: L
 @router.delete("email-templates/{template_uid}/attachments", auth=JWTAuth())
 def remove_attachments_from_email_template(request, template_uid:UUID, data: List[UUID]):
     IsBusinessUser.check(request)
-    template = EmailTemplate.objects.filter(uid=template_uid).first()
+    template = EmailTemplate.objects.filter(uid=template_uid, created_by__business=request.user.businessuser.business).first()
     if not template:
         raise HttpError(404, "This email template does not exist")
     attachments = EmailTemplateAttachment.objects.filter(email_template=template, uid__in=data)
@@ -88,41 +86,47 @@ def retrieve_all_email_templates(request):
 @router.get("email-templates/{template_uid}", auth=JWTAuth(), response=EmailTemplateDetailSchema)
 def retrieve_email_template(request, template_uid:UUID):
     IsBusinessUser.check(request)
-    template = EmailTemplate.objects.filter(uid=template_uid).first()
+    business = request.user.businessuser.business
+    template = EmailTemplate.objects.filter(uid=template_uid, created_by__business=business).first()
     if not template:
         raise HttpError(404, "This email template does not exist")
     return template
 
 
-@router.post("workflows/stage", auth=JWTAuth())
+@router.post("workflows/stages", auth=JWTAuth())
 def create_workflow_stage(request, data: MutateWorkFlowStageSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     if WorkFlowStage.objects.filter(created_by__business=business_user.business, name__iexact=data.name,
                                     phase=data.phase.value).exists():
-        raise HttpError("A workflow stage with this name in this phase already exists")
+        raise HttpError(400, "A workflow stage with this name in this phase already exists")
     WorkFlowStage.objects.create(**data.dict(), created_by=business_user)
     return Response(status=201, data={"message": "workflow stage has been created successfully"})
 
-@router.patch("workflows/stage/{stage_uid}", auth=JWTAuth())
+@router.patch("workflows/stages/{stage_uid}", auth=JWTAuth())
 def update_workflow_stage(request, stage_uid:UUID, data:PatchDict[MutateWorkFlowStageSchema]):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    stage = WorkFlowStage.objects.filter(uid=stage_uid).first()
+    stage = WorkFlowStage.objects.filter(uid=stage_uid, created_by__business=business_user.business).first()
     if not stage:
         raise HttpError(404, "This workflow stage does not exist")
     if business_user.role not in [BusinessUserRoleType.OWNER.value, BusinessUserRoleType.ADMIN.value] and \
         stage.created_by != business_user:
         raise HttpError(403, "You do not have permission to update this workflow stage")
-    if stage.is_active is True and data["is_active"] is False and stage.can_be_deactivated() is False:
-        raise HttpError("This workflow stage cannot be deactivated")
     if "phase" in data:
         data["phase"] = data["phase"].value
+    phase = data.get("phase", stage.phase)
+    if "name" in data and  WorkFlowStage.objects.filter(created_by__business=business_user.business, name__iexact=data["name"],
+                                    phase=phase).exclude(id=stage.id).exists():
+        raise HttpError(400, "A workflow stage with this name in this phase already exists")
+    if "is_active" in data and stage.is_active is True and data["is_active"] is False and stage.can_be_deactivated() is False:
+        raise HttpError(400, "This workflow stage cannot be deactivated")
+
     stage.update(**data)
     return Response(status=200, data={"message": "workflow stage has been updated successfully"})
 
 
-@router.get("workflows/stage", auth=JWTAuth(), response=List[PhaseWorkFlowStageSchema])
+@router.get("workflows/stages", auth=JWTAuth(), response=List[PhaseWorkFlowStageSchema])
 def retrieve_all_workflow_stages(request):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser

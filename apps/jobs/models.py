@@ -220,15 +220,30 @@ class JobApplication(BaseModel):
     stage_date_updated = models.DateTimeField(null=True)
 
     def placeholders_mapper(self, placeholder:str):
-        if placeholder == PlaceHolderType.CANDIDATE_EMAIL.value:
-            if not self.applicant:
+        if placeholder == PlaceHolderType.YOUR_COMPANY_NAME.value:
+            if not self.recruiter:
                 return ""
-            return self.applicant.user.email
-        elif placeholder == PlaceHolderType.CANDIDATE_FULL_NAME.value:
+            return self.recruiter.business.name
+        elif placeholder == PlaceHolderType.CANDIDATE_FULLNAME.value:
             if not self.applicant:
                 return ""
             return self.applicant.user.fullname
-        #TODO more placeholders will be checked
+        elif placeholder == PlaceHolderType.JOB_APPLIED_TO.value:
+            if not self.job_post:
+                return ""
+            return self.job_post.job.title
+        elif placeholder == PlaceHolderType.CANDIDATE_FIRST_NAME.value:
+            if not self.applicant:
+                return ""
+            return self.applicant.user.first_name
+        elif placeholder == PlaceHolderType.YOUR_FIRST_NAME.value:
+            if not self.recruiter:
+                return ""
+            return self.recruiter.user.first_name
+        elif placeholder == PlaceHolderType.CANDIDATE_PHONE_NUMBER.value:
+            if not self.applicant:
+                return ""
+            return self.applicant.user.phone_number
         else:
             return ""
 
@@ -239,7 +254,8 @@ class JobApplication(BaseModel):
         if not self.stage.email_template:
             return dict()
         stage_placeholders = self.stage.email_template.placeholders
-        return {placeholder:self.placeholders_mapper(placeholder) for placeholder in stage_placeholders}
+        key_converter = self.stage.email_template.convert_placeholder_to_key
+        return {key_converter(placeholder):self.placeholders_mapper(placeholder) for placeholder in stage_placeholders}
 
 
     def __str__(self) -> str:
