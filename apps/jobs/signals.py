@@ -1,5 +1,3 @@
-import logging
-
 from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -89,7 +87,6 @@ def handle_stage_timeline_update(sender, instance,  **kwargs):
                 for stage in previous_stages:
                     stage.update_talent_stage_timeline(instance)
             else:
-                logging.critical("REACHED HERE OOOOOO")
                 # if an application is moved from a stage to another in a forward movement
                 prev_stage = application.stage
                 if instance.stage.is_after(prev_stage):

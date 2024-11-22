@@ -1,5 +1,4 @@
-import logging
-from datetime import date, timezone, datetime, timedelta
+from datetime import date, timezone, datetime
 from decimal import Decimal
 
 from django.test import TestCase
@@ -440,12 +439,6 @@ class BusinessModelTests(TestCase):
         for app_id in last_sub_application_ids:
             j = JobApplication.objects.get(id=app_id)
             j.update(stage=self.hired_stage)
-        date_time = datetime.now() - timedelta(days=90)
-        logging.critical(JobApplication.objects.filter(
-            recruiter__business=self.business,
-            stage__phase=PhaseType.HIRED.value,
-
-        ).values("stage_date_updated"))
         data = self.business.hires_last_3_months()
         self.assertEqual(len(data), self.sub_data)
 
