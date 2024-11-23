@@ -99,6 +99,7 @@ class WorkFlowStageModelTest(TestCase):
         JobApplicationFactory.create(
             stage=self.stage
         )
+        self.stage.refresh_from_db()
         self.assertFalse(self.stage.can_be_deactivated())
 
 

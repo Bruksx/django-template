@@ -1,5 +1,4 @@
-import logging
-from datetime import date, timezone, datetime, timedelta
+from datetime import date, timezone, datetime
 from decimal import Decimal
 
 from django.test import TestCase
@@ -289,6 +288,7 @@ class BusinessModelTests(TestCase):
     def setUp(self):
         business = BusinessFactory.create()
         recruiters = BusinessUserFactory.create_batch(size=self.max_data, business=business)
+        self.business_user = recruiters[0]
         job_post_list = []
         country = CountryFactory.create()
         currency = CurrencyFactory.create()
@@ -331,6 +331,9 @@ class BusinessModelTests(TestCase):
                 JobApplicationWithdrawalFactory.create(job_post=job_post_list[index], talent=talent)
         self.business = business
         self.country = country
+        self.hired_stage = WorkflowStageFactory.create(phase=PhaseType.HIRED.value,
+                                                  created_by=self.business_user)
+
 
     def test_total_hires(self):
         last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[:self.sub_data]
@@ -353,14 +356,13 @@ class BusinessModelTests(TestCase):
         self.assertEqual(self.business.total_applicants(), self.max_data+1)
 
     def test_average_days_to_hire(self):
-        hired_stage = WorkflowStageFactory.create(phase=PhaseType.HIRED.value)
         last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
                                    :self.sub_data]
         self.assertEqual(self.business.average_days_to_hire(), 0)
         days_to_hire_list = list()
         for app_id in last_sub_application_ids:
             j = JobApplication.objects.get(id=app_id)
-            j.update(stage=hired_stage)
+            j.update(stage=self.hired_stage)
             days_to_hire_list.append(j.days_to_hire)
         self.assertAlmostEqual(self.business.average_days_to_hire(),
                          sum(days_to_hire_list)/self.sub_data)
@@ -377,51 +379,46 @@ class BusinessModelTests(TestCase):
 
 
     def test_total_location_of_hires(self):
-        hired_stage = WorkflowStageFactory.create(phase=PhaseType.HIRED.value)
         last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
                                    :self.sub_data]
         self.assertEqual(self.business.total_location_of_hires(), 0)
-        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=hired_stage)
+        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=self.hired_stage)
         self.assertEqual(self.business.total_location_of_hires(), 1)
 
     def test_recruiter_performance(self):
-        hired_stage = WorkflowStageFactory.create(phase=PhaseType.HIRED.value)
         last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
                                    :self.sub_data]
         count, _ = self.business.recruiter_performance()
         self.assertEqual(count, 0)
-        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=hired_stage)
+        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=self.hired_stage)
         count, _ = self.business.recruiter_performance()
         self.assertEqual(count, self.sub_data)
 
 
     def test_location_of_hires(self):
-        hired_stage = WorkflowStageFactory.create(phase=PhaseType.HIRED.value)
         last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
                                    :self.sub_data]
         count, _ = self.business.location_of_hires()
         self.assertEqual(count, 0)
-        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=hired_stage)
+        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=self.hired_stage)
         count, _ = self.business.location_of_hires()
         self.assertEqual(count, 1)
 
     def test_hired_genders(self):
-        hired_stage = WorkflowStageFactory.create(phase=PhaseType.HIRED.value)
         last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
                                    :self.sub_data]
         count, _ = self.business.hired_genders()
         self.assertEqual(count, 0)
-        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=hired_stage)
+        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=self.hired_stage)
         count, _ = self.business.hired_genders()
         self.assertEqual(count, self.sub_data)
 
     def test_time_to_hire(self):
-        hired_stage = WorkflowStageFactory.create(phase=PhaseType.HIRED.value)
         last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
                                    :self.sub_data]
         for app_id in last_sub_application_ids:
             j = JobApplication.objects.get(id=app_id)
-            j.update(stage=hired_stage)
+            j.update(stage=self.hired_stage)
         data = self.business.time_to_hire()
         self.assertGreater(len(data), 0)
 
@@ -435,20 +432,13 @@ class BusinessModelTests(TestCase):
         self.assertEqual(count, (self.sub_data * self.sub_data)+1)
 
     def test_hires_last_3_months(self):
-        hired_stage = WorkflowStageFactory.create(phase=PhaseType.HIRED.value)
         data = self.business.hires_last_3_months()
         self.assertEqual(len(data), 0)
         last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
                                    :self.sub_data]
         for app_id in last_sub_application_ids:
             j = JobApplication.objects.get(id=app_id)
-            j.update(stage=hired_stage)
-        date_time = datetime.now() - timedelta(days=90)
-        logging.critical(JobApplication.objects.filter(
-            recruiter__business=self.business,
-            stage__phase=PhaseType.HIRED.value,
-
-        ).values("stage_date_updated"))
+            j.update(stage=self.hired_stage)
         data = self.business.hires_last_3_months()
         self.assertEqual(len(data), self.sub_data)
 
@@ -457,15 +447,36 @@ class BusinessModelTests(TestCase):
         self.assertEqual(len(data), 5)
 
 
-    def test_talent_at_each_stage(self):
-        hired_stage = WorkflowStageFactory.create(phase=PhaseType.HIRED.value)
+    def test_talent_at_each_phase(self):
         data = self.business.talent_at_each_phase()
-        self.assertNotEqual(data[0]["phase"], "hired")
-        self.assertEqual(data[0]["count"], 0)
+        hired_phase = list(filter(lambda x: x["phase"] == PhaseType.HIRED.value, data))[0]
+        self.assertEqual(hired_phase["count"], 0)
         last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
                                    :self.sub_data]
-        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=hired_stage)
+        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=self.hired_stage)
         data = self.business.talent_at_each_phase()
-        self.assertEqual(data[0]["phase"], "hired")
-        self.assertGreater(data[0]["count"], 0)
+        hired_phase = list(filter(lambda x: x["phase"] == PhaseType.HIRED.value, data))[0]
+        self.assertEqual(hired_phase["count"], self.sub_data)
+
+    def test_talent_at_each_stage(self):
+        data = self.business.talent_at_each_stage()
+        self.assertIn("stage_name", data[0])
+        self.assertIn("count", data[0])
+
+    def test_time_to_hire_stage(self):
+        data = self.business.time_to_hire_stage()
+        self.assertEqual(data, list())
+        last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
+                                   :self.sub_data]
+        applications = JobApplication.objects.filter(id__in=last_sub_application_ids)
+        for application in applications:
+            application.update(stage=self.hired_stage)
+        data = self.business.time_to_hire_stage()
+        self.assertNotEqual(data, list())
+        self.assertIn("role", data[0])
+        self.assertIn("graph" , data[0])
+        self.assertIn("time_to_hire", data[0])
+        self.assertTrue(isinstance(data[0]["graph"], list))
+        self.assertIn("stage", data[0]["graph"][0])
+        self.assertIn("avg_timeline", data[0]["graph"][0])
 
