@@ -133,7 +133,24 @@ class BusinessDashboardTestCase(TestCase):
     sub_data = 2
     def setUp(self):
         self.client = TestClient(router)
-
+        self.dashboard_keys = [
+            "hires",
+            "open_roles",
+            "applicants",
+            "avg_days_to_hire",
+            "invitations_sent",
+            "hires_last_3_months",
+            "recruiter_performance",
+            "applicant_gender",
+            "hires_location",
+            "time_to_hire",
+            "stage_timelines",
+            "withdrawal_reasons",
+            "applicants_years_of_experience",
+            "talents_by_phase",
+            "talents_by_stage",
+            "uid"
+        ]
         business = BusinessFactory.create()
         recruiters = BusinessUserFactory.create_batch(size=self.max_data, business=business)
         job_post_list = []
@@ -195,24 +212,8 @@ class BusinessDashboardTestCase(TestCase):
         headers = {
             "authorization": f"bearer {self.staff.user.token}"
         }
-        dashboard_keys = [
-            "hires",
-            "open_roles",
-            "applicants",
-            "avg_days_to_hire",
-            "invitations_sent",
-            "hires_last_3_months",
-            "recruiter_performance",
-            "applicant_gender",
-            "hires_location",
-            "time_to_hire",
-            "withdrawal_reasons",
-            "applicants_years_of_experience",
-            "talent_per_phase",
-            "uid"
-        ]
         response = self.client.get("dashboard", headers=headers)
-        for key in dashboard_keys:
+        for key in self.dashboard_keys:
             self.assertIn(key, response.json())
         self.assertEqual(response.status_code, 200)
 
@@ -232,24 +233,8 @@ class BusinessDashboardTestCase(TestCase):
             "client": job.hiring_company_name
         }
         query = "/dashboard?" + urlencode(filters)
-        dashboard_keys = [
-            "hires",
-            "open_roles",
-            "applicants",
-            "avg_days_to_hire",
-            "invitations_sent",
-            "hires_last_3_months",
-            "recruiter_performance",
-            "applicant_gender",
-            "hires_location",
-            "time_to_hire",
-            "withdrawal_reasons",
-            "applicants_years_of_experience",
-            "talent_per_phase",
-            "uid"
-        ]
         response = self.client.get(query, headers=headers)
-        for key in dashboard_keys:
+        for key in self.dashboard_keys:
             self.assertIn(key, response.json())
 
         self.assertEqual(response.status_code, 200)

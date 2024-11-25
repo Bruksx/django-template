@@ -460,22 +460,22 @@ class BusinessModelTests(TestCase):
 
     def test_talent_at_each_stage(self):
         data = self.business.talent_at_each_stage()
-        self.assertIn("stage_name", data[0])
+        self.assertIn("stage", data[0])
         self.assertIn("count", data[0])
 
     def test_time_to_hire_stage(self):
-        data = self.business.time_to_hire_stage()
+        data = self.business.time_to_hire_via_stage()
         self.assertEqual(data, list())
         last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
                                    :self.sub_data]
         applications = JobApplication.objects.filter(id__in=last_sub_application_ids)
         for application in applications:
             application.update(stage=self.hired_stage)
-        data = self.business.time_to_hire_stage()
+        data = self.business.time_to_hire_via_stage()
         self.assertNotEqual(data, list())
         self.assertIn("role", data[0])
         self.assertIn("graph" , data[0])
-        self.assertIn("time_to_hire", data[0])
+        self.assertIn("days_to_hire", data[0])
         self.assertTrue(isinstance(data[0]["graph"], list))
         self.assertIn("stage", data[0]["graph"][0])
         self.assertIn("avg_timeline", data[0]["graph"][0])
