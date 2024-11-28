@@ -78,6 +78,16 @@ class TimeToHireSchema(Schema):
     onboarding: int
     days_to_hire: int
 
+class StageTimelineSchema(Schema):
+    stage: str
+    avg_timeline: int
+
+class TimeToHireViaStages(Schema):
+    role: str
+    graph: List[StageTimelineSchema]
+    days_to_hire: int
+
+
 class WithdrawalReasonSchemaList(Schema):
     reason: str
     count: int
@@ -92,8 +102,12 @@ class ApplicantsYearsOfExperienceSchema(Schema):
     count:int
 
 
-class TalentPerPhase(Schema):
+class TalentByPhase(Schema):
     phase: str
+    count: int
+
+class TalentByStage(Schema):
+    stage: str
     count: int
 
 class DashboardSchema(ModelSchema):
@@ -109,9 +123,11 @@ class DashboardSchema(ModelSchema):
     applicant_gender:ApplicationGenderSchema
     hires_location:HiresByCountrySchema
     time_to_hire:List[TimeToHireSchema]
+    stage_timelines: List[TimeToHireViaStages]
     withdrawal_reasons: WithdrawalReasonSchema
     applicants_years_of_experience: List[ApplicantsYearsOfExperienceSchema]
-    talent_per_phase:List[TalentPerPhase]
+    talents_by_phase:List[TalentByPhase]
+    talents_by_stage: List[TalentByStage]
 
     class Meta:
         model = Business
@@ -185,6 +201,16 @@ class DashboardSchema(ModelSchema):
                         obj, context
                     )
                 )]
+    @staticmethod
+    def resolve_stage_timelines(obj, context):
+        return [
+            TimeToHireViaStages(**data) for data in
+            obj.time_to_hire_via_stage(
+                **DashboardSchema.get_context(
+                    obj, context
+                )
+            )
+        ]
 
     @staticmethod
     def resolve_withdrawal_reasons(obj, context):
@@ -202,8 +228,14 @@ class DashboardSchema(ModelSchema):
 
 
     @staticmethod
-    def resolve_talent_per_phase(obj, context):
-        return [TalentPerPhase(**data) for data in obj.talent_at_each_phase(
+    def resolve_talents_by_phase(obj, context):
+        return [TalentByPhase(**data) for data in obj.talent_at_each_phase(
+            **DashboardSchema.get_context(obj, context)
+        )]
+
+    @staticmethod
+    def resolve_talents_by_stage(obj, context):
+        return [TalentByStage(**data) for data in obj.talent_at_each_stage(
             **DashboardSchema.get_context(obj, context)
         )]
 

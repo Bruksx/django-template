@@ -15,8 +15,6 @@ from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
 from ninja_jwt.exceptions import AuthenticationFailed
 from ninja_jwt.tokens import RefreshToken
-
-from accounts.dtos import TokenDto
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
     BusinessUserStatusType
 from core.models import BaseModel
@@ -113,12 +111,6 @@ class User(AbstractUser, BaseModel):
     def token(self):
         refresh = RefreshToken.for_user(self)
         return str(refresh.access_token)
-
-    def tokens(self)->TokenDto:
-        if not self.is_active:
-            raise AuthenticationFailed("This user is blocked")
-        refresh_token = RefreshToken.for_user(self)
-        return TokenDto(access_token=str(refresh_token.access_token), refresh_token=str(refresh_token))
 
 
     def photo_url(self):
@@ -672,7 +664,7 @@ class Business(BaseModel):
             .annotate(avg_timeline=Avg("timeline"))
         )
 
-        stage_timeline_map = {item["stage_id"]: item["avg_timeline"] or 0 for item in stage_timelines}
+        stage_timeline_map = {item["stage_id"]: int(item["avg_timeline"] or 0) for item in stage_timelines}
 
         data_list = [
             {
@@ -686,10 +678,10 @@ class Business(BaseModel):
 
         return {
             "graph": data_list,
-            "time_to_hire": total_timeline,
+            "days_to_hire": total_timeline,
         }
 
-    def time_to_hire_stage(self):
+    def time_to_hire_via_stage(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import TalentApplicationStageTimeline
         from settings.models import WorkFlowStage
         stages = (
@@ -697,11 +689,22 @@ class Business(BaseModel):
             .order_by("order", "phase_order")
             .exclude(phase__in=(PhaseType.ONBOARDING, PhaseType.REJECTED))
         )
-        timelines = (
-            TalentApplicationStageTimeline.objects.filter(
+        timelines = TalentApplicationStageTimeline.objects.prefetch_related("application").filter(
                 stage__created_by__business=self,
                 application__stage__phase=PhaseType.HIRED.value,
             )
+        if start_date and not end_date:
+            timelines = timelines.filter(application__stage_date_updated__gte=start_date)
+        elif end_date and not start_date:
+            timelines = timelines.filter(application__stage_date_updated__lte=end_date)
+        elif start_date and end_date:
+            timelines = timelines.filter(application__stage_date_updated__range=[start_date, end_date])
+        if role_id:
+            timelines = timelines.filter(application__job_post__job__role_id=role_id)
+        if client:
+            timelines = timelines.filter(application__job_post__job__hiring_company_name=client)
+        timelines = (
+            timelines
             .values("job_role")
             .annotate(
                 role_id=F("job_role__id"),
@@ -830,6 +833,7 @@ class Business(BaseModel):
 
     def talent_at_each_stage(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
+        from settings.models import WorkFlowStage
         application = JobApplication.objects.filter(
                 recruiter__business=self,
                 stage__isnull=False
@@ -844,12 +848,14 @@ class Business(BaseModel):
             application = application.filter(job_post__job__role_id=role_id)
         if client:
             application = application.filter(job_post__job__hiring_company_name=client)
-        return application.values("stage_id").annotate(
-            stage_name=F("stage__name"),
-            order=F("stage__order"),
-            phase_order=F("stage__phase_order"),
-            count=Count("stage_id")
-        ).order_by("-count", "order", "phase_order").values("stage_name", "count")
+        stages = WorkFlowStage.objects.filter(created_by__business=self).order_by("order", "phase_order").only("id", "name")
+        return [
+            dict(
+                stage=stage.name,
+                count=application.filter(stage_id=stage.id).count()
+            )
+            for stage in stages
+        ]
 
 
 class VerificationCode(BaseModel):
