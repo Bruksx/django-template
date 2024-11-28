@@ -157,7 +157,13 @@ class JobPost(BaseModel):
         "accounts.BusinessUser", 
         null=True, 
         on_delete=models.SET_NULL, 
-        related_name="recruiting_job_posts"
+        related_name="recruiter"
+    )
+    posted_by = models.ForeignKey(
+        "accounts.BusinessUser",
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="posted_by"
     )
 
 

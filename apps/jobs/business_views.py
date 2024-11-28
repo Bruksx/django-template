@@ -4,15 +4,16 @@ from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
-from ninja import Router
+from ninja import Router, PatchDict
 from ninja.errors import HttpError
 from ninja.responses import Response
 from ninja_extra.pagination import (
-    paginate, PageNumberPaginationExtra, PaginatedResponseSchema
+    PaginatedResponseSchema
 )
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Department, Role, SkillCategory, Country
+from paginations import CustomPageNumberPaginationExtra
 from . import schemas as job_schemas
 from .enums import JobStatusType
 from .models import (
@@ -20,7 +21,8 @@ from .models import (
 )
 from .schemas import (
     EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
-    JobFullDetailSchema, JobLevelSchema, TalentListJobPostSchema
+    JobFullListSchema, JobLevelSchema, TalentListJobPostSchema, JobDetailSchema, JobListPaginatedSchema,
+    JobWorkflowViewPaginatedSchema
 )
 
 router = Router(tags=["Business Jobs"])
@@ -75,7 +77,7 @@ def get_business_models(request, search=""):
     return queryset
 
 
-@router.post("", response=JobFullDetailSchema, auth=JWTAuth())
+@router.post("", response=JobDetailSchema, auth=JWTAuth())
 @transaction.atomic
 def create_job(request, data:CreateJobSchema):
     IsBusinessUser.check(request)
@@ -102,15 +104,6 @@ def set_required_attributes(request, data:job_schemas.MutateRequiredAttributeSch
     return required_attributes
 
 
-@router.patch("job-post/{job_post_uid}/post", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
-def post_job_post(request, job_post_uid: UUID):
-    IsBusinessUser.check(request)
-    business_user = request.user.businessuser
-    job_post = get_object_or_404(JobPost, uid=job_post_uid, job__created_by=business_user)
-    job_post.update(status=JobStatusType.POSTED.value)
-    return job_post
-
-
 @router.delete("job-post/{job_post_uid}", auth=JWTAuth())
 def delete_job_post(request, job_post_uid:UUID):
     IsBusinessUser.check(request)
@@ -119,17 +112,18 @@ def delete_job_post(request, job_post_uid:UUID):
     return {"message": "deleted"}
 
 
-@router.put("job-post/{job_post_uid}", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
-def edit_job_post(request, job_post_uid, data: job_schemas.JobPostDetailSchema):
+@router.patch("job-post/{job_post_uid}", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
+def edit_job_post(request, job_post_uid, data: PatchDict[job_schemas.MutateJobPostSchema]):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     job_post = get_object_or_404(JobPost, uid=job_post_uid, job__created_by=business_user)
-    del data.uid
-    job_post.update(**data.dict())
+    if "status" in data:
+        data["status"] = data["status"].value
+    job_post.update(**data)
     return job_post
 
 
-@router.post("job-post/add/{job_uid}", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
+@router.post("{job_uid}/job-post", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
 def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
@@ -160,11 +154,26 @@ def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
         query = Q(user__first_name__icontains=search) | Q(user__last_name__icontains=search)
     return job_post.get_talents().filter(query)
 
-
-"TODO: add custom pagination class to control page size"
-@router.get("list", response=PaginatedResponseSchema[JobFullDetailSchema], auth=JWTAuth())
-@paginate(PageNumberPaginationExtra, page_size=50)
-def job_list(request):
+@router.get("", response=JobWorkflowViewPaginatedSchema, auth=JWTAuth())
+def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    return Job.objects.filter(created_by=business_user)
+    queryset = Job.objects.prefetch_related("jobpost_set").filter(created_by=business_user, jobpost__id__isnull=False)
+    if search:
+        queryset = queryset.filter(Q(title__icontains=search)|
+                                   Q(role__name__icontains=search)|
+                                   Q(hiring_company_name=search))
+    if status:
+        queryset = queryset.filter(Q(status=status.value)|Q(
+            jobpost__status=status.value
+        ))
+
+    pagination_class = CustomPageNumberPaginationExtra(page_size=page_size)
+    pagination = pagination_class.Input(page=page, page_size=page_size)
+    return pagination_class.paginate_queryset(
+        queryset=queryset,
+        request=request,
+        pagination=pagination,
+        roles=queryset.count(),
+        posts=business_user.business.job_posts().filter(job__in=queryset).count()
+    )

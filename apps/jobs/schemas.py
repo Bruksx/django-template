@@ -1,17 +1,19 @@
-from datetime import time
+from datetime import time, datetime
 from decimal import Decimal
 from typing import List
 from typing import Optional
 from uuid import UUID
 
-from accounts.models import Department, Role, Skill, SkillCategory, Talent
-from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySchema, EducationLevelSchema
 from ninja import ModelSchema
 from ninja.schema import Schema
+from ninja_extra.schemas import PaginatedResponseSchema
 from pydantic import Field, EmailStr
 
+from accounts.enums import BusinessUserRoleType
+from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
+from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySchema, EducationLevelSchema
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
-    WithdrawalFeedbackType
+    WithdrawalFeedbackType, PhaseType, JobStatusType
 from .models import BusinessModel, JobFilter, JobApplication
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
 from .models import (
@@ -33,18 +35,25 @@ class JobPostSchema(ModelSchema):
         fields = ["province", "postal_code"]
 
 
+class BusinessUserSchema(ModelSchema):
+    name:str = Field(alias="user.fullname")
+    email:EmailStr = Field(alias="user.email")
+    class Meta:
+        model = BusinessUser
+        fields = ["uid", "role"]
+
 class MutateJobPostSchema(ModelSchema):
-    annual_salary_min: float | None
-    annual_salary_max: float | None
-    annual_bonus_min: float | None
-    annual_bonus_max: float | None
-    annual_bonus_currency_uid: UUID
-    annual_salary_currency_uid: UUID
+    annual_bonus_currency_uid: Optional[UUID] = None
+    annual_salary_currency_uid: Optional[UUID] = None
+    status: Optional[JobStatusType] = None
+    recruiter_uid: Optional[UUID] = None
+
+
     country_code: str
     class Meta:
         model = JobPost
-        fields = ["uid", "province", "postal_code", "status"]
-
+        fields = ["province", "postal_code", "annual_salary_min", "annual_salary_max",
+                  "annual_bonus_min", "annual_bonus_max"]
 
 class QuestionOptionSchema(ModelSchema):
     class Meta:
@@ -161,6 +170,8 @@ class JobPostDetailSchema(ModelSchema):
     annual_bonus_currency: str = ""
     annual_salary_currency: str = ""
     country: GenericNameAndUidSchema | None
+    recruiter: Optional[BusinessUserSchema]
+
 
     class Meta:
         model = JobPost
@@ -174,9 +185,7 @@ class JobPostDetailSchema(ModelSchema):
     def resolve_annual_salary_currency(obj: JobPost):
         return obj.annual_bonus_currency.abbreviation
 
-
-
-class JobDetailSchema(Schema):
+class JobDetailSchema(ModelSchema):
     uid: UUID
     annual_salary_min: float
     annual_salary_max: float
@@ -203,13 +212,151 @@ class JobDetailSchema(Schema):
         return AvailableDay.objects.filter(job=obj)
 
 
-class JobFullDetailSchema(JobDetailSchema):
-    job_posts: list[JobPostDetailSchema]
+class JobPostListSchema(ModelSchema):
+    role: Optional[str]
+    client: str = Field(alias="job.hiring_company_name")
+    location: str = Field(alias="country.name")
+    applicants: int
+    posted_by: Optional[str]
+
+    class Meta:
+        model = JobPost
+        fields = ["uid", "status", "date_posted"]
+
+
+    @staticmethod
+    def resolve_role(obj):
+        if not obj.job.role:
+            return None
+        return obj.job.role.name
+
+    @staticmethod
+    def resolve_applicants(obj):
+        return obj.jobapplication_set.count()
+
+    @staticmethod
+    def resolve_posted_by(obj):
+        if obj.posted_by:
+            return obj.posted_by.user.fullname
+        return None
+
+
+class JobFullListSchema(ModelSchema):
+    job_posts: List[JobPostListSchema]
+    role: Optional[str]
+    client:str = Field(alias="hiring_company_name")
+    location: Optional[str]
+    applicants:int
+    posted_by: Optional[str]
+    date_posted: datetime = Field(alias="created_at")
+    status: Optional[str]
+
+    class Meta:
+        model = Job
+        fields = ["uid",]
+
+    @staticmethod
+    def resolve_status(obj):
+        value = JobFullListSchema.resolve_location(obj)
+        if value not in ("Multiple", None):
+            return obj.jobpost_set.first().status
+        return None
 
     @staticmethod
     def resolve_job_posts(obj):
-        return JobPost.objects.filter(job=obj)
+        return obj.jobpost_set
 
+    @staticmethod
+    def resolve_role(obj):
+        if not obj.role:
+            return None
+        return obj.role.name
+
+    @staticmethod
+    def resolve_location(obj):
+        job_posts= obj.jobpost_set
+        if job_posts.count() == 0:
+            return None
+        elif job_posts.count() == 1:
+            country = job_posts.first().country
+            return country.name if country else None
+        else:
+            return "Multiple"
+
+    @staticmethod
+    def resolve_applicants(obj):
+        return JobApplication.objects.filter(job_post__job=obj).count()
+
+    @staticmethod
+    def resolve_posted_by(obj):
+        if obj.created_by:
+            return obj.created_by.user.fullname
+        return None
+
+
+
+class JobListPaginatedSchema(PaginatedResponseSchema[JobFullListSchema]):
+    roles: int
+    posts: int
+
+class JobPostWorkflowViewSchema(JobPostListSchema):
+    screening: int
+    interview: int
+    onboarding: int
+    hired: int
+    rejected: int
+
+    @staticmethod
+    def resolve_screening(obj):
+        return JobApplication.objects.filter(job_post=obj, stage__phase=PhaseType.SCREENING.value).count()
+
+    @staticmethod
+    def resolve_interview(obj):
+        return JobApplication.objects.filter(job_post=obj, stage__phase=PhaseType.INTERVIEW.value).count()
+
+    @staticmethod
+    def resolve_onboarding(obj):
+        return JobApplication.objects.filter(job_post=obj, stage__phase=PhaseType.ONBOARDING.value).count()
+
+    @staticmethod
+    def resolve_hired(obj):
+        return JobApplication.objects.filter(job_post=obj, stage__phase=PhaseType.HIRED.value).count()
+
+    @staticmethod
+    def resolve_rejected(obj):
+        return JobApplication.objects.filter(job_post=obj, stage__phase=PhaseType.REJECTED.value).count()
+
+class JobFullWorkflowViewSchema(JobFullListSchema):
+    job_posts: List[JobPostWorkflowViewSchema]
+    screening: int
+    interview: int
+    onboarding: int
+    hired: int
+    rejected: int
+
+    @staticmethod
+    def resolve_screening(obj):
+        return JobApplication.objects.filter(job_post__job=obj, stage__phase=PhaseType.SCREENING.value).count()
+
+    @staticmethod
+    def resolve_interview(obj):
+        return JobApplication.objects.filter(job_post__job=obj, stage__phase=PhaseType.INTERVIEW.value).count()
+
+    @staticmethod
+    def resolve_onboarding(obj):
+        return JobApplication.objects.filter(job_post__job=obj, stage__phase=PhaseType.ONBOARDING.value).count()
+
+    @staticmethod
+    def resolve_hired(obj):
+        return JobApplication.objects.filter(job_post__job=obj, stage__phase=PhaseType.HIRED.value).count()
+
+    @staticmethod
+    def resolve_rejected(obj):
+        return JobApplication.objects.filter(job_post__job=obj, stage__phase=PhaseType.REJECTED.value).count()
+
+class JobWorkflowViewPaginatedSchema(PaginatedResponseSchema[JobFullWorkflowViewSchema]):
+    roles: int
+    posts: int
 
 class JobLevelSchema(ModelSchema):
     class Meta:

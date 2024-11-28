@@ -857,6 +857,10 @@ class Business(BaseModel):
             for stage in stages
         ]
 
+    def job_posts(self):
+        from jobs.models import JobPost
+        return JobPost.objects.filter(job__created_by__business=self)
+
 
 class VerificationCode(BaseModel):
     def default_code():
