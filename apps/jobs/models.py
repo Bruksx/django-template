@@ -51,6 +51,7 @@ class Job(BaseModel):
         (PAID, PAID),
         (UNPAID, UNPAID)
     )
+    logo = models.ImageField(upload_to="jobs/logos", null=True, blank=True)
     created_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True)
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     hiring_company_name = models.CharField(max_length=64, null=True)
@@ -90,7 +91,8 @@ class Job(BaseModel):
         related_name="recruiting_jobs"
     )
     same_job_post_recruiter = models.BooleanField(default=False)
-    benefits = models.TextField(null=True)
+    benefits = models.JSONField(default=list)
+    responsibilities = models.JSONField(default=list)
     share_compensation = models.BooleanField(default=True)
     status = models.CharField(max_length=16, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
     additional_hours_min = models.IntegerField(default=0)
@@ -107,6 +109,9 @@ class Job(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.title}({self.uid})"
+
+    def logo_url(self):
+        return self.logo.url if self.logo else None
 
     def business_logo(self):
         return self.created_by.business.get_logo()
@@ -125,6 +130,30 @@ class Job(BaseModel):
             )
             working_hours_query |= day_query
         return working_hours_query
+
+    def get_available_days(self):
+        from jobs.schemas import JobAvailableDaySchema
+
+        data = list()
+        for value in Days.values():
+            availability = self.availableday_set.filter(day=value).first()
+            data.append({
+                "day": value,
+                "availability": JobAvailableDaySchema.from_orm(availability) if availability else None
+            })
+        return data
+
+    def get_skills(self):
+        from jobs.schemas import SkillSchema, JobSkillSchema
+        from accounts.models import SkillCategory
+        categories = SkillCategory.objects.only("id", "name")
+        data = list()
+        for category in categories:
+            data.append(JobSkillSchema(
+                category=category.name,
+                skills=[SkillSchema.from_orm(skill) for skill in self.skills.filter(category_id=category.id)]
+            ))
+        return data
 
 
 
@@ -198,6 +227,28 @@ class JobPost(BaseModel):
         if required_attribute.working_hours:
             query = query | Q(talentavailableday__id__in=TalentAvailableDay.objects.filter(job.availability_query()).only("id").values_list("id", flat=True))
         return Talent.objects.select_related("user").filter(query).distinct()
+
+    def phase_data(self):
+        def get_phase_count():
+            phase_dt = list(filter(lambda x: x["stage_phase"] == phase, data_set))
+            return phase_dt[0]["count"] if len(phase_dt) > 0 else 0
+        applications = self.jobapplication_set
+        data = [
+            {"key": "applicants", "count": applications.count()},
+            {"key": "new", "count": applications.filter(stage__isnull=True).count()},
+        ]
+        data_set = applications.filter(stage__isnull=False).values("stage__phase")\
+            .annotate(count=models.Count("stage__phase",
+                     stage_phase=F("stage__phase")))\
+            .order_by("stage_phase").values("stage_phase", "count")
+        for phase in PhaseType.values():
+            data.append({
+                "key": phase,
+                "count": get_phase_count()
+            })
+        return data
+
+
 
 
 
@@ -386,6 +437,18 @@ class RequiredAttribute(BaseModel):
         if self.location:
             score += 1
         return score
+
+    def get_skills(self):
+        from jobs.schemas import SkillSchema, JobSkillSchema
+        from accounts.models import SkillCategory
+        categories = SkillCategory.objects.only("id", "name")
+        data = list()
+        for category in categories:
+            data.append(JobSkillSchema(
+                category=category.name,
+                skills=[SkillSchema.from_orm(skill) for skill in self.skills.filter(category_id=category.id)]
+            ))
+        return data
 
 
 

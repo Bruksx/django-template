@@ -7,9 +7,6 @@ from django.shortcuts import get_object_or_404
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
 from ninja.responses import Response
-from ninja_extra.pagination import (
-    PaginatedResponseSchema
-)
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Department, Role, SkillCategory, Country
@@ -21,8 +18,7 @@ from .models import (
 )
 from .schemas import (
     EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
-    JobFullListSchema, JobLevelSchema, TalentListJobPostSchema, JobDetailSchema, JobListPaginatedSchema,
-    JobWorkflowViewPaginatedSchema
+    JobLevelSchema, TalentListJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema
 )
 
 router = Router(tags=["Business Jobs"])
@@ -75,16 +71,6 @@ def get_business_models(request, search=""):
     if search:
         queryset = queryset.filter(name__icontains=search)
     return queryset
-
-
-@router.post("", response=JobDetailSchema, auth=JWTAuth())
-@transaction.atomic
-def create_job(request, data:CreateJobSchema):
-    IsBusinessUser.check(request)
-    business_user = request.user.businessuser
-    job = Job.objects.create_job(business_user=business_user, data=data)
-    return job
-
 
 @router.patch("set-required-attributes/{job_uid}", response=job_schemas.RequiredAttributeSchema, auth=JWTAuth())
 def set_required_attributes(request, data:job_schemas.MutateRequiredAttributeSchema, job_uid:UUID):
@@ -142,6 +128,16 @@ def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
     job_post.save()
     return job_post
 
+
+@router.get("job-posts/{job_post_uid}", response=job_schemas.JobPostFullDetailSchema, auth=JWTAuth())
+def get_job_post_detail(request, job_post_uid):
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
+    job_post = JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business).first()
+    if not job_post:
+        raise HttpError(404, "Job Post not found")
+    return job_post
+
 @router.get("job-posts/{job_post_uid}/talents", response=list[TalentListJobPostSchema], auth=JWTAuth())
 def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
     IsBusinessUser.check(request)
@@ -153,6 +149,15 @@ def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
     if search:
         query = Q(user__first_name__icontains=search) | Q(user__last_name__icontains=search)
     return job_post.get_talents().filter(query)
+
+@router.post("", response=JobDetailSchema, auth=JWTAuth())
+@transaction.atomic
+def create_job(request, data:CreateJobSchema):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    job = Job.objects.create_job(business_user=business_user, data=data)
+    return job
+
 
 @router.get("", response=JobWorkflowViewPaginatedSchema, auth=JWTAuth())
 def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None):
@@ -177,3 +182,12 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
         roles=queryset.count(),
         posts=business_user.business.job_posts().filter(job__in=queryset).count()
     )
+
+@router.get("{job_uid}", response=job_schemas.JobDetailSchema, auth=JWTAuth())
+def job_detail(request, job_uid:UUID):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    job = Job.objects.filter(created_by__business=business_user.business, uid=job_uid).first()
+    if not job:
+        raise HttpError(404, "This job does not exist")
+    return job

@@ -9,7 +9,7 @@ from ninja.schema import Schema
 from ninja_extra.schemas import PaginatedResponseSchema
 from pydantic import Field, EmailStr
 
-from accounts.enums import BusinessUserRoleType
+from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySchema, EducationLevelSchema
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
@@ -20,11 +20,48 @@ from .models import (
     RequiredAttribute
 )
 
+class GenericNameAndUidSchema(Schema):
+    uid: UUID
+    name: str
 
-class AvailabilitySchema(Schema):
+class JobLevelSchema(ModelSchema):
+    class Meta:
+        model = JobLevel
+        exclude = [*READ_EXCLUDE_FIELDS]
+
+class BusinessModelSchema(ModelSchema):
+    class Meta:
+        model = BusinessModel
+        exclude = [*READ_EXCLUDE_FIELDS]
+
+
+class SkillSchema(ModelSchema):
+    department: GenericNameAndUidSchema
+    class Meta:
+        model = Skill
+        fields = ("uid",  "name")
+
+
+class JobSkillSchema(Schema):
+    category :str
+    skills : List[SkillSchema]
+
+class MutateJobAvailableDaySchema(ModelSchema):
+    uid: Optional[UUID] = None
+    active: Optional[bool] = True
+    day: Days
+    class Meta:
+        model = AvailableDay
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "job"]
+
+class JobAvailableDaySchema(ModelSchema):
+    class Meta:
+        model = AvailableDay
+        fields = ("uid", "start_time", "end_time")
+
+class JobAvailabilitySchema(Schema):
     day: str
-    start_time: time
-    end_time: time
+    availability: Optional[JobAvailableDaySchema] = None
 
 
 class JobPostSchema(ModelSchema):
@@ -47,9 +84,7 @@ class MutateJobPostSchema(ModelSchema):
     annual_salary_currency_uid: Optional[UUID] = None
     status: Optional[JobStatusType] = None
     recruiter_uid: Optional[UUID] = None
-
-
-    country_code: str
+    country_uid: Optional[UUID] = None
     class Meta:
         model = JobPost
         fields = ["province", "postal_code", "annual_salary_min", "annual_salary_max",
@@ -73,7 +108,7 @@ class QuestionSchema(ModelSchema):
 class CreateJobSchema(Schema):
     title: str
     employment_type_uid: UUID
-    availability: list[AvailabilitySchema]
+    availability: list[MutateJobAvailableDaySchema]
     work_structure: WorkStructureEnum
     technological_requirements: TechnologicalRequirementsEnum
     first_language_uid: UUID
@@ -130,12 +165,6 @@ class RoleSchema(ModelSchema):
         fields = ["uid", "name"]
 
 
-class SkillSchema(ModelSchema):
-    class Meta:
-        model = Skill
-        fields = ["uid", "name"]
-
-
 class SkillCategorySchema(Schema):
     uid: UUID
     category_name: str
@@ -156,10 +185,6 @@ class SkillCategorySchema(Schema):
         if search:
             queryset = queryset.filter(name__icontains=search)
         return [SkillSchema.from_orm(skill) for skill in queryset]
-    
-class GenericNameAndUidSchema(Schema):
-    uid: UUID
-    name: str
 
 
 class JobPostDetailSchema(ModelSchema):
@@ -185,31 +210,64 @@ class JobPostDetailSchema(ModelSchema):
     def resolve_annual_salary_currency(obj: JobPost):
         return obj.annual_bonus_currency.abbreviation
 
+class RequiredAttributeSchema(ModelSchema):
+    business_model: list[BusinessModelSchema]
+    skills: List[JobSkillSchema]
+
+    class Meta:
+        model = RequiredAttribute
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid", "skills"]
+
+    @staticmethod
+    def resolve_skills(obj):
+        return obj.get_skills()
+
+
 class JobDetailSchema(ModelSchema):
     uid: UUID
-    annual_salary_min: float
-    annual_salary_max: float
-    annual_bonus_min: float
-    annual_bonus_max: float
-    employment_type: GenericNameAndUidSchema
-    availability: list[AvailabilitySchema]
+    logo_url: Optional[str]
+    responsibilities: List[str]
+    benefits: List[str]
+    skills: List[JobSkillSchema]
+    employment_type: Optional[GenericNameAndUidSchema]
+    department: Optional[GenericNameAndUidSchema]
+    job_level: Optional[GenericNameAndUidSchema]
+    role: Optional[GenericNameAndUidSchema]
+    business_models: List[GenericNameAndUidSchema]
+    minimum_education_level: Optional[GenericNameAndUidSchema]
+    availability: List[JobAvailabilitySchema]
+    qualification: Optional[GenericNameAndUidSchema]
+    first_language: Optional[GenericNameAndUidSchema]
+    required_attribute: Optional[RequiredAttributeSchema]
+
 
     class Meta:
         model = Job
         fields = [
-            "title", "hiring_company_name", "hiring_company_description", "work_structure", "office_address","lunch_break",
-            "additional_hours_min", "additional_hours_max", "annual_salary_min", "annual_salary_max",
-            "annual_salary_currency", "annual_bonus_min", "annual_bonus_max", "annual_bonus_currency", "benefits",
-            "share_compensation", "employment_type"
+            "title", "hiring_company_name", "hiring_company_description", "about", "years_of_experience",
+            "technological_requirement", "work_structure", "office_address","lunch_break",
+            "additional_hours_min", "additional_hours_max",
+            "share_compensation",
         ]
     
     @staticmethod
     def resolve_availability_timezone(obj):
         return str(obj.availability_timezone)
+
+    @staticmethod
+    def resolve_skills(obj):
+        return obj.get_skills()
     
     @staticmethod
     def resolve_availability(obj):
-        return AvailableDay.objects.filter(job=obj)
+        return obj.get_available_days()
+
+    @staticmethod
+    def resolve_required_attribute(obj):
+        if not hasattr(obj, "requiredattribute"):
+            return None
+        return obj.requiredattribute
+
 
 
 class JobPostListSchema(ModelSchema):
@@ -294,7 +352,6 @@ class JobFullListSchema(ModelSchema):
         return None
 
 
-
 class JobListPaginatedSchema(PaginatedResponseSchema[JobFullListSchema]):
     roles: int
     posts: int
@@ -358,15 +415,28 @@ class JobWorkflowViewPaginatedSchema(PaginatedResponseSchema[JobFullWorkflowView
     roles: int
     posts: int
 
-class JobLevelSchema(ModelSchema):
-    class Meta:
-        model = JobLevel
-        exclude = [*READ_EXCLUDE_FIELDS]
 
-class BusinessModelSchema(ModelSchema):
+class JobApplicationCountSchema(Schema):
+    key: str
+    count: int
+
+
+class JobPostFullDetailSchema(ModelSchema):
+    applications: List[JobApplicationCountSchema]
+    job: JobDetailSchema
+    annual_salary_min: float
+    annual_salary_max: float
+    annual_bonus_min: float
+    annual_bonus_max: float
+    country: GenericNameAndUidSchema
+    recruiter: Optional[BusinessUserSchema]
+    posted_by: Optional[BusinessUserSchema]
+
+
     class Meta:
-        model = BusinessModel
-        exclude = [*READ_EXCLUDE_FIELDS]
+        model = JobPost
+        fields = ["uid", "status", "date_posted",
+                  "province", "postal_code"]
 
 
 class MutateRequiredAttributeSchema(ModelSchema):
@@ -375,38 +445,6 @@ class MutateRequiredAttributeSchema(ModelSchema):
     class Meta:
         model = RequiredAttribute
         exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid"]
-
-
-class RequiredAttributeSkillCategory(ModelSchema):
-    uid: UUID
-    name: str
-    skills: List[SkillSchema] = None
-
-    class Meta:
-        model = SkillCategory
-        fields = ["uid", "name"]
-
-
-class RequiredAttributeSchema(ModelSchema):
-    business_model: list[BusinessModelSchema]
-    skill_categories: list[RequiredAttributeSkillCategory]
-
-    class Meta:
-        model = RequiredAttribute
-        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid", "skills"]
-
-    @staticmethod
-    def resolve_skill_categories(obj):
-        result = []
-        for category in  SkillCategory.objects.all():
-            skills = obj.skills.filter(category=category)
-            category_json = RequiredAttributeSkillCategory(
-                uid=category.uid,
-                name=category.name,
-                skills=skills
-            )
-            result.append(category_json)
-        return result
 
 
 class JobListSchema(ModelSchema):
