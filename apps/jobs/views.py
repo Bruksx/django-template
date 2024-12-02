@@ -10,7 +10,7 @@ from ninja.responses import Response
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
 from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
-
+from typing import LiteralString, Literal, Optional
 from jobs import tasks
 from jobs.enums import JobStatusType
 from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob

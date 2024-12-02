@@ -1,20 +1,24 @@
+import logging
+from typing import Optional, Literal, List
 from uuid import UUID
 
-from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
+from ninja.pagination import paginate
 from ninja.responses import Response
+from ninja_extra.pagination import PageNumberPaginationExtra
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Department, Role, SkillCategory, Country
 from paginations import CustomPageNumberPaginationExtra
 from . import schemas as job_schemas
-from .enums import JobStatusType
+from .enums import JobStatusType, PhaseType
 from .models import (
-    EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute
+    EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication
 )
 from .schemas import (
     EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
@@ -22,6 +26,8 @@ from .schemas import (
 )
 
 router = Router(tags=["Business Jobs"])
+pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
+
 
 @router.get("employment-types", response=list[EmploymentTypeSchema], tags=["Common"])
 def get_employment_types(request, search=""):
@@ -163,7 +169,7 @@ def create_job(request, data:CreateJobSchema):
 def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    queryset = Job.objects.prefetch_related("jobpost_set").filter(created_by=business_user, jobpost__id__isnull=False)
+    queryset = Job.objects.prefetch_related("jobpost_set").filter(created_by__business=business_user.business, jobpost__id__isnull=False)
     if search:
         queryset = queryset.filter(Q(title__icontains=search)|
                                    Q(role__name__icontains=search)|
@@ -173,9 +179,8 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
             jobpost__status=status.value
         ))
 
-    pagination_class = CustomPageNumberPaginationExtra(page_size=page_size)
-    pagination = pagination_class.Input(page=page, page_size=page_size)
-    return pagination_class.paginate_queryset(
+    pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
+    return pagination_class(page_size).paginate_queryset(
         queryset=queryset,
         request=request,
         pagination=pagination,
@@ -191,3 +196,43 @@ def job_detail(request, job_uid:UUID):
     if not job:
         raise HttpError(404, "This job does not exist")
     return job
+
+@router.get("job-posts/{job_post_uid}/applicants", response=PaginatedResponseSchema[job_schemas.JobApplicationListSchema], auth=JWTAuth())
+def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Optional[PhaseType]=None,
+                    new_application=None,
+                    sort_by:Optional[Literal["applicant", "location",
+"match", "created_at", "stage", "phase", "experience"]]=None, asc:bool=True, search:str="", ):
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
+    queryset = JobApplication.objects.filter(job_post__uid=job_post_uid, recruiter__business=business)
+    if search:
+        queryset = queryset.filter(Q(
+            Q(applicant__user__fullname__icontains=search)|
+            Q(applicant__country__icontains=search)|
+            Q(applicant__user__email__icontains=search)
+        ))
+    if phase and not new_application:
+        queryset = queryset.filter(stage__phase=phase.value)
+    if new_application and not phase:
+        queryset = queryset.filter(stage__isnull=True)
+    if sort_by:
+        sign = "-" if asc is False else ""
+        if sort_by == "applicant":
+            queryset = queryset.order_by(f"{sign}applicant__user__fullname")
+        elif sort_by == "location":
+            queryset = queryset.order_by(f"{sign}applicant__country__name")
+        elif sort_by == "match":
+            queryset = queryset.order_by(f"{sign}match")
+        elif sort_by == "created_at":
+            queryset = queryset.order_by(f"{sign}created_at")
+        elif sort_by == "stage":
+            queryset = queryset.order_by(f"{sign}stage__order")
+        elif sort_by == "phase":
+            queryset = queryset.order_by(f"{sign}stage__phase_order")
+    pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
+    return pagination_class(page_size).paginate_queryset(
+        queryset=queryset,
+        request=request,
+        pagination=pagination
+    )
+

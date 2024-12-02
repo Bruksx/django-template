@@ -455,6 +455,38 @@ class JobListSchema(ModelSchema):
         model = Job
         fields = ["uid","title", "work_structure"]
 
+
+class JobApplicationListSchema(ModelSchema):
+    applicant_uid:UUID = Field(alias="applicant.uid")
+    applicant:str = Field(alias="applicant.user.fullname")
+    location:str = Field(alias="applicant.country.name")
+    experience:int
+    match:int
+    phase:str
+    stage:Optional[str] = None
+    applicant_photo:Optional[str] = Field(alias="applicant.photo_url")
+    class Meta:
+        model = JobApplication
+        fields = ("uid",  "created_at")
+
+    @staticmethod
+    def resolve_stage(obj):
+        if not obj.stage:
+            return
+        return obj.stage.name
+
+    @staticmethod
+    def resolve_phase(obj):
+        if not obj.stage:
+            return "new"
+        return obj.stage.phase
+
+    @staticmethod
+    def resolve_experience(obj):
+        return int(obj.applicant.years_of_experience)
+
+
+
 class TalentJobPostListSchema(ModelSchema):
     job: JobListSchema
     match_score: Optional[int]
