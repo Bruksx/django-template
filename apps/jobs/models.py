@@ -160,7 +160,7 @@ class Job(BaseModel):
 
 class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
-    status = models.CharField(max_length=16, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
+    status = models.CharField(max_length=16, choices=JobStatusType.choices(), default=JobStatusType.POSTED.value)
     date_posted = models.DateTimeField(null=True)
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     province = models.CharField(max_length=64, null=True)
@@ -238,8 +238,8 @@ class JobPost(BaseModel):
             {"key": "new", "count": applications.filter(stage__isnull=True).count()},
         ]
         data_set = applications.filter(stage__isnull=False).values("stage__phase")\
-            .annotate(count=models.Count("stage__phase",
-                     stage_phase=F("stage__phase")))\
+            .annotate(count=models.Count("stage__phase"),
+                     stage_phase=F("stage__phase"))\
             .order_by("stage_phase").values("stage_phase", "count")
         for phase in PhaseType.values():
             data.append({

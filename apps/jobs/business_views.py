@@ -1,15 +1,13 @@
-import logging
-from typing import Optional, Literal, List
+from typing import Optional, Literal
 from uuid import UUID
 
+from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
-from ninja.pagination import paginate
 from ninja.responses import Response
-from ninja_extra.pagination import PageNumberPaginationExtra
 from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
@@ -137,9 +135,11 @@ def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
 
 @router.get("job-posts/{job_post_uid}", response=job_schemas.JobPostFullDetailSchema, auth=JWTAuth())
 def get_job_post_detail(request, job_post_uid):
-    IsBusinessUser.check(request)
-    business = request.user.businessuser.business
-    job_post = JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business).first()
+    query = dict(uid=job_post_uid)
+    if hasattr(request.user, "businessuser"):
+        query["job__created_by__business"] = request.user.businessuser.business
+
+    job_post = JobPost.objects.filter(**query).first()
     if not job_post:
         raise HttpError(404, "Job Post not found")
     return job_post
@@ -169,7 +169,7 @@ def create_job(request, data:CreateJobSchema):
 def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    queryset = Job.objects.prefetch_related("jobpost_set").filter(created_by__business=business_user.business, jobpost__id__isnull=False)
+    queryset = Job.objects.prefetch_related("jobpost_set").filter(created_by__business=business_user.business)
     if search:
         queryset = queryset.filter(Q(title__icontains=search)|
                                    Q(role__name__icontains=search)|
@@ -177,7 +177,7 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
     if status:
         queryset = queryset.filter(Q(status=status.value)|Q(
             jobpost__status=status.value
-        ))
+        )).distinct()
 
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(
@@ -197,9 +197,9 @@ def job_detail(request, job_uid:UUID):
         raise HttpError(404, "This job does not exist")
     return job
 
-@router.get("job-posts/{job_post_uid}/applicants", response=PaginatedResponseSchema[job_schemas.JobApplicationListSchema], auth=JWTAuth())
+@router.get("job-posts/{job_post_uid}/applications", response=PaginatedResponseSchema[job_schemas.JobApplicationListSchema], auth=JWTAuth())
 def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Optional[PhaseType]=None,
-                    new_application=None,
+                    new_application:bool=None,
                     sort_by:Optional[Literal["applicant", "location",
 "match", "created_at", "stage", "phase", "experience"]]=None, asc:bool=True, search:str="", ):
     IsBusinessUser.check(request)
@@ -208,13 +208,16 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
     if search:
         queryset = queryset.filter(Q(
             Q(applicant__user__fullname__icontains=search)|
-            Q(applicant__country__icontains=search)|
+            Q(applicant__country__name__icontains=search)|
             Q(applicant__user__email__icontains=search)
-        ))
-    if phase and not new_application:
+        )).distinct()
+    if phase:
         queryset = queryset.filter(stage__phase=phase.value)
-    if new_application and not phase:
-        queryset = queryset.filter(stage__isnull=True)
+    if new_application is not None:
+        if new_application is True:
+            queryset = queryset.filter(stage__isnull=True)
+        else:
+            queryset = queryset.filter(stage__isnull=False)
     if sort_by:
         sign = "-" if asc is False else ""
         if sort_by == "applicant":

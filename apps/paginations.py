@@ -19,7 +19,6 @@ class CustomPageNumberPaginationExtra(PageNumberPaginationExtra):
 
     def get_paginated_response(self, base_url: str, page: Page, **kwargs) -> DictStrAny:
         added_fields = [(key, kwargs[key]) for key in kwargs]
-        print(added_fields)
         return OrderedDict(
             [
                 ('count', page.paginator.count),

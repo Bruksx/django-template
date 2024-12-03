@@ -234,7 +234,7 @@ class JobDetailSchema(ModelSchema):
     job_level: Optional[GenericNameAndUidSchema]
     role: Optional[GenericNameAndUidSchema]
     business_models: List[GenericNameAndUidSchema]
-    minimum_education_level: Optional[GenericNameAndUidSchema]
+    minimum_education_level: Optional[EducationLevelSchema]
     availability: List[JobAvailabilitySchema]
     qualification: Optional[GenericNameAndUidSchema]
     first_language: Optional[GenericNameAndUidSchema]
@@ -315,10 +315,11 @@ class JobFullListSchema(ModelSchema):
 
     @staticmethod
     def resolve_status(obj):
-        value = JobFullListSchema.resolve_location(obj)
-        if value not in ("Multiple", None):
+        if obj.jobpost_set.count() == 0:
+            return obj.status
+        elif obj.jobpost_set.count() == 1:
             return obj.jobpost_set.first().status
-        return None
+        return "Multiple"
 
     @staticmethod
     def resolve_job_posts(obj):
@@ -422,12 +423,12 @@ class JobApplicationCountSchema(Schema):
 
 
 class JobPostFullDetailSchema(ModelSchema):
-    applications: List[JobApplicationCountSchema]
+    applications: List[JobApplicationCountSchema] = Field(alias="phase_data")
     job: JobDetailSchema
-    annual_salary_min: float
-    annual_salary_max: float
-    annual_bonus_min: float
-    annual_bonus_max: float
+    annual_salary_min: Optional[float] = None
+    annual_salary_max: Optional[float] = None
+    annual_bonus_min: Optional[float] = None
+    annual_bonus_max: Optional[float] = None
     country: GenericNameAndUidSchema
     recruiter: Optional[BusinessUserSchema]
     posted_by: Optional[BusinessUserSchema]

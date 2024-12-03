@@ -15,7 +15,7 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
     today = timezone.now()
     if instance.id:
         application = JobApplication.objects.get(id=instance.id)
-        if application.stage != instance.stage and instance.stage.phase != PhaseType.REJECTED.value:
+        if instance.stage and application.stage != instance.stage and instance.stage.phase != PhaseType.REJECTED.value:
             index = phases.index(instance.stage.phase)
             if application.stage is None:
                 # if application is new and is being moved to next stage
@@ -62,12 +62,23 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
                     current_timeline += subtracted_days
                     setattr(instance, current_attribute, current_timeline)
 
+        elif application.stage and not instance.stage:
+            subtracted_days = 0
+            index = phases.index(application.stage.phase)
+            for i in (index, -1, -1):
+                current_attribute = attributes[i]
+                timeline = getattr(instance, current_attribute)
+                subtracted_days += timeline
+                setattr(instance, current_attribute, 0)
+                instance.stage_date_updated - timezone.timedelta(days=subtracted_days)
+
+
 
 @receiver(pre_save, sender=JobApplication)
 def handle_stage_update(sender, instance,  **kwargs):
     if instance.id:
         application = JobApplication.objects.get(id=instance.id)
-        if application.stage != instance.stage:
+        if instance.stage and application.stage != instance.stage:
             if instance.stage and instance.stage.email_template:
                 context = instance.get_email_context()
                 instance.stage.email_template.send_email(context=context, to=[instance.applicant.user.email])
@@ -78,7 +89,7 @@ def handle_stage_timeline_update(sender, instance,  **kwargs):
     today = timezone.now()
     if instance.id:
         application = JobApplication.objects.get(id=instance.id)
-        if application.stage != instance.stage:
+        if instance.stage and application.stage != instance.stage:
             if application.stage is None:
                 # if application is new and is being moved to next stage
                 # bypass to current stage
@@ -121,6 +132,15 @@ def handle_stage_timeline_update(sender, instance,  **kwargs):
                         """
                         instance.stage.update_talent_stage_timeline(instance, accumulated_days)
 
+        elif application.stage and not instance.stage:
+            past_stages = application.stage.previous_stages()
+            if past_stages:
+                accumulated_days = 0
+                for stage in past_stages:
+                    stage_timeline = stage.get_talent_stage_timeline(instance)
+                    accumulated_days += stage_timeline.timeline
+                    stage_timeline.timeline = 0
+                    stage_timeline.save()
 
 
 @receiver(pre_save, sender=JobPost)

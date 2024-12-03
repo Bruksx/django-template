@@ -1,8 +1,7 @@
 from uuid import UUID
 
-from django.db import transaction
-
 from config.permissions import IsTalentUser
+from django.db import transaction
 from monkeypatches.q_cluster import async_task
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
@@ -10,7 +9,7 @@ from ninja.responses import Response
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
 from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
-from typing import LiteralString, Literal, Optional
+
 from jobs import tasks
 from jobs.enums import JobStatusType
 from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob
