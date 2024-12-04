@@ -162,16 +162,12 @@ def handle_new_application(sender, instance,  **kwargs):
 
 @receiver(pre_save, sender=JobPost)
 def handle_job_post_recruiter(sender, instance, **kwargs):
-    if not instance.recruiter:
-        instance.recruiter = instance.job.recruiter
     if not instance.pk:
         notifications.send_job_post_assignment_notification(
             job_post=instance)
     else:
         job_post = JobPost.objects.filter(id=instance.id).first()
         if job_post.recruiter != instance.recruiter:
-            if not instance.recruiter:
-                instance.recruiter = instance.job.recruiter
             notifications.send_job_post_assignment_notification(
                 job_post=instance, previous_recruiter=job_post.recruiter)
 

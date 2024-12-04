@@ -1,14 +1,18 @@
 import logging
 import uuid
 
-from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent
+from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent, \
+    EducationLevel
 from django.test import TestCase
+
+from core.models import Currency
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
     JobFactory, JobApplicationFactory, WorkflowStageFactory
 from jobs.business_views import router
 from jobs.enums import JobStatusType, PhaseType
 from jobs.models import (
-    Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication
+    Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
+    Qualification, BusinessModel
 )
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
@@ -19,7 +23,9 @@ class JobCreationTest(TestCase):
     def setUp(self):
         # Set up necessary data for the test
         self.skills = Skill.objects.all()[:5]
+        self.business_models = BusinessModel.objects.all()[:5]
         self.language = Language.objects.create(name='English')
+        self.education_level = EducationLevel.objects.first()
         self.employment_type = EmploymentType.objects.create(name='Full-time')
         industry = Industry.objects.create(name="Health")
         self.department = Department.objects.create(name='IT', industry=industry)
@@ -43,6 +49,7 @@ class JobCreationTest(TestCase):
             email="testuser@example.com",
             password="securepassword",
         )
+        self.qualification = Qualification.objects.create(name="Bachelor's degree")
         self.recruiter_business_user = BusinessUser.objects.create(
             user=self.recruiter, 
             business=self.business,
@@ -53,113 +60,144 @@ class JobCreationTest(TestCase):
             "authorization": f"bearer {self.user.token}"
         }
         self.country1 = Country.objects.order_by("?").first()
-        self.country2 = Country.objects.order_by("?").first()
+        self.country2 = Country.objects.order_by("?").first()  #random ordering
+        self.currency1 = Currency.objects.order_by("?").first()
+        self.currency2 = Currency.objects.order_by("?").first()
+        self.test_data = data = {
+            "title": "EcoTech Manager",
+            "employment_type":str(self.employment_type.uid),
+            "qualification": str(self.qualification.uid),
+            "availability": [
+                {
+                    "day": "Monday",
+                    "start_time": "08:23:54.706000",
+                    "active": True,
+                    "end_time": "08:23:54.706000"
+                },
+                {
+                    "day": "Tuesday",
+                    "start_time": "08:23:54.706000",
+                    "active": True,
+                    "end_time": "08:23:54.706000"
+                }
+              ],
+            "responsibilities": [
+                "Create innovative solutions to address environmental challenges",
+                "Collaborate with cross-functional teams to design and implement sustainable solutions"
+            ],
+            "hiring_company_name": None,
+            "hiring_company_description":"EcoTech Solutions is a pioneering company in the field of sustainable technology, dedicated to developing innovative products and services that promote environmental responsibility and reduce the carbon footprint of individuals and businesses. Founded in 2010, EcoTech Solutions has grown from a small startup into a global leader in green technology, with a mission to make sustainability accessible and affordable for everyone",
+            "work_structure":"remote",
+            "minimum_education_level": str(self.education_level.uid),
+            "technological_requirement": "macbook",
+            "first_language": str(self.language.uid),
+            "additional_languages": [
+                  str(self.language.uid)
+            ],
+            "lunch_break": "paid",
+            "lunch_break_time": 30,
+            "office_address": "123 Main St, AnyTown, USA",
+            "additional_hours_start": "12:00:00",
+            "additional_hours_end": "22:00:00",
+            "business_models": list(self.business_models.values_list("uid", flat=True)),
+            "job_posts": [
+                {
+                "country": str(self.country1.uid),
+                "province": "Delta State",
+                "postal_code": "500000",
+                "share_compensation": True,
+                "status": JobStatusType.POSTED.value,
+                "benefits": [
+                    "Health Insurance",
+                    "Dental Insurance"
+                ],
 
-    # def test_create_job(self):
-    #     data = {
-    #         "title": "EcoTech Manager",
-    #         "employment_type_uid":str(self.employment_type.uid),
-    #         "availability": [
-    #             {
-    #                 "day": "Monday",
-    #                 "start_time": "08:23:54.706000",
-    #                 "end_time": "08:23:54.706000"
-    #             },
-    #             {
-    #                 "day": "Tuesday",
-    #                 "start_time": "08:23:54.706000",
-    #                 "end_time": "08:23:54.706000"
-    #             }
-    #           ],
-    #         "hiring_company_name": None,
-    #         "hiring_company_description":"EcoTech Solutions is a pioneering company in the field of sustainable technology, dedicated to developing innovative products and services that promote environmental responsibility and reduce the carbon footprint of individuals and businesses. Founded in 2010, EcoTech Solutions has grown from a small startup into a global leader in green technology, with a mission to make sustainability accessible and affordable for everyone",
-    #         "work_structure":"remote",
-    #         "technological_requirements": "macbook",
-    #         "first_language_uid": str(self.language.uid),
-    #         "additional_languages": [
-    #               str(self.language.uid)
-    #         ],
-    #         "lunch_break": "paid",
-    #         "office_address": "string",
-    #         "additional_hours_min": 0,
-    #         "additional_hours_max": 0,
-    #         "job_posts": [
-    #             {
-    #             "country_uid": str(self.country1.uid),
-    #             "province": "Delta State",
-    #             "postal_code": "500000"
-    #             },
-    #             {
-    #             "country_uid": str(self.country2.uid),
-    #             "province": "Rivers State",
-    #             "postal_code": "500000"
-    #             }
-    #           ],
-    #         "recruiter_uid": str(self.recruiter_business_user.uid),
-    #         "annual_salary_min": 0,
-    #         "annual_salary_max": 0,
-    #         "annual_salary_currency": "string",
-    #         "annual_bonus_min": 0,
-    #         "annual_bonus_max": 0,
-    #         "annual_bonus_currency": "string",
-    #         "same_recruiter": True,
-    #         "screening_questions": [
-    #             {
-    #             "type": "single select",
-    #             "options": [
-    #                 {
-    #                 "is_accepted": True,
-    #                 "text": "yes"
-    #                 },
-    #                 {
-    #                 "is_accepted": False,
-    #                 "text": "No"
-    #                 }
-    #             ],
-    #             "text": "Are you eligible to work in the US?"
-    #             },
-    #           ],
-    #           "share_compensation": True,
-    #           "department_uid": str(self.department.uid),
-    #           "role_uid": str(self.role.uid),
-    #           "skills": [
-    #               str(skill.uid) for skill in self.skills
-    #           ],
-    #           "job_level_uid": str(self.job_level.uid)
-    #       }
-    #     response = self.client.post("", json=data, headers=self.headers)
-    #
-    #     #Assert the job was created correctly
-    #     self.assertEqual(response.status_code, 200)
-    #     job = Job.objects.filter(created_by=self.business_user).first()
-    #
-    #     self.assertEqual(job.created_by, self.business_user)
-    #     self.assertEqual(job.first_language, self.language)
-    #     self.assertEqual(job.department, self.department)
-    #     self.assertEqual(job.employment_type, self.employment_type)
-    #     self.assertEqual(job.role, self.role)
-    #     self.assertEqual(job.job_level, self.job_level)
-    #     self.assertEqual(job.recruiter, self.recruiter_business_user)
-    #
-    #     #Check availability
-    #     available_days = AvailableDay.objects.filter(job=job)
-    #     self.assertEqual(available_days.count(), 2)
-    #
-    #     #Check job posts
-    #     job_posts = JobPost.objects.filter(job=job)
-    #     self.assertEqual(job_posts.count(), 2)
-    #     self.assertEqual(job_posts[0].country.code, self.country1.code)
-    #
-    #     #Check screening questions
-    #     screening_questions = ScreeningQuestion.objects.filter(job=job)
-    #     self.assertEqual(screening_questions.count(), 1)
-    #     self.assertEqual(screening_questions[0].text, 'Are you eligible to work in the US?')
-    #     self.assertFalse(screening_questions[0].is_knockout)
-    #
-    #     #Check question options
-    #     question_options = QuestionOption.objects.filter(question=screening_questions[0])
-    #     self.assertEqual(question_options.count(), 2)
-    #     self.assertEqual(job.skills.count(), 5)
+                "annual_salary_min": 100,
+                "annual_salary_max": 1000,
+                "annual_salary_currency": str(self.currency1.uid),
+                "annual_bonus_min": 100,
+                "annual_bonus_max": 150,
+                "recruiter": str(self.business_user.uid),
+                "annual_bonus_currency": str(self.currency1.uid)
+
+                },
+                {
+                "country": str(self.country2.uid),
+                "province": "Rivers State",
+                "postal_code": "500000",
+                "share_compensation": False,
+                "benefits": [
+                    "Health Insurance",
+                    "Dental Insurance"
+                ],
+                "annual_salary_min": 200,
+                "annual_salary_max": 400,
+                "annual_salary_currency": str(self.currency2.uid),
+                "annual_bonus_min": 100,
+                "annual_bonus_max": 150,
+                "annual_bonus_currency": str(self.currency2.uid),
+                "recruiter": str(self.business_user.uid),
+
+                }
+              ],
+            "screening_questions": [
+                {
+                "type": "single select",
+                "options": [
+                    {
+                    "is_accepted": True,
+                    "text": "yes"
+                    },
+                    {
+                    "is_accepted": False,
+                    "text": "No"
+                    }
+                ],
+                "text": "Are you eligible to work in the US?"
+                },
+              ],
+              "department": str(self.department.uid),
+              "role": str(self.role.uid),
+              "skills": [
+                  str(skill.uid) for skill in self.skills
+              ],
+              "job_level": str(self.job_level.uid)
+          }
+
+    def test_create_job(self):
+        response = self.client.post("", json=self.test_data, headers=self.headers)
+        logging.critical(response.content)
+
+        #Assert the job was created correctly
+        self.assertEqual(response.status_code, 200)
+        job = Job.objects.filter(created_by=self.business_user).first()
+
+        self.assertEqual(job.created_by, self.business_user)
+        self.assertEqual(job.first_language, self.language)
+        self.assertEqual(job.department, self.department)
+        self.assertEqual(job.employment_type, self.employment_type)
+        self.assertEqual(job.role, self.role)
+        self.assertEqual(job.job_level, self.job_level)
+
+        #Check availability
+        available_days = AvailableDay.objects.filter(job=job)
+        self.assertEqual(available_days.count(), 2)
+
+        #Check job posts
+        job_posts = JobPost.objects.filter(job=job)
+        self.assertEqual(job_posts.count(), 2)
+        self.assertEqual(job_posts[0].country.code, self.country1.code)
+
+        #Check screening questions
+        screening_questions = ScreeningQuestion.objects.filter(job=job)
+        self.assertEqual(screening_questions.count(), 1)
+        self.assertEqual(screening_questions[0].text, 'Are you eligible to work in the US?')
+        self.assertFalse(screening_questions[0].is_knockout)
+
+        #Check question options
+        question_options = QuestionOption.objects.filter(question=screening_questions[0])
+        self.assertEqual(question_options.count(), 2)
+        self.assertEqual(job.skills.count(), 5)
 
 class EmploymentTypeListTests(TestCase):
     def setUp(self):

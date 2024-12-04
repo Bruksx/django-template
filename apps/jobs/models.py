@@ -68,39 +68,14 @@ class Job(BaseModel):
     additional_languages = models.ManyToManyField(Language, related_name="jobs")
     office_address = models.CharField(max_length=128)
     lunch_break = models.CharField(max_length=16, choices=LunchBreakEnum.choices())
-    annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_salary_currency = models.ForeignKey(
-        "core.Currency", 
-        on_delete=models.SET_NULL, 
-        related_name="jobs_with_salary_currency",
-        null=True
-    )
-    annual_bonus_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_bonus_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_bonus_currency = models.ForeignKey(
-        "core.Currency", 
-        on_delete=models.SET_NULL, 
-        related_name="jobs_with_bonus_currency",
-        null=True,
-    )
-    recruiter = models.ForeignKey(
-        "accounts.BusinessUser", 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        related_name="recruiting_jobs"
-    )
-    same_job_post_recruiter = models.BooleanField(default=False)
-    benefits = models.JSONField(default=list)
+    lunch_break_time = models.PositiveSmallIntegerField(default=0)
     responsibilities = models.JSONField(default=list)
-    share_compensation = models.BooleanField(default=True)
-    status = models.CharField(max_length=16, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
-    additional_hours_min = models.IntegerField(default=0)
-    additional_hours_max = models.IntegerField(default=0)
     additional_hours_description = models.TextField(null=True)
+    additional_hours_start = models.TimeField(null=True)
+    additional_hours_end = models.TimeField(null=True)
     technological_requirement = models.CharField(max_length=16, null=True)
     availability_timezone = TimeZoneField(default="America/Vancouver")
-
+    flexible_availability = models.BooleanField(default=False)
     department = models.ForeignKey("accounts.Department", null=True, on_delete=models.SET_NULL)
     role = models.ForeignKey("accounts.Role", null=True, on_delete=models.SET_NULL)
     skills = models.ManyToManyField("accounts.Skill")
@@ -160,11 +135,13 @@ class Job(BaseModel):
 
 class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
-    status = models.CharField(max_length=16, choices=JobStatusType.choices(), default=JobStatusType.POSTED.value)
+    status = models.CharField(max_length=16, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
     date_posted = models.DateTimeField(null=True)
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     province = models.CharField(max_length=64, null=True)
     postal_code = models.CharField(max_length=8, null=True)
+    benefits = models.JSONField(default=list)
+    share_compensation = models.BooleanField(default=True)
     annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     annual_salary_currency = models.ForeignKey(
@@ -181,7 +158,6 @@ class JobPost(BaseModel):
         related_name="jobs_posts_with_bonus_currency",
         null=True,
     )
-    location_type = models.CharField(max_length=32, null=True)
     recruiter = models.ForeignKey(
         "accounts.BusinessUser", 
         null=True, 

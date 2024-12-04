@@ -64,13 +64,19 @@ class JobAvailabilitySchema(Schema):
     availability: Optional[JobAvailableDaySchema] = None
 
 
-class JobPostSchema(ModelSchema):
-    country_uid: UUID
+class MutateJobPostSchema(ModelSchema):
+    country: Optional[UUID] = None
+    benefits: List[str]
+    recruiter: Optional[UUID] = None
+    status: Optional[JobStatusType] = None
+    annual_salary_currency: Optional[UUID]
+    annual_bonus_currency: Optional[UUID]
+
 
     class Meta:
         model = JobPost
-        fields = ["province", "postal_code"]
-
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "uid", "job", "date_posted", "posted_by"]
+        fields_optional = "__all__"
 
 class BusinessUserSchema(ModelSchema):
     name:str = Field(alias="user.fullname")
@@ -78,17 +84,6 @@ class BusinessUserSchema(ModelSchema):
     class Meta:
         model = BusinessUser
         fields = ["uid", "role"]
-
-class MutateJobPostSchema(ModelSchema):
-    annual_bonus_currency_uid: Optional[UUID] = None
-    annual_salary_currency_uid: Optional[UUID] = None
-    status: Optional[JobStatusType] = None
-    recruiter_uid: Optional[UUID] = None
-    country_uid: Optional[UUID] = None
-    class Meta:
-        model = JobPost
-        fields = ["province", "postal_code", "annual_salary_min", "annual_salary_max",
-                  "annual_bonus_min", "annual_bonus_max"]
 
 class QuestionOptionSchema(ModelSchema):
     class Meta:
@@ -105,38 +100,56 @@ class QuestionSchema(ModelSchema):
         fields = ["type", "text", "is_knockout"]
 
 
-class CreateJobSchema(Schema):
-    title: str
-    employment_type_uid: UUID
+class CreateJobSchema(ModelSchema):
+    employment_type: UUID
     availability: list[MutateJobAvailableDaySchema]
     work_structure: WorkStructureEnum
-    technological_requirements: TechnologicalRequirementsEnum
-    first_language_uid: UUID
+    technological_requirement: TechnologicalRequirementsEnum
+    first_language: UUID
     additional_languages: List[UUID]
     lunch_break: LunchBreakEnum
-    job_posts: List[JobPostSchema]
-    recruiter_uid: UUID
-    annual_salary_min: Decimal
-    annual_salary_max: Decimal
-    annual_bonus_min: Decimal
-    annual_bonus_max: Decimal
-    same_recruiter: bool
+    job_posts: List[MutateJobPostSchema]
     screening_questions: List[QuestionSchema]
-    department_uid: UUID
-    role_uid: UUID
+    department: UUID
+    role: UUID
+    qualification: UUID
     skills: list[UUID]
-    job_level_uid: Optional[UUID]
+    job_level: Optional[UUID]
+    business_models: List[UUID]
+    minimum_education_level: UUID
+    responsibilities: List[str]
+
 
     class Meta:
         model = Job
-        fields = [
-            "hiring_company_name", "hiring_company_description", "work_structure", "office_address","lunch_break", 
-            "additional_hours_min", "additional_hours_max", "annual_salary_min", "annual_salary_max",
-            "annual_salary_currency", "annual_bonus_min", "annual_bonus_max", "annual_bonus_currency", "benefits",
-            "share_compensation", 
-        ]
-        fields_optional = fields
+        exclude = [
+            *MUTATE_EXCLUDE_FIELDS, "business_models", "created_by","uid"]
+        fields_optional = "__all__"
 
+class UpdateJobSchema(ModelSchema):
+    employment_type: Optional[UUID] = None
+    availability: list[MutateJobAvailableDaySchema]
+    work_structure: Optional[WorkStructureEnum] = None
+    technological_requirement: Optional[TechnologicalRequirementsEnum] = None
+    first_language: Optional[UUID] = None
+    additional_languages: List[UUID]
+    lunch_break: Optional[LunchBreakEnum] = None
+    department: Optional[UUID] = None
+    role: Optional[UUID] = None
+    qualification: Optional[UUID] = None
+    skills: list[UUID]
+    job_level: Optional[UUID] = None
+    business_models: List[UUID]
+    minimum_education_level: Optional[UUID] = None
+    responsibilities: List[str]
+    class Meta:
+        model = Job
+        exclude = [
+            *MUTATE_EXCLUDE_FIELDS, "role", "first_language", "job_level", "department",
+            "qualification", "business_models", "created_by", "employment_type", "minimum_education_level",
+            "uid"
+        ]
+        fields_optional = "__all__"
 
 class EmploymentSubTypeSchema(Schema):
     uid: UUID
@@ -188,27 +201,56 @@ class SkillCategorySchema(Schema):
 
 
 class JobPostDetailSchema(ModelSchema):
-    annual_salary_min: float | None
-    annual_salary_max: float | None
-    annual_bonus_min: float | None
-    annual_bonus_max: float | None
-    annual_bonus_currency: str = ""
-    annual_salary_currency: str = ""
+    annual_bonus_currency: Optional[str]
+    annual_salary_currency: Optional[str]
     country: GenericNameAndUidSchema | None
     recruiter: Optional[BusinessUserSchema]
+    benefits: List[str]
+    annual_salary_min: Optional[Decimal]
+    annual_salary_max: Optional[Decimal]
+    annual_bonus_min: Optional[Decimal]
+    annual_bonus_max: Optional[Decimal]
 
 
     class Meta:
         model = JobPost
-        fields = ["uid", "province", "postal_code", "status"]
+        fields = ["uid", "province", "postal_code", "status", "share_compensation"]
 
     @staticmethod
-    def resolve_annual_bonus_currency(obj: JobPost):
-        return obj.annual_bonus_currency.abbreviation
+    def resolve_annual_salary_min(obj):
+        if obj.share_compensation:
+            return obj.annual_salary_min
+        return
 
     @staticmethod
-    def resolve_annual_salary_currency(obj: JobPost):
-        return obj.annual_bonus_currency.abbreviation
+    def resolve_annual_salary_max(obj):
+        if obj.share_compensation:
+            return obj.annual_salary_max
+        return
+
+    @staticmethod
+    def resolve_annual_bonus_max(obj):
+        if obj.share_compensation:
+            return obj.annual_bonus_max
+        return
+
+    @staticmethod
+    def resolve_annual_bonus_min(obj):
+        if obj.share_compensation:
+            return obj.annual_bonus_min
+        return
+
+    @staticmethod
+    def resolve_annual_bonus_currency(obj):
+        if obj.annual_bonus_currency:
+            return obj.annual_bonus_currency.abbreviation
+        return
+
+    @staticmethod
+    def resolve_annual_salary_currency(obj):
+        if obj.annual_salary_currency:
+            return obj.annual_salary_currency.abbreviation
+        return
 
 class RequiredAttributeSchema(ModelSchema):
     business_model: list[BusinessModelSchema]
@@ -227,7 +269,6 @@ class JobDetailSchema(ModelSchema):
     uid: UUID
     logo_url: Optional[str]
     responsibilities: List[str]
-    benefits: List[str]
     skills: List[JobSkillSchema]
     employment_type: Optional[GenericNameAndUidSchema]
     department: Optional[GenericNameAndUidSchema]
@@ -245,9 +286,8 @@ class JobDetailSchema(ModelSchema):
         model = Job
         fields = [
             "title", "hiring_company_name", "hiring_company_description", "about", "years_of_experience",
-            "technological_requirement", "work_structure", "office_address","lunch_break",
-            "additional_hours_min", "additional_hours_max",
-            "share_compensation",
+            "technological_requirement", "work_structure", "office_address","lunch_break", "lunch_break_time",
+            "additional_hours_start", "additional_hours_end", "flexible_availability"
         ]
     
     @staticmethod
@@ -316,7 +356,7 @@ class JobFullListSchema(ModelSchema):
     @staticmethod
     def resolve_status(obj):
         if obj.jobpost_set.count() == 0:
-            return obj.status
+            return None
         elif obj.jobpost_set.count() == 1:
             return obj.jobpost_set.first().status
         return "Multiple"
