@@ -1,19 +1,18 @@
-import logging
 from typing import Optional, Literal
 from uuid import UUID
 
 from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from helpers.utils import convert_base64_to_image_file
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
 from ninja.responses import Response
 from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
-from helpers.utils import convert_base64_to_image_file, html_to_pdf
-from accounts.models import Department, Role, SkillCategory, Country
+
+from accounts.models import Department, Role, SkillCategory
 from paginations import CustomPageNumberPaginationExtra
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType
@@ -101,12 +100,14 @@ def set_required_attributes(request, data:job_schemas.MutateRequiredAttributeSch
 def delete_job_post(request, job_post_uid:UUID):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    get_object_or_404(JobPost, uid=job_post_uid, job__created_by=business_user).delete()
-    return {"message": "deleted"}
-
+    job_post =  JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business_user.business).first()
+    if not job_post:
+        raise HttpError(404, "This job post does not exist")
+    job_post.delete()
+    return Response(status=204, data={"message": "Job post deleted"})
 
 @router.patch("job-post/{job_post_uid}", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
-def edit_job_post(request, job_post_uid, data: PatchDict[job_schemas.MutateJobPostSchema]):
+def update_job_post(request, job_post_uid, data: PatchDict[job_schemas.MutateJobPostSchema]):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     job_post =  JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business_user.business).first()
@@ -114,9 +115,10 @@ def edit_job_post(request, job_post_uid, data: PatchDict[job_schemas.MutateJobPo
         raise HttpError(404, "This job post does not exist")
     if "status" in data:
         data["status"] = data["status"].value
-        if data["status"] == JobStatusType.POSTED:
+        if data["status"] == JobStatusType.POSTED.value:
             data["posted_by"] = business_user
-            data["posted_at"] = timezone.now()
+            data["date_posted"] = timezone.now()
+
     job_post.update(**data)
     return job_post
 
@@ -131,9 +133,10 @@ def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
     request_data = data.dict()
     if "status" in request_data:
         request_data["status"] = request_data["status"].value
-        if request_data["status"] == JobStatusType.POSTED:
+        if request_data["status"] == JobStatusType.POSTED.value:
             request_data["posted_by"] = business_user
-            request_data["posted_at"] = timezone.now()
+            request_data["date_posted"] = timezone.now()
+
     job_post = JobPost(
         **request_data,
         job=job
@@ -284,9 +287,7 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
                                    Q(role__name__icontains=search)|
                                    Q(hiring_company_name=search))
     if status:
-        queryset = queryset.filter(Q(status=status.value)|Q(
-            jobpost__status=status.value
-        )).distinct()
+        queryset = queryset.filter(jobpost__status=status.value).distinct()
 
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(

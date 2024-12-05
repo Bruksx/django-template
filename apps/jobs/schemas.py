@@ -217,30 +217,6 @@ class JobPostDetailSchema(ModelSchema):
         fields = ["uid", "province", "postal_code", "status", "share_compensation"]
 
     @staticmethod
-    def resolve_annual_salary_min(obj):
-        if obj.share_compensation:
-            return obj.annual_salary_min
-        return
-
-    @staticmethod
-    def resolve_annual_salary_max(obj):
-        if obj.share_compensation:
-            return obj.annual_salary_max
-        return
-
-    @staticmethod
-    def resolve_annual_bonus_max(obj):
-        if obj.share_compensation:
-            return obj.annual_bonus_max
-        return
-
-    @staticmethod
-    def resolve_annual_bonus_min(obj):
-        if obj.share_compensation:
-            return obj.annual_bonus_min
-        return
-
-    @staticmethod
     def resolve_annual_bonus_currency(obj):
         if obj.annual_bonus_currency:
             return obj.annual_bonus_currency.abbreviation

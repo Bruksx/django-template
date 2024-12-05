@@ -155,13 +155,9 @@ class BusinessDashboardTestCase(TestCase):
         recruiters = BusinessUserFactory.create_batch(size=self.max_data, business=business)
         job_post_list = []
         country = CountryFactory.create()
-        currency = CurrencyFactory.create()
         jobs = JobFactory.create_batch(
             size=self.max_data,
-            created_by=recruiters[0],
-            annual_salary_currency=currency,
-            annual_bonus_currency=currency
-
+            created_by=recruiters[0]
         )
         index = 0
         for job in jobs:

@@ -575,9 +575,6 @@ class TalentDashboardTests(TestCase):
             about="We are looking for a passionate...",  # Truncated for brevity
             years_of_experience=3,
             lunch_break=LunchBreakEnum.PAID.value,  # Assuming LunchBreakEnum has a PAID option
-            annual_salary_min=100000.00,
-            annual_salary_max=120000.00,
-            annual_salary_currency=self.currency,
             availability_timezone=timezone.utc  # Set to UTC for this example
         )
         self.job_post = JobPost.objects.create(
@@ -589,7 +586,6 @@ class TalentDashboardTests(TestCase):
             annual_salary_min=Decimal('80000.00'),  # Use Decimal for money fields
             annual_salary_max=Decimal('100000.00'),
             annual_salary_currency=self.currency,
-            location_type=WorkStructureEnum.HYBRID.value,
             recruiter=self.business_user
         )
         self.job_required_attrs = RequiredAttribute.objects.create(
