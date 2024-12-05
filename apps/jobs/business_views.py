@@ -1,29 +1,33 @@
+from typing import Optional, Literal
 from uuid import UUID
 
 from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
-from django.shortcuts import get_object_or_404
-from ninja import Router
+from django.utils import timezone
+from helpers.utils import convert_base64_to_image_file
+from ninja import Router, PatchDict
 from ninja.errors import HttpError
 from ninja.responses import Response
-from ninja_extra.pagination import (
-    paginate, PageNumberPaginationExtra, PaginatedResponseSchema
-)
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import Department, Role, SkillCategory, Country
+from accounts.models import Department, Role, SkillCategory
+from paginations import CustomPageNumberPaginationExtra
 from . import schemas as job_schemas
-from .enums import JobStatusType
+from .enums import JobStatusType, PhaseType
 from .models import (
-    EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute
+    EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication, AvailableDay,
+    ScreeningQuestion, QuestionOption
 )
 from .schemas import (
     EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
-    JobFullDetailSchema, JobLevelSchema, TalentListJobPostSchema
+    JobLevelSchema, TalentListJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema
 )
 
 router = Router(tags=["Business Jobs"])
+pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
+
 
 @router.get("employment-types", response=list[EmploymentTypeSchema], tags=["Common"])
 def get_employment_types(request, search=""):
@@ -74,16 +78,6 @@ def get_business_models(request, search=""):
         queryset = queryset.filter(name__icontains=search)
     return queryset
 
-
-@router.post("", response=JobFullDetailSchema, auth=JWTAuth())
-@transaction.atomic
-def create_job(request, data:CreateJobSchema):
-    IsBusinessUser.check(request)
-    business_user = request.user.businessuser
-    job = Job.objects.create_job(business_user=business_user, data=data)
-    return job
-
-
 @router.patch("set-required-attributes/{job_uid}", response=job_schemas.RequiredAttributeSchema, auth=JWTAuth())
 def set_required_attributes(request, data:job_schemas.MutateRequiredAttributeSchema, job_uid:UUID):
     IsBusinessUser.check(request)
@@ -102,50 +96,63 @@ def set_required_attributes(request, data:job_schemas.MutateRequiredAttributeSch
     return required_attributes
 
 
-@router.patch("job-post/{job_post_uid}/post", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
-def post_job_post(request, job_post_uid: UUID):
-    IsBusinessUser.check(request)
-    business_user = request.user.businessuser
-    job_post = get_object_or_404(JobPost, uid=job_post_uid, job__created_by=business_user)
-    job_post.update(status=JobStatusType.POSTED.value)
-    return job_post
-
-
 @router.delete("job-post/{job_post_uid}", auth=JWTAuth())
 def delete_job_post(request, job_post_uid:UUID):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    get_object_or_404(JobPost, uid=job_post_uid, job__created_by=business_user).delete()
-    return {"message": "deleted"}
+    job_post =  JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business_user.business).first()
+    if not job_post:
+        raise HttpError(404, "This job post does not exist")
+    job_post.delete()
+    return Response(status=204, data={"message": "Job post deleted"})
 
-
-@router.put("job-post/{job_post_uid}", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
-def edit_job_post(request, job_post_uid, data: job_schemas.JobPostDetailSchema):
+@router.patch("job-post/{job_post_uid}", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
+def update_job_post(request, job_post_uid, data: PatchDict[job_schemas.MutateJobPostSchema]):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    job_post = get_object_or_404(JobPost, uid=job_post_uid, job__created_by=business_user)
-    del data.uid
-    job_post.update(**data.dict())
+    job_post =  JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business_user.business).first()
+    if not job_post:
+        raise HttpError(404, "This job post does not exist")
+    if "status" in data:
+        data["status"] = data["status"].value
+        if data["status"] == JobStatusType.POSTED.value:
+            data["posted_by"] = business_user
+            data["date_posted"] = timezone.now()
+
+    job_post.update(**data)
     return job_post
 
 
-@router.post("job-post/add/{job_uid}", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
+@router.post("{job_uid}/job-post", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
 def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    job = get_object_or_404(Job, uid=job_uid, created_by=business_user)
+    job = Job.objects.filter(uid=job_uid, created_by=business_user).first()
+    if not job:
+        raise HttpError(404, "This job does not exist")
     request_data = data.dict()
-    annual_bonus_currency = request_data.pop("annual_bonus_currency_uid")
-    annual_salary_currency = request_data.pop("annual_salary_currency_uid")
-    country = get_object_or_404(Country, code=request_data.pop("country_code"))
+    if "status" in request_data:
+        request_data["status"] = request_data["status"].value
+        if request_data["status"] == JobStatusType.POSTED.value:
+            request_data["posted_by"] = business_user
+            request_data["date_posted"] = timezone.now()
+
     job_post = JobPost(
         **request_data,
-        job=job,
-        country=country,
-        annual_bonus_currency = annual_bonus_currency,
-        annual_salary_currency = annual_salary_currency,
+        job=job
     )
     job_post.save()
+    return job_post
+
+
+@router.get("job-posts/{job_post_uid}", response=job_schemas.JobPostFullDetailSchema, auth=JWTAuth())
+def get_job_post_detail(request, job_post_uid):
+    query = dict(uid=job_post_uid)
+    if hasattr(request.user, "businessuser"):
+        query["job__created_by__business"] = request.user.businessuser.business
+    job_post = JobPost.objects.filter(**query).first()
+    if not job_post:
+        raise HttpError(404, "Job Post not found")
     return job_post
 
 @router.get("job-posts/{job_post_uid}/talents", response=list[TalentListJobPostSchema], auth=JWTAuth())
@@ -160,11 +167,185 @@ def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
         query = Q(user__first_name__icontains=search) | Q(user__last_name__icontains=search)
     return job_post.get_talents().filter(query)
 
-
-"TODO: add custom pagination class to control page size"
-@router.get("list", response=PaginatedResponseSchema[JobFullDetailSchema], auth=JWTAuth())
-@paginate(PageNumberPaginationExtra, page_size=50)
-def job_list(request):
+@router.post("", response=JobDetailSchema, auth=JWTAuth())
+@transaction.atomic
+def create_job(request, data:CreateJobSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    return Job.objects.filter(created_by=business_user)
+    business = business_user.business
+    request_data = data.dict()
+    request_data["created_by"] = business_user
+    availability = request_data.pop("availability")
+    screening_questions = request_data.pop("screening_questions")
+    job_posts = request_data.pop("job_posts")
+    additional_languages = request_data.pop("additional_languages", list())
+    skills = request_data.pop("skills", list())
+    business_models = request_data.pop("business_models", list())
+
+    if not request_data.get("hiring_company_name"):
+        request_data["hiring_company_name"] = business.name
+    if not request_data.get("hiring_company_description"):
+        request_data["hiring_company_description"] = business.description
+    request_data["work_structure"] = request_data["work_structure"].value
+    request_data["lunch_break"] = request_data["lunch_break"].value
+    request_data["technological_requirement"] = request_data["technological_requirement"].value
+
+
+    job = Job.objects.create(**request_data)
+    job.business_models.set(business_models)
+    job.skills.set(skills)
+    job.additional_languages.set(additional_languages)
+    job.save()
+
+    for available_day in availability:
+        available_day["day"] = available_day["day"].value
+        uid =  available_day.pop("uid", None)
+        active = available_day.pop("active", True)
+        if uid and not active:
+            job.availableday_set.filter(uid=uid).delete()
+        elif uid and active:
+            job.availableday_set.filter(uid=uid).update(**available_day)
+        elif not uid:
+            day = available_day['day']
+            if job.availableday_set.filter(day=day).exists():
+                raise HttpError(400, f"{day} already exists")
+            AvailableDay.objects.create(**available_day, job=job)
+    if request_data.get("logo"):
+        request_data["logo"] = convert_base64_to_image_file(request_data["logo"])
+
+    for job_post in job_posts:
+        job_post["status"] = job_post["status"].value if job_post.get("status") else JobStatusType.DRAFT.value
+        JobPost.objects.create(job=job, **job_post)
+    for question in screening_questions:
+        question["type"] = question["type"].value
+        options = question.pop("options")
+        question = ScreeningQuestion.objects.create(job=job, **question)
+        QuestionOption.objects.bulk_create([QuestionOption(**option, question=question) for option in options])
+
+    return job
+
+@router.patch("{job_uid}", response=JobDetailSchema, auth=JWTAuth())
+@transaction.atomic
+def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUID):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    business = business_user.business
+    job = Job.objects.filter(uid=job_uid, created_by__business=business_user.business).first()
+    if not job:
+        raise HttpError(404, "Job not found")
+    additional_languages = data.pop("additional_languages", list())
+    skills = data.pop("skills", list())
+    business_models = data.pop("business_models", list())
+
+    if not data.get("hiring_company_name"):
+        data["hiring_company_name"] = business.name
+    if not data.get("hiring_company_description"):
+        data["hiring_company_description"] = business.description
+    if "work_structure" in data:
+        data["work_structure"] = data["work_structure"].value
+    if "lunch_break" in data:
+        data["lunch_break"] = data["lunch_break"].value
+    if "technological_requirement" in data:
+        data["technological_requirement"] = data["technological_requirement"].value
+    job.update(**data)
+    if "availability" in data:
+        availability = data.pop("availability")
+        for available_day in availability:
+            available_day["day"] = available_day["day"].value
+            uid =  available_day.pop("uid", None)
+            active = available_day.pop("active", True)
+            if uid and not active:
+                job.availableday_set.filter(uid=uid).delete()
+            elif uid and active:
+                job.availableday_set.filter(uid=uid).update(**available_day)
+            elif not uid:
+                day = available_day['day']
+                if job.availableday_set.filter(day=day).exists():
+                    raise HttpError(400, f"{day} already exists")
+                AvailableDay.objects.create(**available_day, job=job)
+    if data.get("logo"):
+        data["logo"] = convert_base64_to_image_file(data["logo"])
+    if business_models:
+        job.business_models.set(business_models)
+    if skills:
+        job.skills.set(skills)
+    if additional_languages:
+        job.additional_languages.set(additional_languages)
+    job.save()
+
+    return job
+
+
+
+@router.get("", response=JobWorkflowViewPaginatedSchema, auth=JWTAuth())
+def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    queryset = Job.objects.prefetch_related("jobpost_set").filter(created_by__business=business_user.business)
+    if search:
+        queryset = queryset.filter(Q(title__icontains=search)|
+                                   Q(role__name__icontains=search)|
+                                   Q(hiring_company_name=search))
+    if status:
+        queryset = queryset.filter(jobpost__status=status.value).distinct()
+
+    pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
+    return pagination_class(page_size).paginate_queryset(
+        queryset=queryset,
+        request=request,
+        pagination=pagination,
+        roles=queryset.count(),
+        posts=business_user.business.job_posts().filter(job__in=queryset).count()
+    )
+
+@router.get("{job_uid}", response=job_schemas.JobDetailSchema, auth=JWTAuth())
+def job_detail(request, job_uid:UUID):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    job = Job.objects.filter(created_by__business=business_user.business, uid=job_uid).first()
+    if not job:
+        raise HttpError(404, "This job does not exist")
+    return job
+
+@router.get("job-posts/{job_post_uid}/applications", response=PaginatedResponseSchema[job_schemas.JobApplicationListSchema], auth=JWTAuth())
+def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Optional[PhaseType]=None,
+                    new_application:bool=None,
+                    sort_by:Optional[Literal["applicant", "location",
+"match", "created_at", "stage", "phase", "experience"]]=None, asc:bool=True, search:str="", ):
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
+    queryset = JobApplication.objects.filter(job_post__uid=job_post_uid, recruiter__business=business)
+    if search:
+        queryset = queryset.filter(Q(
+            Q(applicant__user__fullname__icontains=search)|
+            Q(applicant__country__name__icontains=search)|
+            Q(applicant__user__email__icontains=search)
+        )).distinct()
+    if phase:
+        queryset = queryset.filter(stage__phase=phase.value)
+    if new_application is not None:
+        if new_application is True:
+            queryset = queryset.filter(stage__isnull=True)
+        else:
+            queryset = queryset.filter(stage__isnull=False)
+    if sort_by:
+        sign = "-" if asc is False else ""
+        if sort_by == "applicant":
+            queryset = queryset.order_by(f"{sign}applicant__user__fullname")
+        elif sort_by == "location":
+            queryset = queryset.order_by(f"{sign}applicant__country__name")
+        elif sort_by == "match":
+            queryset = queryset.order_by(f"{sign}match")
+        elif sort_by == "created_at":
+            queryset = queryset.order_by(f"{sign}created_at")
+        elif sort_by == "stage":
+            queryset = queryset.order_by(f"{sign}stage__order")
+        elif sort_by == "phase":
+            queryset = queryset.order_by(f"{sign}stage__phase_order")
+    pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
+    return pagination_class(page_size).paginate_queryset(
+        queryset=queryset,
+        request=request,
+        pagination=pagination
+    )
+

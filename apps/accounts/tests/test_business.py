@@ -155,18 +155,13 @@ class BusinessDashboardTestCase(TestCase):
         recruiters = BusinessUserFactory.create_batch(size=self.max_data, business=business)
         job_post_list = []
         country = CountryFactory.create()
-        currency = CurrencyFactory.create()
         jobs = JobFactory.create_batch(
             size=self.max_data,
-            created_by=recruiters[0],
-            annual_salary_currency=currency,
-            annual_bonus_currency=currency,
-            recruiter=recruiters[0]
-
+            created_by=recruiters[0]
         )
         index = 0
         for job in jobs:
-            job.recruiter = recruiters[0]
+            job.created_by = recruiters[0]
             job.save()
             job_post_list.append(JobPostFactory.create(recruiter=recruiters[index],
                                                        status=JobStatusType.POSTED.value,

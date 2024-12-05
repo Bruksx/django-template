@@ -1,10 +1,12 @@
+from uuid import uuid4
+
 from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Country, Industry, User, Talent, CustomerCase, VerificationCode
 from accounts.views.common import router
-from factories import UserFactory
+from factories import UserFactory, TalentFactory, BusinessUserFactory
 
 
 class CommonListTests(TestCase):
@@ -244,3 +246,57 @@ class PhoneNumberChangeTest(TestCase):
                                     json=body)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(self.user.phone_number, body["phone_number"])
+
+
+class TalentListTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = "talents"
+        self.talent  = TalentFactory.create()
+        talents = TalentFactory.create_batch(5)
+
+
+    def test_talent_list_endpoint(self):
+        headers = {
+            "authorization": f"bearer {self.talent.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 6)
+
+    def test_talent_list_with_search(self):
+        headers = {
+            "authorization": f"bearer {self.talent.user.token}"
+        }
+        response = self.client.get(f"{self.url}?search={self.talent.user.email}", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+
+class TalentDetailTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = lambda talent_uid: f"talents/{talent_uid}"
+        self.talent  = TalentFactory.create()
+        self.business_user = BusinessUserFactory.create()
+
+    def test_talent_detail_endpoint(self):
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.talent.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["uid"], str(self.talent.uid))
+
+    def test_talent_detail_by_talent(self):
+        headers = {
+            "authorization": f"bearer {self.talent.user.token}"
+        }
+        response = self.client.get(self.url(self.talent.uid), headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_wrong_uid(self):
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(uuid4()), headers=headers)
+        self.assertEqual(response.status_code, 404)

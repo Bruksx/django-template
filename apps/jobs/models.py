@@ -51,6 +51,7 @@ class Job(BaseModel):
         (PAID, PAID),
         (UNPAID, UNPAID)
     )
+    logo = models.ImageField(upload_to="jobs/logos", null=True, blank=True)
     created_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True)
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     hiring_company_name = models.CharField(max_length=64, null=True)
@@ -67,38 +68,14 @@ class Job(BaseModel):
     additional_languages = models.ManyToManyField(Language, related_name="jobs")
     office_address = models.CharField(max_length=128)
     lunch_break = models.CharField(max_length=16, choices=LunchBreakEnum.choices())
-    annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_salary_currency = models.ForeignKey(
-        "core.Currency", 
-        on_delete=models.SET_NULL, 
-        related_name="jobs_with_salary_currency",
-        null=True
-    )
-    annual_bonus_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_bonus_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_bonus_currency = models.ForeignKey(
-        "core.Currency", 
-        on_delete=models.SET_NULL, 
-        related_name="jobs_with_bonus_currency",
-        null=True,
-    )
-    recruiter = models.ForeignKey(
-        "accounts.BusinessUser", 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        related_name="recruiting_jobs"
-    )
-    same_job_post_recruiter = models.BooleanField(default=False)
-    benefits = models.TextField(null=True)
-    share_compensation = models.BooleanField(default=True)
-    status = models.CharField(max_length=16, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
-    additional_hours_min = models.IntegerField(default=0)
-    additional_hours_max = models.IntegerField(default=0)
+    lunch_break_time = models.PositiveSmallIntegerField(default=0)
+    responsibilities = models.JSONField(default=list)
     additional_hours_description = models.TextField(null=True)
+    additional_hours_start = models.TimeField(null=True)
+    additional_hours_end = models.TimeField(null=True)
     technological_requirement = models.CharField(max_length=16, null=True)
     availability_timezone = TimeZoneField(default="America/Vancouver")
-
+    flexible_availability = models.BooleanField(default=False)
     department = models.ForeignKey("accounts.Department", null=True, on_delete=models.SET_NULL)
     role = models.ForeignKey("accounts.Role", null=True, on_delete=models.SET_NULL)
     skills = models.ManyToManyField("accounts.Skill")
@@ -107,6 +84,9 @@ class Job(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.title}({self.uid})"
+
+    def logo_url(self):
+        return self.logo.url if self.logo else self.created_by.business.get_logo()
 
     def business_logo(self):
         return self.created_by.business.get_logo()
@@ -126,6 +106,30 @@ class Job(BaseModel):
             working_hours_query |= day_query
         return working_hours_query
 
+    def get_available_days(self):
+        from jobs.schemas import JobAvailableDaySchema
+
+        data = list()
+        for value in Days.values():
+            availability = self.availableday_set.filter(day=value).first()
+            data.append({
+                "day": value,
+                "availability": JobAvailableDaySchema.from_orm(availability) if availability else None
+            })
+        return data
+
+    def get_skills(self):
+        from jobs.schemas import SkillSchema, JobSkillSchema
+        from accounts.models import SkillCategory
+        categories = SkillCategory.objects.only("id", "name")
+        data = list()
+        for category in categories:
+            data.append(JobSkillSchema(
+                category=category.name,
+                skills=[SkillSchema.from_orm(skill) for skill in self.skills.filter(category_id=category.id)]
+            ))
+        return data
+
 
 
 
@@ -136,6 +140,8 @@ class JobPost(BaseModel):
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     province = models.CharField(max_length=64, null=True)
     postal_code = models.CharField(max_length=8, null=True)
+    benefits = models.JSONField(default=list)
+    share_compensation = models.BooleanField(default=True)
     annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     annual_salary_currency = models.ForeignKey(
@@ -152,12 +158,17 @@ class JobPost(BaseModel):
         related_name="jobs_posts_with_bonus_currency",
         null=True,
     )
-    location_type = models.CharField(max_length=32, null=True)
     recruiter = models.ForeignKey(
         "accounts.BusinessUser", 
         null=True, 
         on_delete=models.SET_NULL, 
-        related_name="recruiting_job_posts"
+        related_name="recruiter"
+    )
+    posted_by = models.ForeignKey(
+        "accounts.BusinessUser",
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="posted_by"
     )
 
 
@@ -192,6 +203,28 @@ class JobPost(BaseModel):
         if required_attribute.working_hours:
             query = query | Q(talentavailableday__id__in=TalentAvailableDay.objects.filter(job.availability_query()).only("id").values_list("id", flat=True))
         return Talent.objects.select_related("user").filter(query).distinct()
+
+    def phase_data(self):
+        def get_phase_count():
+            phase_dt = list(filter(lambda x: x["stage_phase"] == phase, data_set))
+            return phase_dt[0]["count"] if len(phase_dt) > 0 else 0
+        applications = self.jobapplication_set
+        data = [
+            {"key": "applicants", "count": applications.count()},
+            {"key": "new", "count": applications.filter(stage__isnull=True).count()},
+        ]
+        data_set = applications.filter(stage__isnull=False).values("stage__phase")\
+            .annotate(count=models.Count("stage__phase"),
+                     stage_phase=F("stage__phase"))\
+            .order_by("stage_phase").values("stage_phase", "count")
+        for phase in PhaseType.values():
+            data.append({
+                "key": phase,
+                "count": get_phase_count()
+            })
+        return data
+
+
 
 
 
@@ -380,6 +413,18 @@ class RequiredAttribute(BaseModel):
         if self.location:
             score += 1
         return score
+
+    def get_skills(self):
+        from jobs.schemas import SkillSchema, JobSkillSchema
+        from accounts.models import SkillCategory
+        categories = SkillCategory.objects.only("id", "name")
+        data = list()
+        for category in categories:
+            data.append(JobSkillSchema(
+                category=category.name,
+                skills=[SkillSchema.from_orm(skill) for skill in self.skills.filter(category_id=category.id)]
+            ))
+        return data
 
 
 

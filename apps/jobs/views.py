@@ -1,8 +1,7 @@
 from uuid import UUID
 
-from django.db import transaction
-
 from config.permissions import IsTalentUser
+from django.db import transaction
 from monkeypatches.q_cluster import async_task
 from ninja import Router, PatchDict
 from ninja.errors import HttpError

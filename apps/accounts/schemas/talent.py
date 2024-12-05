@@ -13,10 +13,9 @@ from jobs.schemas import JobLevelSchema, EmploymentTypeSchema, BusinessModelSche
 
 
 
-class DepartmentSchema(ModelSchema):
-    class Meta:
-        model = Department
-        fields = ("uid", "name",)
+class DepartmentSchema(Schema):
+    uid: UUID
+    name: str
 
 class RoleSchema(ModelSchema):
     department: str

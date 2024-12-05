@@ -1,4 +1,7 @@
+import datetime
+
 import factory
+from django.utils import timezone
 from factory.django import DjangoModelFactory
 from faker import Faker
 
@@ -207,15 +210,9 @@ class JobFactory(DjangoModelFactory):
     work_structure = factory.Iterator(WorkStructureEnum.values())
     office_address = factory.Faker('address')
     lunch_break = factory.Iterator(LunchBreakEnum.values())
-    annual_salary_min = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
-    annual_salary_max = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
-    annual_salary_currency = factory.SubFactory(CurrencyFactory)
-    annual_bonus_min = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
-    annual_bonus_max = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
-    annual_bonus_currency = factory.SubFactory(CurrencyFactory)
-    recruiter = factory.SubFactory(BusinessUserFactory)
-    additional_hours_min = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
-    additional_hours_max = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
+    lunch_break_time = factory.Iterator([10, 20, 30, 40])
+    additional_hours_start = factory.Faker("time")
+    additional_hours_end = factory.Faker("time")
     employment_type = factory.SubFactory(EmploymentTypeFactory)
 
 
@@ -247,6 +244,15 @@ class JobPostFactory(DjangoModelFactory):
     annual_salary_min = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
     annual_salary_max = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
     annual_salary_currency = factory.SubFactory(CurrencyFactory)
+    annual_bonus_min = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
+    annual_bonus_max = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
+    annual_bonus_currency = factory.SubFactory(CurrencyFactory)
+
+    @factory.post_generation
+    def update_date_posted(self, created, extracted, **kwargs):
+        date_posted = fake.date_this_decade(before_today=True)
+        self.date_posted = datetime.datetime.combine(date_posted, timezone.now().time(), tzinfo=timezone.get_current_timezone())
+        self.save(update_fields=['date_posted'])
 
 class EmailTemplateFactory(DjangoModelFactory):
     class Meta:
