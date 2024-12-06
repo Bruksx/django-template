@@ -7,9 +7,10 @@ from accounts.models import Experience, Talent, BusinessUser, User
 
 @receiver(post_save, sender=Experience)
 def update_talent_years_of_experience(sender, instance, created, **kwargs):
-    new_talent_years_of_experience = instance.talent.get_years_of_experience()
-    instance.talent.years_of_experience = new_talent_years_of_experience
-    instance.talent.save()
+    years, month = instance.talent.calculate_years_of_experience()
+    instance.talent.years_of_experience = years
+    instance.talent.months_of_experience = month
+    instance.talent.save(update_fields=["years_of_experience", "months_of_experience"])
 
 @receiver(post_save, sender=Talent)
 def update_talent_user_type(sender, instance, created, **kwargs):

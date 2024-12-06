@@ -627,8 +627,6 @@ class TalentDashboardTests(TestCase):
         application = JobApplication.objects.create(
             job_post=self.job_post,
             applicant=self.talent,
-            is_available=True,
-            accept_privacy=True,
             stage=stage,
             match=5
         )

@@ -4,7 +4,7 @@ from django.db.models import Q
 from django.utils import timezone
 from ninja.errors import HttpError
 from ninja_jwt.exceptions import AuthenticationFailed
-from services.schema import ProfileSchema
+from services.auth.schema import ProfileSchema
 
 from accounts.enums import UserType, AuthType, SocialType
 from accounts.models import BusinessUser

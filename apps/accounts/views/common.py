@@ -13,8 +13,8 @@ from ninja_jwt.authentication import JWTAuth
 
 from helpers.email.auth import send_verification_code
 from monkeypatches.q_cluster import async_task
-from config.permissions import IsBusinessUser
 
+from accounts.services import download_talent_cv
 
 router = Router(tags=["Common Account APIs"])
 
@@ -28,14 +28,6 @@ def talent_lists(request, search=""):
                                  Q(user__email__icontains=search)
                                  )
     return talents
-
-@router.get("talents/{talent_uid}", response=talent_schemas.TalentUserSchema, auth=JWTAuth())
-def talent_details(request, talent_uid:UUID):
-    IsBusinessUser.check(request)
-    talent = Talent.objects.filter(uid=talent_uid).first()
-    if not talent:
-        raise HttpError(404, "This talent does not exist")
-    return talent
 
 
 @router.get("countries", response=List[talent_schemas.CountrySchema], tags=["Common"])

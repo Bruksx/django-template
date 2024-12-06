@@ -2,15 +2,12 @@ from datetime import date, timedelta
 from typing import List
 from uuid import UUID
 
-from apps.accounts.schemas.talent import TalentUserSchema
-from django.conf import settings
-from django.db import transaction
-from django.http import HttpResponse
-from django.shortcuts import render
-
+from apps.accounts.enums import MeetingType
+from config.permissions import IsBusinessUser
 from config.permissions import IsTalentUser
+from django.db import transaction
 from helpers.email.auth import send_verification_code
-from helpers.utils import convert_base64_to_image_file, html_to_pdf
+from helpers.utils import convert_base64_to_image_file
 from monkeypatches.q_cluster import async_task
 from ninja import Router, PatchDict, UploadedFile
 from ninja.errors import HttpError
@@ -22,6 +19,9 @@ from accounts.models import Talent, AdditionalSkill, TalentAvailableDay
 from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
+from accounts.services import download_talent_cv
+
+from services import meeting
 
 router = Router(tags=["Account"])
 
@@ -304,23 +304,11 @@ def upload_talent_cv(request, file: UploadedFile):
     talent_user.update(cv=file)
     return Response(status=200, data={"message": "CV uploaded successfully"})
 
-@router.get("cv", auth=JWTAuth())
-def download_talent_cv(request):
+@router.get("resume", auth=JWTAuth())
+def download_talent_system_generated_cv(request):
     IsTalentUser.check(request)
     talent_user = request.user.talent
-    cv_data = TalentUserSchema.from_orm(talent_user).dict()
-    cv_data["image_url"] = settings.IMAGE_URL
-    cv_data["css_url"] = settings.CSS_URL
-    rendered_html = render(
-        request, "accounts/en/talent-cv.html",
-        context=cv_data
-    ).content.decode()
-    #todo: design the cv html
-    file_name = f"talent-cv-{talent_user.uid}.pdf"
-    pdf_file = html_to_pdf(rendered_html)
-    response = HttpResponse(pdf_file, content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="{file_name}"'
-    return response
+    return download_talent_cv(request, talent_user)
 
 @router.post("profile-pic", auth=JWTAuth())
 def upload_talent_profile_picture(request, file: UploadedFile):
@@ -335,4 +323,35 @@ def upload_talent_profile_picture(request, file: UploadedFile):
 
 
 
+@router.get("talents/{talent_uid}", response=talent_schemas.TalentUserSchema, auth=JWTAuth())
+def talent_details(request, talent_uid:UUID):
+    IsBusinessUser.check(request)
+    talent = Talent.objects.filter(uid=talent_uid).first()
+    if not talent:
+        raise HttpError(404, "This talent does not exist")
+    return talent
 
+
+@router.get("talents/{talent_uid}/resume", auth=JWTAuth())
+def download_talent_system_resume(request, talent_uid:UUID):
+    IsBusinessUser.check(request)
+    talent = Talent.objects.filter(uid=talent_uid).first()
+    if not talent:
+        raise HttpError(404, "This talent does not exist")
+    return download_talent_cv(request, talent)
+
+
+@router.post("talents/schedule-meeting", auth=JWTAuth(), response=talent_schemas.MeetingResponse)
+def schedule_meeting(request, data: talent_schemas.ScheduleMeetingSchema):
+    IsBusinessUser.check(request)
+    meeting_response = None
+    if data.meeting_type == MeetingType.GOOGLE_MEET:
+        meeting_response = meeting.google_meet.create_event(data.meeting)
+    elif data.meeting_type == MeetingType.ZOOM:
+        meeting_response = meeting.zoom.create_event(data.meeting)
+    elif data.meeting_type == MeetingType.MICROSOFT_TEAMS:
+        meeting_response = meeting.teams.create_event(data.meeting)
+    if not meeting_response:
+        raise HttpError(400, "Meeting could not be scheduled")
+
+    return meeting_response

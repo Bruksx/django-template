@@ -3,7 +3,7 @@ from django.test import TestCase
 from ninja.errors import HttpError
 from ninja_extra.exceptions import ErrorDetail
 from ninja_jwt.exceptions import AuthenticationFailed
-from services.schema import ProfileSchema
+from services.auth.schema import ProfileSchema
 
 from accounts.enums import SocialType, UserType, AuthType
 from auth.enums import AuthActionEnum

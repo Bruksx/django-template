@@ -66,3 +66,8 @@ class Days(BaseEnum):
     FRIDAY = "Friday"
     SATURDAY = "Saturday"
     SUNDAY = "Sunday"
+
+class MeetingType(BaseEnum):
+    GOOGLE_MEET = "google_meet"
+    ZOOM = "zoom"
+    MICROSOFT_TEAMS = "microsoft_teams"

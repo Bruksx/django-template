@@ -119,8 +119,6 @@ class TalentJobListTests(TestCase):
         JobApplication.objects.create(
             job_post=self.job_post,
             applicant=self.talent,
-            is_available=True,
-            accept_privacy=True,
             stage=stage,
             match=5
         )
@@ -261,19 +259,15 @@ class ApplyToJobPostTest(TestCase):
             "authorization": f"bearer {self.user.token}"
         }
         job_post_id = str(JobPost.objects.first().uid)
-        data = {
-         "accept_privacy": True,
-         "is_available": True,
-        }
         self.assertEqual(self.talent.applied_jobs().count(), 0)
         response = self.client.post(f"talent/job-posts/{job_post_id}/apply",
-                                    headers=headers, json=data)
+                                    headers=headers)
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.assertEqual(self.talent.applied_jobs().count(), 1)
         # test to ensure that you cannot apply for one job twice
         response = self.client.post(f"talent/job-posts/{job_post_id}/apply",
-                                    headers=headers, json=data)
+                                    headers=headers)
         self.assertEqual(response.status_code, 400)
 
 class WithdrawJobApplicationTest(TestCase):
@@ -300,8 +294,6 @@ class WithdrawJobApplicationTest(TestCase):
         self.job_application = JobApplication.objects.create(
             job_post=self.job_post,
             applicant=self.talent,
-            is_available=True,
-            accept_privacy=True,
             stage=None,
             match=5
         )

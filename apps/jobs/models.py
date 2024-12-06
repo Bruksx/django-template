@@ -237,8 +237,6 @@ class JobApplication(BaseModel):
         null=True,
         on_delete=models.SET_NULL
     )
-    is_available = models.BooleanField(default=True)
-    accept_privacy = models.BooleanField(default=True)
     stage = models.ForeignKey("settings.WorkflowStage", on_delete=models.SET_NULL, null=True)
     match = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     posted_timeline = models.PositiveSmallIntegerField(default=0)

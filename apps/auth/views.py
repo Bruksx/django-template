@@ -5,9 +5,9 @@ from ninja import Router
 from ninja.errors import HttpError
 
 from helpers.utils import failure_response
-from services import google, linkedin
-from services.schema import ProfileSchema
-from services.facebook import facebook_client
+from services.auth import google, linkedin
+from services.auth.schema import ProfileSchema
+from services.auth.facebook import facebook_client
 from auth.schema import LoginSchema, GoogleAuthSchema, FaceBookLoginSchema, LinkedInAuthSchema
 from auth.services import handle_social_login, validate_login
 
