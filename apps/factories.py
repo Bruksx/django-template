@@ -15,9 +15,7 @@ fake = Faker()
 from core.models import Currency, Language
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, WithdrawalFeedbackType, PhaseType
 from jobs.models import JobLevel, EmploymentType, JobPost, Job, JobApplication, Qualification, JobApplicationWithdrawal, \
-    RequiredAttribute
-
-
+    RequiredAttribute, JobFilter
 
 
 class CountryFactory(DjangoModelFactory):
@@ -330,4 +328,18 @@ class MessageFactory(DjangoModelFactory):
     sender = factory.SubFactory(UserFactory)
     body = factory.Faker('sentence', nb_words=50)
 
+
+class JobFilterFactory(DjangoModelFactory):
+    class Meta:
+        model = JobFilter
+
+    talent = factory.SubFactory(TalentFactory)
+    role = factory.lazy_attribute(lambda _: fake.sentence()[:20])
+    years_of_experience = factory.Iterator([1,2,3,4,5,6,7])
+    office_location = factory.SubFactory(CountryFactory)
+    employment_type = factory.SubFactory(EmploymentTypeFactory)
+    department = factory.SubFactory(DepartmentFactory)
+    minimum_education_level = factory.SubFactory(EducationLevelFactory)
+    location_type = factory.Iterator(WorkStructureEnum.values())
+    remove_applied_jobs = factory.Iterator([True, False])
 

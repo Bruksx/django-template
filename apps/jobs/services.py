@@ -1,8 +1,11 @@
+import logging
+
 from ninja.errors import HttpError
 
 
 def get_talent_job_recommendations(talent, search="", use_filter=False, **kwargs):
     queryset = talent.job_post_matches()
+    logging.critical(f"Queryset: {queryset}")
     if search:
         queryset = queryset.filter(job__title__icontains=search)
     if use_filter:

@@ -148,7 +148,7 @@ class TalentAvailabilitySchema(Schema):
 
 class TalentUserSchema(ModelSchema):
     user: UserSchema
-    role: RoleSchema
+    role: Optional[RoleSchema]
     country: Optional[CountrySchema]
     skills: List[TalentSkillSchema]
     business_models: List[BusinessModelSchema]
@@ -183,7 +183,7 @@ class TalentUserListSchema(ModelSchema):
     last_name: str = Field(alias="user.last_name")
     email: EmailStr = Field(alias="user.email")
     user_uid: UUID = Field(alias="user.uid")
-    role: RoleSchema
+    role: Optional[RoleSchema]
     phone_number: Optional[str] = Field(alias="user.phone_number")
     photo_url:Optional[str]
     class Meta:

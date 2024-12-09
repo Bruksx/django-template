@@ -199,7 +199,7 @@ class TalentModelTest(TestCase):
             currently_works_here=False
         )
         years_of_experience = self.talent.years_of_experience
-        self.assertTrue(isinstance(years_of_experience, float))
+        self.assertTrue(isinstance(years_of_experience, int))
         self.assertEqual(int(years_of_experience), 4)
 
     def test_education_history(self):

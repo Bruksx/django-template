@@ -323,7 +323,7 @@ def upload_talent_profile_picture(request, file: UploadedFile):
 
 
 
-@router.get("talents/{talent_uid}", response=talent_schemas.TalentUserSchema, auth=JWTAuth())
+@router.get("{talent_uid}", response=talent_schemas.TalentUserSchema, auth=JWTAuth())
 def talent_details(request, talent_uid:UUID):
     IsBusinessUser.check(request)
     talent = Talent.objects.filter(uid=talent_uid).first()
@@ -332,7 +332,7 @@ def talent_details(request, talent_uid:UUID):
     return talent
 
 
-@router.get("talents/{talent_uid}/resume", auth=JWTAuth())
+@router.get("{talent_uid}/resume", auth=JWTAuth())
 def download_talent_system_resume(request, talent_uid:UUID):
     IsBusinessUser.check(request)
     talent = Talent.objects.filter(uid=talent_uid).first()
@@ -341,7 +341,7 @@ def download_talent_system_resume(request, talent_uid:UUID):
     return download_talent_cv(request, talent)
 
 
-@router.post("talents/schedule-meeting", auth=JWTAuth(), response=talent_schemas.MeetingResponse)
+@router.post("schedule-meeting", auth=JWTAuth(), response=talent_schemas.MeetingResponse)
 def schedule_meeting(request, data: talent_schemas.ScheduleMeetingSchema):
     IsBusinessUser.check(request)
     meeting_response = None

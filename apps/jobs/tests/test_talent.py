@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import timezone
 from decimal import Decimal
@@ -7,7 +8,8 @@ from accounts.models import Country, Industry, User, Talent, BusinessUser, Busin
 from core.models import Currency
 from django.test import TestCase
 
-from factories import TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory
+from factories import TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory, \
+    JobApplicationFactory, JobFilterFactory, RequiredAttributeFactory, CountryFactory
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusType, WithdrawalFeedbackType
 from jobs.models import JobPost, JobLevel, EmploymentType, Job, SavedJob, JobApplication, JobFilter
 from jobs.views import router
@@ -361,7 +363,7 @@ class ShareJobPostViaEmailTest(TestCase):
         self.job_post = JobPostFactory.create(
             job=self.job,)
 
-        self.url = f"job-posts/{self.job_post.uid}/share-via-email"
+        self.url = f"job-posts/share-via-email"
 
     def test_share_job_post_via_email(self):
         headers = {
@@ -369,8 +371,8 @@ class ShareJobPostViaEmailTest(TestCase):
         }
         job_post_id = str(JobPost.objects.first().uid)
         data = {
-         "talents": [str(self.talent2.user.uid)],
-         "emails": ["testuser3@example.com", "testuser4@example.com"]
+         "emails": ["testuser3@example.com", "testuser4@example.com"],
+         "job_posts": [job_post_id]
         }
         response = self.client.post(self.url,
                                     headers=headers, json=data)
@@ -463,14 +465,15 @@ class TestShareJobViaChat(TestCase):
         self.talent = TalentFactory.create()
         TalentFactory.create_batch(3)
         self.job_post = JobPostFactory.create()
-        self.url = f"job-posts/{self.job_post.uid}/share-via-chat"
+        self.url = f"job-posts/share-via-chat"
 
     def test_share_job_post_via_chat(self):
         header = {
             "Authorization": f"Bearer {self.talent.user.token}"
         }
         data = {
-            "talent_ids" : list(Talent.objects.only("uid").exclude(uid=self.talent.uid).values_list("uid", flat=True))
+            "talents" : list(Talent.objects.only("uid").exclude(uid=self.talent.uid).values_list("uid", flat=True)),
+            "job_posts": [self.job_post.uid]
         }
         response = self.client.post(self.url, headers=header, json=data)
         self.assertEqual(response.status_code, 200)
@@ -481,28 +484,20 @@ class TestShareJobViaChat(TestCase):
             "Authorization": f"Bearer {business_user.user.token}"
         }
         data = {
-            "talent_ids" : list(Talent.objects.only("uid").exclude(uid=self.talent.uid).values_list("uid", flat=True))
+            "talents" : list(Talent.objects.only("uid").exclude(uid=self.talent.uid).values_list("uid", flat=True)),
+            "job_posts": [self.job_post.uid]
         }
         response = self.client.post(self.url, headers=header, json=data)
         self.assertEqual(response.status_code, 200)
 
-    def test_wrong_job_post_id(self):
-        header = {
-            "Authorization": f"Bearer {self.talent.user.token}"
-        }
-        data = {
-            "talent_ids" : list(Talent.objects.only("uid").exclude(uid=self.talent.uid).values_list("uid", flat=True))
-        }
-        self.url = f"job-posts/{uuid.uuid4()}/share-via-chat"
-        response = self.client.post(self.url, headers=header, json=data)
-        self.assertEqual(response.status_code, 404)
 
     def test_empty_talent_ids(self):
         header = {
             "Authorization": f"Bearer {self.talent.user.token}"
         }
         data = {
-            "talent_ids" : []
+            "talents" : [],
+            "job_posts": [self.job_post.uid]
         }
         response = self.client.post(self.url, headers=header, json=data)
         self.assertEqual(response.status_code, 400)
@@ -512,7 +507,47 @@ class TestShareJobViaChat(TestCase):
             "Authorization": f"Bearer {self.talent.user.token}"
         }
         data = {
-            "talent_ids" : [uuid.uuid4(), uuid.uuid4(), uuid.uuid4()]
+            "talents" : [uuid.uuid4(), uuid.uuid4(), uuid.uuid4()],
+            "job_posts": [self.job_post.uid]
         }
         response = self.client.post(self.url, headers=header, json=data)
         self.assertEqual(response.status_code, 200)
+
+class TestJobRecommendationsEndpoint(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = lambda talent_uid: f"talents/{talent_uid}/job-recommendations"
+        self.business_user = BusinessUserFactory.create()
+        self.business = self.business_user.business
+        country = CountryFactory.create()
+        years_of_experience = 3
+        self.talent = TalentFactory.create(years_of_experience=years_of_experience, country=country)
+        jobs = JobFactory.create_batch(5, created_by=self.business_user, years_of_experience=years_of_experience)
+        for job in jobs:
+            RequiredAttributeFactory.create(job=job, years_of_experience=True, location=True)
+            JobPostFactory.create(job=job, posted_by=self.business_user, country=country)
+        JobApplicationFactory.create(job_post=JobPost.objects.first(), applicant=self.talent)
+
+    def test_job_recommendations_endpoint(self):
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.talent.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 5)
+
+
+    def test_endpoint_by_talent(self):
+        headers = {
+            "authorization": f"Bearer {self.talent.user.token}"
+        }
+        response = self.client.get(self.url(self.talent.uid), headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+
+    def test_endpoint_with_invalid_talent_uid(self):
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(uuid.uuid4()), headers=headers)
+        self.assertEqual(response.status_code, 404)

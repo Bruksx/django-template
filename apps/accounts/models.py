@@ -1,3 +1,4 @@
+import logging
 import random
 import random
 import secrets
@@ -301,7 +302,7 @@ class Talent(BaseModel):
             Q(requiredattribute__first_language=True, first_language=self.native_language)|
             Q(requiredattribute__secondary_language=True, additional_languages__id__in=additional_language_ids)|
             Q(requiredattribute__working_hours=True, availableday__in=AvailableDay.objects.filter(working_hours_query))|
-            Q(requiredattribute__location=True, jobpost__country=self.country),
+            Q(requiredattribute__location=True, jobpost__country=self.country)|
             Q(requiredattribute__skills__id__in=skill_ids)
         )
         if start_date and end_date:
