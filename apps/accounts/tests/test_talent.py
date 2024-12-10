@@ -1,5 +1,6 @@
 from datetime import timezone, date
 from decimal import Decimal
+from uuid import uuid4
 
 from django.test import TestCase
 from ninja.testing import TestClient
@@ -11,7 +12,7 @@ from accounts.models import User, VerificationCode, Country, Talent, EducationLe
 from accounts.views.talent import router
 from chats.models import Conversation, Message
 from core.models import Language, Currency
-from factories import WorkflowStageFactory
+from factories import WorkflowStageFactory, TalentFactory, BusinessUserFactory
 from jobs.enums import LunchBreakEnum, WorkStructureEnum, PhaseType, JobStatusType
 from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, RequiredAttribute, AvailableDay, \
     JobApplication, JobInterview
@@ -602,7 +603,7 @@ class TalentDashboardTests(TestCase):
             location=True
         )
         self.job_required_attrs.skills.set(Skill.objects.all()[:2])
-        self.job_required_attrs.business_model.set(BusinessModel.objects.all()[:2])
+        self.job_required_attrs.business_models.set(BusinessModel.objects.all()[:2])
         self.job_required_attrs.refresh_from_db()
         TalentAvailableDay.objects.create(
             talent=self.talent,
@@ -627,8 +628,6 @@ class TalentDashboardTests(TestCase):
         application = JobApplication.objects.create(
             job_post=self.job_post,
             applicant=self.talent,
-            is_available=True,
-            accept_privacy=True,
             stage=stage,
             match=5
         )
@@ -712,3 +711,34 @@ class ChangeTalentPasswordTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertFalse(self.user.check_password("newtestpassword"))
         self.assertTrue(self.user.check_password("testpassword"))
+
+
+
+class TalentDetailTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = lambda talent_uid: f"{talent_uid}"
+        self.talent  = TalentFactory.create()
+        self.business_user = BusinessUserFactory.create()
+
+    def test_talent_detail_endpoint(self):
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.talent.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["uid"], str(self.talent.uid))
+
+    def test_talent_detail_by_talent(self):
+        headers = {
+            "authorization": f"bearer {self.talent.user.token}"
+        }
+        response = self.client.get(self.url(self.talent.uid), headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_wrong_uid(self):
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(uuid4()), headers=headers)
+        self.assertEqual(response.status_code, 404)

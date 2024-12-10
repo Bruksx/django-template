@@ -3,7 +3,7 @@ import random
 import secrets
 import string
 from datetime import timedelta, date, datetime
-from typing import List
+from typing import List, Tuple
 from uuid import UUID
 
 from django.contrib.auth.hashers import check_password, make_password
@@ -13,8 +13,8 @@ from django.db.models import Q, Count, F, Value, Avg, IntegerField
 from django.db.models.functions import Concat, Cast
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from ninja_jwt.exceptions import AuthenticationFailed
 from ninja_jwt.tokens import RefreshToken
+
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
     BusinessUserStatusType
 from core.models import BaseModel
@@ -216,6 +216,7 @@ class Talent(BaseModel):
     additional_languages = models.ManyToManyField("core.Language", related_name="other_languages")
     business_models = models.ManyToManyField("jobs.BusinessModel")
     years_of_experience = models.FloatField(default=0)
+    months_of_experience = models.FloatField(default=0)
 
     @property
     def photo_url(self):
@@ -224,6 +225,9 @@ class Talent(BaseModel):
     @property
     def cv_url(self):
         return self.cv.url if self.cv else None
+
+    def get_years_of_experience(self):
+        return f"{self.months_of_experience // 12} years {self.months_of_experience % 12} months"
 
     def get_skills(self):
         from accounts.schemas.talent import SkillSchema, TalentSkillSchema
@@ -260,15 +264,20 @@ class Talent(BaseModel):
     def education_history(self):
         return self.education_set.all()
 
-    def get_years_of_experience(self):
+    def calculate_years_of_experience(self)->Tuple[int, int]:
+        """
+        Calculate years and months of experience
+        returns (years, months)
+        """
         experiences = self.experience_set.only("start_date", "end_date")
         if not experiences:
-            return 0
+            return 0,0
         start_date: date = experiences.order_by("start_date").first().start_date
         end_date: date = experiences.order_by("end_date").last().end_date
-        return (end_date - start_date).days/365
+        months = (end_date - start_date).days/30
+        return int(months//12), int(months)
 
-    def job_post_matches(self, job_only=False, start_date: date=None, end_date: date=None):
+    def job_post_matches(self, job_only=False, by_talent_country=False, start_date: date=None, end_date: date=None):
         from jobs.models import AvailableDay, JobPost
 
         from jobs.models import Job
@@ -286,13 +295,13 @@ class Talent(BaseModel):
         job_matching_query = Q(
             Q(requiredattribute__job_level=True, job_level_id__in=job_level_ids)|
             Q(requiredattribute__minimum_education_level=True, minimum_education_level_id__in=education_level_ids)|
-            Q(requiredattribute__business_model__id__in=business_model_ids)|
+            Q(requiredattribute__business_models__id__in=business_model_ids)|
             Q(requiredattribute__role=True, role_id__in=role_ids)|
             Q(requiredattribute__years_of_experience=True, years_of_experience=years_of_experience)|
             Q(requiredattribute__first_language=True, first_language=self.native_language)|
             Q(requiredattribute__secondary_language=True, additional_languages__id__in=additional_language_ids)|
             Q(requiredattribute__working_hours=True, availableday__in=AvailableDay.objects.filter(working_hours_query))|
-            Q(requiredattribute__location=True, jobpost__country=self.country),
+            Q(requiredattribute__location=True, jobpost__country=self.country)|
             Q(requiredattribute__skills__id__in=skill_ids)
         )
         if start_date and end_date:
@@ -301,7 +310,10 @@ class Talent(BaseModel):
         if job_only:
             return jobs
         job_ids = jobs.values_list("id", flat=True)
-        return JobPost.objects.filter(job_id__in=job_ids).order_by("-id")
+        query = dict(job_id__in=job_ids)
+        if by_talent_country:
+            query["country"] = self.country
+        return JobPost.objects.filter(**query).order_by("-id")
 
     def job_match_score(self, job_post):
         job = job_post.job
@@ -318,7 +330,7 @@ class Talent(BaseModel):
             score -=1
         if  required_attribute.years_of_experience and required_attribute.years_of_experience > job.years_of_experience:
             score -=1
-        if required_attribute.business_model.count() > 0 and required_attribute.business_model.intersection(self.business_models.all()).count() == 0:
+        if required_attribute.business_models.count() > 0 and required_attribute.business_models.intersection(self.business_models.all()).count() == 0:
             score -= 1
         if required_attribute.minimum_education_level and not self.education_set.filter(level=job.minimum_education_level).exists():
             score -= 1
@@ -409,6 +421,15 @@ class Talent(BaseModel):
                 )
             )
         return data
+
+    def role(self):
+        from jobs.models import JobFilter
+        job_filter = JobFilter.objects.filter(talent=self).first()
+        if not job_filter:
+            return None
+        if not job_filter.role:
+            return None
+        return Role.objects.filter(name__icontains=job_filter.role).first()
 
 
 class Business(BaseModel):
@@ -949,6 +970,12 @@ class Experience(BaseModel):
     start_date = models.DateField()
     end_date = models.DateField()
     currently_works_here = models.BooleanField()
+
+    def duration(self):
+        days = (self.end_date - self.start_date).days
+        months = days // 30
+        years = months // 12
+        return f"{years} years, {months % 12} months"
 
 
 class TalentAvailableDay(BaseModel):

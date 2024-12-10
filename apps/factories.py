@@ -7,7 +7,7 @@ from faker import Faker
 
 from accounts.enums import GenderType, PreferredCommunicationType, BusinessUserRoleType, Days
 from accounts.models import User, Talent, Business, BusinessUser, Education, Role, TalentAvailableDay, CustomerCase, \
-    EducationLevel, Industry, Country, AdditionalSkill, Department, Experience
+    EducationLevel, Industry, Country, AdditionalSkill, Department, Experience, Skill, SkillCategory
 from settings.models import WorkFlowStage, EmailTemplate
 from chats.models import Conversation, Message
 
@@ -15,9 +15,7 @@ fake = Faker()
 from core.models import Currency, Language
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, WithdrawalFeedbackType, PhaseType
 from jobs.models import JobLevel, EmploymentType, JobPost, Job, JobApplication, Qualification, JobApplicationWithdrawal, \
-    RequiredAttribute
-
-
+    RequiredAttribute, JobFilter, BusinessModel
 
 
 class CountryFactory(DjangoModelFactory):
@@ -67,6 +65,25 @@ class DepartmentFactory(DjangoModelFactory):
     name = factory.Faker("name")
     industry = factory.SubFactory(IndustryFactory)
 
+class SkillCategoryFactory(DjangoModelFactory):
+    name = factory.Faker("name")
+    class Meta:
+        model = SkillCategory
+
+class SkillFactory(DjangoModelFactory):
+    name = factory.Faker("name")
+    category = factory.SubFactory(SkillCategoryFactory)
+    department = factory.SubFactory(DepartmentFactory)
+
+    class Meta:
+        model = Skill
+
+class BusinessModelFactory(DjangoModelFactory):
+    name = factory.Faker("name")
+    description = factory.Faker('sentence', nb_words=20)
+
+    class Meta:
+        model = BusinessModel
 
 class UserFactory(DjangoModelFactory):
     class Meta:
@@ -330,4 +347,18 @@ class MessageFactory(DjangoModelFactory):
     sender = factory.SubFactory(UserFactory)
     body = factory.Faker('sentence', nb_words=50)
 
+
+class JobFilterFactory(DjangoModelFactory):
+    class Meta:
+        model = JobFilter
+
+    talent = factory.SubFactory(TalentFactory)
+    role = factory.lazy_attribute(lambda _: fake.sentence()[:20])
+    years_of_experience = factory.Iterator([1,2,3,4,5,6,7])
+    office_location = factory.SubFactory(CountryFactory)
+    employment_type = factory.SubFactory(EmploymentTypeFactory)
+    department = factory.SubFactory(DepartmentFactory)
+    minimum_education_level = factory.SubFactory(EducationLevelFactory)
+    location_type = factory.Iterator(WorkStructureEnum.values())
+    remove_applied_jobs = factory.Iterator([True, False])
 

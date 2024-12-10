@@ -253,7 +253,7 @@ class TalentListTest(TestCase):
         self.client = TestClient(router)
         self.url = "talents"
         self.talent  = TalentFactory.create()
-        talents = TalentFactory.create_batch(5)
+        TalentFactory.create_batch(5)
 
 
     def test_talent_list_endpoint(self):
@@ -272,31 +272,4 @@ class TalentListTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
 
-class TalentDetailTest(TestCase):
-    def setUp(self):
-        self.client = TestClient(router)
-        self.url = lambda talent_uid: f"talents/{talent_uid}"
-        self.talent  = TalentFactory.create()
-        self.business_user = BusinessUserFactory.create()
 
-    def test_talent_detail_endpoint(self):
-        headers = {
-            "authorization": f"bearer {self.business_user.user.token}"
-        }
-        response = self.client.get(self.url(self.talent.uid), headers=headers)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["uid"], str(self.talent.uid))
-
-    def test_talent_detail_by_talent(self):
-        headers = {
-            "authorization": f"bearer {self.talent.user.token}"
-        }
-        response = self.client.get(self.url(self.talent.uid), headers=headers)
-        self.assertEqual(response.status_code, 403)
-
-    def test_wrong_uid(self):
-        headers = {
-            "authorization": f"bearer {self.business_user.user.token}"
-        }
-        response = self.client.get(self.url(uuid4()), headers=headers)
-        self.assertEqual(response.status_code, 404)

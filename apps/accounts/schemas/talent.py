@@ -1,16 +1,17 @@
+from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
+from apps.accounts.enums import MeetingType
 from ninja import Schema, ModelSchema
 from pydantic import Field, EmailStr
 
 from accounts.enums import GenderType, PreferredCommunicationType, Days, Months, NoticePeriodType
 from accounts.models import (Talent, User, TalentAvailableDay, Education,
-                             Experience, Skill, EducationLevel, Country, Role, Department)
+                             Experience, Skill, Role)
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema, \
     EducationLevelSchema, CountrySchema
 from jobs.schemas import JobLevelSchema, EmploymentTypeSchema, BusinessModelSchema
-
 
 
 class DepartmentSchema(Schema):
@@ -61,6 +62,7 @@ class ExperienceSchema(ModelSchema):
     employment_type: EmploymentTypeSchema
     annual_salary_currency: CurrencySchema
     annual_salary_bonus_currency: CurrencySchema
+    duration: str
     class Meta:
         model = Experience
         exclude = [*READ_EXCLUDE_FIELDS, "talent"]
@@ -146,6 +148,7 @@ class TalentAvailabilitySchema(Schema):
 
 class TalentUserSchema(ModelSchema):
     user: UserSchema
+    role: Optional[RoleSchema]
     country: Optional[CountrySchema]
     skills: List[TalentSkillSchema]
     business_models: List[BusinessModelSchema]
@@ -157,10 +160,11 @@ class TalentUserSchema(ModelSchema):
     additional_languages: List[LanguageSchema]
     availability:  List[TalentAvailabilitySchema]
     additional_skills: List[str]
+    years_of_experience: str = Field(alias="get_years_of_experience")
 
     class Meta:
         model = Talent
-        exclude = (*READ_EXCLUDE_FIELDS, "cv", "photo")
+        exclude = (*READ_EXCLUDE_FIELDS, "cv", "photo", "months_of_experience")
 
     @staticmethod
     def resolve_skills(obj):
@@ -179,6 +183,7 @@ class TalentUserListSchema(ModelSchema):
     last_name: str = Field(alias="user.last_name")
     email: EmailStr = Field(alias="user.email")
     user_uid: UUID = Field(alias="user.uid")
+    role: Optional[RoleSchema]
     phone_number: Optional[str] = Field(alias="user.phone_number")
     photo_url:Optional[str]
     class Meta:
@@ -263,3 +268,49 @@ class MonthlyChartSchema(Schema):
 class TalentChangePasswordSchema(Schema):
     old_password: str
     new_password: str
+
+class ParticipantSchema(Schema):
+    """Schema for meeting participants."""
+    email: EmailStr = Field(description="Participant's email address")
+    name: Optional[str] = Field(None, description="Participant's full name")
+
+class MeetingSettingsSchema(Schema):
+    """Schema for advanced meeting settings."""
+    host_video: Optional[bool] = Field(True, description="Enable host video")
+    participant_video: Optional[bool] = Field(True, description="Enable participant video")
+    join_before_host: Optional[bool] = Field(False, description="Allow participants to join before host")
+    mute_upon_entry: Optional[bool] = Field(True, description="Mute participants upon entry")
+    approval_type: Optional[int] = Field(0, description="Approval type for participants (0 for automatic approval)")
+    registration_type: Optional[int] = Field(None, description="Type of registration required (e.g., 1, 2, or 3)")
+
+class ServiceSpecificDataSchema(Schema):
+    """Schema for service-specific meeting data."""
+    zoom_specific: Optional[dict] = Field(None, description="Zoom-specific data")
+    teams_specific: Optional[dict] = Field(None, description="Microsoft Teams-specific data")
+    google_meet_specific: Optional[dict] = Field(None, description="Google Meet-specific data")
+
+class MeetingSchema(Schema):
+    """Unified schema for scheduling meetings across services."""
+    topic: str = Field(description="Meeting topic or title")
+    agenda: Optional[str] = Field(None, description="Meeting agenda or description")
+    start_time: datetime  = Field(description="Start time of the meeting in ISO 8601 format")
+    end_time: Optional[datetime] = Field(None, description="End time of the meeting in ISO 8601 format")
+    duration: Optional[int] = Field(None, description="Duration of the meeting in minutes (alternative to end_time)")
+    timezone: Optional[str] = Field("UTC", description="Timezone of the meeting (e.g., 'UTC')")
+    participants: Optional[List[ParticipantSchema]] = Field(
+        None, description="List of participants to invite"
+    )
+    settings: Optional[MeetingSettingsSchema] = Field(
+        None, description="Advanced meeting settings"
+    )
+    service_specific_data: Optional[ServiceSpecificDataSchema] = Field(
+        None, description="Additional data specific to the meeting service"
+    )
+
+class ScheduleMeetingSchema(Schema):
+    meeting: MeetingSchema
+    meeting_type: MeetingType
+
+class MeetingResponse(Schema):
+    link: str
+    url: str

@@ -6,7 +6,7 @@ import requests
 from django.conf import settings
 
 from helpers.loggers import Logger
-from services.schema import FreshTokenSchema, TokenSchema, ProfileSchema
+from services.auth.schema import FreshTokenSchema, TokenSchema, ProfileSchema
 
 LINKEDIN_CLIENT_ID = settings.LINKEDIN_CLIENT_ID
 LINKEDIN_CLIENT_SECRET = settings.LINKEDIN_CLIENT_SECRET

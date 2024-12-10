@@ -131,7 +131,7 @@ class TalentModelTest(TestCase):
         )
         stage = WorkflowStageFactory.create(phase=PhaseType.INTERVIEW.value)
         self.job_required_attrs.skills.set(Skill.objects.all()[:2])
-        self.job_required_attrs.business_model.set(BusinessModel.objects.all()[:2])
+        self.job_required_attrs.business_models.set(BusinessModel.objects.all()[:2])
         self.job_required_attrs.refresh_from_db()
         TalentAvailableDay.objects.create(
             talent=self.talent,
@@ -157,8 +157,6 @@ class TalentModelTest(TestCase):
         application = JobApplication.objects.create(
             job_post=self.job_post,
             applicant = self.talent,
-        is_available = True,
-        accept_privacy = True,
         stage = stage,
         match = 5
         )
@@ -201,7 +199,7 @@ class TalentModelTest(TestCase):
             currently_works_here=False
         )
         years_of_experience = self.talent.years_of_experience
-        self.assertTrue(isinstance(years_of_experience, float))
+        self.assertTrue(isinstance(years_of_experience, int))
         self.assertEqual(int(years_of_experience), 4)
 
     def test_education_history(self):

@@ -109,7 +109,6 @@ class JobFilterModelTest(TestCase):
         JobApplication.objects.create(
             applicant=self.talent,
             job_post=self.job_post,
-            is_available=True,
             match=5
         )
         filtered_queryset = self.talent.jobfilter.get_queryset(queryset)

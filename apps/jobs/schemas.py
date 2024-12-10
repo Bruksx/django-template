@@ -229,12 +229,12 @@ class JobPostDetailSchema(ModelSchema):
         return
 
 class RequiredAttributeSchema(ModelSchema):
-    business_model: list[BusinessModelSchema]
+    business_models: list[BusinessModelSchema]
     skills: List[JobSkillSchema]
 
     class Meta:
         model = RequiredAttribute
-        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid", "skills"]
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "job"]
 
     @staticmethod
     def resolve_skills(obj):
@@ -458,7 +458,7 @@ class JobPostFullDetailSchema(ModelSchema):
 
 class MutateRequiredAttributeSchema(ModelSchema):
     skills: Optional[list[UUID]]
-    business_model: Optional[list[UUID]]
+    business_models: Optional[list[UUID]]
     class Meta:
         model = RequiredAttribute
         exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid"]
@@ -477,6 +477,7 @@ class JobApplicationListSchema(ModelSchema):
     applicant_uid:UUID = Field(alias="applicant.uid")
     applicant:str = Field(alias="applicant.user.fullname")
     location:str = Field(alias="applicant.country.name")
+    role:Optional[GenericNameAndUidSchema] = Field(alias="applicant.role")
     experience:int
     match:int
     phase:str
@@ -507,6 +508,7 @@ class JobApplicationListSchema(ModelSchema):
 class TalentJobPostListSchema(ModelSchema):
     job: JobListSchema
     match_score: Optional[int]
+    applied: bool
 
     class Meta:
         model = JobPost
@@ -516,12 +518,19 @@ class TalentJobPostListSchema(ModelSchema):
     @staticmethod
     def resolve_match_score(obj, context)->Optional[int]:
         request = context.get("request")
-        user = request.user
-        if not hasattr(user, "talent"):
+        talent = request.context.get("talent")
+        if not talent:
             return None
-        talent = user.talent
         score = talent.job_match_score(obj)
         return score
+
+    @staticmethod
+    def resolve_applied(obj, context):
+        request = context.get("request")
+        talent = request.context.get("talent")
+        if not talent:
+            return None
+        return JobApplication.objects.filter(job_post=obj, applicant=talent).exists()
 
 
 class TalentJobPostSchema(TalentJobPostListSchema):
@@ -552,23 +561,18 @@ class TalentJobFilterSchema(ModelSchema):
         fields = ["role", "years_of_experience", "location_type",  "remove_applied_jobs"]
         optional_fields = fields
 
-
-
-class TalentJobApplySchema(ModelSchema):
-    class Meta:
-        model = JobApplication
-        fields = ("accept_privacy", "is_available")
-
 class TalentJobApplicationWithdrawalSchema(Schema):
        feedback_type: WithdrawalFeedbackType
        feedback: str
 
 class ShareJobPostViaEmailSchema(Schema):
     emails: List[str]
+    job_posts: List[UUID]
 
 
 class ShareJobPostViaChatSchema(Schema):
-    talent_ids: List[UUID]
+    talents: List[UUID]
+    job_posts: List[UUID]
 
 class TalentListJobPostSchema(ModelSchema):
     first_name: str = Field(alias="user.first_name")
@@ -577,6 +581,7 @@ class TalentListJobPostSchema(ModelSchema):
     email: EmailStr = Field(alias="user.email")
     phone_number: Optional[str] = Field(alias="user.phone_number")
     photo_url: Optional[str]
+    cv_url: Optional[str]
     match_score: Optional[int]
 
     class Meta:

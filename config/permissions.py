@@ -58,8 +58,10 @@ class IsBusinessUser(IsAuthenticated):
 
     @classmethod
     def __validate__(cls, request, *args, **kwargs):
+        # check preceding permissions
         if not super().__has_permission__(request):
             raise HttpError(403, super().__message__)
+        # check current permission
         if not cls.__has_permission__(request):
             raise HttpError(403, cls.__message__)
         return

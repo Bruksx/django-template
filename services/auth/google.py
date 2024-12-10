@@ -5,7 +5,7 @@ from django.conf import settings
 from requests import JSONDecodeError
 
 from helpers.loggers import Logger
-from services.schema import FreshTokenSchema, TokenSchema, ProfileSchema
+from services.auth.schema import FreshTokenSchema, TokenSchema, ProfileSchema
 
 GOOGLE_CLIENT_ID = settings.GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET = settings.GOOGLE_CLIENT_SECRET

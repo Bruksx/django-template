@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from config.permissions import IsTalentUser
+from config.permissions import IsTalentUser, IsBusinessUser
 from django.db import transaction
 from monkeypatches.q_cluster import async_task
 from ninja import Router, PatchDict
@@ -10,35 +10,42 @@ from ninja_extra.pagination import PageNumberPaginationExtra, paginate
 from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
+from accounts.models import Talent
 from jobs import tasks
 from jobs.enums import JobStatusType
 from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
-    TalentJobApplySchema, TalentJobApplicationWithdrawalSchema, ShareJobPostViaEmailSchema, ShareJobPostViaChatSchema, \
+    TalentJobApplicationWithdrawalSchema, ShareJobPostViaEmailSchema, ShareJobPostViaChatSchema, \
     TalentJobPostSchema
+from jobs.services import get_talent_job_recommendations
 from notification import notifications
 
 router = Router()
 
 @router.get("talent/job-recommendations", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def talent_job_recommendations(request, search="", use_filter=False, **kwargs):
+def logged_in_talent_job_recommendations(request, search="", use_filter=False, **kwargs):
     IsTalentUser.check(request)
     talent = request.user.talent
-    queryset = talent.job_post_matches()
-    if search:
-        queryset = queryset.filter(job__title__icontains=search)
-    if use_filter:
-        if not hasattr(talent, "jobfilter"):
-            raise HttpError(400, "You have not set a job filter yet")
-        queryset = talent.jobfilter.get_queryset(queryset)
-    return queryset.order_by("-created_at")
+    request.context = {"talent": talent}
+    return get_talent_job_recommendations(talent, search, use_filter, **kwargs)
+
+@router.get("talents/{talent_uid}/job-recommendations", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
+@paginate(PageNumberPaginationExtra, page_size=50)
+def talent_job_recommendations(request, talent_uid:UUID, search="", use_filter=False, **kwargs):
+    IsBusinessUser.check(request)
+    talent = Talent.objects.filter(uid=talent_uid).first()
+    if not talent:
+        raise HttpError(404, "Talent not found")
+    request.context = {"talent": talent}
+    return get_talent_job_recommendations(talent, search, use_filter, **kwargs)
 
 @router.get("talent/saved-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
 def talent_saved_jobs(request, search="", use_filter=False, **kwargs):
     IsTalentUser.check(request)
     talent = request.user.talent
+    request.context = {"talent": talent}
     queryset = talent.saved_jobs()
     if search:
         if not hasattr(talent, "jobfilter"):
@@ -53,6 +60,7 @@ def talent_saved_jobs(request, search="", use_filter=False, **kwargs):
 def job_posts_by_talent_country(request, search="", use_filter=False, **kwargs):
     IsTalentUser.check(request)
     talent = request.user.talent
+    request.context = {"talent": talent}
     queryset = JobPost.objects.filter(country=talent.country, status=JobStatusType.POSTED.value)
     if search:
         queryset = queryset.filter(job__title__icontains=search)
@@ -67,6 +75,7 @@ def job_posts_by_talent_country(request, search="", use_filter=False, **kwargs):
 def talent_applied_jobs(request, search="", use_filter=False, **kwargs):
     IsTalentUser.check(request)
     talent = request.user.talent
+    request.context = {"talent": talent}
     queryset = talent.applied_jobs()
     if search:
         queryset = queryset.filter(job__title__icontains=search)
@@ -100,7 +109,7 @@ def get_talent_job_filter(request):
 
 
 @router.post("talent/job-posts/{job_post_id}/apply", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
-def apply_to_job_post(request, job_post_id:UUID, data: PatchDict[TalentJobApplySchema]):
+def apply_to_job_post(request, job_post_id:UUID):
     IsTalentUser.check(request)
     talent = request.user.talent
     job_post = JobPost.objects.filter(uid=job_post_id).first()
@@ -112,7 +121,7 @@ def apply_to_job_post(request, job_post_id:UUID, data: PatchDict[TalentJobApplyS
         raise HttpError(400, "Already applied")
     JobApplication.objects.create(job_post=job_post_id, applicant=talent,
                                   recruiter=job_post.recruiter,
-                                 **data, match=talent.job_match_score(job_post))
+                                 match=talent.job_match_score(job_post))
     return Response(status=200, data={"message": "Applied successfully"})
 
 
@@ -145,28 +154,28 @@ def withdraw_job_applications(request, application_id:UUID, data: TalentJobAppli
     application.delete()
     return Response(status=200, data={"message": "Withdrawn successfully"})
 
-@router.post("job-posts/{job_post_id}/share-via-email", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
+@router.post("job-posts/share-via-email", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 @transaction.atomic
-def share_job_post_via_email(request, job_post_id:UUID, data: ShareJobPostViaEmailSchema):
-    job_post = JobPost.objects.filter(uid=job_post_id).first()
-    if not job_post:
-        raise HttpError(404, "Job post not found")
+def share_job_post_via_email(request, data: ShareJobPostViaEmailSchema):
+    if not data.job_posts:
+        raise HttpError(400, "No job posts selected")
+    if not data.emails:
+        raise HttpError(400, "No emails selected")
     async_task(tasks.share_job_via_email,
-        job_post_id=job_post.id, emails=data.emails
+        job_post_ids=data.job_posts, emails=data.emails
     )
     return Response(status=200, data={"message": "Shared successfully"})
 
-@router.post("job-posts/{job_post_id}/share-via-chat", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
+@router.post("job-posts/share-via-chat", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 @transaction.atomic
-def share_job_post_via_chat(request, job_post_id:UUID, data: ShareJobPostViaChatSchema):
+def share_job_post_via_chat(request, data: ShareJobPostViaChatSchema):
     user = request.user
-    if not data.talent_ids:
+    if not data.talents:
         raise HttpError(400, "No talents selected")
-    job_post = JobPost.objects.filter(uid=job_post_id).first()
-    if not job_post:
-        raise HttpError(404, "Job post not found")
+    if not data.job_posts:
+        raise HttpError(400, "No job posts selected")
     async_task(tasks.send_shared_job_chat,
-        job_post_id=job_post.id, talent_ids=data.talent_ids, sender_id=user.id
+        job_post_ids=data.job_posts, talent_ids=data.talents, sender_id=user.id
     )
     return Response(status=200, data={"message": "Shared successfully"})
 
@@ -196,8 +205,5 @@ def discard_saved_job(request, job_post_id:UUID):
         raise HttpError(404, "This job post is not saved")
     saved_job.delete()
     return Response(status=200, data={"message": "Discarded successfully"})
-
-
-
 
 

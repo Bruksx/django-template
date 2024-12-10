@@ -1,3 +1,4 @@
+import logging
 from idlelib.query import Query
 
 from django.db import models
@@ -176,32 +177,40 @@ class JobPost(BaseModel):
         return f"{self.job}({self.country})"
 
     def get_talents(self):
-        query = Q(country=self.country)
+        query = None
+
+        def get_query(new_query):
+            if not query:
+                return new_query
+            return query | new_query
+
         job = self.job
         if not hasattr(job, "requiredattribute"):
             return Talent.objects.select_related("user").filter(query).distinct()
         required_attribute = job.requiredattribute
         if required_attribute.skills.count() > 0:
             ids = required_attribute.skills.values_list("id", flat=True)
-            query = query | Q(skills__id__in=ids)
+            query = get_query(Q(skills__id__in=ids))
         if required_attribute.role and job.role:
-            query = query | Q(experience__role=job.role)
+            query = get_query(Q(experience__role=job.role))
         if required_attribute.job_level and job.job_level:
-            query = query | Q(experience__level=job.job_level)
+            query = get_query(Q(experience__level=job.job_level))
         if required_attribute.years_of_experience:
-            query = query | Q(years_of_experience__gte=job.years_of_experience)
-        if required_attribute.business_model.count() > 0:
-            ids = required_attribute.business_model.values_list("id", flat=True)
-            query = query | Q(business_models__id__in=ids)
+            query = get_query(Q(years_of_experience__gte=job.years_of_experience))
+        if required_attribute.business_models.count() > 0:
+            ids = required_attribute.business_models.values_list("id", flat=True)
+            query = get_query(Q(business_models__id__in=ids))
         if required_attribute.minimum_education_level and job.minimum_education_level:
-            query = query | Q(education__level=job.minimum_education_level)
+            query = get_query(Q(education__level=job.minimum_education_level))
         if required_attribute.first_language:
-            query = query | Q(native_language=job.first_language)
+            query = get_query(Q(native_language=job.first_language))
         if required_attribute.secondary_language and job.additional_languages.count() > 0:
             ids = job.additional_languages.values_list("id", flat=True)
-            query = query | Q(additional_languages__id__in=ids)
+            query = get_query(Q(additional_languages__id__in=ids))
         if required_attribute.working_hours:
-            query = query | Q(talentavailableday__id__in=TalentAvailableDay.objects.filter(job.availability_query()).only("id").values_list("id", flat=True))
+            query = get_query(Q(talentavailableday__id__in=TalentAvailableDay.objects.filter(job.availability_query()).only("id").values_list("id", flat=True)))
+        if required_attribute.location:
+            query = get_query(Q(country=self.country))
         return Talent.objects.select_related("user").filter(query).distinct()
 
     def phase_data(self):
@@ -237,8 +246,6 @@ class JobApplication(BaseModel):
         null=True,
         on_delete=models.SET_NULL
     )
-    is_available = models.BooleanField(default=True)
-    accept_privacy = models.BooleanField(default=True)
     stage = models.ForeignKey("settings.WorkflowStage", on_delete=models.SET_NULL, null=True)
     match = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     posted_timeline = models.PositiveSmallIntegerField(default=0)
@@ -378,7 +385,7 @@ class RequiredAttribute(BaseModel):
     role = models.BooleanField(default=False)
     job_level = models.BooleanField(default=False)
     years_of_experience = models.BooleanField(default=False)
-    business_model = models.ManyToManyField("BusinessModel")
+    business_models = models.ManyToManyField("BusinessModel")
     minimum_education_level = models.BooleanField(default=False)
     work_structure = models.BooleanField(default=False)
     technological_requirement = models.BooleanField(default=False)
@@ -400,7 +407,7 @@ class RequiredAttribute(BaseModel):
             score += 1
         if self.years_of_experience:
             score += 1
-        if self.business_model.count() > 0:
+        if self.business_models.count() > 0:
             score += 1
         if self.minimum_education_level:
             score += 1

@@ -9,7 +9,8 @@ from accounts.models import Department, Role, Business, Industry, BusinessUser, 
     EducationLevel
 from core.models import Currency
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
-    JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory
+    JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, SkillFactory, BusinessModelFactory, \
+    CountryFactory
 from jobs.business_views import router
 from jobs.enums import JobStatusType, PhaseType
 from jobs.models import (
@@ -102,53 +103,6 @@ class SkillCategoryListTests(TestCase):
         data = response.json()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(data), 3)
-
-
-class TestTalentsByJobList(TestCase):
-    def setUp(self):
-        self.client = TestClient(router)
-        country = Country.objects.first()
-        self.business = BusinessFactory.create()
-        self.business_user = BusinessUserFactory.create(user=self.business.created_by, business=self.business)
-        self.job_post = JobPostFactory.create(country=country, recruiter=self.business_user)
-        RequiredAttributeFactory.create(job=self.job_post.job)
-        TalentFactory.create_batch(10, country=country)
-
-
-    def test_talents_by_job_list_endpoint(self):
-        headers = {
-            "authorization": f"bearer {self.business_user.user.token}"
-        }
-        response = self.client.get(f"/job-posts/{self.job_post.uid}/talents", headers=headers)
-        data = response.json()
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(data), 10)
-
-    def test_wrong_job_post_uid(self):
-        headers = {
-            "authorization": f"bearer {self.business_user.user.token}"
-        }
-        response = self.client.get(f"/job-posts/{uuid.uuid4()}/talents", headers=headers)
-        self.assertEqual(response.status_code, 404)
-
-    def test_endpoint_call_by_talent(self):
-        talent = Talent.objects.first()
-        headers = {
-            "authorization": f"bearer {talent.user.token}"
-        }
-        response = self.client.get(f"/job-posts/{self.job_post.uid}/talents", headers=headers)
-        self.assertEqual(response.status_code, 403)
-
-
-    def test_talents_by_job_list_endpoint_with_search(self):
-        search = Talent.objects.first().user.first_name
-        headers = {
-            "authorization": f"bearer {self.business_user.user.token}"
-        }
-        response = self.client.get(f"/job-posts/{self.job_post.uid}/talents?search={search}", headers=headers)
-        data = response.json()
-        self.assertEqual(response.status_code, 200)
-        self.assertGreaterEqual(len(data), 1)
 
 class TestJobPostDetail(TestCase):
     def setUp(self):
@@ -899,6 +853,205 @@ class JobPostDeleteTest(TestCase):
         response = self.client.delete(self.url(self.job_post.uid), headers=headers)
         self.assertEqual(response.status_code, 403)
 
+class SetJobRequirementTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.job = JobFactory.create(created_by=self.business_user)
+        self.url = lambda job_uid : f"{job_uid}/required-attributes"
+        self.skills = SkillFactory.create_batch(5)
+        self.business_models = BusinessModelFactory.create_batch(5)
+        self.test_data = {
+            "skills": list(map(lambda x: str(x.uid), self.skills)),
+            "business_models": list(map(lambda x:str(x.uid), self.business_models)),
+            "role": False,
+            "job_level": True,
+            "years_of_experience": True,
+            "minimum_education_level": False,
+            "work_structure": False,
+            "technological_requirement": True,
+            "first_language": True,
+            "secondary_language": False,
+            "working_hours": True,
+            "location": False
+        }
+
+    def test_set_job_required_attributes(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        self.assertFalse(hasattr(self.job, "requiredattribute"))
+        response = self.client.patch(self.url(self.job.uid), headers=headers, json=self.test_data)
+        self.assertEqual(response.status_code, 200)
+        self.job.refresh_from_db()
+        self.assertTrue(hasattr(self.job, "requiredattribute"))
+        required_attributes = self.job.requiredattribute
+        self.assertTrue(required_attributes.skills.filter(uid__in=self.test_data["skills"]).exists())
+        self.assertTrue(required_attributes.skills.count(), len(self.test_data["skills"]))
+        self.assertTrue(required_attributes.business_models.filter(uid__in=self.test_data["business_models"]).exists())
+        self.assertTrue(required_attributes.business_models.count(), len(self.test_data["business_models"]))
+        self.assertEqual(required_attributes.role, self.test_data["role"])
+        self.assertEqual(required_attributes.job_level, self.test_data["job_level"])
+        self.assertEqual(required_attributes.years_of_experience, self.test_data["years_of_experience"])
+        self.assertEqual(required_attributes.minimum_education_level, self.test_data["minimum_education_level"])
+        self.assertEqual(required_attributes.work_structure, self.test_data["work_structure"])
+        self.assertEqual(required_attributes.technological_requirement, self.test_data["technological_requirement"])
+        self.assertEqual(required_attributes.first_language, self.test_data["first_language"])
+        self.assertEqual(required_attributes.secondary_language, self.test_data["secondary_language"])
+        self.assertEqual(required_attributes.working_hours, self.test_data["working_hours"])
+        self.assertEqual(required_attributes.location, self.test_data["location"])
+
+    def test_set_job_required_attributes_with_attributes(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        _required_attributes = RequiredAttributeFactory.create(job=self.job)
+        response = self.client.patch(self.url(self.job.uid), headers=headers, json=self.test_data)
+        self.assertEqual(response.status_code, 200)
+        self.job.refresh_from_db()
+        self.assertTrue(hasattr(self.job, "requiredattribute"))
+        required_attributes = self.job.requiredattribute
+        self.assertEqual(_required_attributes.uid, required_attributes.uid)
+        self.assertTrue(required_attributes.skills.filter(uid__in=self.test_data["skills"]).exists())
+        self.assertTrue(required_attributes.skills.count(), len(self.test_data["skills"]))
+        self.assertTrue(required_attributes.business_models.filter(uid__in=self.test_data["business_models"]).exists())
+        self.assertTrue(required_attributes.business_models.count(), len(self.test_data["business_models"]))
+        self.assertEqual(required_attributes.role, self.test_data["role"])
+        self.assertEqual(required_attributes.job_level, self.test_data["job_level"])
+        self.assertEqual(required_attributes.years_of_experience, self.test_data["years_of_experience"])
+        self.assertEqual(required_attributes.minimum_education_level, self.test_data["minimum_education_level"])
+        self.assertEqual(required_attributes.work_structure, self.test_data["work_structure"])
+        self.assertEqual(required_attributes.technological_requirement, self.test_data["technological_requirement"])
+        self.assertEqual(required_attributes.first_language, self.test_data["first_language"])
+        self.assertEqual(required_attributes.secondary_language, self.test_data["secondary_language"])
+        self.assertEqual(required_attributes.working_hours, self.test_data["working_hours"])
+        self.assertEqual(required_attributes.location, self.test_data["location"])
+
+    def test_set_job_required_attributes_with_invalid_uuid(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.patch(self.url(uuid4()), headers=headers, json=self.test_data)
+        self.assertEqual(response.status_code, 404)
+
+    def test_set_job_required_attributes_by_talent(self):
+        talent = TalentFactory.create()
+        headers = {
+            "authorization": f"Bearer {talent.user.token}"
+        }
+        response = self.client.patch(self.url(self.job.uid), headers=headers, json=self.test_data)
+        self.assertEqual(response.status_code, 403)
+
+    def test_set_job_required_attributes_by_another_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        response = self.client.patch(self.url(self.job.uid), headers=headers, json=self.test_data)
+        self.assertEqual(response.status_code, 404)
+
+class GetJobRequirementTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.job = JobFactory.create(created_by=self.business_user)
+        self.url = lambda job_uid: f"{job_uid}/required-attributes"
+
+    def test_job_without_required_attributes(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        self.assertFalse(hasattr(self.job, "requiredattribute"))
+        response = self.client.get(self.url(self.job.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.job.refresh_from_db()
+        self.assertTrue(hasattr(self.job, "requiredattribute"))
+        self.assertEqual(str(self.job.requiredattribute.uid), response.data["uid"])
+
+    def test_job_with_required_attributes(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.job.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.job.refresh_from_db()
+        self.assertEqual(str(self.job.requiredattribute.uid), response.data["uid"])
 
 
+    def test_get_job_required_attributes_with_invalid_uuid(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(uuid4()), headers=headers)
+        self.assertEqual(response.status_code, 404)
 
+
+    def test_get_job_required_attributes_by_talent(self):
+        talent = TalentFactory.create()
+        headers = {
+            "authorization": f"Bearer {talent.user.token}"
+        }
+        response = self.client.get(self.url(self.job.uid), headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+
+    def test_get_job_required_attributes_by_another_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.job.uid), headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+class TalentsByJobPostTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        country = CountryFactory.create()
+        self.business_user = BusinessUserFactory.create()
+        TalentFactory.create_batch(5, country=country)
+        job = JobFactory.create(created_by=self.business_user)
+        RequiredAttributeFactory.create(job=job, location=True)
+        self.job_post = JobPostFactory.create(job=job, country=country)
+        self.url = lambda job_post_uid: f"job-posts/{job_post_uid}/talents"
+
+
+    def test_get_talents_by_job_post(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.job_post.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 5)
+
+    def test_get_talents_by_job_post_with_search_query(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        search_query = Talent.objects.first().user.first_name
+        response = self.client.get(self.url(self.job_post.uid)+f"?search={search_query}", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(len(response.data), 1)
+        self.assertLess(len(response.data), 5)
+
+    def test_invalid_job_post_uid(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(uuid4()), headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_get_talents_by_job_post_by_talent(self):
+        talent = Talent.objects.first()
+        headers = {
+            "authorization": f"Bearer {talent.user.token}"
+        }
+        response = self.client.get(self.url(uuid4()), headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_get_talents_by_job_post_by_another_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        response = self.client.get(self.url(uuid4()), headers=headers)
+        self.assertEqual(response.status_code, 404)
