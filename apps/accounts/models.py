@@ -1,4 +1,3 @@
-import logging
 import random
 import random
 import secrets
@@ -14,8 +13,8 @@ from django.db.models import Q, Count, F, Value, Avg, IntegerField
 from django.db.models.functions import Concat, Cast
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from ninja_jwt.exceptions import AuthenticationFailed
 from ninja_jwt.tokens import RefreshToken
+
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
     BusinessUserStatusType
 from core.models import BaseModel
@@ -296,7 +295,7 @@ class Talent(BaseModel):
         job_matching_query = Q(
             Q(requiredattribute__job_level=True, job_level_id__in=job_level_ids)|
             Q(requiredattribute__minimum_education_level=True, minimum_education_level_id__in=education_level_ids)|
-            Q(requiredattribute__business_model__id__in=business_model_ids)|
+            Q(requiredattribute__business_models__id__in=business_model_ids)|
             Q(requiredattribute__role=True, role_id__in=role_ids)|
             Q(requiredattribute__years_of_experience=True, years_of_experience=years_of_experience)|
             Q(requiredattribute__first_language=True, first_language=self.native_language)|
@@ -331,7 +330,7 @@ class Talent(BaseModel):
             score -=1
         if  required_attribute.years_of_experience and required_attribute.years_of_experience > job.years_of_experience:
             score -=1
-        if required_attribute.business_model.count() > 0 and required_attribute.business_model.intersection(self.business_models.all()).count() == 0:
+        if required_attribute.business_models.count() > 0 and required_attribute.business_models.intersection(self.business_models.all()).count() == 0:
             score -= 1
         if required_attribute.minimum_education_level and not self.education_set.filter(level=job.minimum_education_level).exists():
             score -= 1

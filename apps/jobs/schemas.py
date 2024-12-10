@@ -229,12 +229,12 @@ class JobPostDetailSchema(ModelSchema):
         return
 
 class RequiredAttributeSchema(ModelSchema):
-    business_model: list[BusinessModelSchema]
+    business_models: list[BusinessModelSchema]
     skills: List[JobSkillSchema]
 
     class Meta:
         model = RequiredAttribute
-        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid", "skills"]
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "job"]
 
     @staticmethod
     def resolve_skills(obj):
@@ -458,7 +458,7 @@ class JobPostFullDetailSchema(ModelSchema):
 
 class MutateRequiredAttributeSchema(ModelSchema):
     skills: Optional[list[UUID]]
-    business_model: Optional[list[UUID]]
+    business_models: Optional[list[UUID]]
     class Meta:
         model = RequiredAttribute
         exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid"]
@@ -581,6 +581,7 @@ class TalentListJobPostSchema(ModelSchema):
     email: EmailStr = Field(alias="user.email")
     phone_number: Optional[str] = Field(alias="user.phone_number")
     photo_url: Optional[str]
+    cv_url: Optional[str]
     match_score: Optional[int]
 
     class Meta:

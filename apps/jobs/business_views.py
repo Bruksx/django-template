@@ -78,21 +78,28 @@ def get_business_models(request, search=""):
         queryset = queryset.filter(name__icontains=search)
     return queryset
 
-@router.patch("set-required-attributes/{job_uid}", response=job_schemas.RequiredAttributeSchema, auth=JWTAuth())
+@router.patch("{job_uid}/required-attributes", response=job_schemas.RequiredAttributeSchema, auth=JWTAuth())
 def set_required_attributes(request, data:job_schemas.MutateRequiredAttributeSchema, job_uid:UUID):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     request_data = data.dict()
-    user = request.user
-    job = Job.objects.filter(created_by=business_user, uid=job_uid).first()
+    job = Job.objects.filter(created_by__business=business_user.business, uid=job_uid).first()
     if not job:
         raise HttpError(404, "Job not found")
-    if job.created_by != user.businessuser:
-        raise HttpError(403, "not allowed")
     required_attributes, _ = RequiredAttribute.objects.get_or_create(job=job)
     required_attributes.skills.set(request_data.pop("skills"))
-    required_attributes.business_model.set(request_data.pop("business_model"))
+    required_attributes.business_models.set(request_data.pop("business_models"))
     required_attributes.update(**request_data)
+    return required_attributes
+
+@router.get("{job_uid}/required-attributes", response=job_schemas.RequiredAttributeSchema, auth=JWTAuth())
+def get_required_attributes(request, job_uid:UUID):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    job = Job.objects.filter(created_by__business=business_user.business, uid=job_uid).first()
+    if not job:
+        raise HttpError(404, "Job not found")
+    required_attributes, _ = RequiredAttribute.objects.get_or_create(job=job)
     return required_attributes
 
 
@@ -158,13 +165,17 @@ def get_job_post_detail(request, job_post_uid):
 @router.get("job-posts/{job_post_uid}/talents", response=list[TalentListJobPostSchema], auth=JWTAuth())
 def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
     IsBusinessUser.check(request)
-    job_post = JobPost.objects.filter(uid=job_post_uid).first()
+    business_user = request.user.businessuser
+    job_post = JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business_user.business).first()
     if not job_post:
         raise HttpError(404, "Job Post not found")
     request.context = dict(job_post=job_post)
     query = Q()
     if search:
-        query = Q(user__first_name__icontains=search) | Q(user__last_name__icontains=search)
+        query = (Q(user__first_name__icontains=search) |
+                 Q(user__last_name__icontains=search)|
+                 Q(user__email__icontains=search)
+        )
     return job_post.get_talents().filter(query)
 
 @router.post("", response=JobDetailSchema, auth=JWTAuth())

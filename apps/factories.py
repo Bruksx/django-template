@@ -7,7 +7,7 @@ from faker import Faker
 
 from accounts.enums import GenderType, PreferredCommunicationType, BusinessUserRoleType, Days
 from accounts.models import User, Talent, Business, BusinessUser, Education, Role, TalentAvailableDay, CustomerCase, \
-    EducationLevel, Industry, Country, AdditionalSkill, Department, Experience
+    EducationLevel, Industry, Country, AdditionalSkill, Department, Experience, Skill, SkillCategory
 from settings.models import WorkFlowStage, EmailTemplate
 from chats.models import Conversation, Message
 
@@ -15,7 +15,7 @@ fake = Faker()
 from core.models import Currency, Language
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, WithdrawalFeedbackType, PhaseType
 from jobs.models import JobLevel, EmploymentType, JobPost, Job, JobApplication, Qualification, JobApplicationWithdrawal, \
-    RequiredAttribute, JobFilter
+    RequiredAttribute, JobFilter, BusinessModel
 
 
 class CountryFactory(DjangoModelFactory):
@@ -65,6 +65,25 @@ class DepartmentFactory(DjangoModelFactory):
     name = factory.Faker("name")
     industry = factory.SubFactory(IndustryFactory)
 
+class SkillCategoryFactory(DjangoModelFactory):
+    name = factory.Faker("name")
+    class Meta:
+        model = SkillCategory
+
+class SkillFactory(DjangoModelFactory):
+    name = factory.Faker("name")
+    category = factory.SubFactory(SkillCategoryFactory)
+    department = factory.SubFactory(DepartmentFactory)
+
+    class Meta:
+        model = Skill
+
+class BusinessModelFactory(DjangoModelFactory):
+    name = factory.Faker("name")
+    description = factory.Faker('sentence', nb_words=20)
+
+    class Meta:
+        model = BusinessModel
 
 class UserFactory(DjangoModelFactory):
     class Meta:

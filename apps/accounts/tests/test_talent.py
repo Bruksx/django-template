@@ -603,7 +603,7 @@ class TalentDashboardTests(TestCase):
             location=True
         )
         self.job_required_attrs.skills.set(Skill.objects.all()[:2])
-        self.job_required_attrs.business_model.set(BusinessModel.objects.all()[:2])
+        self.job_required_attrs.business_models.set(BusinessModel.objects.all()[:2])
         self.job_required_attrs.refresh_from_db()
         TalentAvailableDay.objects.create(
             talent=self.talent,
