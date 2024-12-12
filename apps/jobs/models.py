@@ -2,13 +2,15 @@ import logging
 from idlelib.query import Query
 
 from django.db import models
-from django.db.models import F, Q
+from django.db.models import F, Q, Sum
+from django.utils import timezone
 from timezone_field import TimeZoneField
 
 from accounts.enums import Days
 from accounts.models import Talent, TalentAvailableDay
 from core.models import BaseModel, Language
 from settings.enums import PlaceHolderType
+from settings.models import WorkFlowStage
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
     JobStatusType
 from .managers import JobManager
@@ -234,10 +236,6 @@ class JobPost(BaseModel):
         return data
 
 
-
-
-
-
 class JobApplication(BaseModel):
     job_post = models.ForeignKey(JobPost, on_delete=models.SET_NULL, null=True)
     applicant = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE)
@@ -258,6 +256,7 @@ class JobApplication(BaseModel):
         db_persist=True,
     )
     stage_date_updated = models.DateTimeField(null=True)
+
 
     def placeholders_mapper(self, placeholder:str):
         if placeholder == PlaceHolderType.YOUR_COMPANY_NAME.value:
@@ -296,6 +295,19 @@ class JobApplication(BaseModel):
         stage_placeholders = self.stage.email_template.placeholders
         key_converter = self.stage.email_template.convert_placeholder_to_key
         return {key_converter(placeholder):self.placeholders_mapper(placeholder) for placeholder in stage_placeholders}
+
+    def get_screening_test_score(self):
+        total_questions = ScreeningQuestion.objects.filter(job=self.job_post.job).count()
+        answers = Answer.objects.filter(application=self)
+        if not answers:
+            return None
+        if answers.filter(question__is_knockout=True, options__is_accepted=False).exists():
+            return 0
+        total_score = answers.filter(score__isnull=False).aggregate(total=Sum("score"))["total"] or 0
+        return int((total_score/(total_questions * 100)) * 100)
+
+    def pending_score(self):
+        return Answer.objects.filter(application=self, score__isnull=True).exists()
 
 
 
@@ -356,28 +368,45 @@ class JobFilter(BaseModel):
             queryset = queryset.filter(job__role__name__icontains=self.role)
         return queryset
 
-
-
-
-
 class ScreeningQuestion(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     type = models.CharField(max_length=16, choices=QuestionTypeEnum.choices())
     text = models.TextField()
     is_knockout = models.BooleanField(default=False)
 
-
 class QuestionOption(BaseModel):
     question = models.ForeignKey(ScreeningQuestion, on_delete=models.CASCADE)
     is_accepted = models.BooleanField(default=False)
     text = models.CharField(max_length=128, null=True)
 
-
 class Answer(BaseModel):
     application = models.ForeignKey(JobApplication, on_delete=models.CASCADE)
-    option = models.ForeignKey(QuestionOption, on_delete=models.CASCADE)
+    question = models.ForeignKey(ScreeningQuestion, on_delete=models.CASCADE, null=True)
+    options = models.ManyToManyField(QuestionOption)
     text = models.TextField(null=True)
+    score = models.FloatField(null=True) # max will be 100, min will be 0
 
+    def get_score(self):
+        if self.question.type == QuestionTypeEnum.SINGLE_SELECT.value:
+            answer = self.options.first()
+            if not answer:
+                return 0
+            if answer.question != self.question:
+                return 0
+            if answer.is_accepted:
+                return  100
+        elif self.question.type == QuestionTypeEnum.MULTI_SELECT.value:
+            correct_options = self.question.questionoption_set.filter(is_accepted=True).count()
+            correct_answers = self.options.filter(question=self.question, is_accepted=True).count()
+            return int((correct_answers/correct_options) * 100)
+        return None
+
+    def file_urls(self):
+        return [attachment.file.url for attachment in self.answerattachment_set.all() if attachment.file]
+
+class AnswerAttachment(BaseModel):
+    answer = models.ForeignKey(Answer, on_delete=models.CASCADE)
+    file = models.FileField(upload_to="answers")
 
 class RequiredAttribute(BaseModel):
     job = models.OneToOneField(Job, on_delete=models.CASCADE)
@@ -434,15 +463,6 @@ class RequiredAttribute(BaseModel):
         return data
 
 
-
-
-
-
-class OtherSkill(BaseModel):
-    job = models.ForeignKey(Job, on_delete=models.CASCADE)
-    name = models.CharField(max_length=128)
-
-
 class JobApplicationWithdrawal(BaseModel):
     job_post = models.ForeignKey(JobPost, on_delete=models.SET_NULL, null=True, default=None)
     talent = models.ForeignKey("accounts.Talent", on_delete=models.SET_NULL, null=True)
@@ -470,12 +490,8 @@ class JobApplicationWithdrawal(BaseModel):
         }
         return data.get(number)
 
-
-
-
 class JobInterview(BaseModel):
     application = models.ForeignKey("jobs.JobApplication", models.CASCADE)
-
 
 class BusinessModel(BaseModel):
     name = models.CharField(max_length=64)

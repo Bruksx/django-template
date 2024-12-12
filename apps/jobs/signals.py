@@ -73,13 +73,12 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
                 instance.stage_date_updated - timezone.timedelta(days=subtracted_days)
 
 
-
 @receiver(pre_save, sender=JobApplication)
 def handle_stage_update(sender, instance,  **kwargs):
     if instance.id:
         application = JobApplication.objects.get(id=instance.id)
         if instance.stage and application.stage != instance.stage:
-            if instance.stage and instance.stage.email_template:
+            if instance.stage.email_template:
                 context = instance.get_email_context()
                 instance.stage.email_template.send_email(context=context, to=[instance.applicant.user.email])
 
@@ -141,6 +140,8 @@ def handle_stage_timeline_update(sender, instance,  **kwargs):
                     accumulated_days += stage_timeline.timeline
                     stage_timeline.timeline = 0
                     stage_timeline.save()
+
+
 
 
 @receiver(pre_save, sender=JobPost)

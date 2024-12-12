@@ -1,4 +1,4 @@
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 from uuid import UUID
 
 from config.permissions import IsBusinessUser
@@ -15,10 +15,10 @@ from ninja_jwt.authentication import JWTAuth
 from accounts.models import Department, Role, SkillCategory
 from paginations import CustomPageNumberPaginationExtra
 from . import schemas as job_schemas
-from .enums import JobStatusType, PhaseType
+from .enums import JobStatusType, PhaseType, QuestionTypeEnum
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication, AvailableDay,
-    ScreeningQuestion, QuestionOption
+    ScreeningQuestion, QuestionOption, Answer
 )
 from .schemas import (
     EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
@@ -359,4 +359,98 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
         request=request,
         pagination=pagination
     )
+@router.post("{job_uid}/screening-tests/questions", response=job_schemas.QuestionSchema, auth=JWTAuth(),
+            tags=["Screening Test"])
+def add_screening_question(request, job_uid:UUID, data: job_schemas.CreateQuestionSchema):
+    IsBusinessUser.check(request)
+    job = Job.objects.filter(created_by__business=request.user.businessuser.business, uid=job_uid).first()
+    if not job:
+        raise HttpError(404, "This job does not exist")
+    question = data.dict()
+    question["type"] = question["type"].value
+    options = question.pop("options")
+    question = ScreeningQuestion.objects.create(job=job, **question)
+    QuestionOption.objects.bulk_create([QuestionOption(**option, question=question) for option in options])
+    return question
+
+@router.patch("screening-tests/questions/{question_uid}", auth=JWTAuth(), tags=["Screening Test"],
+              response=job_schemas.QuestionSchema)
+def update_screening_question(request, question_uid:UUID, data: PatchDict[job_schemas.UpdateQuestionSchema]):
+    IsBusinessUser.check(request)
+    question = ScreeningQuestion.objects.filter(uid=question_uid,
+            job__created_by__business=request.user.businessuser.business).first()
+    if not question:
+        raise HttpError(404, "This question does not exist")
+    if "type" in data:
+        data["type"] = data["type"].value
+    question.update(**data)
+    return question
+
+@router.post("screening-tests/questions/{question_uid}/options", auth=JWTAuth(), tags=["Screening Test"])
+def mutate_options_in_screening_questions(request, question_uid:UUID, data: List[job_schemas.QuestionOptionSchema  ]):
+    IsBusinessUser.check(request)
+    question = ScreeningQuestion.objects.filter(uid=question_uid,
+                                                job__created_by__business=request.user.businessuser.business).first()
+    if not question:
+        raise HttpError(404, "This question does not exist")
+    QuestionOption.objects.bulk_create([QuestionOption(**option.dict(), question=question) for option in data if not option.uid])
+    for option in data:
+        if not option.uid:
+            continue
+        question.questionoption_set.filter(uid=option.uid).update(**option.dict())
+    return question
+
+@router.delete("screening-tests/questions/{question_uid}/options", auth=JWTAuth(), tags=["Screening Test"])
+def delete_options_from_screening_questions(request, question_uid: UUID, data: List[UUID]):
+    IsBusinessUser.check(request)
+    question = ScreeningQuestion.objects.filter(uid=question_uid,
+                                                job__created_by__business=request.user.businessuser.business).first()
+    if not question:
+        raise HttpError(404, "This question does not exist")
+    if len(data) == 0:
+        raise HttpError(400, "No options to delete")
+    question.questionoption_set.filter(uid__in=data).delete()
+    return question
+
+
+@router.delete("screening-tests/questions/{question_uid}", auth=JWTAuth(), tags=["Screening Test"])
+def delete_screening_question(request, question_uid:UUID):
+    IsBusinessUser.check(request)
+    question = ScreeningQuestion.objects.filter(uid=question_uid,
+            job__created_by__business=request.user.businessuser.business).first()
+    if not question:
+        raise HttpError(404, "This question does not exist")
+    question.questionoption_set.all().delete()
+    question.delete()
+    return Response(status=204 ,data=None)
+
+@router.get("{job_uid}/screening-tests/questions", response=List[job_schemas.QuestionSchema], auth=JWTAuth(),
+            tags=["Screening Test"])
+def get_screening_questions(request, job_uid: UUID):
+    return ScreeningQuestion.objects.filter(job__created_by__business=request.user.businessuser.business, job__uid=job_uid).first()
+
+
+@router.get("applications/{application_uid}/screening-answers", response=List[job_schemas.ScreeningAnswerSchema], auth=JWTAuth(),)
+def get_screening_answers(request, application_uid:UUID):
+    IsBusinessUser.check(request)
+    application = JobApplication.objects.filter(uid=application_uid).first()
+    if not application:
+        raise HttpError(404, "This application does not exist")
+    return Answer.objects.filter(application=application)
+
+@router.patch("applications/screening-answers/{screening_answer_uid}", auth=JWTAuth(), tags=["Screening Test"])
+def update_screening_answer_score(request, screening_answer_uid:UUID, data: job_schemas.UpdateAnswerScore):
+    IsBusinessUser.check(request)
+    answer = Answer.objects.filter(uid=screening_answer_uid, recruiter__business=request.user.businessuser.business).first()
+    if not answer:
+        raise HttpError(404, "This answer does not exist")
+    if 0 > data.score  or data.score > 100:
+        raise HttpError(400, "Score must be between 0 and 100")
+    if answer.question.type in (QuestionTypeEnum.SINGLE_SELECT.value, QuestionTypeEnum.MULTI_SELECT.value):
+        return answer
+    answer.update(score=data.score)
+    return answer
+
+
+
 

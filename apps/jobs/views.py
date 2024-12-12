@@ -1,9 +1,10 @@
+from typing import List
 from uuid import UUID
 
 from config.permissions import IsTalentUser, IsBusinessUser
 from django.db import transaction
 from monkeypatches.q_cluster import async_task
-from ninja import Router, PatchDict
+from ninja import Router, PatchDict, Form
 from ninja.errors import HttpError
 from ninja.responses import Response
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
@@ -12,13 +13,14 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Talent
 from jobs import tasks
-from jobs.enums import JobStatusType
-from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob
+from jobs.enums import JobStatusType, PhaseType
+from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, Answer, AnswerAttachment
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
     TalentJobApplicationWithdrawalSchema, ShareJobPostViaEmailSchema, ShareJobPostViaChatSchema, \
-    TalentJobPostSchema
-from jobs.services import get_talent_job_recommendations
+    TalentJobPostSchema, MutateAnswerSchema
+from jobs.services import get_talent_job_recommendations, create_job_application
 from notification import notifications
+from settings.models import WorkFlowStage
 
 router = Router()
 
@@ -109,7 +111,8 @@ def get_talent_job_filter(request):
 
 
 @router.post("talent/job-posts/{job_post_id}/apply", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
-def apply_to_job_post(request, job_post_id:UUID):
+@transaction.atomic
+def apply_to_job_post(request, job_post_id:UUID, data:List[MutateAnswerSchema]):
     IsTalentUser.check(request)
     talent = request.user.talent
     job_post = JobPost.objects.filter(uid=job_post_id).first()
@@ -119,9 +122,9 @@ def apply_to_job_post(request, job_post_id:UUID):
         raise HttpError(400, "Job post is no longer available")
     if JobApplication.objects.filter(job_post=job_post, applicant=talent).exists():
         raise HttpError(400, "Already applied")
-    JobApplication.objects.create(job_post=job_post_id, applicant=talent,
-                                  recruiter=job_post.recruiter,
-                                 match=talent.job_match_score(job_post))
+    async_task(
+        create_job_application, job_post=job_post, talent=talent, data=data
+    )
     return Response(status=200, data={"message": "Applied successfully"})
 
 
