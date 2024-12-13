@@ -1,4 +1,5 @@
 import datetime
+import random
 
 import factory
 from django.utils import timezone
@@ -8,14 +9,14 @@ from faker import Faker
 from accounts.enums import GenderType, PreferredCommunicationType, BusinessUserRoleType, Days
 from accounts.models import User, Talent, Business, BusinessUser, Education, Role, TalentAvailableDay, CustomerCase, \
     EducationLevel, Industry, Country, AdditionalSkill, Department, Experience, Skill, SkillCategory
-from settings.models import WorkFlowStage, EmailTemplate
 from chats.models import Conversation, Message
+from settings.models import WorkFlowStage, EmailTemplate
 
 fake = Faker()
 from core.models import Currency, Language
-from jobs.enums import WorkStructureEnum, LunchBreakEnum, WithdrawalFeedbackType, PhaseType
+from jobs.enums import WorkStructureEnum, LunchBreakEnum, WithdrawalFeedbackType, PhaseType, QuestionTypeEnum
 from jobs.models import JobLevel, EmploymentType, JobPost, Job, JobApplication, Qualification, JobApplicationWithdrawal, \
-    RequiredAttribute, JobFilter, BusinessModel
+    RequiredAttribute, JobFilter, BusinessModel, ScreeningQuestion, Answer, QuestionOption
 
 
 class CountryFactory(DjangoModelFactory):
@@ -114,11 +115,11 @@ class TalentFactory(DjangoModelFactory):
 
     @factory.post_generation
     def education(self, create, extracted, **kwargs):
-        EducationFactory(talent=self)
-        EducationFactory(talent=self)
-        ExperienceFactory(talent=self)
-        ExperienceFactory(talent=self)
-        ExperienceFactory(talent=self)
+        if not create:
+            return
+        EducationFactory.create_batch(2, talent=self)
+        ExperienceFactory.create_batch(3, talent=self)
+        return
 
 
 class AdditionalSkillFactory(DjangoModelFactory):
@@ -305,10 +306,13 @@ class JobApplicationFactory(DjangoModelFactory):
 
     @factory.post_generation
     def create_stage(self, create, extracted, **kwargs):
-        if create:
-            if not self.stage:
-                self.stage = WorkflowStageFactory.create(created_by=self.recruiter)
-                self.save()
+        if not create:
+            return
+        if self.stage:
+            return
+        self.stage = WorkflowStageFactory.create(created_by=self.recruiter)
+        self.save()
+        return
 
 
 
@@ -362,3 +366,66 @@ class JobFilterFactory(DjangoModelFactory):
     location_type = factory.Iterator(WorkStructureEnum.values())
     remove_applied_jobs = factory.Iterator([True, False])
 
+
+class ScreeningQuestionFactory(DjangoModelFactory):
+    class Meta:
+        model = ScreeningQuestion
+
+    job = factory.SubFactory(JobFactory)
+    text = factory.lazy_attribute(lambda _: fake.sentence()[:50])
+    type = factory.Iterator(QuestionTypeEnum.values())
+    is_knockout = factory.Iterator([True, False])
+
+    @factory.post_generation
+    def create_options(self, create, extracted, **kwargs):
+        if not create:
+            return
+
+        if self.type == QuestionTypeEnum.SINGLE_SELECT.value:
+            options = QuestionOptionFactory.create_batch(4, question=self, is_accepted=False)
+            correct = random.choice(options)
+            correct.is_accepted = True
+            correct.save()
+        elif self.type == QuestionTypeEnum.MULTI_SELECT.value:
+            options = QuestionOptionFactory.create_batch(4, question=self, is_accepted=False)
+            number_of_correct = random.randint(2, 4)
+            correct_options = random.choices(options, k=number_of_correct)
+            for option in correct_options:
+                option.is_accepted = True
+                option.save()
+        return
+
+class QuestionOptionFactory(DjangoModelFactory):
+    class Meta:
+        model = QuestionOption
+
+    question = factory.SubFactory(ScreeningQuestionFactory)
+    is_accepted = factory.Iterator([True, False])
+    text = factory.lazy_attribute(lambda _: fake.sentence()[:50])
+
+class AnswerFactory(DjangoModelFactory):
+    class Meta:
+        model = Answer
+
+    application = factory.SubFactory(JobApplication)
+    question = factory.SubFactory(ScreeningQuestionFactory)
+
+    @factory.post_generation
+    def create_other_fields(self, create, extracted, **kwargs):
+        if not create:
+            return
+        if self.question.type == QuestionTypeEnum.SINGLE_SELECT.value:
+            option = random.choice(self.question.questionoption_set.all())
+            self.options.set([option])
+            self.save()
+        elif self.question.type == QuestionTypeEnum.MULTI_SELECT.value:
+            number_of_options = random.randint(2, 4)
+            options = random.choices(self.question.questionoption_set.all(), k=number_of_options)
+            self.options.set(options)
+            self.save()
+        elif self.question.type == QuestionTypeEnum.TEXT.value:
+            self.text = fake.sentence()
+            self.save()
+
+        else:
+            self.files = [fake.url(), fake.url()]

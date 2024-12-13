@@ -102,6 +102,7 @@ class CreateQuestionSchema(ModelSchema):
 
 
 class QuestionOptionSchema(ModelSchema):
+
     class Meta:
         model = QuestionOption
         fields = ["uid", "is_accepted", "text"]
@@ -118,25 +119,23 @@ class QuestionSchema(ModelSchema):
 
 
 class UpdateQuestionSchema(ModelSchema):
+    type: Optional[QuestionTypeEnum] = None
     class Meta:
         model = ScreeningQuestion
         fields = ["type", "text", "is_knockout"]
 
 class MutateOptionSchema(ModelSchema):
-    uid: Optional[UUID]
+    uid: Optional[UUID] = None
     class Meta:
         model = QuestionOption
         fields = ["is_accepted", "text"]
 
 
-
-
 class ScreeningAnswerSchema(ModelSchema):
-    question: UUID
-    options: Optional[List[MutateOptionSchema]] = None
+    question: QuestionSchema
+    options: Optional[List[QuestionOptionSchema]] = None
     text: Optional[str] = None
-    score:Optional[int]  = None
-    file_urls : Optional[str]
+    files : Optional[List[str]] = None
 
     class Meta:
         model = Answer
@@ -146,11 +145,7 @@ class MutateAnswerSchema(Schema):
     question: UUID
     options: Optional[List[UUID]] = None
     text: Optional[str] = None
-    files: Optional[UploadedFile] = None
-
-
-class UpdateAnswerScore(Schema):
-    score: int
+    files: Optional[List[str]] = None
 
 
 class CreateJobSchema(ModelSchema):

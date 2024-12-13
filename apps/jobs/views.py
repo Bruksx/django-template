@@ -1,10 +1,10 @@
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from config.permissions import IsTalentUser, IsBusinessUser
 from django.db import transaction
 from monkeypatches.q_cluster import async_task
-from ninja import Router, PatchDict, Form
+from ninja import Router, PatchDict, UploadedFile
 from ninja.errors import HttpError
 from ninja.responses import Response
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
@@ -13,14 +13,13 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Talent
 from jobs import tasks
-from jobs.enums import JobStatusType, PhaseType
-from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, Answer, AnswerAttachment
+from jobs.enums import JobStatusType
+from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
     TalentJobApplicationWithdrawalSchema, ShareJobPostViaEmailSchema, ShareJobPostViaChatSchema, \
     TalentJobPostSchema, MutateAnswerSchema
-from jobs.services import get_talent_job_recommendations, create_job_application
+from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service
 from notification import notifications
-from settings.models import WorkFlowStage
 
 router = Router()
 
@@ -112,7 +111,7 @@ def get_talent_job_filter(request):
 
 @router.post("talent/job-posts/{job_post_id}/apply", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 @transaction.atomic
-def apply_to_job_post(request, job_post_id:UUID, data:List[MutateAnswerSchema]):
+def apply_to_job_post(request, job_post_id:UUID, data:Optional[List[MutateAnswerSchema]]=None):
     IsTalentUser.check(request)
     talent = request.user.talent
     job_post = JobPost.objects.filter(uid=job_post_id).first()
@@ -126,6 +125,12 @@ def apply_to_job_post(request, job_post_id:UUID, data:List[MutateAnswerSchema]):
         create_job_application, job_post=job_post, talent=talent, data=data
     )
     return Response(status=200, data={"message": "Applied successfully"})
+
+def upload_answer_files(request, files:List[UploadedFile]):
+    IsTalentUser.check(request)
+    file_urls = upload_answer_files_service(files=files)
+    return Response(status=200, data=dict(message="Files uploaded successfully", data=file_urls))
+
 
 
 @router.post("talent/job-posts/{job_post_id}", auth=JWTAuth(),

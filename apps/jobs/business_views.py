@@ -359,8 +359,9 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
         request=request,
         pagination=pagination
     )
-@router.post("{job_uid}/screening-tests/questions", response=job_schemas.QuestionSchema, auth=JWTAuth(),
+@router.post("{job_uid}/screening-questions", response=job_schemas.QuestionSchema, auth=JWTAuth(),
             tags=["Screening Test"])
+@transaction.atomic
 def add_screening_question(request, job_uid:UUID, data: job_schemas.CreateQuestionSchema):
     IsBusinessUser.check(request)
     job = Job.objects.filter(created_by__business=request.user.businessuser.business, uid=job_uid).first()
@@ -368,52 +369,113 @@ def add_screening_question(request, job_uid:UUID, data: job_schemas.CreateQuesti
         raise HttpError(404, "This job does not exist")
     question = data.dict()
     question["type"] = question["type"].value
-    options = question.pop("options")
+    options = question.pop("options", None)
+    if options and question["type"]  in (QuestionTypeEnum.FILE.value, QuestionTypeEnum.TEXT.value):
+        raise HttpError(400, "This question type does not support options")
+    if question["type"] == QuestionTypeEnum.TEXT.value and not question.get("text"):
+        raise HttpError(400, "Text question must have a text")
+    if question["type"] == QuestionTypeEnum.FILE.value and not question.get("file"):
+        raise HttpError(400, "File question must have a file")
+    if question["type"] == QuestionTypeEnum.SINGLE_SELECT.value:
+        correct_option = [option for option in options if option["is_accepted"]]
+        if len(correct_option) != 1:
+            raise HttpError(400, "Single select question must have exactly one correct option")
+    if question["type"] == QuestionTypeEnum.MULTI_SELECT.value:
+        correct_options = [option for option in options if option["is_accepted"]]
+        if len(correct_options) < 2:
+            raise HttpError(400, "Multiple select question must have at least two correct options")
     question = ScreeningQuestion.objects.create(job=job, **question)
     QuestionOption.objects.bulk_create([QuestionOption(**option, question=question) for option in options])
     return question
 
-@router.patch("screening-tests/questions/{question_uid}", auth=JWTAuth(), tags=["Screening Test"],
+@router.patch("screening-questions/{question_uid}", auth=JWTAuth(), tags=["Screening Test"],
               response=job_schemas.QuestionSchema)
-def update_screening_question(request, question_uid:UUID, data: PatchDict[job_schemas.UpdateQuestionSchema]):
+@transaction.atomic
+def update_screening_question(request, question_uid:UUID, question: PatchDict[job_schemas.UpdateQuestionSchema]):
     IsBusinessUser.check(request)
-    question = ScreeningQuestion.objects.filter(uid=question_uid,
+    _question = ScreeningQuestion.objects.filter(uid=question_uid,
             job__created_by__business=request.user.businessuser.business).first()
-    if not question:
+    if not _question:
         raise HttpError(404, "This question does not exist")
-    if "type" in data:
-        data["type"] = data["type"].value
-    question.update(**data)
-    return question
 
-@router.post("screening-tests/questions/{question_uid}/options", auth=JWTAuth(), tags=["Screening Test"])
-def mutate_options_in_screening_questions(request, question_uid:UUID, data: List[job_schemas.QuestionOptionSchema  ]):
+    if "type" in question:
+        question["type"] = question["type"].value
+        options = [job_schemas.QuestionOptionSchema.from_orm(option).dict() for option in _question.options()]
+        if options and question["type"] in (QuestionTypeEnum.FILE.value, QuestionTypeEnum.TEXT.value):
+            raise HttpError(400, "This question type does not support options")
+        if question["type"] == QuestionTypeEnum.SINGLE_SELECT.value:
+            correct_option = [option for option in options if option["is_accepted"]]
+            if len(correct_option) != 1:
+                raise HttpError(400, "Single select question must have exactly one correct option")
+        if question["type"] == QuestionTypeEnum.MULTI_SELECT.value:
+            correct_options = [option for option in options if option["is_accepted"]]
+            if len(correct_options) < 2:
+                raise HttpError(400, "Multiple select question must have at least two correct options")
+    _question.update(**question)
+    return _question
+
+@router.post("screening-questions/{question_uid}/options", auth=JWTAuth(), tags=["Screening Test"],
+             response=job_schemas.QuestionSchema)
+@transaction.atomic
+def mutate_options_in_screening_questions(request, question_uid:UUID, data: List[job_schemas.MutateOptionSchema]):
     IsBusinessUser.check(request)
     question = ScreeningQuestion.objects.filter(uid=question_uid,
                                                 job__created_by__business=request.user.businessuser.business).first()
     if not question:
         raise HttpError(404, "This question does not exist")
-    QuestionOption.objects.bulk_create([QuestionOption(**option.dict(), question=question) for option in data if not option.uid])
+    if question.type in (QuestionTypeEnum.FILE.value, QuestionTypeEnum.TEXT.value):
+        raise HttpError(400, "This question type does not support options")
+    question_options = question.options().all()
+    new_options = [option for option in data if not option.uid]
+    changing_options = [option for option in data if option.uid]
+    changing_options_id = (option.uid for option in changing_options)
+    existing_options = question_options.exclude(uid__in=changing_options_id)
+    if question.type == QuestionTypeEnum.SINGLE_SELECT.value:
+        new_correct_option = [option for option in new_options if option.is_accepted]
+        changing_correct_option = [option for option in changing_options if option.is_accepted]
+        correct_option = new_correct_option + changing_correct_option
+        if (len(correct_option) + existing_options.filter(is_accepted=True).count()) != 1:
+            raise HttpError(400, "Single select question must have exactly one correct option")
+    if question.type == QuestionTypeEnum.MULTI_SELECT.value:
+        new_correct_options = [option for option in new_options if option.is_accepted]
+        changing_correct_options = [option for option in changing_options if option.is_accepted]
+        correct_options = new_correct_options + changing_correct_options
+        if (len(correct_options) + existing_options.filter(is_accepted=True).count()) < 2:
+            raise HttpError(400, "Multiple select question must have at least two correct options")
     for option in data:
         if not option.uid:
-            continue
-        question.questionoption_set.filter(uid=option.uid).update(**option.dict())
+            opt_data = option.dict()
+            opt_data.pop("uid", None)
+            QuestionOption.objects.create(question=question, **opt_data)
+        else:
+            question.questionoption_set.filter(uid=option.uid).update(**option.dict())
     return question
 
-@router.delete("screening-tests/questions/{question_uid}/options", auth=JWTAuth(), tags=["Screening Test"])
+@router.delete("screening-questions/{question_uid}/options", auth=JWTAuth(), tags=["Screening Test"],
+               response=job_schemas.QuestionSchema)
+@transaction.atomic
 def delete_options_from_screening_questions(request, question_uid: UUID, data: List[UUID]):
     IsBusinessUser.check(request)
     question = ScreeningQuestion.objects.filter(uid=question_uid,
                                                 job__created_by__business=request.user.businessuser.business).first()
     if not question:
         raise HttpError(404, "This question does not exist")
+    if question.type in (QuestionTypeEnum.FILE.value, QuestionTypeEnum.TEXT.value):
+        raise HttpError(400, "This question type does not support options")
+    if question.type == QuestionTypeEnum.SINGLE_SELECT.value:
+        if question.options().filter(uid__in=data, is_accepted=True).exists():
+            raise HttpError(400, "Single select question must have exactly one correct option")
+    if question.type == QuestionTypeEnum.MULTI_SELECT.value:
+        if question.options().exclude(uid__in=data).filter(is_accepted=True).count() < 2:
+            raise HttpError(400, "Multiple select question must have at least two correct options")
     if len(data) == 0:
         raise HttpError(400, "No options to delete")
     question.questionoption_set.filter(uid__in=data).delete()
     return question
 
 
-@router.delete("screening-tests/questions/{question_uid}", auth=JWTAuth(), tags=["Screening Test"])
+@router.delete("screening-questions/{question_uid}", auth=JWTAuth(), tags=["Screening Test"])
+@transaction.atomic
 def delete_screening_question(request, question_uid:UUID):
     IsBusinessUser.check(request)
     question = ScreeningQuestion.objects.filter(uid=question_uid,
@@ -424,32 +486,23 @@ def delete_screening_question(request, question_uid:UUID):
     question.delete()
     return Response(status=204 ,data=None)
 
-@router.get("{job_uid}/screening-tests/questions", response=List[job_schemas.QuestionSchema], auth=JWTAuth(),
+@router.get("{job_uid}/screening-questions", response=List[job_schemas.QuestionSchema], auth=JWTAuth(),
             tags=["Screening Test"])
 def get_screening_questions(request, job_uid: UUID):
-    return ScreeningQuestion.objects.filter(job__created_by__business=request.user.businessuser.business, job__uid=job_uid).first()
+    screening_questions = ScreeningQuestion.objects.filter(job__uid=job_uid)
+    if hasattr(request.user, "businessuser"):
+        screening_questions = screening_questions.filter(job__created_by__business=request.user.businessuser.business)
+    return screening_questions
 
 
-@router.get("applications/{application_uid}/screening-answers", response=List[job_schemas.ScreeningAnswerSchema], auth=JWTAuth(),)
+@router.get("applications/{application_uid}/screening-answers", response=List[job_schemas.ScreeningAnswerSchema], auth=JWTAuth(),
+            tags=["Screening Test"])
 def get_screening_answers(request, application_uid:UUID):
     IsBusinessUser.check(request)
-    application = JobApplication.objects.filter(uid=application_uid).first()
+    application = JobApplication.objects.filter(uid=application_uid, recruiter__business=request.user.businessuser.business).first()
     if not application:
         raise HttpError(404, "This application does not exist")
     return Answer.objects.filter(application=application)
-
-@router.patch("applications/screening-answers/{screening_answer_uid}", auth=JWTAuth(), tags=["Screening Test"])
-def update_screening_answer_score(request, screening_answer_uid:UUID, data: job_schemas.UpdateAnswerScore):
-    IsBusinessUser.check(request)
-    answer = Answer.objects.filter(uid=screening_answer_uid, recruiter__business=request.user.businessuser.business).first()
-    if not answer:
-        raise HttpError(404, "This answer does not exist")
-    if 0 > data.score  or data.score > 100:
-        raise HttpError(400, "Score must be between 0 and 100")
-    if answer.question.type in (QuestionTypeEnum.SINGLE_SELECT.value, QuestionTypeEnum.MULTI_SELECT.value):
-        return answer
-    answer.update(score=data.score)
-    return answer
 
 
 

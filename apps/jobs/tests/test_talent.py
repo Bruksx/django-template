@@ -1,19 +1,19 @@
-import logging
 import uuid
 from datetime import timezone
 from decimal import Decimal
 
+from django.test import TestCase
+from ninja.testing import TestClient
+
 from accounts.enums import BusinessUserRoleType
 from accounts.models import Country, Industry, User, Talent, BusinessUser, Business, Role, EducationLevel, Department
 from core.models import Currency
-from django.test import TestCase
-
 from factories import TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory, \
-    JobApplicationFactory, JobFilterFactory, RequiredAttributeFactory, CountryFactory
-from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusType, WithdrawalFeedbackType
+    JobApplicationFactory, RequiredAttributeFactory, CountryFactory, ScreeningQuestionFactory, fake
+from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusType, WithdrawalFeedbackType, \
+    QuestionTypeEnum
 from jobs.models import JobPost, JobLevel, EmploymentType, Job, SavedJob, JobApplication, JobFilter
 from jobs.views import router
-from ninja.testing import TestClient
 
 
 class TalentJobListTests(TestCase):
@@ -252,25 +252,70 @@ class ApplyToJobPostTest(TestCase):
         self.job = JobFactory.create(
             title="Test Job"
         )
+        self.business_user = self.job.created_by
         self.job_post = JobPostFactory.create(
             status=JobStatusType.POSTED.value,
             job=self.job,)
+        self.url = lambda job_post_uid: f"talent/job-posts/{job_post_uid}/apply"
 
-    def test_apply_to_job_post(self):
+    def test_apply_to_job_post_without_screening_answers(self):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        job_post_id = str(JobPost.objects.first().uid)
         self.assertEqual(self.talent.applied_jobs().count(), 0)
-        response = self.client.post(f"talent/job-posts/{job_post_id}/apply",
+        response = self.client.post(self.url(self.job_post.uid),
                                     headers=headers)
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.assertEqual(self.talent.applied_jobs().count(), 1)
+
         # test to ensure that you cannot apply for one job twice
-        response = self.client.post(f"talent/job-posts/{job_post_id}/apply",
+        response = self.client.post(self.url(self.job_post.uid),
                                     headers=headers)
         self.assertEqual(response.status_code, 400)
+
+    def test_apply_to_job_post_with_screening_answers(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        questions = ScreeningQuestionFactory.create_batch(5, job=self.job)
+        data = list()
+        for question in questions:
+            answer_dict = dict(question=question.uid)
+            if question.type == QuestionTypeEnum.SINGLE_SELECT.value:
+                answer_dict["options"] = [question.questionoption_set.first().uid]
+            elif question.type == QuestionTypeEnum.MULTI_SELECT.value:
+                answer_dict["options"] = [option.uid for option in question.questionoption_set.all()[:2]]
+            elif question.type == QuestionTypeEnum.TEXT.value:
+                answer_dict["text"] = fake.text(max_nb_chars=20)
+            elif question.type == QuestionTypeEnum.FILE.value:
+                answer_dict["files"] = ["http://test.com"]
+            data.append(answer_dict)
+        response = self.client.post(self.url(self.job_post.uid),
+                                    headers=headers, json=data)
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        self.assertEqual(self.talent.applied_jobs().count(), 1)
+        application = self.talent.jobapplication_set.first()
+        self.assertEqual(application.answer_set.count(), 5)
+
+    def test_by_business_user(self):
+
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.post(self.url(self.job_post.uid),
+                                    headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_with_invalid_job_post_uid(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.post(self.url(uuid.uuid4()),
+                                    headers=headers)
+        self.assertEqual(response.status_code, 404)
+
 
 class WithdrawJobApplicationTest(TestCase):
     def setUp(self):
