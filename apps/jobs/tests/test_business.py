@@ -10,9 +10,9 @@ from accounts.models import Department, Role, Business, Industry, BusinessUser, 
 from core.models import Currency
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
     JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, SkillFactory, BusinessModelFactory, \
-    CountryFactory
+    CountryFactory, ScreeningQuestionFactory, AnswerFactory
 from jobs.business_views import router
-from jobs.enums import JobStatusType, PhaseType
+from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
     Qualification, BusinessModel
@@ -1055,3 +1055,411 @@ class TalentsByJobPostTest(TestCase):
         }
         response = self.client.get(self.url(uuid4()), headers=headers)
         self.assertEqual(response.status_code, 404)
+
+class AddScreeningQuestionTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.job = JobFactory.create(created_by=self.business_user)
+        self.url = lambda job_uid: f"{job_uid}/screening-questions"
+        self.test_data = {
+              "type": "single select",
+              "options": [
+                {
+                  "is_accepted": True,
+                  "text": "Louis"
+                },
+                  {
+                      "is_accepted": False,
+                      "text": "Kehinde"
+                  }
+              ],
+              "text": "What is my name?",
+              "is_knockout": True
+            }
+
+    def test_add_screening_question(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.post(self.url(self.job.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(self.job.screeningquestion_set.count(), 1)
+
+
+    def test_file_question_with_options(self):
+        self.test_data["type"] = QuestionTypeEnum.FILE.value
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.post(self.url(self.job.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+
+    def test_invalid_job_id(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.post(self.url(uuid4()), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_by_another_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        response = self.client.post(self.url(self.job.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_single_select_question_with_2_correct_options(self):
+        self.test_data["type"] = QuestionTypeEnum.SINGLE_SELECT.value
+        self.test_data["options"][0]["is_accepted"] = True
+        self.test_data["options"][1]["is_accepted"] = True
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.post(self.url(self.job.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+
+    def test_multi_select_question_with_only_one_correct_option(self):
+        self.test_data["type"] = QuestionTypeEnum.MULTI_SELECT.value
+        self.test_data["options"][0]["is_accepted"] = True
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.post(self.url(self.job.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+
+
+class UpdateScreeningQuestionTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.job = JobFactory.create(created_by=self.business_user)
+        self.url = lambda question_uid: f"screening-questions/{question_uid}"
+        self.screening_question = ScreeningQuestionFactory.create(job=self.job, type=QuestionTypeEnum.SINGLE_SELECT.value)
+        self.test_data = {
+            "type": "single select",
+            "text": "What is her name?",
+            "is_knockout": True
+        }
+
+    def test_update_screening_question(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.patch(self.url(self.screening_question.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.screening_question.refresh_from_db()
+        self.assertEqual(self.screening_question.text, self.test_data["text"])
+
+    def test_update_to_multiselect_with_one_correct_option(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        self.test_data["type"] = QuestionTypeEnum.MULTI_SELECT.value
+        response = self.client.patch(self.url(self.screening_question.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+
+    def test_update_to_file_question(self):
+        self.test_data["type"] = QuestionTypeEnum.FILE.value
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.patch(self.url(self.screening_question.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+
+    def test_update_with_invalid_uid(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.patch(self.url(uuid.uuid4()), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_update_by_another_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        response = self.client.patch(self.url(self.screening_question.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+
+class MutateScreeningQuestionOptionsTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.job = JobFactory.create(created_by=self.business_user)
+        self.url = lambda question_uid: f"screening-questions/{question_uid}/options"
+        self.screening_question = ScreeningQuestionFactory.create(job=self.job,
+                                                                  type=QuestionTypeEnum.SINGLE_SELECT.value)
+        self.test_data = [
+                {
+                    "is_accepted": False,
+                    "text": "Louis"
+                },
+                {
+                    "is_accepted": False,
+                    "text": "Kehinde"
+                }
+            ]
+
+    def test_mutate_screening_question_options(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        previous_options = self.screening_question.options().count()
+        response = self.client.post(self.url(self.screening_question.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.screening_question.refresh_from_db()
+        self.assertEqual(self.screening_question.options().count(), previous_options + 2)
+
+    def test_single_select_question_with_2_correct_options(self):
+        self.test_data[0]["is_accepted"] = True
+        self.test_data[1]["is_accepted"] = True
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.post(self.url(self.screening_question.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+
+    def test_multi_select_question_with_only_one_correct_option(self):
+        self.screening_question.update(type=QuestionTypeEnum.MULTI_SELECT.value)
+        self.screening_question.refresh_from_db()
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.post(self.url(self.screening_question.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+
+    def test_multi_select_with_2_correct_options(self):
+        self.screening_question.update(type=QuestionTypeEnum.MULTI_SELECT.value)
+        self.screening_question.refresh_from_db()
+        self.test_data[0]["is_accepted"] = True
+        self.test_data[1]["is_accepted"] = True
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.post(self.url(self.screening_question.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.screening_question.refresh_from_db()
+        self.assertEqual(self.screening_question.options().filter(is_accepted=True).count(), 3)
+
+    def test_with_invalid_uid(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.post(self.url(uuid.uuid4()), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_by_another_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        response = self.client.post(self.url(self.screening_question.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_by_talent(self):
+        talent_user = TalentFactory.create()
+        headers = {
+            "authorization": f"Bearer {talent_user.user.token}"
+        }
+        response = self.client.post(self.url(self.screening_question.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+class DeleteScreeningQuestionOptionsTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.job = JobFactory.create(created_by=self.business_user)
+        self.url = lambda question_uid: f"screening-questions/{question_uid}/options"
+        self.question = ScreeningQuestionFactory.create(job=self.job, type=QuestionTypeEnum.SINGLE_SELECT.value)
+        self.option = self.question.questionoption_set.filter(is_accepted=False).first()
+        self.test_data = [str(self.option.uid)]
+
+    def test_delete_options(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        previous_options = self.question.options().count()
+        response = self.client.delete(self.url(self.question.uid),  json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.question.refresh_from_db()
+        self.assertEqual(self.question.options().count(), previous_options -1)
+
+    def test_delete_correct_option_from_single_select(self):
+        correct_option = self.question.questionoption_set.filter(is_accepted=True).first()
+        self.test_data.append(str(correct_option.uid))
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.delete(self.url(self.question.uid),  json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+
+    def test_delete_by_another_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        response = self.client.delete(self.url(self.question.uid),  json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_delete_with_invalid_uid(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.delete(self.url(uuid.uuid4()),  json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_delete_all_correct_options_in_multi_select(self):
+        self.question.update(type=QuestionTypeEnum.MULTI_SELECT.value)
+        incorrect_option = self.question.questionoption_set.filter(is_accepted=False).first()
+        incorrect_option.update(is_correct=True)
+        self.question.refresh_from_db()
+        correct_options = self.question.questionoption_set.filter(is_accepted=True).all()
+        self.test_data = [str(option.uid) for option in correct_options]
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.delete(self.url(self.question.uid),  json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+
+    def test_delete_on_text_type_question(self):
+        self.question.update(type=QuestionTypeEnum.TEXT.value)
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.delete(self.url(self.question.uid),  json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+
+
+
+
+
+class DeleteScreeningQuestionTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.job = JobFactory.create(created_by=self.business_user)
+        self.url = lambda question_uid: f"screening-questions/{question_uid}"
+        self.question = ScreeningQuestionFactory.create(job=self.job)
+
+    def test_delete_question(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.delete(self.url(self.question.uid), headers=headers)
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(ScreeningQuestion.objects.filter(uid=self.question.uid).exists())
+
+    def test_delete_by_another_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        response = self.client.delete(self.url(self.question.uid), headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_delete_by_talent(self):
+        talent_user = TalentFactory.create()
+        headers = {
+            "authorization": f"Bearer {talent_user.user.token}"
+        }
+        response = self.client.delete(self.url(self.question.uid), headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_with_invalid_uid(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.delete(self.url(uuid4()), headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+
+class GetScreeningQuestionsTest(TestCase):
+        def setUp(self):
+            self.client = TestClient(router)
+            self.business_user = BusinessUserFactory.create()
+            self.job = JobFactory.create(created_by=self.business_user)
+            self.url = lambda job_uid: f"{job_uid}/screening-questions"
+            self.question = ScreeningQuestionFactory.create_batch(5, job=self.job)
+
+        def test_get_questions(self):
+            headers = {
+                "authorization": f"Bearer {self.business_user.user.token}"
+            }
+            response = self.client.get(self.url(self.job.uid), headers=headers)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(len(response.json()), 5)
+
+        def test_by_another_business_user(self):
+            business_user = BusinessUserFactory.create()
+            headers = {
+                "authorization": f"Bearer {business_user.user.token}"
+            }
+            response = self.client.get(self.url(self.job.uid), headers=headers)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(len(response.json()), 0)
+
+        def test_by_talent(self):
+            talent_user = TalentFactory.create()
+            headers = {
+                "authorization": f"Bearer {talent_user.user.token}"
+            }
+            response = self.client.get(self.url(self.job.uid), headers=headers)
+            self.assertEqual(response.status_code, 200)
+
+        def test_by_wrong_uuid(self):
+            headers = {
+                "authorization": f"Bearer {self.business_user.user.token}"
+            }
+            response = self.client.get(self.url(uuid4()), headers=headers)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(len(response.json()), 0)
+
+class GetScreeningAnswersTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.job = JobFactory.create(created_by=self.business_user)
+        self.job_post = JobPostFactory.create(job=self.job, recruiter=self.business_user)
+        self.application = JobApplicationFactory.create(job_post=self.job_post, recruiter=self.business_user)
+        self.url = lambda application_id: f"applications/{application_id}/screening-answers"
+        self.questions = ScreeningQuestionFactory.create_batch(5, job=self.job)
+        for screening_question in self.questions:
+            AnswerFactory.create(question=screening_question, application=self.application)
+
+
+    def test_get_questions(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 5)
+
+
+    def test_by_another_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_by_talent(self):
+        talent_user = TalentFactory.create()
+        headers = {
+            "authorization": f"Bearer {talent_user.user.token}"
+        }
+        response = self.client.get(self.url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_with_invalid_uid(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(uuid4()), headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+

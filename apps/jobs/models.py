@@ -1,6 +1,3 @@
-import logging
-from idlelib.query import Query
-
 from django.db import models
 from django.db.models import F, Q
 from timezone_field import TimeZoneField
@@ -234,10 +231,6 @@ class JobPost(BaseModel):
         return data
 
 
-
-
-
-
 class JobApplication(BaseModel):
     job_post = models.ForeignKey(JobPost, on_delete=models.SET_NULL, null=True)
     applicant = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE)
@@ -258,6 +251,7 @@ class JobApplication(BaseModel):
         db_persist=True,
     )
     stage_date_updated = models.DateTimeField(null=True)
+
 
     def placeholders_mapper(self, placeholder:str):
         if placeholder == PlaceHolderType.YOUR_COMPANY_NAME.value:
@@ -297,6 +291,8 @@ class JobApplication(BaseModel):
         key_converter = self.stage.email_template.convert_placeholder_to_key
         return {key_converter(placeholder):self.placeholders_mapper(placeholder) for placeholder in stage_placeholders}
 
+    def knockout(self):
+        return Answer.objects.filter(application=self, question__is_knockout=True, options__is_accepted=False).exists()
 
 
     def __str__(self) -> str:
@@ -356,28 +352,26 @@ class JobFilter(BaseModel):
             queryset = queryset.filter(job__role__name__icontains=self.role)
         return queryset
 
-
-
-
-
 class ScreeningQuestion(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     type = models.CharField(max_length=16, choices=QuestionTypeEnum.choices())
     text = models.TextField()
     is_knockout = models.BooleanField(default=False)
 
+    def options(self):
+        return QuestionOption.objects.filter(question=self)
 
 class QuestionOption(BaseModel):
     question = models.ForeignKey(ScreeningQuestion, on_delete=models.CASCADE)
     is_accepted = models.BooleanField(default=False)
     text = models.CharField(max_length=128, null=True)
 
-
 class Answer(BaseModel):
     application = models.ForeignKey(JobApplication, on_delete=models.CASCADE)
-    option = models.ForeignKey(QuestionOption, on_delete=models.CASCADE)
+    question = models.ForeignKey(ScreeningQuestion, on_delete=models.CASCADE, null=True)
+    options = models.ManyToManyField(QuestionOption)
     text = models.TextField(null=True)
-
+    files = models.JSONField(default=list, null=True)
 
 class RequiredAttribute(BaseModel):
     job = models.OneToOneField(Job, on_delete=models.CASCADE)
@@ -434,15 +428,6 @@ class RequiredAttribute(BaseModel):
         return data
 
 
-
-
-
-
-class OtherSkill(BaseModel):
-    job = models.ForeignKey(Job, on_delete=models.CASCADE)
-    name = models.CharField(max_length=128)
-
-
 class JobApplicationWithdrawal(BaseModel):
     job_post = models.ForeignKey(JobPost, on_delete=models.SET_NULL, null=True, default=None)
     talent = models.ForeignKey("accounts.Talent", on_delete=models.SET_NULL, null=True)
@@ -470,12 +455,8 @@ class JobApplicationWithdrawal(BaseModel):
         }
         return data.get(number)
 
-
-
-
 class JobInterview(BaseModel):
     application = models.ForeignKey("jobs.JobApplication", models.CASCADE)
-
 
 class BusinessModel(BaseModel):
     name = models.CharField(max_length=64)

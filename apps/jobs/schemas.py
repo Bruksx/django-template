@@ -4,7 +4,7 @@ from typing import List
 from typing import Optional
 from uuid import UUID
 
-from ninja import ModelSchema
+from ninja import ModelSchema, UploadedFile
 from ninja.schema import Schema
 from ninja_extra.schemas import PaginatedResponseSchema
 from pydantic import Field, EmailStr
@@ -14,7 +14,7 @@ from accounts.models import Department, Role, Skill, SkillCategory, Talent, Busi
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySchema, EducationLevelSchema
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, PhaseType, JobStatusType
-from .models import BusinessModel, JobFilter, JobApplication
+from .models import BusinessModel, JobFilter, JobApplication, Answer
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
 from .models import (
     RequiredAttribute
@@ -85,10 +85,28 @@ class BusinessUserSchema(ModelSchema):
         model = BusinessUser
         fields = ["uid", "role"]
 
-class QuestionOptionSchema(ModelSchema):
+class CreateQuestionOptionSchema(ModelSchema):
     class Meta:
         model = QuestionOption
         fields = ["is_accepted", "text"]
+
+
+
+class CreateQuestionSchema(ModelSchema):
+    type: QuestionTypeEnum
+    options: List[CreateQuestionOptionSchema]
+
+    class Meta:
+        model = ScreeningQuestion
+        fields = ["type", "text", "is_knockout"]
+
+
+class QuestionOptionSchema(ModelSchema):
+
+    class Meta:
+        model = QuestionOption
+        fields = ["uid", "is_accepted", "text"]
+
 
 
 class QuestionSchema(ModelSchema):
@@ -97,7 +115,37 @@ class QuestionSchema(ModelSchema):
 
     class Meta:
         model = ScreeningQuestion
+        fields = ["uid", "type", "text", "is_knockout"]
+
+
+class UpdateQuestionSchema(ModelSchema):
+    type: Optional[QuestionTypeEnum] = None
+    class Meta:
+        model = ScreeningQuestion
         fields = ["type", "text", "is_knockout"]
+
+class MutateOptionSchema(ModelSchema):
+    uid: Optional[UUID] = None
+    class Meta:
+        model = QuestionOption
+        fields = ["is_accepted", "text"]
+
+
+class ScreeningAnswerSchema(ModelSchema):
+    question: QuestionSchema
+    options: Optional[List[QuestionOptionSchema]] = None
+    text: Optional[str] = None
+    files : Optional[List[str]] = None
+
+    class Meta:
+        model = Answer
+        fields = ["uid"]
+
+class MutateAnswerSchema(Schema):
+    question: UUID
+    options: Optional[List[UUID]] = None
+    text: Optional[str] = None
+    files: Optional[List[str]] = None
 
 
 class CreateJobSchema(ModelSchema):
@@ -109,7 +157,7 @@ class CreateJobSchema(ModelSchema):
     additional_languages: List[UUID]
     lunch_break: LunchBreakEnum
     job_posts: List[MutateJobPostSchema]
-    screening_questions: List[QuestionSchema]
+    screening_questions: List[CreateQuestionSchema]
     department: UUID
     role: UUID
     qualification: UUID

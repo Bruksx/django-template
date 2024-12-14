@@ -1,10 +1,13 @@
 import base64
+import os
 import random
 import string
 import uuid
 from typing import Optional
 
+import boto3
 import pdfkit
+from botocore.exceptions import NoCredentialsError
 from django.conf import settings
 from django.core.files.base import ContentFile
 from ninja.responses import Response
@@ -39,8 +42,6 @@ def convert_base64_to_image_file(base64_string, * ,name=None)->Optional[ContentF
             description=str(e)
         ), exc_info=True)
 
-
-
 def html_to_pdf(html: str):
     try:
         pdf_file = pdfkit.from_string(
@@ -58,7 +59,6 @@ def html_to_pdf(html: str):
         ))
         return
 
-
 def delete_s3_item(key):
     from boto3.session import Session
     if settings.USE_AWS_S3 == False:
@@ -73,8 +73,65 @@ def delete_s3_item(key):
     except Exception as e:
         Logger.error(msg=dict(sender="Helper Utils", title="AWS DELETE Error", description=str(e)), exc_info=True)
 
+def upload_to_s3(files, folder_name):
+    if settings.USE_AWS_S3 == False:
+        return
+    if not isinstance(files, list):
+        files = [files]
+    bucket_name = settings.AWS_STORAGE_BUCKET_NAME
+    region = settings.AWS_REGION
+    s3_client = boto3.client(
+        "s3",
+        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        region_name=region,
+    )
 
+    uploaded_urls = []
 
+    for file in files:
+        try:
+            file_key = f"{folder_name}/{file.name}"
+            s3_client.upload_fileobj(
+                file,  # File object
+                bucket_name,  # Bucket name
+                file_key,  # Key in S3
+                ExtraArgs={"ACL": "public-read"},  # Optional: Public read permissions
+            )
 
+            file_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{file_key}"
+            uploaded_urls.append(file_url)
 
+        except NoCredentialsError:
+            raise Exception("AWS credentials not available")
+        except Exception as e:
+            raise Exception(f"Failed to upload file {file.name}: {str(e)}")
 
+    return uploaded_urls if len(uploaded_urls) > 1 else uploaded_urls[0]
+
+def upload_to_server(files, folder_name):
+    if not isinstance(files, list):
+        files = [files]
+
+    saved_paths = []
+
+    for file in files:
+        try:
+            # Create the directory if it doesn't exist
+            save_path = os.path.join(settings.MEDIA_ROOT, folder_name)
+            os.makedirs(save_path, exist_ok=True)
+
+            # Save the file
+            file_path = os.path.join(save_path, file.name)
+            with open(file_path, 'wb+') as destination:
+                for chunk in file.chunks():
+                    destination.write(chunk)
+
+            # Append the relative file path
+            relative_path = os.path.join(settings.MEDIA_URL, folder_name, file.name)
+            saved_paths.append(relative_path)
+
+        except Exception as e:
+            raise Exception(f"Failed to save file {file.name}: {str(e)}")
+
+    return saved_paths if len(saved_paths) > 1 else saved_paths[0]
