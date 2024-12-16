@@ -8,3 +8,4 @@ class JobsConfig(AppConfig):
     def ready(self):
         import jobs.signals #noqa
 
+

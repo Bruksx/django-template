@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.db.models import F, Q
 from timezone_field import TimeZoneField
 
@@ -229,6 +229,33 @@ class JobPost(BaseModel):
                 "count": get_phase_count()
             })
         return data
+
+    def view_by_talent(self, talent):
+        metric, _ = JobPostMetrics.objects.get_or_create(job=self)
+        if metric.weekly_viewers.filter(id=talent.id).exists():
+            return
+        metric.weekly_viewers.add(talent)
+        metric.save()
+        return
+
+    def update_email_share(self):
+        metric, _ = JobPostMetrics.objects.get_or_create(job_post=self)
+        metric.daily_email_shares = F("daily_email_shares") + 1
+        metric.save()
+
+class JobPostMetrics(BaseModel):
+    job_post = models.OneToOneField(JobPost, on_delete=models.CASCADE)
+    daily_email_shares = models.PositiveIntegerField(default=0)
+    weekly_viewers = models.ManyToManyField("accounts.Talent", blank=True)
+
+
+    def reset_daily_email_shares(self):
+        self.daily_email_shares = 0
+        self.save(["daily_email_shares"])
+
+    def reset_weekly_viewers(self):
+        self.weekly_viewers.clear()
+        self.save()
 
 
 class JobApplication(BaseModel):

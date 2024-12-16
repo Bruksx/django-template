@@ -6,13 +6,15 @@ from helpers.email.jobs import send_shared_job_email
 from accounts.models import Talent
 from chats.models import Conversation, Message
 from jobs.models import JobPost
-from notification import notifications
+from notification.notifications import send_job_application_notification, send_job_sharing_notification, \
+    send_job_performance_notification
 
 
 def share_job_via_email(job_post_ids:List[UUID], emails: List[str]=None, language:str="en"):
     job_posts = JobPost.objects.filter(uid__in=job_post_ids).select_related('job')
     for job_post in job_posts:
         send_shared_job_email(job_post, emails, language)
+        job_post.update_email_share()
     return
 
 
@@ -32,8 +34,20 @@ def send_shared_job_chat(
         for job_post_id in job_post_ids:
             if chat.message_set.filter(job_post_id=job_post_id).exists():
                 continue
-            msg = Message.objects.create(conversation=chat, sender_id=sender_id, job_post_id=job_post_id)
-            notifications.send_job_sharing_notification(job_post=msg.job_post, sender=msg.sender,
-                                                        talent=chat.get_recipient(msg.sender))
+            Message.objects.create(conversation=chat, sender_id=sender_id, job_post_id=job_post_id)
 
 
+def job_application_notification_task():
+    job_posts = JobPost.objects.all()
+    for job_post in job_posts:
+        send_job_application_notification(job_post)
+
+def job_sharing_notification_task():
+    job_posts = JobPost.objects.all()
+    for job_post in job_posts:
+        send_job_sharing_notification(job_post)
+
+def job_performance_notification_task():
+    job_posts = JobPost.objects.all()
+    for job_post in job_posts:
+        send_job_performance_notification(job_post)

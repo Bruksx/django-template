@@ -13,7 +13,10 @@ from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Department, Role, SkillCategory
+from notification.notifications import send_talents_job_matching_notification
 from paginations import CustomPageNumberPaginationExtra
+
+from monkeypatches.q_cluster import async_task
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum
 from .models import (
@@ -24,6 +27,7 @@ from .schemas import (
     EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
     JobLevelSchema, TalentListJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema
 )
+from .services import notify_business_on_matched_talents
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -90,6 +94,7 @@ def set_required_attributes(request, data:job_schemas.MutateRequiredAttributeSch
     required_attributes.skills.set(request_data.pop("skills"))
     required_attributes.business_models.set(request_data.pop("business_models"))
     required_attributes.update(**request_data)
+    async_task(notify_business_on_matched_talents, job=job)
     return required_attributes
 
 @router.get("{job_uid}/required-attributes", response=job_schemas.RequiredAttributeSchema, auth=JWTAuth())
@@ -100,6 +105,7 @@ def get_required_attributes(request, job_uid:UUID):
     if not job:
         raise HttpError(404, "Job not found")
     required_attributes, _ = RequiredAttribute.objects.get_or_create(job=job)
+
     return required_attributes
 
 
@@ -176,7 +182,9 @@ def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
                  Q(user__last_name__icontains=search)|
                  Q(user__email__icontains=search)
         )
-    return job_post.get_talents().filter(query)
+    talents = job_post.get_talents()
+    send_talents_job_matching_notification(talents.count(), job_post)
+    return talents.filter(query)
 
 @router.post("", response=JobDetailSchema, auth=JWTAuth())
 @transaction.atomic

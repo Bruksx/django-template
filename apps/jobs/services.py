@@ -8,6 +8,8 @@ from jobs.enums import PhaseType
 from jobs.models import JobApplication, Answer
 from jobs.schemas import MutateAnswerSchema
 from settings.models import WorkFlowStage
+
+from notification.notifications import send_talents_job_matching_notification
 from config import settings
 from helpers.utils import upload_to_s3, upload_to_server
 
@@ -45,4 +47,10 @@ def upload_answer_files_service(files):
     if settings.USE_AWS_S3:
         return upload_to_s3(files, "answers")
     return upload_to_server(files, "answers")
+
+def notify_business_on_matched_talents(job):
+    posts = job.jobpost_set.all()
+    for post in posts:
+        talent_count = post.get_talents().count()
+        send_talents_job_matching_notification(talent_count, post)
 

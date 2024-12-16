@@ -126,8 +126,9 @@ def apply_to_job_post(request, job_post_id:UUID, data:Optional[List[MutateAnswer
     )
     return Response(status=200, data={"message": "Applied successfully"})
 
+@router.post("talent/job-posts/answer-files", response={200: None}, tags=["Talent Jobs"])
 def upload_answer_files(request, files:List[UploadedFile]):
-    IsTalentUser.check(request)
+    # IsTalentUser.check(request)
     file_urls = upload_answer_files_service(files=files)
     return Response(status=200, data=dict(message="Files uploaded successfully", data=file_urls))
 
@@ -139,9 +140,10 @@ def upload_answer_files(request, files:List[UploadedFile]):
 def view_job_post(request, job_post_id:UUID):
     IsTalentUser.check(request)
     talent = request.user.talent
-    job_post = JobPost.objects.filter(uid=job_post_id).first()
+    job_post:JobPost = JobPost.objects.filter(uid=job_post_id).first()
     if not job_post:
         raise HttpError(404, "Job post not found")
+    job_post.view_by_talent(talent)
     notifications.send_talent_job_matching_notification(talent, job_post)
     return job_post
 
