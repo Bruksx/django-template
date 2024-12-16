@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import timedelta, datetime, time
 
 from django.utils import timezone
 
@@ -27,24 +27,47 @@ def send_new_chat_notification(chat):
     notification.notify()
 
 
-def send_job_application_notification(job_application):
+def send_job_application_notification(job_post):
     """
-    args:
-        job_application: JobApplication
-    send this notification when a new job application is created
+    TODO: Schedule notification
+    Trigger Timing: Daily at 5am, 10am, 4pm
+    Example Notification:
+    "You have 15 new applications for [Job_Title].
+
     """
-    talent_name = job_application.applicant.user.fullname
-    job_title = job_application.job_post.job.title
+    now = timezone.now()
+    yesterday = timezone.now() - timedelta(days=1)
+
+    if now.hour  == 5:
+        start_date = datetime.combine(yesterday.date(), time(hour=16, minute=0, second=0), tzinfo=yesterday.tzinfo)
+        end_date = datetime.combine(now.date(), time(hour=5, minute=0, second=0), tzinfo=now.tzinfo)
+
+    elif now.hour == 10:
+        start_date = datetime.combine(now.date(), time(hour=5, minute=0, second=0), tzinfo=now.tzinfo)
+        end_date = datetime.combine(now.date(), time(hour=10, minute=0, second=0), tzinfo=now.tzinfo)
+
+    elif now.hour == 16:
+        start_date = datetime.combine(now.date(), time(hour=10, minute=0, second=0), tzinfo=now.tzinfo)
+        end_date = datetime.combine(now.date(), time(hour=16, minute=0, second=0), tzinfo=now.tzinfo)
+
+    else:
+        return
+
+
+    job_title = job_post.job.title
+    application_count = job_post.application_set.filter(created_at__range=(start_date, end_date)).count()
+    if application_count == 0:
+        return
     notification = Notification.objects.create(
-        title="New Job Application",
-        description=f"{talent_name} applied for {job_title}",
+        title="New Job Applications",
+        description=f"You have {application_count} new applications for {job_title}",
         action=EntityActionType.NEW.value,
         notification_type=NotificationType.APPLICANTS.value,
-        entity=EntityType.JOB_APPLICATION.value,
-        entity_uid=job_application.uid,
-        entity_str=str(job_application),
+        entity=EntityType.JOB_POST.value,
+        entity_uid=job_post.uid,
+        entity_str=str(job_post),
         recipient_groups=[NotificationGroup.BUSINESS_USERS.value],
-        business=job_application.job_post.recruiter.business
+        business=job_post.recruiter.business
     )
     notification.save()
     notification.notify()
@@ -56,27 +79,31 @@ def send_talent_job_matching_notification(talent, job_post):
         talent: Talent
         job_post: JobPost
     send this notification when a new job_post is viewed by a talent
+
+    """
+    "High match alert! [Candidate_Name]'s profile matches the requirements for [Job_Title]."
+    """
     """
     today = timezone.now()
     match_score = talent.job_match_score(job_post)
 
-    if match_score < 50:
+    if match_score < 80:
         return
 
     # this notification is only sent once a day
     if Notification.objects.filter(
         notification_type=NotificationType.MATCHING.value,
         entity=EntityType.JOB_POST.value,
-        entity_uid=job_post.uid
-    ).filter(description__icontains=talent.user.fullname,
-             created_at__year=today.year,
-             created_at__month=today.month,
-             created_at__day=today.day).exist():
+        entity_uid=job_post.uid,
+        description__icontains=talent.user.fullname,
+         created_at__year=today.year,
+         created_at__month=today.month,
+         created_at__day=today.day).exist():
         return
 
-    notification = Notification.objects.create(
+    notification = Notification(
         title="Job Matching",
-        description=f"{talent.user.fullname} matched with {job_post.job.title} with a score of {match_score}%",
+        description=f"High match alert! {talent.user.fullname}'s profile matches with the requirements for {job_post.job.title}%",
         notification_type=NotificationType.MATCHING.value,
         entity=EntityType.JOB_POST.value,
         entity_uid=job_post.uid,
@@ -87,32 +114,48 @@ def send_talent_job_matching_notification(talent, job_post):
     notification.save()
     notification.notify()
 
-
-def send_job_sharing_notification(job_post, sender, talent):
-    """
-    args:
-        job_post: JobPost
-        sender: User
-        talent: User
-
-    send this notification when a job_post is shared
-    we need to send this notification to the recipient and the business connected
-    to the job being shared
-    """
-    notification = Notification.objects.create(
-        title="Invitation to Apply",
-        description=f"{sender.fullname} shared a job with you",
+def send_talents_job_matching_notification(talent_count, job_post):
+    notification = Notification(
+        title="Job Matching",
+        description=f"High match alert! {talent_count} talents' profile match with the requirements for {job_post.job.title}",
+        notification_type=NotificationType.MATCHING.value,
         entity=EntityType.JOB_POST.value,
         entity_uid=job_post.uid,
-        entity_str=job_post.job.title,
-    )
-    notification.recipient_users.add(talent)
+        entity_str=str(job_post),
+        recipient_groups=[NotificationGroup.BUSINESS_USERS.value],
+        business=job_post.recruiter.business)
     notification.save()
     notification.notify()
 
-    notification = Notification.objects.create(
+
+def send_job_sharing_notification(job_post):
+    """
+    TODO: Schedule this task
+    Trigger Timing: Batch Daily at 4pm
+    Example Notification:
+    "Your job post for [Job_Title] was shared x times today"
+
+    """
+    now = timezone.now()
+    yesterday = now - timedelta(days=1)
+    if now.hour != 16:
+        return
+    metric = job_post.jobpostmetrics
+
+    email_shares = metric.daily_email_shares
+    metric.reset_daily_email_shares()
+
+    chat_shares = job_post.message_set.filter(
+        created_at__range=(yesterday, now)
+    ).count()
+    total_shares = email_shares + chat_shares
+    if total_shares == 0:
+        return
+    job_title = job_post.job.title
+
+    notification = Notification(
         title="Job Shared",
-        description=f"{sender.fullname} shared a job with {talent.fullname}",
+        description=f"Your job post for {job_title} was shared {total_shares} times today",
         notification_type=NotificationType.SHARING.value,
         entity=EntityType.JOB_POST.value,
         entity_uid=job_post.uid,
@@ -123,17 +166,27 @@ def send_job_sharing_notification(job_post, sender, talent):
     notification.save()
     notification.notify()
 
-
 def send_job_performance_notification(job_post):
-    """ Todo
-    yet to be determined
+    now = timezone.now()
+    last_week = now - timedelta(days=7)
 
-    """
-    job_performance = 0
+    metric = job_post.jobpostmetrics
+    views = metric.weekly_viewers.count()
+    metric.reset_weekly_viewers()
+    # may change
+    applications = job_post.jobapplication_set.filter(
+        created_at__range=(last_week, now)
+    ).count()
+    job_title = job_post.job.title
+
+    matches = job_post.get_talents().count()
+
+    if views == applications == matches == 0:
+        return
 
     notification = Notification.objects.create(
-        title="Job Performance",
-        description=f"{job_post.job.title} has a performance score of {job_performance}% ",
+        title="Job Performance Weekly Update",
+        description=f"Weekly Update: [{job_title}] - {views} views, {applications} applications, {matches} matches.",
         notification_type=NotificationType.PERFORMANCE.value,
         entity=EntityType.JOB_POST.value,
         entity_uid=job_post.uid,
@@ -155,7 +208,7 @@ def send_business_user_notification(business_user, action: EntityActionType, act
     send this notification on updates regarding a business user
     """
     description_mapping =  {
-        EntityActionType.NEW: f"{business_user.user.fullname} has joined your business",
+        EntityActionType.NEW: f"{business_user.user.fullname} has been added to your company profile",
         EntityActionType.UPDATE: f"{business_user.user.fullname} {action_str}",
         EntityActionType.DELETE: f"{business_user.user.fullname} has deleted their account",
     }

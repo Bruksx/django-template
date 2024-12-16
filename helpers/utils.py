@@ -129,7 +129,7 @@ def upload_to_server(files, folder_name):
 
             # Append the relative file path
             relative_path = os.path.join(settings.MEDIA_URL, folder_name, file.name)
-            saved_paths.append(relative_path)
+            saved_paths.append(f"{settings.WEB_URL}{relative_path}".replace("\\", "/"))
 
         except Exception as e:
             raise Exception(f"Failed to save file {file.name}: {str(e)}")

@@ -3,7 +3,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 from jobs.enums import PhaseType, JobStatusType
-from jobs.models import JobApplication, JobPost
+from jobs.models import JobApplication, JobPost, JobPostMetrics
 from notification import notifications
 
 
@@ -142,7 +142,10 @@ def handle_stage_timeline_update(sender, instance,  **kwargs):
                     stage_timeline.save()
 
 
-
+@receiver(post_save, sender=JobPost)
+def handle_job_post_metric(sender, instance, created, **kwargs):
+    if created:
+        JobPostMetrics.objects.create(job_post=instance)
 
 @receiver(pre_save, sender=JobPost)
 def handle_job_post_date(sender, instance, **kwargs):
@@ -171,12 +174,4 @@ def handle_job_post_recruiter(sender, instance, **kwargs):
         if job_post.recruiter != instance.recruiter:
             notifications.send_job_post_assignment_notification(
                 job_post=instance, previous_recruiter=job_post.recruiter)
-
-
-
-
-@receiver(post_save, sender=JobApplication)
-def send_notification(sender, instance, created, **kwargs):
-    if created:
-        notifications.send_job_application_notification(instance)
 
