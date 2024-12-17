@@ -171,8 +171,8 @@ def send_job_performance_notification(job_post):
     last_week = now - timedelta(days=7)
 
     metric = job_post.jobpostmetrics
-    views = metric.weekly_viewers.count()
-    metric.reset_weekly_viewers()
+    views = metric.weekly_views
+    metric.reset_weekly_views()
     # may change
     applications = job_post.jobapplication_set.filter(
         created_at__range=(last_week, now)

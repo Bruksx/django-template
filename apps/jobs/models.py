@@ -230,11 +230,9 @@ class JobPost(BaseModel):
             })
         return data
 
-    def view_by_talent(self, talent):
+    def view(self):
         metric, _ = JobPostMetrics.objects.get_or_create(job=self)
-        if metric.weekly_viewers.filter(id=talent.id).exists():
-            return
-        metric.weekly_viewers.add(talent)
+        metric.weekly_views = F("weekly_views") + 1
         metric.save()
         return
 
@@ -242,19 +240,20 @@ class JobPost(BaseModel):
         metric, _ = JobPostMetrics.objects.get_or_create(job_post=self)
         metric.daily_email_shares = F("daily_email_shares") + 1
         metric.save()
+        return
 
 class JobPostMetrics(BaseModel):
     job_post = models.OneToOneField(JobPost, on_delete=models.CASCADE)
     daily_email_shares = models.PositiveIntegerField(default=0)
-    weekly_viewers = models.ManyToManyField("accounts.Talent", blank=True)
+    weekly_views = models.PositiveIntegerField(default=0)
 
 
     def reset_daily_email_shares(self):
         self.daily_email_shares = 0
         self.save(["daily_email_shares"])
 
-    def reset_weekly_viewers(self):
-        self.weekly_viewers.clear()
+    def reset_weekly_views(self):
+        self.weekly_views = 0
         self.save()
 
 
