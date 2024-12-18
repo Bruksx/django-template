@@ -1,10 +1,16 @@
+from typing import List
+from uuid import UUID
+
 from django.db import transaction
 from ninja import Router, PatchDict
 from ninja.responses import Response
+from ninja_extra import paginate
+from ninja_extra.pagination import PageNumberPaginationExtra
+from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
-from notification.models import BusinessUserNotificationSettings
-from notification.schemas import NotificationSettingsSchema
+from notification.models import BusinessUserNotificationSettings, Notification
+from notification.schemas import NotificationSettingsSchema, NotificationSchema
 from config.permissions import IsBusinessUser
 
 # Create your views here.
@@ -31,3 +37,19 @@ def update_notification_settings(request, data: PatchDict[NotificationSettingsSc
     return Response(status=200, data={"message": "Notification settings updated successfully"})
 
 
+@router.get("", auth=JWTAuth(), response=PaginatedResponseSchema[NotificationSchema])
+@paginate(PageNumberPaginationExtra, page_size=50)
+def get_notifications(request, viewed: bool = False):
+    if hasattr(request.user, "businessuser"):
+        return request.user.businessuser.notifications(viewed=viewed)
+    elif hasattr(request.user, "talent"):
+        return request.user.talent.notifications(viewed=viewed)
+    return Notification.objects.none()
+
+@router.patch("{notification_uid}/read", auth=JWTAuth())
+def read_notification(request, notification_uid: UUID):
+    notification = Notification.objects.filter(uid=notification_uid).first()
+    if not notification:
+        return Response(status=404, data={"message": "Notification not found"})
+    notification.view(request.user)
+    return Response(status=200, data={"message": "Notification marked as read"})

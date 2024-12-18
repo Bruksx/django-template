@@ -3,7 +3,7 @@ import random
 import secrets
 import string
 from datetime import timedelta, date, datetime
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from uuid import UUID
 
 from django.contrib.auth.hashers import check_password, make_password
@@ -430,6 +430,24 @@ class Talent(BaseModel):
         if not job_filter.role:
             return None
         return Role.objects.filter(name__icontains=job_filter.role).first()
+
+    def notifications(self, viewed:Optional[bool]=None):
+        from notification.models import Notification
+        notifications = Notification.objects.filter(
+            Q(recipient_users__id=self.user.id) |
+            Q(recipient_group__contains=[NotificationGroup.TALENTS.value])|
+            Q(recipient_groups__contains=[NotificationGroup.ALL_USERS.value])
+         )
+        if viewed is True:
+            notifications = notifications.filter(
+                viewers__id=self.user.id
+            )
+        elif viewed is False:
+            notifications = notifications.exclude(
+                viewers__id=self.user.id
+            )
+        return notifications.order_by("-id")
+
 
 
 class Business(BaseModel):
@@ -939,6 +957,11 @@ class BusinessUser(BaseModel):
             return self.user.last_login.date()
         return None
 
+    def notifications(self, viewed=False):
+        from notification.models import Notification
+        if hasattr(self, "businessusernotificationsettings"):
+            return self.businessusernotificationsettings.notifications(viewed)
+        return Notification.objects.none()
 
 
 

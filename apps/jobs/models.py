@@ -183,7 +183,11 @@ class JobPost(BaseModel):
 
         job = self.job
         if not hasattr(job, "requiredattribute"):
-            return Talent.objects.select_related("user").filter(query).distinct()
+            talents = Talent.objects.select_related("user")
+            if query:
+                talents = talents.filter(query)
+            return talents.distinct()
+
         required_attribute = job.requiredattribute
         if required_attribute.skills.count() > 0:
             ids = required_attribute.skills.values_list("id", flat=True)
@@ -208,7 +212,10 @@ class JobPost(BaseModel):
             query = get_query(Q(talentavailableday__id__in=TalentAvailableDay.objects.filter(job.availability_query()).only("id").values_list("id", flat=True)))
         if required_attribute.location:
             query = get_query(Q(country=self.country))
-        return Talent.objects.select_related("user").filter(query).distinct()
+        talents =Talent.objects.select_related("user")
+        if query:
+            talents = talents.filter(query)
+        return talents.distinct()
 
     def phase_data(self):
         def get_phase_count():
@@ -243,14 +250,14 @@ class JobPost(BaseModel):
         return
 
 class JobPostMetrics(BaseModel):
-    job_post = models.OneToOneField(JobPost, on_delete=models.CASCADE)
+    job_post = models.OneToOneField(JobPost, on_delete=models.SET_NULL, null=True)
     daily_email_shares = models.PositiveIntegerField(default=0)
     weekly_views = models.PositiveIntegerField(default=0)
 
 
     def reset_daily_email_shares(self):
         self.daily_email_shares = 0
-        self.save(["daily_email_shares"])
+        self.save()
 
     def reset_weekly_views(self):
         self.weekly_views = 0
