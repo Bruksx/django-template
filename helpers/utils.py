@@ -10,9 +10,12 @@ import pdfkit
 from botocore.exceptions import NoCredentialsError
 from django.conf import settings
 from django.core.files.base import ContentFile
+from django.db.models import QuerySet
 from ninja.responses import Response
-
 from helpers.loggers import Logger
+import psutil
+from sys import getsizeof
+
 
 
 def success_response(message="successful", data=None, status=200):
@@ -135,3 +138,42 @@ def upload_to_server(files, folder_name):
             raise Exception(f"Failed to save file {file.name}: {str(e)}")
 
     return saved_paths if len(saved_paths) > 1 else saved_paths[0]
+
+def calculate_chunk_size(queryset_sample, memory_fraction=0.05, default_record_size_kb=3):
+    """
+    Calculate an optimal chunk size for processing a queryset based on available memory.
+
+    Parameters:
+        queryset_sample (QuerySet): A small sample queryset to estimate record size.
+        memory_fraction (float): Fraction of available memory to use (default: 5%).
+        default_record_size_kb (int): Default size in KB to assume per record if sample estimation fails.
+
+    Returns:
+        int: Optimal chunk size.
+    """
+    try:
+        # Estimate the size of a single record
+        sample_record = queryset_sample.first()
+        record_size = getsizeof(sample_record) if sample_record else default_record_size_kb * 1024
+    except Exception:
+        # Fallback to default record size if sample fails
+        record_size = default_record_size_kb * 1024
+
+    # Get available memory
+    memory_info = psutil.virtual_memory()
+    available_memory = memory_info.available * memory_fraction  # Use a fraction of available memory
+
+    # Calculate chunk size
+    chunk_size = int(available_memory / record_size)
+    return max(chunk_size, 1)  # Ensure at least one record per chunk
+
+def chunk_queryset(queryset: QuerySet):
+    """Yield chunks of a queryset for memory efficiency."""
+    start = 0
+    chunk_size = calculate_chunk_size(queryset)
+    while True:
+        chunk = list(queryset[start:start + chunk_size])
+        if not chunk:
+            break
+        yield chunk
+        start += chunk_size

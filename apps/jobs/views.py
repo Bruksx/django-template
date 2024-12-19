@@ -143,7 +143,7 @@ def view_job_post(request, job_post_id:UUID):
     job_post:JobPost = JobPost.objects.filter(uid=job_post_id).first()
     if not job_post:
         raise HttpError(404, "Job post not found")
-    job_post.view_by_talent(talent)
+    job_post.view()
     notifications.send_talent_job_matching_notification(talent, job_post)
     return job_post
 

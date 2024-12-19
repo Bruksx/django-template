@@ -43,9 +43,38 @@ class Notification(BaseModel):
         # sends to specific roles in a business
         if self.role and self.business:
             send_ws(f"{self.role}_{self.business.uid}", notification)
-
         return
 
+    def view(self, user):
+        if not self.can_view(user):
+            return
+        self.viewers.add(user)
+        self.save()
+        return
+
+    def can_view(self, user):
+        if self.recipient_users.filter(id=user.id).exists():
+            return True
+
+        if NotificationGroup.ALL_USERS.value in self.recipient_groups:
+            return True
+
+        if hasattr(user, "talent"):
+            return NotificationGroup.TALENTS.value in self.recipient_groups
+        elif hasattr(user, "business_user"):
+            if self.notification_type:
+                settings = BusinessUserNotificationSettings.objects.filter(
+                    business_user=user.business_user
+                ).first()
+                if settings:
+                    if not settings.should_notify(self.notification_type):
+                        return  False
+            if self.business:
+                if self.role and self.role == user.business_user.role:
+                    return True
+                if NotificationGroup.BUSINESS_USERS.value in self.recipient_groups:
+                    return True
+        return False
 
 class BusinessUserNotificationSettings(BaseModel):
     business_user = models.OneToOneField("accounts.BusinessUser", on_delete=models.CASCADE)

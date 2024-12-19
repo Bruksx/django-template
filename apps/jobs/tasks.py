@@ -1,13 +1,17 @@
+from concurrent.futures import ThreadPoolExecutor
 from typing import List
 from uuid import UUID
 
-from helpers.email.jobs import send_shared_job_email
-
 from accounts.models import Talent
 from chats.models import Conversation, Message
+from django.db import connection, close_old_connections
 from jobs.models import JobPost
 from notification.notifications import send_job_application_notification, send_job_sharing_notification, \
     send_job_performance_notification
+
+from apps.jobs.enums import JobStatusType
+from helpers.email.jobs import send_shared_job_email
+from helpers.utils import chunk_queryset
 
 
 def share_job_via_email(job_post_ids:List[UUID], emails: List[str]=None, language:str="en"):
@@ -38,16 +42,33 @@ def send_shared_job_chat(
 
 
 def job_application_notification_task():
-    job_posts = JobPost.objects.all()
-    for job_post in job_posts:
-        send_job_application_notification(job_post)
+    job_posts = JobPost.objects.filter(status=JobStatusType.POSTED.value)
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        for chunk in chunk_queryset(job_posts):
+            executor.map(send_job_application_notification, chunk)
+    connection.close()
+    close_old_connections()
+    return
+
 
 def job_sharing_notification_task():
-    job_posts = JobPost.objects.all()
-    for job_post in job_posts:
-        send_job_sharing_notification(job_post)
+    job_posts = JobPost.objects.filter(status=JobStatusType.POSTED.value)
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        for chunk in chunk_queryset(job_posts):
+            executor.map(send_job_sharing_notification, chunk)
+    connection.close()
+    close_old_connections()
+    return
+
+
 
 def job_performance_notification_task():
-    job_posts = JobPost.objects.all()
-    for job_post in job_posts:
-        send_job_performance_notification(job_post)
+    job_posts = JobPost.objects.filter(status=JobStatusType.POSTED.value)
+
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        for chunk in chunk_queryset(job_posts):
+            executor.map(send_job_performance_notification, chunk)
+
+    connection.close()
+    close_old_connections()
+    return

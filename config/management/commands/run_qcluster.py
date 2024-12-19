@@ -9,9 +9,10 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
         from monkeypatches.q_cluster import schedule_cron_tasks
-        from apps.jobs import scheduler
+        from apps.jobs.scheduler import tasks as job_tasks
+        from apps.notification.scheduler import tasks as notification_tasks
         # you may add other cron tasks here
-        tasks = (*scheduler.tasks,)
+        tasks = (*job_tasks, *notification_tasks)
 
         schedule_cron_tasks(tasks)
 

@@ -9,12 +9,11 @@ https://docs.djangoproject.com/en/5.1/howto/deployment/asgi/
 
 import os
 
-from channels.auth import AuthMiddlewareStack
+import django
 from channels.routing import URLRouter, ProtocolTypeRouter
 from channels.security.websocket import AllowedHostsOriginValidator
 from django.conf import settings
 from django.core.asgi import get_asgi_application
-import django
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()

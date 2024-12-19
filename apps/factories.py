@@ -10,13 +10,14 @@ from accounts.enums import GenderType, PreferredCommunicationType, BusinessUserR
 from accounts.models import User, Talent, Business, BusinessUser, Education, Role, TalentAvailableDay, CustomerCase, \
     EducationLevel, Industry, Country, AdditionalSkill, Department, Experience, Skill, SkillCategory
 from chats.models import Conversation, Message
+from notification.models import BusinessUserNotificationSettings
 from settings.models import WorkFlowStage, EmailTemplate
 
 fake = Faker()
 from core.models import Currency, Language
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, WithdrawalFeedbackType, PhaseType, QuestionTypeEnum
 from jobs.models import JobLevel, EmploymentType, JobPost, Job, JobApplication, Qualification, JobApplicationWithdrawal, \
-    RequiredAttribute, JobFilter, BusinessModel, ScreeningQuestion, Answer, QuestionOption
+    RequiredAttribute, JobFilter, BusinessModel, ScreeningQuestion, Answer, QuestionOption, JobPostMetrics
 
 
 class CountryFactory(DjangoModelFactory):
@@ -429,3 +430,26 @@ class AnswerFactory(DjangoModelFactory):
 
         else:
             self.files = [fake.url(), fake.url()]
+
+
+class JobPostMetricsFactory(DjangoModelFactory):
+    class Meta:
+        model = JobPostMetrics
+
+    job_post = factory.SubFactory(JobPostFactory)
+    daily_email_shares = factory.Iterator([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    weekly_views = factory.Iterator([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+
+
+class BusinessUserNotificationSettingsFactory(DjangoModelFactory):
+    class Meta:
+        model = BusinessUserNotificationSettings
+
+    business_user = factory.SubFactory(BusinessUserFactory)
+    applicants_notification = factory.Iterator([True, False])
+    matching_notification = factory.Iterator([True, False])
+    sharing_notification = factory.Iterator([True, False])
+    performance_notification = factory.Iterator([True, False])
+    user_notification = factory.Iterator([True, False])
+    assignment_notification = factory.Iterator([True, False])
+
