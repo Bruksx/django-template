@@ -183,7 +183,7 @@ class JobPost(BaseModel):
 
         job = self.job
         if not hasattr(job, "requiredattribute"):
-            talents = Talent.objects.select_related("user")
+            talents = Talent.objects.select_related("user").filter(visible=True)
             if query:
                 talents = talents.filter(query)
             return talents.distinct()
@@ -212,7 +212,7 @@ class JobPost(BaseModel):
             query = get_query(Q(talentavailableday__id__in=TalentAvailableDay.objects.filter(job.availability_query()).only("id").values_list("id", flat=True)))
         if required_attribute.location:
             query = get_query(Q(country=self.country))
-        talents =Talent.objects.select_related("user")
+        talents =Talent.objects.select_related("user").filter(visible=True)
         if query:
             talents = talents.filter(query)
         return talents.distinct()
