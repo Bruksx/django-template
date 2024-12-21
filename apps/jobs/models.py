@@ -77,6 +77,7 @@ class Job(BaseModel):
     department = models.ForeignKey("accounts.Department", null=True, on_delete=models.SET_NULL)
     role = models.ForeignKey("accounts.Role", null=True, on_delete=models.SET_NULL)
     skills = models.ManyToManyField("accounts.Skill")
+    min_match_score = models.FloatField(null=True)
 
     objects = JobManager()
 
@@ -325,6 +326,8 @@ class JobApplication(BaseModel):
         return {key_converter(placeholder):self.placeholders_mapper(placeholder) for placeholder in stage_placeholders}
 
     def knockout(self):
+        if not ScreeningQuestion.objects.filter(job=self.job_post.job, is_knockout=True).exists():
+            return False
         return Answer.objects.filter(application=self, question__is_knockout=True, options__is_accepted=False).exists()
 
 

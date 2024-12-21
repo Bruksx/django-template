@@ -166,6 +166,7 @@ class CreateJobSchema(ModelSchema):
     business_models: List[UUID]
     minimum_education_level: UUID
     responsibilities: List[str]
+    min_match_score: Optional[float] = None
 
 
     class Meta:
@@ -190,6 +191,8 @@ class UpdateJobSchema(ModelSchema):
     business_models: List[UUID]
     minimum_education_level: Optional[UUID] = None
     responsibilities: List[str]
+    min_match_score: Optional[float] = None
+
     class Meta:
         model = Job
         exclude = [
