@@ -121,24 +121,32 @@ class BusinessUserNotificationSettings(BaseModel):
 
     def notifications(self, viewed:Optional[bool]=None):
         notifications = Notification.objects.filter(
-            Q(notification_type__in=self.allowed_notification_types())|
+            Q(notification_type__in=self.allowed_notification_types()) |
             Q(notification_type__isnull=True)
-        ).filter(
-            Q(business=self.business_user.business)|
-            Q(business__isnull=True)|
-            Q(role=self.business_user.role)
-        ).filter(
-            Q(recipient_users__id=self.business_user.user.id) |
-            Q(recipient_group__contains=[NotificationGroup.BUSINESS_USERS.value])|
-            Q(recipient_groups__contains=[NotificationGroup.ALL_USERS.value])
-         )
+        )
+        recipients_query = Q(recipient_users__id=self.business_user.user.id)
+        role_query  = Q(
+            business=self.business_user.business,
+            role=self.business_user.role
+        )
+        group_query = Q(
+            Q(business=self.business_user.business, recipient_groups__contains=[NotificationGroup.BUSINESS_USERS.value])|
+            Q(recipient_groups__contains=[NotificationGroup.ALL_USERS.value])|
+            Q(recipient_groups__contains=[NotificationGroup.BUSINESS_USERS.value])
+        )
+        notifications = notifications.filter(
+            recipients_query |
+            role_query |
+            group_query
+        )
+
         if viewed is True:
             notifications = notifications.filter(
-                viewers__id=self.user.id
+                viewers__id=self.business_user.user.id
             )
         elif viewed is False:
             notifications = notifications.exclude(
-                viewers__id=self.user.id
+                viewers__id=self.business_user.user.id
             )
         return notifications.order_by("-id")
 

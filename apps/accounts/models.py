@@ -433,11 +433,15 @@ class Talent(BaseModel):
 
     def notifications(self, viewed:Optional[bool]=None):
         from notification.models import Notification
+        recipients_query = Q(recipient_users__id=self.user.id)
+        group_query = Q(
+            Q(recipient_groups__contains=[NotificationGroup.ALL_USERS.value]) |
+            Q(recipient_groups__contains=[NotificationGroup.TALENTS.value])
+        )
         notifications = Notification.objects.filter(
-            Q(recipient_users__id=self.user.id) |
-            Q(recipient_group__contains=[NotificationGroup.TALENTS.value])|
-            Q(recipient_groups__contains=[NotificationGroup.ALL_USERS.value])
-         )
+            recipients_query | group_query
+        )
+
         if viewed is True:
             notifications = notifications.filter(
                 viewers__id=self.user.id
