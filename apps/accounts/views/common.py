@@ -18,7 +18,7 @@ router = Router(tags=["Common Account APIs"])
 
 @router.get("talents", response=list[talent_schemas.TalentUserListSchema], auth=JWTAuth())
 def talent_lists(request, search=""):
-    talents = Talent.objects.prefetch_related("user").all()
+    talents = Talent.objects.prefetch_related("user").filter(visible=True)
     if search:
         talents = talents.filter(Q(user__first_name__icontains=search)|
                                  Q(user__last_name__icontains=search)|

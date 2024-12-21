@@ -10,7 +10,8 @@ from accounts.enums import GenderType, PreferredCommunicationType, BusinessUserR
 from accounts.models import User, Talent, Business, BusinessUser, Education, Role, TalentAvailableDay, CustomerCase, \
     EducationLevel, Industry, Country, AdditionalSkill, Department, Experience, Skill, SkillCategory
 from chats.models import Conversation, Message
-from notification.models import BusinessUserNotificationSettings
+from notification.enums import EntityActionType, EntityType, NotificationType
+from notification.models import BusinessUserNotificationSettings, Notification
 from settings.models import WorkFlowStage, EmailTemplate
 
 fake = Faker()
@@ -453,3 +454,14 @@ class BusinessUserNotificationSettingsFactory(DjangoModelFactory):
     user_notification = factory.Iterator([True, False])
     assignment_notification = factory.Iterator([True, False])
 
+class NotificationFactory(DjangoModelFactory):
+    class Meta:
+        model = Notification
+
+    title = factory.lazy_attribute(lambda _: fake.sentence()[:50])
+    description = factory.Faker('sentence', nb_words=50)
+    action = factory.Iterator(EntityActionType.values())
+    entity = factory.Iterator(EntityType.values())
+    entity_uid = fake.uuid4()
+    entity_str = factory.lazy_attribute(lambda _: fake.sentence()[:20])
+    notification_type = factory.Iterator(NotificationType.values())

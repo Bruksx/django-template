@@ -1,8 +1,10 @@
 from django.test import TestCase
 from ninja.testing import TestClient
 
-from factories import BusinessUserFactory
-from notification.models import BusinessUserNotificationSettings
+from accounts.models import Talent
+from factories import BusinessUserFactory, NotificationFactory, TalentFactory
+from notification.enums import NotificationGroup
+from notification.models import BusinessUserNotificationSettings, Notification
 from notification.views import router
 
 # Create your tests here.
@@ -58,3 +60,140 @@ class UpdateNotificationSettingsTest(TestCase):
         self.assertFalse(settings.matching_notification)
         self.assertFalse(settings.sharing_notification)
         self.assertFalse(settings.performance_notification)
+
+class GetNotificationsTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.user = self.business_user.user
+        self.url = ""
+        NotificationFactory.create_batch(5,
+            business=self.business_user.business,
+            role=self.business_user.role
+        )
+
+    def test_get_notifications(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 5)
+
+    def test_by_another_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"bearer {business_user.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 0)
+
+    def test_by_talent(self):
+        talent = TalentFactory.create()
+        headers = {
+            "authorization": f"bearer {talent.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 0)
+
+    def test_when_talent_is_recipient(self):
+        notification = Notification.objects.first()
+        talent = TalentFactory.create()
+        notification.recipient_users.add(talent.user)
+        notification.save()
+        headers = {
+            "authorization": f"bearer {talent.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+
+    def test_when_business_user_is_recipient(self):
+        notification = Notification.objects.first()
+        business_user = BusinessUserFactory.create()
+        notification.recipient_users.add(business_user.user)
+        notification.save()
+        headers = {
+            "authorization": f"bearer {business_user.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+
+    def test_when_recipient_group_is_for_talent(self):
+        notification = Notification.objects.first()
+        talent = TalentFactory.create()
+        notification.recipient_groups = [NotificationGroup.TALENTS.value]
+        notification.save()
+        headers = {
+            "authorization": f"bearer {talent.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+
+    def test_when_recipient_group_is_for_business_user(self):
+        notification = Notification.objects.first()
+        business_user = BusinessUserFactory.create()
+        notification.recipient_groups = [NotificationGroup.BUSINESS_USERS.value]
+        notification.business = business_user.business
+        notification.save()
+        headers = {
+            "authorization": f"bearer {business_user.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+
+
+
+
+class ReadNotificationTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.user = self.business_user.user
+        self.notification = NotificationFactory.create(
+             recipient_groups=[
+                 NotificationGroup.ALL_USERS.value
+             ]
+        )
+        self.url = lambda uid: f"{uid}/read"
+
+    def test_read_notification(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        self.assertFalse(self.notification.viewers.filter(id=self.user.id).exists())
+        response = self.client.patch(self.url(self.notification.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["message"], "Notification marked as read")
+        notification = Notification.objects.filter(uid=self.notification.uid).first()
+        self.assertTrue(notification.viewers.filter(id=self.user.id).exists())
+
+    def test_by_talent_for_wrong_recipient_group(self):
+        self.notification.update(recipient_groups=[NotificationGroup.BUSINESS_USERS.value])
+        talent = TalentFactory.create()
+        headers = {
+            "authorization": f"bearer {talent.user.token}"
+        }
+        response = self.client.patch(self.url(self.notification.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.notification.refresh_from_db()
+        self.assertFalse(self.notification.viewers.filter(id=self.user.id).exists())
+
+    def test_by_business_user_for_talent_group(self):
+        self.notification.update(recipient_groups=[NotificationGroup.TALENTS.value])
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"bearer {business_user.user.token}"
+        }
+        response = self.client.patch(self.url(self.notification.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.notification.refresh_from_db()
+        self.assertFalse(self.notification.viewers.filter(id=self.user.id).exists())
+
+
+

@@ -198,7 +198,7 @@ class Talent(BaseModel):
     address = models.CharField(max_length=128, null=True)
     postal_code = models.CharField(max_length=8, null=True)
     employment_type = models.CharField(max_length=32, null=True)
-    visible = models.BooleanField(default=False)
+    visible = models.BooleanField(default=True)
     preferred_communication = models.CharField(max_length=64, null=True)
     bio = models.TextField(null=True)
     notice_period = models.IntegerField(null=True)
@@ -433,11 +433,15 @@ class Talent(BaseModel):
 
     def notifications(self, viewed:Optional[bool]=None):
         from notification.models import Notification
+        recipients_query = Q(recipient_users__id=self.user.id)
+        group_query = Q(
+            Q(recipient_groups__contains=[NotificationGroup.ALL_USERS.value]) |
+            Q(recipient_groups__contains=[NotificationGroup.TALENTS.value])
+        )
         notifications = Notification.objects.filter(
-            Q(recipient_users__id=self.user.id) |
-            Q(recipient_group__contains=[NotificationGroup.TALENTS.value])|
-            Q(recipient_groups__contains=[NotificationGroup.ALL_USERS.value])
-         )
+            recipients_query | group_query
+        )
+
         if viewed is True:
             notifications = notifications.filter(
                 viewers__id=self.user.id

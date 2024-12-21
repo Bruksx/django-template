@@ -272,4 +272,25 @@ class TalentListTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 1)
 
+    def test_for_talent_invisibility(self):
+        self.talent.update(visible=False)
+        headers = {
+            "authorization": f"bearer {self.talent.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 5)
+
+    def test_for_endpoint_by_business_user(self):
+        business_user = BusinessUserFactory.create()
+        self.talent.update(visible=False)
+        headers = {
+            "authorization": f"bearer {business_user.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 5)
+
+
+
 

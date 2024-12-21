@@ -742,3 +742,29 @@ class TalentDetailTest(TestCase):
         }
         response = self.client.get(self.url(uuid4()), headers=headers)
         self.assertEqual(response.status_code, 404)
+
+
+
+class TestToggleTalentVisibility(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.talent = TalentFactory.create()
+        self.url = lambda visible: f"visibility?visible={str(visible).lower()}"
+
+    def test_toggle_talent_visibility(self):
+        headers = {
+            "authorization": f"bearer {self.talent.user.token}"
+        }
+        self.assertTrue(self.talent.visible)
+        response = self.client.patch(self.url(False), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        self.assertFalse(self.talent.visible)
+
+    def test_endpoint_by_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"bearer {business_user.user.token}"
+        }
+        response = self.client.patch(self.url(False), headers=headers)
+        self.assertEqual(response.status_code, 403)

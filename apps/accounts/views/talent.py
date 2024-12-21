@@ -237,6 +237,12 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
     talent_user.update(**data)
     return Response(status=200, data={"message": "Profile updated successfully"})
 
+@router.patch("visibility", auth=JWTAuth())
+def toggle_talent_visibility(request, visible: bool):
+    IsTalentUser.check(request)
+    request.user.talent.visible = visible
+    request.user.talent.save()
+    return Response(status=200, data={"message": "Visibility updated successfully"})
 
 @router.patch("education-history", auth=JWTAuth())
 def update_education_history(request, data: List[PatchDict[talent_schemas.MutateEducationSchema]]):

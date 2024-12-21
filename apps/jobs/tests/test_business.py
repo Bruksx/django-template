@@ -1023,6 +1023,16 @@ class TalentsByJobPostTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 5)
 
+    def test_get_talents_invisibility(self):
+        talent = Talent.objects.first()
+        talent.update(visible=False)
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.job_post.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 4)
+
     def test_get_talents_by_job_post_with_search_query(self):
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
