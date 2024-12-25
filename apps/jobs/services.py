@@ -1,17 +1,16 @@
 from typing import List, Optional
 
+from config import settings
 from django.conf import settings
 from django.db import transaction
+from helpers.utils import upload_to_s3, upload_to_server
 from ninja.errors import HttpError
 
 from jobs.enums import PhaseType
 from jobs.models import JobApplication, Answer
 from jobs.schemas import MutateAnswerSchema
-from settings.models import WorkFlowStage
-
 from notification.notifications import send_talents_job_matching_notification
-from config import settings
-from helpers.utils import upload_to_s3, upload_to_server
+from settings.models import WorkFlowStage
 
 
 def get_talent_job_recommendations(talent, search="", use_filter=False, **kwargs):
@@ -29,6 +28,13 @@ def create_job_application(job_post, talent, data:Optional[List[MutateAnswerSche
     application = JobApplication.objects.create(job_post=job_post, applicant=talent,
                                                 recruiter=job_post.recruiter,
                                                 match=talent.job_match_score(job_post))
+    if job_post.job.min_match_score and application.match < job_post.job.min_match_score:
+        rejected_stage = WorkFlowStage.objects.filter(
+            phase=PhaseType.REJECTED.value,
+            created_by__business=job_post.job.created_by.business
+        ).order_by("order").first()
+        application.update(stage=rejected_stage)
+
     if not data:
         return
     for answer_data in data:
@@ -38,8 +44,11 @@ def create_job_application(job_post, talent, data:Optional[List[MutateAnswerSche
         if answer_data.options:
             answer.options.set(answer_data.options)
         answer.save()
-    if application.knockout():
-        rejected_stage = WorkFlowStage.objects.filter(phase=PhaseType.REJECTED.value).order_by("order").first()
+    if application.stage and application.stage.phase != PhaseType.REJECTED.value and application.knockout():
+        rejected_stage = WorkFlowStage.objects.filter(
+            phase=PhaseType.REJECTED.value,
+            created_by__business=job_post.job.created_by.business
+        ).order_by("order").first()
         application.update(stage=rejected_stage)
     return
 

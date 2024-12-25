@@ -252,11 +252,13 @@ class ApplyToJobPostTest(TestCase):
         self.job = JobFactory.create(
             title="Test Job"
         )
+        RequiredAttributeFactory.create(job=self.job)
         self.business_user = self.job.created_by
         self.job_post = JobPostFactory.create(
             status=JobStatusType.POSTED.value,
             job=self.job,)
         self.url = lambda job_post_uid: f"talent/job-posts/{job_post_uid}/apply"
+        WorkflowStageFactory.create(phase=PhaseType.REJECTED.value, created_by=self.job.created_by)
 
     def test_apply_to_job_post_without_screening_answers(self):
         headers = {
@@ -315,6 +317,24 @@ class ApplyToJobPostTest(TestCase):
         response = self.client.post(self.url(uuid.uuid4()),
                                     headers=headers)
         self.assertEqual(response.status_code, 404)
+
+
+    def test_low_application_score(self):
+        match_score = self.talent.job_match_score(self.job_post)
+        self.job.update(min_match_score=(match_score + 1))
+        self.job.refresh_from_db()
+        headers = {
+            "authorization": f"bearer {self.talent.user.token}"
+        }
+        self.assertEqual(self.talent.applied_jobs().count(), 0)
+        response = self.client.post(self.url(self.job_post.uid),
+                                    headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        self.assertEqual(self.talent.applied_jobs().count(), 1)
+        application = self.talent.jobapplication_set.first()
+        self.assertEqual(application.stage.phase, PhaseType.REJECTED.value)
+
 
 
 class WithdrawJobApplicationTest(TestCase):
