@@ -367,6 +367,17 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
         request=request,
         pagination=pagination
     )
+
+@router.patch("job-posts/applications/{application_uid}", response=job_schemas.JobApplicationListSchema, auth=JWTAuth())
+def update_application(request, application_uid:UUID, data:job_schemas.UpdateApplicationSchema):
+    IsBusinessUser.check(request)
+    application = JobApplication.objects.filter(uid=application_uid, recruiter__business=request.user.businessuser.business).first()
+    if not application:
+        raise HttpError(404, "This application does not exist")
+    application.update(**data.dict())
+    return application
+
+
 @router.post("{job_uid}/screening-questions", response=job_schemas.QuestionSchema, auth=JWTAuth(),
             tags=["Screening Test"])
 @transaction.atomic
