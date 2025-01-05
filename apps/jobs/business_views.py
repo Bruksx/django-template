@@ -1,6 +1,5 @@
 from typing import Optional, Literal, List
 from uuid import UUID
-
 from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
@@ -21,7 +20,7 @@ from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication, AvailableDay,
-    ScreeningQuestion, QuestionOption, Answer
+    ScreeningQuestion, QuestionOption, Answer, Qualification
 )
 from .schemas import (
     EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
@@ -65,6 +64,12 @@ def get_job_levels(request, search=""):
         queryset = queryset.filter(name__icontains=search)
     return queryset
 
+@router.get("qualifications", response=list[JobLevelSchema], tags=["Common"])
+def get_qualififcations(request, search=""):
+    queryset = Qualification.objects.all()
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    return queryset
 
 @router.get("skill-categories", response={200: list[SkillCategorySchema]}, tags=["Common"])
 def get_skills(request, search=""):

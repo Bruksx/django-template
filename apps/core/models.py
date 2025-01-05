@@ -71,12 +71,18 @@ class Currency(BaseModel):
     name = models.CharField()
     abbreviation = models.CharField()
 
+    class Meta:
+        ordering = ["name"]
+
     def __str__(self) -> str:
         return f"{self.name}({self.abbreviation})"
 
 
 class Language(BaseModel):
     name = models.CharField(max_length=32)
+
+    class Meta:
+        ordering = ["name"]
 
     def __str__(self) -> str:
         return self.name

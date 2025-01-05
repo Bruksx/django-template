@@ -75,7 +75,7 @@ class MutateJobPostSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        exclude = [*MUTATE_EXCLUDE_FIELDS, "uid", "job", "date_posted", "posted_by"]
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "uid", "job", "created_at", "posted_by"]
         fields_optional = "__all__"
 
 class BusinessUserSchema(ModelSchema):
@@ -158,9 +158,9 @@ class CreateJobSchema(ModelSchema):
     lunch_break: LunchBreakEnum
     job_posts: List[MutateJobPostSchema]
     screening_questions: List[CreateQuestionSchema]
-    department: UUID
+    #department: UUID
     role: UUID
-    qualification: UUID
+    #qualification: Optional[UUID]
     skills: list[UUID]
     job_level: Optional[UUID]
     business_models: List[UUID]
@@ -346,7 +346,7 @@ class JobPostListSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "date_posted"]
+        fields = ["uid", "status", "created_at"]
 
 
     @staticmethod
@@ -503,7 +503,7 @@ class JobPostFullDetailSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "date_posted",
+        fields = ["uid", "status", "created_at",
                   "province", "postal_code"]
 
 
@@ -560,6 +560,7 @@ class TalentJobPostListSchema(ModelSchema):
     job: JobListSchema
     match_score: Optional[int]
     applied: bool
+    country: GenericNameAndUidSchema
 
     class Meta:
         model = JobPost
@@ -584,7 +585,7 @@ class TalentJobPostListSchema(ModelSchema):
         return JobApplication.objects.filter(job_post=obj, applicant=talent).exists()
 
 
-class TalentJobPostSchema(TalentJobPostListSchema):
+class TalentJobPostSchema(JobPostListSchema):
     job: JobDetailSchema
 
 

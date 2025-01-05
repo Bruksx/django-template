@@ -222,3 +222,6 @@ COMPANY_NAME = "1840 GTC"
 USE_AWS_S3 = os.environ.get("USE_AWS_S3", False)
 
 WEB_URL = "http://localhost:8000"
+
+ZOOM_CLIENT_ID = os.environ.get("ZOOM_CLIENT_ID")
+ZOOM_CLIENT_SECRET = os.environ.get("ZOOM_CLIENT_SECRET")
