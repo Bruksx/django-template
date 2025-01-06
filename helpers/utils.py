@@ -177,3 +177,18 @@ def chunk_queryset(queryset: QuerySet):
             break
         yield chunk
         start += chunk_size
+
+import re
+
+def is_valid_email(email):
+  """
+  Checks if the given string is a valid email address.
+
+  Args:
+    email: The string to be checked.
+
+  Returns:
+    True if the string is a valid email address, False otherwise.
+  """
+  email_regex = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+  return re.match(email_regex, email) is not None

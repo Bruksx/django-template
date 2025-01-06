@@ -1,0 +1,15 @@
+
+{% extends "base.html" %}
+
+{% block content %}
+
+    <p>Dear {{user}},</p>
+
+    <p>You have been invited to join {{company}}. Please click on the link below to accept the invitation.</p>
+
+    <a href="{{frontend_url}}/accounts/accept-invitation/{{code}}">{{frontend_url}}/accounts/accept-invitation/{{code}}</a>
+
+    <p>Best Regards,</p>
+    <p>{{company}}</p>
+
+{% endblock %}
