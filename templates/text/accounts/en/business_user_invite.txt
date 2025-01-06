@@ -1,9 +1,0 @@
-
-Dear {{user}},
-
-You have been invited to join {{company}}. Please click on the link below to accept the invitation.
-
-{{frontend_url}}/accounts/accept-invitation/{{code}}
-
-Best Regards,
-{{company}}

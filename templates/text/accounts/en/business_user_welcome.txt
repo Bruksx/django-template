@@ -1,6 +1,0 @@
-Dear {{user}},
-
-Welcome to {{company}}! We are excited to have you join our community.
-
-Best Regards,
-{{company}}

@@ -5,17 +5,20 @@ from django.conf import settings
 from django.core.mail import EmailMultiAlternatives
 from django.template import loader
 from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 from pydantic import EmailStr
 
 from helpers.decorators import test_env_decorator
 from helpers.loggers import Logger
+from helpers.utils import is_valid_email
+
 
 @test_env_decorator(None)
 def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_body:str=None):
     retries = 3
     for retry in range(retries):
         try:
-            body = plain_body or html_body
+            body = plain_body or strip_tags(html_body)
             email =EmailMultiAlternatives(
                     subject=subject,
                     body=body,
@@ -34,9 +37,19 @@ def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_b
             ), exc_info=True)
 
 @test_env_decorator(None)
-def send_template_email(subject:str, body:str, emails:List[EmailStr], from_user:str, attachment_urls:List[str],
+def send_template_email(subject:str, body:str, emails:List[EmailStr], from_user:str, attachment_urls:List[str]=None,
                         bcc:List[EmailStr]=None, cc:List[EmailStr]=None):
+    html_content = render_html_email("email_template.html", dict(body=body))
     retries = 3
+
+    if is_valid_email(from_user):
+        user = from_user.split("@")[0].title()
+        company = from_user.split("@")[1].split(".")[0].title()
+        if company.lower() in ("gmail", "outlook", "hotmail", "yahoo"):
+            from_user = user
+        else:
+            from_user = f"{user} from {company}"
+
     for retry in range(retries):
         try:
             email = EmailMultiAlternatives(
@@ -54,6 +67,7 @@ def send_template_email(subject:str, body:str, emails:List[EmailStr], from_user:
                     response = requests.get(url)
                     response.raise_for_status()
                     email.attach(f"{url.split('/')[-1]}", response.content, mimetype=response.headers['Content-Type'])
+            email.attach_alternative(html_content, "text/html")
             email.send(fail_silently=False)
             return
         except Exception as e:
