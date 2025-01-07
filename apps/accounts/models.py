@@ -183,12 +183,6 @@ class Skill(BaseModel):
     def __str__(self) -> str:
         return self.name
 
-
-class AdditionalSkill(BaseModel):
-    talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE)
-    name = models.CharField(max_length=128)
-
-
 class Talent(BaseModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     whatsapp_number = models.CharField(max_length=16, null=True)
@@ -214,6 +208,7 @@ class Talent(BaseModel):
     native_language = models.ForeignKey("core.Language", on_delete=models.SET_NULL, null=True,
                                         related_name="native_language")
     skills = models.ManyToManyField("accounts.Skill")
+    additional_skills = models.JSONField(default=list)
     additional_languages = models.ManyToManyField("core.Language", related_name="other_languages")
     business_models = models.ManyToManyField("jobs.BusinessModel")
     years_of_experience = models.FloatField(default=0)
@@ -241,9 +236,6 @@ class Talent(BaseModel):
                 skills=[SkillSchema.from_orm(skill) for skill in self.skills.filter(category_id=category.id)]
             ))
         return data
-
-    def get_additional_skills(self)->List[str]:
-        return list(self.additionalskill_set.values_list("name", flat=True))
 
 
     def get_available_days(self):

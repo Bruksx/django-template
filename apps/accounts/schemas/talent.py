@@ -110,7 +110,6 @@ class UpdateTalentProfileSchema2(Schema):
     bio: Optional[str] = None
     notice_period: Optional[int] = None
     notice_period_type: Optional[NoticePeriodType] = None
-    office: Optional[str] = None
     instagram: Optional[str] = None
     linkedin: Optional[str] = None
     facebook: Optional[str] = None
@@ -173,10 +172,6 @@ class TalentUserSchema(ModelSchema):
     @staticmethod
     def resolve_skills(obj):
         return obj.get_skills()
-
-    @staticmethod
-    def resolve_additional_skills(obj):
-        return obj.get_additional_skills()
 
     @staticmethod
     def resolve_availability(obj):

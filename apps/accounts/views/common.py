@@ -108,11 +108,11 @@ def phone_number_change(request, data: common_schemas.ChangePhoneSchema):
     user.save()
     return Response(data={"message": "phone number changed successfully"})
 
-@router.post("send-email-otp", auth=JWTAuth())
+@router.post("send-email-otp")
 @transaction.atomic
 def send_otp_to_email(request, data: common_schemas.SendEmailOtpSchema):
-    VerificationCode.objects.filter(expires_at_lt=timezone.now(), email=data.email).delete()
-    user = User.objects.filter(email=data.email).exists()
+    VerificationCode.objects.filter(expires_at__lt=timezone.now(), email=data.email).delete()
+    user = User.objects.filter(email=data.email).first()
     if not user:
         raise HttpError(404, "An account with this email does not exist")
     verification_code = VerificationCode(email=data.email)

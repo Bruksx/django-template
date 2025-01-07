@@ -1,4 +1,5 @@
-from datetime import timezone, date
+import logging
+from datetime import timezone, date, time
 from decimal import Decimal
 from uuid import uuid4
 
@@ -12,7 +13,9 @@ from accounts.models import User, VerificationCode, Country, Talent, EducationLe
 from accounts.views.talent import router
 from chats.models import Conversation, Message
 from core.models import Language, Currency
-from factories import WorkflowStageFactory, TalentFactory, BusinessUserFactory
+from factories import WorkflowStageFactory, TalentFactory, BusinessUserFactory, CountryFactory, IndustryFactory, \
+    LanguageFactory, EducationFactory, EducationLevelFactory, RoleFactory, ExperienceFactory, SkillFactory, \
+    BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory
 from jobs.enums import LunchBreakEnum, WorkStructureEnum, PhaseType, JobStatusType
 from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, RequiredAttribute, AvailableDay, \
     JobApplication, JobInterview
@@ -40,15 +43,10 @@ class ValidateOtpTests(TestCase):
         self.user_data = {
             "email": "test@example.com",
             "otp": "1234",
-            "password": "securepassword",
+            "password": "Securepassword1*",
             "phone_number": "08098988989",
             "first_name": "John",
-            "last_name": "Doe",
-            "preferred_communication": PreferredCommunicationType.WHATSAPP.value,
-            "postal_code": "102109",
-            "country": self.country.uid,
-            "state": "Lagos",
-            "city": "Mushin"
+            "last_name": "Doe"
         }
         self.verification_code = VerificationCode(
             email=self.user_data["email"],
@@ -66,10 +64,7 @@ class ValidateOtpTests(TestCase):
         self.assertEqual(user.first_name, self.user_data["first_name"])
         self.assertEqual(user.last_name, self.user_data["last_name"])
         self.assertTrue(user.check_password(self.user_data["password"]))
-        self.assertEqual(user.phone_number, self.user_data["phone_number"])
-        self.assertEqual(user.talent.country.uid, self.user_data["country"])
-        self.assertEqual(user.talent.state, self.user_data["state"])
-        self.assertEqual(user.talent.postal_code, self.user_data["postal_code"])
+
 
     def test_validate_otp_incorrect_otp(self):
         self.user_data["otp"] = "6543"
@@ -102,405 +97,202 @@ class ValidateOtpTests(TestCase):
         self.assertEqual(User.objects.count(), 0)
         self.assertEqual(Talent.objects.count(), 0)
 
-class CompleteProfileTests(TestCase):
-    def setUp(self):
-        self.client = TestClient(router)
-        self.country = Country.objects.create(name="Nigeria", code="NG")
-        self.industry = Industry.objects.create(name="TestIndustry")
-        self.user = User.objects.create_user(
-            first_name="Test",
-            last_name ="User",
-            email="testuser@example.com",
-            password="securepassword",
-        )
-        self.talent = Talent.objects.create(
-            user=self.user,
-            country=self.country
-        )
-        self.auth = JWTAuth()
-        self.auth.authenticate = lambda r: self.user
-
-    @classmethod
-    def send_complete_profile_1(cls, client, token):
-        data = {
-            "gender": GenderType.NON_BINARY.value,
-            "visible": True,
-            "bio": "I am a Tech Freak",
-            "photo": None,
-            "notice_period": 1,
-            "notice_period_type": NoticePeriodType.WEEKS.value,
-            "instagram": "https://instagram.com",
-            "linkedin": "https://linkedin.com",
-            "facebook": "https://facebook.com",
-            "twitter_x": "https://twitter.com",
-            "availability": [
-                {
-                    "day": Days.MONDAY.value,
-                    "start_time": "09:30:00",
-                    "end_time": "06:30:00"
-                },
-                {
-                    "day": Days.TUESDAY.value,
-                    "start_time": "09:30:00",
-                    "end_time": "06:30:00"
-                },
-                {
-                    "day": Days.WEDNESDAY.value,
-                    "start_time": "09:30:00",
-                    "end_time": "06:30:00"
-                },
-                {
-                    "day": Days.THURSDAY.value,
-                    "start_time": "09:30:00",
-                    "end_time": "06:30:00"
-                },
-                {
-                    "day": Days.FRIDAY.value,
-                    "start_time": "09:30:00",
-                    "end_time": "06:30:00"
-                }
-            ]
-        }
-        headers = {
-            "authorization": f"bearer {token}"
-        }
-        return data, client.patch("/complete-profile/first_step", json=data, headers=headers)
-
-    @classmethod
-    def send_complete_profile_2(cls, client, token, industry):
-        education_level = EducationLevel.objects.create(industry=industry, level="TestLevel")
-        language = Language.objects.create(name="TestLanguage1")
-        language2 = Language.objects.create(name="TestLanguage2")
-        language3 = Language.objects.create(name="TestLanguage3")
-        data = {
-            "education_history": [
-                {
-                    "level": education_level.uid,
-                    "start_date": "2020-09-14",
-                    "end_date": "2023-09-14",
-                    "major": "Business",
-                    "university": "University of Nigeria"
-                }
-            ],
-            "cv": None,
-            "native_language": language.uid,
-            "additional_languages": [
-                language2.uid, language3.uid
-            ]
-        }
-        headers = {
-            "authorization": f"bearer {token}"
-        }
-        return data, client.patch("/complete-profile/next_step", json=data, headers=headers)
-
-    @classmethod
-    def send_complete_profile_3(cls, client, token, industry):
-        department = Department.objects.create(industry=industry,
-                                               name="TestDepartment")
-        skills = []
-        skill_categories = []
-        for category in ["tool", "framework", "general", "soft"]:
-            skill_categories.append(SkillCategory.objects.create(name=f"{category.title()}Category"))
-            skills.append(Skill.objects.create(name=f"{category.title()}Skill", category=skill_categories[-1],
-                                               department=department))
-        skill_uids = [x.uid for x in skills]
-        BusinessModel.objects.bulk_create(
-            [BusinessModel(**data) for data in [
-                dict(name="TestBM1", description="Test BM"),
-                dict(name="TestBM2", description="Test BM 2")
-            ]]
-        )
-        business_models_uids = list(BusinessModel.objects.values_list("uid", flat=True))
-        job_level = JobLevel.objects.create(name="TestJobLevel")
-        employment_type = EmploymentType.objects.create(name="TestEmploymentType")
-        currency = Currency.objects.create(name="Naira", abbreviation="NGN")
-        role = Role.objects.create(name="Accountant", department=department)
-        data = {
-            "skills": skill_uids,
-            "additional_skills": [
-                    "Skipping", "Jumping"
-                ],
-            "business_models": business_models_uids,
-            "experience_history": [
-                {
-                    "role": role.uid,
-                     "company": "Google",
-                    "annual_salary": 5000,
-                    "annual_salary_currency": currency.uid,
-                    "annual_salary_bonus": 500,
-                    "annual_salary_bonus_currency": currency.uid,
-                    "level": job_level.uid,
-                    "employment_type": employment_type.uid,
-                    "start_date": "2020-09-14",
-                    "end_date": "2023-09-14",
-                    "currently_works_here": True
-                }
-            ]
-        }
-        headers = {
-            "authorization": f"bearer {token}"
-        }
-        return data, client.patch("/complete-profile/last_step", json=data, headers=headers)
-
-    def test_complete_profile_success(self):
-        self.assertEqual(self.talent.talentavailableday_set.count(), 0)
-        data, response = self.send_complete_profile_1(client=self.client, token=self.user.token)
-        self.assertEqual(response.status_code, 200)
-        self.talent.refresh_from_db()
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.gender, data["gender"])
-        self.assertEqual(self.talent.bio, data["bio"])
-        self.assertEqual(self.talent.talentavailableday_set.count(), 5)
-
-
-    def test_complete_profile_2_success(self):
-        self.assertEqual(self.talent.education_set.count(), 0)
-        self.assertEqual(self.talent.additional_languages.count(), 0)
-        self.assertIsNone(self.talent.native_language)
-        data, response = self.send_complete_profile_2(client=self.client, token=self.user.token, industry=self.industry)
-        self.assertEqual(response.status_code, 200)
-        self.talent.refresh_from_db()
-        self.assertEqual(self.talent.education_set.count(), 1)
-        self.assertEqual(self.talent.additional_languages.count(), 2)
-        self.assertEqual(self.talent.native_language.name, "TestLanguage1")
-        self.assertTrue(self.talent.additional_languages.filter(name="TestLanguage2").exists())
-
-
-
-    def test_complete_profile_3_success(self):
-        self.assertEqual(self.talent.skills.count(), 0)
-        data, response = self.send_complete_profile_3(client=self.client, token=self.user.token, industry=self.industry)
-        self.assertEqual(response.status_code, 200)
-        self.talent.refresh_from_db()
-        self.assertEqual(self.talent.experience_set.count(), 1)
-        self.assertNotEqual(self.talent.skills.count(), 0)
-        self.assertNotEqual(self.talent.business_models.count(), 0)
-        self.assertTrue(self.talent.experience_set.filter(level__uid=data["experience_history"][0]["level"],
-                                                          employment_type__uid=data["experience_history"][0]["employment_type"]).exists())
-
-
 class GetTalentProfileTests(TestCase):
     def setUp(self):
         self.client = TestClient(router)
         self.country = Country.objects.create(name="Nigeria", code="NG")
         self.industry = Industry.objects.create(name="TestIndustry")
-        self.user_data = dict(
-            first_name="Test",
-            last_name="User",
-            email="testuser@example.com",
-            password="securepassword",
-        )
-        self.user = User.objects.create_user(**self.user_data)
-        self.talent = Talent.objects.create(
-            user=self.user,
-            country=self.country
-        )
+        self.talent = TalentFactory.create()
         self.auth = JWTAuth()
         self.auth.authenticate = lambda r: self.user
 
 
     def test_get_talent_profile(self):
         headers = {
-            "authorization": f"bearer {self.user.token}"
+            "authorization": f"bearer {self.talent.user.token}"
         }
         response = self.client.get("/profile", headers=headers)
         self.assertEqual(response.status_code, 200)
 
-    def test_after_profile_completion(self):
-        CompleteProfileTests.send_complete_profile_1(client=self.client, token=self.user.token)
-        CompleteProfileTests.send_complete_profile_2(client=self.client, token=self.user.token,
-                                                     industry=self.industry)
-        CompleteProfileTests.send_complete_profile_3(client=self.client, token=self.user.token,
-                                                     industry=self.industry)
-        self.talent.refresh_from_db()
+    def test_by_business_user(self):
+        business_user = BusinessUserFactory.create()
         headers = {
-            "authorization": f"bearer {self.user.token}"
+            "authorization": f"bearer {business_user.user.token}"
         }
         response = self.client.get("/profile", headers=headers)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 403)
+
 
 
 class UpdateTalentProfileTests(TestCase):
     def setUp(self):
         self.client = TestClient(router)
-        self.country = Country.objects.create(name="Nigeria", code="NG")
-        self.industry = Industry.objects.create(name="TestIndustry")
-        self.user_data = dict(
-            first_name="Test",
-            last_name="User",
-            email="testuser@example.com",
-            password="securepassword",
-        )
-        self.user = User.objects.create_user(**self.user_data)
-        self.talent = Talent.objects.create(
-            user=self.user,
-            country=self.country
-        )
-        self.auth = JWTAuth()
-        self.auth.authenticate = lambda r: self.user
+        self.url = "profile"
+        self.country = CountryFactory.create()
+        self.industry = IndustryFactory.create()
+        self.talent = TalentFactory.create()
+        self.native_language = LanguageFactory.create()
+        self.additional_languages = LanguageFactory.create_batch(3)
+        self.education_history = EducationFactory.create(talent=self.talent)
+        self.level = EducationLevelFactory.create()
+        self.role  = RoleFactory.create()
+        self.experience_history = ExperienceFactory.create(talent=self.talent)
+        self.skills = SkillFactory.create_batch(3)
+        self.business_models = BusinessModelFactory.create_batch(3)
+        self.currency = CurrencyFactory.create()
+        self.job_level = JobLevelFactory.create()
+        self.employment_type = EmploymentTypeFactory.create()
 
+        self.data = {
+          "first_name": "John",
+          "last_name": "Doe",
+          "preferred_communication": "text",
+          "phone_number": "+15551234567",
+          "country": str(self.country.uid),
+          "state": "California",
+          "city": "Los Angeles",
+          "postal_code": "90001",
+          "whatsapp_number": "+15559876543",
+          "viber_number": "",
+          "address": "123 Main St",
+          "gender": "male",
+          "visible": True,
+          "bio": "I am a highly motivated and results-oriented professional with [Number] years of experience in [Industry]. I am passionate about [Area of expertise] and eager to contribute to a dynamic and challenging work environment.",
+          "notice_period": 0,
+          "notice_period_type": "days",
+          "instagram": "johndoe_official",
+          "linkedin": "john-doe-123",
+          "facebook": "john.doe.123",
+          "twitter_x": "johndoe",
+          "native_language": str(self.native_language.uid),
+          "additional_languages": [str(language.uid) for language in self.additional_languages],
+          "education_history": [
+            {
+              "uid": str(self.education_history.uid),
+              "level": str(self.level.uid),
+              "start_date": "2020-01-01",
+              "end_date": "2024-05-31",
+              "major": "Computer Science",
+              "university": "University of California, Los Angeles"
+            }
+          ],
+          "experience_history": [
+            {
+              "role": str(self.role.uid),
+              "uid": str(self.experience_history.uid),
+              "annual_salary_bonus_currency": str(self.currency.uid),
+              "annual_salary_currency": str(self.currency.uid),
+              "employment_type": str(self.employment_type.uid),
+              "level": str(self.job_level.uid),
+              "company": "Acme Corporation",
+              "annual_salary": 120000,
+              "annual_salary_bonus": 15000,
+              "start_date": "2022-01-15",
+              "end_date": "2024-12-31",
+              "currently_works_here": False
+            }
+          ],
+          "availability": [
+            {
+              "active": True,
+              "day": "Monday",
+              "end_time": "17:00:00Z",
+              "start_time": "09:00:00Z"
+            }
+          ],
+          "skills": [str(skill.uid) for skill in self.skills],
+          "additional_skills": [
+            "Python", "JavaScript", "React", "SQL", "Agile"
+          ],
+          "business_models": [str(business_model.uid) for business_model in self.business_models]
+        }
 
     def test_talent_profile_update(self):
-        country = Country.objects.create(name="Ghana", code="GH")
+        headers = {
+            "authorization": f"bearer {self.talent.user.token}"
+        }
+        response = self.client.patch(
+            path=self.url,
+            json=self.data,
+            headers=headers
+        )
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        self.assertEqual(self.talent.user.first_name, "John")
+        self.assertEqual(self.talent.user.last_name, "Doe")
+        self.assertEqual(self.talent.preferred_communication, "text")
+        self.assertEqual(self.talent.user.phone_number, "+15551234567")
+        self.assertEqual(self.talent.country, self.country)
+        self.assertEqual(self.talent.state, "California")
+        self.assertEqual(self.talent.city, "Los Angeles")
+        self.assertEqual(self.talent.postal_code, "90001")
+        self.assertEqual(self.talent.whatsapp_number, "+15559876543")
+        self.assertEqual(self.talent.viber_number, "")
+        self.assertEqual(self.talent.address, "123 Main St")
+        self.assertEqual(self.talent.user.gender, "male")
+        self.assertTrue(self.talent.visible)
+        self.assertEqual(self.talent.bio,
+                         "I am a highly motivated and results-oriented professional with [Number] years of experience in [Industry]. I am passionate about [Area of expertise] and eager to contribute to a dynamic and challenging work environment.")
+        self.assertEqual(self.talent.notice_period, 0)
+        self.assertEqual(self.talent.notice_period_type, "days")
+        self.assertEqual(self.talent.instagram, "johndoe_official")
+        self.assertEqual(self.talent.linkedin, "john-doe-123")
+        self.assertEqual(self.talent.facebook, "john.doe.123")
+        self.assertEqual(self.talent.twitter_x, "johndoe")
+        self.assertEqual(self.talent.native_language, self.native_language)
+        self.assertTrue(self.talent.additional_languages.filter(uid__in=self.data["additional_languages"]).exists())
+        # Assert education history (check all fields)
+        self.assertEqual(self.talent.education_set.last().level, self.level)
+        self.assertEqual(self.talent.education_set.last().start_date, date(2020, 1, 1))
+        self.assertEqual(self.talent.education_set.last().end_date, date(2024, 5, 31))
+        self.assertEqual(self.talent.education_set.last().major, "Computer Science")
+        self.assertEqual(self.talent.education_set.last().university, "University of California, Los Angeles")
+        # Assert experience history (check all fields)
+        self.assertEqual(self.talent.experience_set.last().role, self.role)
+        self.assertEqual(self.talent.experience_set.last().annual_salary_bonus_currency, self.currency)
+        self.assertEqual(self.talent.experience_set.last().annual_salary_currency, self.currency)
+        self.assertEqual(self.talent.experience_set.last().employment_type, self.employment_type)
+        self.assertEqual(self.talent.experience_set.last().level, self.job_level)
+        self.assertEqual(self.talent.experience_set.last().company, "Acme Corporation")
+        self.assertEqual(self.talent.experience_set.last().annual_salary, 120000)
+        self.assertEqual(self.talent.experience_set.last().annual_salary_bonus, 15000)
+        self.assertEqual(self.talent.experience_set.last().start_date, date(2022, 1, 15))
+        self.assertEqual(self.talent.experience_set.last().end_date, date(2024, 12, 31))
+        self.assertFalse(self.talent.experience_set.last().currently_works_here)
+        # Assert availability (check all fields)
+        self.assertEqual(self.talent.talentavailableday_set.last().day, "Monday")
+        self.assertEqual(self.talent.talentavailableday_set.last().start_time, time(hour=9, minute=0))
+        self.assertEqual(self.talent.talentavailableday_set.last().end_time, time(hour=17, minute=0))
+        # Assert skills
+        self.assertTrue(self.talent.skills.filter(uid__in=self.data["skills"]).exists())
+        # Assert additional skills
+        self.assertListEqual(self.talent.additional_skills, self.data["additional_skills"])
+        # Assert business models
+        self.assertTrue(self.talent.business_models.filter(uid__in=self.data["business_models"]).exists())
+
+    def test_partial_profile_update(self):
+        self.assertTrue(self.talent.visible)
+        headers = {
+            "Authorization": f"Bearer {self.talent.user.token}"
+        }
         data = {
-              "first_name": "Micheal",
-              "last_name": "Test",
-              "preferred_communication": PreferredCommunicationType.EMAIL.value,
-              "phone_number": "09087674473",
-              "country": country.uid,
-              "state": "Lagos",
-              "city": "Satellite Town",
-              "postal_code": "102020"
-            }
-        headers = {
-            "authorization": f"bearer {self.user.token}"
+            "visible": False
         }
-        response = self.client.patch("/profile", headers=headers, json=data)
+        response = self.client.patch(path=self.url, json=data, headers=headers)
         self.assertEqual(response.status_code, 200)
-        self.user.refresh_from_db()
         self.talent.refresh_from_db()
-        self.assertNotEqual(self.user.first_name, self.user_data["first_name"])
-        self.assertNotEqual(self.user.last_name, self.user_data["last_name"])
-        self.assertEqual(self.user.first_name, data["first_name"])
-        self.assertEqual(self.user.last_name, data["last_name"])
-        self.assertEqual(self.talent.postal_code, data["postal_code"])
-        self.assertEqual(self.talent.country, country)
+        self.assertFalse(self.talent.visible)
 
-    def test_delete_profile_education(self):
-        CompleteProfileTests.send_complete_profile_2(client=self.client, token=self.user.token,
-                                                     industry=self.industry)
-        self.talent.refresh_from_db()
-        self.assertEqual(self.talent.education_set.count(), 1)
-        education_uid = self.talent.education_set.first().uid
+    def test_update_by_business_user(self):
+        business_user = BusinessUserFactory.create()
         headers = {
-            "authorization": f"bearer {self.user.token}"
+            "Authorization": f"Bearer {business_user.user.token}"
         }
-        response = self.client.delete(f"/education/{education_uid}", headers=headers)
-        self.assertEqual(response.status_code, 204)
-        self.assertEqual(self.talent.education_set.count(), 0)
-
-    def test_delete_profile_experience(self):
-        CompleteProfileTests.send_complete_profile_3(client=self.client, token=self.user.token,
-                                                     industry=self.industry)
-        self.talent.refresh_from_db()
-        self.assertEqual(self.talent.experience_set.count(), 1)
-        experience_uid = self.talent.experience_set.first().uid
-        headers = {
-            "authorization": f"bearer {self.user.token}"
-        }
-        response = self.client.delete(f"/experience/{experience_uid}", headers=headers)
-        self.assertEqual(response.status_code, 204)
-        self.assertEqual(self.talent.experience_set.count(), 0)
-
-    def test_talent_education_update(self):
-        CompleteProfileTests.send_complete_profile_2(client=self.client, token=self.user.token,
-                                                     industry=self.industry)
-        education_level = EducationLevel.objects.create(industry=self.industry, level="TestLevel")
-        language = Language.objects.create(name="TestLanguage1")
-
-        self.talent.refresh_from_db()
-        education = self.talent.education_set.first()
         data = {
-            "education_history": [
-                {
-                    "uid": education.uid,
-                    "level": education_level.uid,
-                    "start_date": "2020-09-14",
-                    "end_date": "2023-09-14",
-                    "major": "Computer Science",
-                    "university": "University of Nigeria, Nsukka"
-                }
-            ],
-            "native_language": language.uid,
-            "additional_languages": []
+            "visible": False
         }
-        headers = {
-            "authorization": f"bearer {self.user.token}"
-        }
-        self.assertNotEqual(education.major, data["education_history"][0]["major"])
-        self.assertNotEqual(education.university, data["education_history"][0]["university"])
-        self.assertNotEqual(self.talent.additional_languages.count(), 0)
-        response = self.client.patch("/complete-profile/next_step", json=data, headers=headers)
-        self.assertEqual(response.status_code, 200)
-        self.talent.refresh_from_db()
-        education.refresh_from_db()
-        self.assertEqual(education.major, data["education_history"][0]["major"])
-        self.assertEqual(education.university, data["education_history"][0]["university"])
-        self.assertEqual(self.talent.additional_languages.count(), 0)
-
-    def test_talent_availability_update(self):
-        CompleteProfileTests.send_complete_profile_1(client=self.client, token=self.user.token)
-        self.talent.refresh_from_db()
-        data = {"availability": [
-                {
-                    'uid': self.talent.talentavailableday_set.filter(day=Days.TUESDAY.value).first().uid,
-                    "day": Days.TUESDAY.value,
-                    "start_time": "09:30:00",
-                    "end_time": "06:00:00"
-                },
-                {
-                    'uid': self.talent.talentavailableday_set.filter(day=Days.WEDNESDAY.value).first().uid,
-                    'active': False,
-                    "day": Days.WEDNESDAY.value,
-                    "start_time": "09:30:00",
-                    "end_time": "06:30:00"
-                },
-                {
-                    'uid': self.talent.talentavailableday_set.filter(day=Days.FRIDAY.value).first().uid,
-                    'active': False,
-                    "day": Days.FRIDAY.value,
-                    "start_time": "09:30:00",
-                    "end_time": "06:30:00"
-                },
-                {
-                    "day": Days.SATURDAY.value,
-                    "start_time": "12:00:00",
-                    "end_time": "07:00:00"
-                },
-
-            ]
-        }
-        headers = {
-            "authorization": f"bearer {self.user.token}"
-        }
-        tuesday_availability = self.talent.talentavailableday_set.filter(day=Days.TUESDAY.value).first()
-        self.assertNotEqual(str(tuesday_availability.end_time), data["availability"][0]["end_time"])
-        wednesday_availability = self.talent.talentavailableday_set.filter(day=Days.WEDNESDAY.value).first()
-        self.assertIsNotNone(wednesday_availability)
-        saturday_availability = self.talent.talentavailableday_set.filter(day=Days.SATURDAY.value).first()
-        self.assertIsNone(saturday_availability)
-        response = self.client.patch("/complete-profile/first_step", json=data, headers=headers)
-        self.assertEqual(response.status_code, 200)
-        self.talent.refresh_from_db()
-        tuesday_availability = self.talent.talentavailableday_set.filter(day=Days.TUESDAY.value).first()
-        self.assertEqual(str(tuesday_availability.end_time), data["availability"][0]["end_time"])
-        wednesday_availability = self.talent.talentavailableday_set.filter(day=Days.WEDNESDAY.value).first()
-        self.assertIsNone(wednesday_availability)
-        saturday_availability = self.talent.talentavailableday_set.filter(day=Days.SATURDAY.value).first()
-        self.assertIsNotNone(saturday_availability)
-        self.assertEqual(self.talent.talentavailableday_set.count(), 4)
-
-    def test_talent_additional_skills_update(self):
-        CompleteProfileTests.send_complete_profile_3(client=self.client, token=self.user.token,
-                                                     industry=self.industry)
-        self.talent.refresh_from_db()
-        data = {
-            "additional_skills": [
-                    "Skipping", "Swimming", "Baking"
-                ]
-        }
-        headers = {
-            "authorization": f"bearer {self.user.token}"
-        }
-        self.assertEqual(self.talent.additionalskill_set.count(), 2)
-        self.assertTrue(self.talent.additionalskill_set.filter(name="Jumping").exists())
-        response = self.client.patch("/complete-profile/last_step", json=data, headers=headers)
-        self.assertEqual(response.status_code, 200)
-        self.talent.refresh_from_db()
-        self.assertEqual(self.talent.additionalskill_set.count(), 3)
-        self.assertFalse(self.talent.additionalskill_set.filter(name="Jumping").exists())
-        self.assertTrue(self.talent.additionalskill_set.filter(name="Baking").exists())
-        self.assertTrue(self.talent.additionalskill_set.filter(name="Skipping").exists())
+        response = self.client.patch(path=self.url, json=data, headers=headers)
+        self.assertEqual(response.status_code, 403)
 
 
 class TalentDashboardTests(TestCase):
@@ -697,19 +489,21 @@ class ChangeTalentPasswordTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.patch("change-password", json={"old_password": "testpassword", "new_password": "newtestpassword"}, headers=headers)
+        response = self.client.patch("change-password", json={"old_password": "testpassword",
+                                                              "new_password": "Newtestpassword1*"}, headers=headers)
         self.assertEqual(response.status_code, 200)
         self.user.refresh_from_db()
-        self.assertTrue(self.user.check_password("newtestpassword"))
+        self.assertTrue(self.user.check_password("Newtestpassword1*"))
 
 
     def test_wrong_old_password(self):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.patch("change-password", json={"old_password": "wrongpassword", "new_password": "newtestpassword"}, headers=headers)
+        response = self.client.patch("change-password", json={"old_password": "wrongpassword",
+                                                              "new_password": "Newtestpassword1*"}, headers=headers)
         self.assertEqual(response.status_code, 400)
-        self.assertFalse(self.user.check_password("newtestpassword"))
+        self.assertFalse(self.user.check_password("Newtestpassword1*"))
         self.assertTrue(self.user.check_password("testpassword"))
 
 
@@ -742,29 +536,3 @@ class TalentDetailTest(TestCase):
         }
         response = self.client.get(self.url(uuid4()), headers=headers)
         self.assertEqual(response.status_code, 404)
-
-
-
-class TestToggleTalentVisibility(TestCase):
-    def setUp(self):
-        self.client = TestClient(router)
-        self.talent = TalentFactory.create()
-        self.url = lambda visible: f"visibility?visible={str(visible).lower()}"
-
-    def test_toggle_talent_visibility(self):
-        headers = {
-            "authorization": f"bearer {self.talent.user.token}"
-        }
-        self.assertTrue(self.talent.visible)
-        response = self.client.patch(self.url(False), headers=headers)
-        self.assertEqual(response.status_code, 200)
-        self.talent.refresh_from_db()
-        self.assertFalse(self.talent.visible)
-
-    def test_endpoint_by_business_user(self):
-        business_user = BusinessUserFactory.create()
-        headers = {
-            "authorization": f"bearer {business_user.user.token}"
-        }
-        response = self.client.patch(self.url(False), headers=headers)
-        self.assertEqual(response.status_code, 403)

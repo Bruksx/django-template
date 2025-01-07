@@ -291,6 +291,27 @@ class TalentListTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()), 5)
 
+class SendEmailToOTPTest(TestCase):
+    def setUp(self):
+        self.url = "send-email-otp"
+        self.client = TestClient(router)
+        self.talent = TalentFactory.create()
+        self.data = {
+            "email": self.talent.user.email
+        }
 
+    def test_send_otp_to_email(self):
+        self.assertIsNone(VerificationCode.objects.filter(email=self.data["email"]).first())
+        response = self.client.post(
+            self.url, json=self.data
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertIsNotNone(VerificationCode.objects.filter(email=self.data["email"]).first())
 
-
+    def test_non_existent_email(self):
+        self.data["email"] = f"s{self.data['email']}"
+        response = self.client.post(
+            self.url, json=self.data
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertIsNone(VerificationCode.objects.filter(email=self.data["email"]).first())

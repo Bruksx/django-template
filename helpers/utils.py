@@ -4,17 +4,20 @@ import random
 import string
 import uuid
 from typing import Optional
-
+import re
 import boto3
 import pdfkit
 from botocore.exceptions import NoCredentialsError
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.db.models import QuerySet
+from ninja.errors import HttpError
 from ninja.responses import Response
 from helpers.loggers import Logger
 import psutil
 from sys import getsizeof
+from django.utils.translation import gettext_lazy as _
 
 
 
@@ -180,8 +183,6 @@ def chunk_queryset(queryset: QuerySet):
         yield chunk
         start += chunk_size
 
-import re
-
 def is_valid_email(email):
   """
   Checks if the given string is a valid email address.
@@ -194,3 +195,22 @@ def is_valid_email(email):
   """
   email_regex = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
   return re.match(email_regex, email) is not None
+
+def validate_password(password):
+    if not password:
+        raise HttpError(400, 'Password cannot be null')
+
+    if len(password) < 8:
+        raise HttpError(400, 'Password must be at least 8 characters long')
+
+    if not any(char.isdigit() for char in password):
+        raise HttpError(400, 'Password must contain at least one digit.')
+
+    if not any(char.isalpha() for char in password):
+        raise HttpError(400, 'Password must contain at least one letter.')
+
+    if not any(char.isupper() for char in password):
+        raise HttpError(400, 'Password must contain at least one uppercase letter.')
+
+    if not any(char in '!@#$%^&*()_+=-[]{}|;:,.<>?' for char in password):
+        raise HttpError(400, 'Password must contain at least one special character.')

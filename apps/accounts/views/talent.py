@@ -7,21 +7,20 @@ from config.permissions import IsBusinessUser
 from config.permissions import IsTalentUser
 from django.db import transaction
 from helpers.email.auth import send_verification_code
-from helpers.utils import convert_base64_to_image_file
+from helpers.utils import convert_base64_to_image_file, validate_password
 from monkeypatches.q_cluster import async_task
 from ninja import Router, PatchDict, UploadedFile
 from ninja.errors import HttpError
 from ninja.responses import Response
 from ninja_jwt.authentication import JWTAuth
+from services import meeting
 
 from accounts.enums import UserType, AuthType
-from accounts.models import Talent, AdditionalSkill, TalentAvailableDay
+from accounts.models import Talent, TalentAvailableDay
 from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
 from accounts.services import download_talent_cv
-
-from services import meeting
 
 router = Router(tags=["Account"])
 
@@ -53,12 +52,12 @@ def create_account(request, data: talent_schemas.ValidateTalentOTPSchema):
     is_correct = verification_code.verify_code(data.otp)
     if not is_correct:
         raise HttpError(400, "This OTP is invalid")
+    validate_password(password=data.password)
     user = User.objects.create_user(first_name=data.first_name,
                                     last_name=data.last_name,
                                     email=data.email.lower(),
                                     password=data.password,
                                     username=None,
-                                    phone_number=data.phone_number,
                                     auth_mode=AuthType.EMAIL.value,
                                type=UserType.TALENT.value,
                                email_verified=True, is_active=True)
@@ -152,16 +151,6 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
         talent_user.skills.set(data.pop("skills"))
     if "business_models" in data and data["business_models"]:
         talent_user.business_models.set(data.pop("business_models"))
-    if "additional_skills" in data and data["additional_skills"]:
-        talent_user.additionalskill_set.exclude(name__in=data["additional_skills"]).delete()
-        existing_skills = talent_user.get_additional_skills()
-        AdditionalSkill.objects.bulk_create(
-            [
-                AdditionalSkill(name=skill, talent=talent_user)
-                for skill in data.pop("additional_skills")
-                if skill not in existing_skills
-            ]
-        )
     if "experience_history" in data and data["experience_history"]:
         for experience in data.pop("experience_history"):
             experience_uid = experience.pop("uid", None)
@@ -206,6 +195,7 @@ def change_talent_password(request, data: talent_schemas.TalentChangePasswordSch
     user = request.user
     if not user.check_password(data.old_password):
         raise HttpError(400, "Incorrect Password")
+    validate_password(password=data.new_password)
     user.set_password(data.new_password)
     user.save()
     return Response(status=200, data={"message": "Password changed successfully"})

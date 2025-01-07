@@ -7,6 +7,7 @@ from accounts.schemas import common as common_schema
 from ninja import Router
 from ninja.errors import HttpError
 
+from helpers.utils import validate_password
 from services.auth.schema import ProfileSchema
 from auth.schema import LoginSchema, SocialAuthSchema, ResetPasswordSchema
 from auth.services import handle_social_login, validate_login
@@ -35,6 +36,7 @@ def social_auth(request, data: SocialAuthSchema):
 @router.post("reset-password")
 @transaction.atomic
 def reset_password(request, data: ResetPasswordSchema):
+    validate_password(data.password)
     code = VerificationCode.objects.filter(email=data.email, code=data.otp).first()
     if not code:
         raise HttpError(400, "Invalid otp")
@@ -46,4 +48,4 @@ def reset_password(request, data: ResetPasswordSchema):
     user.set_password(data.password)
     user.save()
     code.delete()
-    return Response(data={"message": "password changed successfully"})
+    return Response(data={"message": "password reset successfully"})
