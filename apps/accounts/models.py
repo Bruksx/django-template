@@ -74,6 +74,7 @@ class User(AbstractUser, BaseModel):
     facebook_id = models.CharField(max_length=32, null=True, unique=True)
     linkedin_id = models.CharField(max_length=32, null=True)
     google_id = models.CharField(max_length=32, null=True)
+    apple_id = models.CharField(max_length=32, null=True)
     fullname = models.GeneratedField(
         expression=Concat(F("first_name"), Value(" "),
                           F("last_name")),

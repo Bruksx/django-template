@@ -31,7 +31,9 @@ def is_valid_uuid(value):
     except ValueError:
         return False
 
-def convert_base64_to_image_file(base64_string, * ,name=None)->Optional[ContentFile]:
+def convert_base64_to_image_file(base64_string, name=None)->Optional[ContentFile]:
+    if not base64_string:
+        return
     if not name:
         letters_and_digits = string.ascii_letters + string.digits
         name = ''.join(random.choice(letters_and_digits) for _ in range(10))
