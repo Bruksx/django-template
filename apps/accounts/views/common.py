@@ -2,6 +2,7 @@ from typing import List
 
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 from helpers.email.auth import send_verification_code
 from monkeypatches.q_cluster import async_task
 from ninja import Router
@@ -107,5 +108,15 @@ def phone_number_change(request, data: common_schemas.ChangePhoneSchema):
     user.save()
     return Response(data={"message": "phone number changed successfully"})
 
-
+@router.post("send-email-otp")
+@transaction.atomic
+def send_otp_to_email(request, data: common_schemas.SendEmailOtpSchema):
+    VerificationCode.objects.filter(expires_at__lt=timezone.now(), email=data.email).delete()
+    user = User.objects.filter(email=data.email).first()
+    if not user:
+        raise HttpError(404, "An account with this email does not exist")
+    verification_code = VerificationCode(email=data.email)
+    raw_code = verification_code.save()
+    async_task(send_verification_code, email=data.email, code=raw_code, user=user.fullname, company=None)
+    return Response(data={"message": "please check your email address for otp code"})
 

@@ -8,7 +8,7 @@ from faker import Faker
 
 from accounts.enums import GenderType, PreferredCommunicationType, BusinessUserRoleType, Days
 from accounts.models import User, Talent, Business, BusinessUser, Education, Role, TalentAvailableDay, CustomerCase, \
-    EducationLevel, Industry, Country, AdditionalSkill, Department, Experience, Skill, SkillCategory
+    EducationLevel, Industry, Country, Department, Experience, Skill, SkillCategory
 from chats.models import Conversation, Message
 from notification.enums import EntityActionType, EntityType, NotificationType
 from notification.models import BusinessUserNotificationSettings, Notification
@@ -38,7 +38,6 @@ class LanguageFactory(DjangoModelFactory):
     class Meta:
         model = Language
 
-    code = factory.Faker('language_code')
     name = factory.Faker('language_name')
 
 class JobLevelFactory(DjangoModelFactory):
@@ -122,15 +121,6 @@ class TalentFactory(DjangoModelFactory):
         EducationFactory.create_batch(2, talent=self)
         ExperienceFactory.create_batch(3, talent=self)
         return
-
-
-class AdditionalSkillFactory(DjangoModelFactory):
-    class Meta:
-        model = AdditionalSkill
-
-    talent = factory.SubFactory(TalentFactory)
-    name = factory.Faker("name")
-
 
 
 class RoleFactory(DjangoModelFactory):

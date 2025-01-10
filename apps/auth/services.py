@@ -47,6 +47,10 @@ def handle_social_login(profile: ProfileSchema, user_type: UserType, social_type
         auth_type = AuthType.FACEBOOK
         social_query = Q(facebook_id=profile.id)
         profile_dict["facebook_id"] = profile.id
+    elif SocialType.APPLE == social_type:
+        auth_type = AuthType.APPLE
+        social_query = Q(apple_id=profile.id)
+        profile_dict["apple_id"] = profile.id
     else:
         raise HttpError(400, "Invalid social type")
     if User.deleted_objects.filter(social_query).exists():
@@ -60,10 +64,8 @@ def handle_social_login(profile: ProfileSchema, user_type: UserType, social_type
         return user
     if action == AuthActionEnum.LOGIN:
         raise AuthenticationFailed(detail="User was not found with this social account")
-
-    if action == AuthActionEnum.PROFILE:
-        raise AuthenticationFailed(detail="User was not found with this social account")
-
+    if not profile.first_name  or not profile.email:
+        raise HttpError(400, "First name and email are required")
     password = User.objects.make_random_password()
     user = User.objects.create_user(**profile_dict,
                                     password=password,
@@ -75,3 +77,17 @@ def handle_social_login(profile: ProfileSchema, user_type: UserType, social_type
     elif user_type == UserType.BUSINESS:
         BusinessUser.objects.create(user=user)
     return user
+
+"""
+def linkedin_auth(request, data: LinkedInAuthSchema):
+    tokens = linkedin.get_tokens(code=data.code)
+    if not tokens:
+        return failure_response(message= "Tokens not found", status=404)
+    profile = linkedin.get_profile_details(tokens.access_token)
+    if not profile:
+        return failure_response(message="Profile not found", status=404)
+    user = handle_social_login(profile, data.user_type, SocialType.LINKEDIN, data.action)
+    validate_login(user)
+    return user
+    
+"""

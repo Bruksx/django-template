@@ -3,7 +3,7 @@ from typing import Optional, List
 from uuid import UUID
 
 from apps.accounts.enums import MeetingType
-from ninja import Schema, ModelSchema
+from ninja import Schema, ModelSchema, PatchDict
 from pydantic import Field, EmailStr
 
 from accounts.enums import GenderType, PreferredCommunicationType, Days, Months, NoticePeriodType
@@ -92,12 +92,6 @@ class TalentAvailableDaySchema(ModelSchema):
 class UpdateTalentProfileSchema(Schema):
     first_name: Optional[str]
     last_name: Optional[str]
-    preferred_communication: Optional[PreferredCommunicationType]
-    phone_number: Optional[str]
-    country: Optional[UUID]
-    state: Optional[str]
-    city: Optional[str]
-    postal_code: Optional[str]
 
 class UpdateTalentProfileSchema2(Schema):
     first_name: Optional[str] = None
@@ -112,14 +106,23 @@ class UpdateTalentProfileSchema2(Schema):
     viber_number: Optional[str] = None
     address: Optional[str] = None
     gender: Optional[GenderType] = None
+    visible: Optional[bool] = None
     bio: Optional[str] = None
     notice_period: Optional[int] = None
     notice_period_type: Optional[NoticePeriodType] = None
-    office: Optional[str] = None
     instagram: Optional[str] = None
     linkedin: Optional[str] = None
     facebook: Optional[str] = None
     twitter_x: Optional[str] = None
+    native_language: Optional[UUID] = None
+    additional_languages: Optional[List[UUID]] = None
+    education_history: Optional[List[PatchDict[MutateEducationSchema]]] = None
+    experience_history: Optional[List[PatchDict[MutateExperienceSchema]]] = None
+    availability : Optional[List[PatchDict[MutateTalentAvailableDaySchema]]] = None
+    skills: Optional[List[UUID]] = None
+    additional_skills: Optional[List[str]] = None
+    business_models: Optional[List[UUID]] = None
+
 
 
 
@@ -171,10 +174,6 @@ class TalentUserSchema(ModelSchema):
         return obj.get_skills()
 
     @staticmethod
-    def resolve_additional_skills(obj):
-        return obj.get_additional_skills()
-
-    @staticmethod
     def resolve_availability(obj):
         return obj.get_available_days()
 
@@ -216,9 +215,7 @@ class CompleteTalentProfileSchema2(ModelSchema):
 
 
 class CompleteTalentProfileSchema3(ModelSchema):
-    skills: List[UUID]
-    additional_skills: List[str]
-    business_models: List[UUID]
+
     experience_history: List[MutateExperienceSchema]
 
     class Meta:

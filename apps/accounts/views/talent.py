@@ -7,21 +7,20 @@ from config.permissions import IsBusinessUser
 from config.permissions import IsTalentUser
 from django.db import transaction
 from helpers.email.auth import send_verification_code
-from helpers.utils import convert_base64_to_image_file
+from helpers.utils import convert_base64_to_image_file, validate_password
 from monkeypatches.q_cluster import async_task
 from ninja import Router, PatchDict, UploadedFile
 from ninja.errors import HttpError
 from ninja.responses import Response
 from ninja_jwt.authentication import JWTAuth
+from services import meeting
 
 from accounts.enums import UserType, AuthType
-from accounts.models import Talent, AdditionalSkill, TalentAvailableDay
+from accounts.models import Talent, TalentAvailableDay
 from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
 from accounts.services import download_talent_cv
-
-from services import meeting
 
 router = Router(tags=["Account"])
 
@@ -53,107 +52,19 @@ def create_account(request, data: talent_schemas.ValidateTalentOTPSchema):
     is_correct = verification_code.verify_code(data.otp)
     if not is_correct:
         raise HttpError(400, "This OTP is invalid")
+    validate_password(password=data.password)
     user = User.objects.create_user(first_name=data.first_name,
                                     last_name=data.last_name,
                                     email=data.email.lower(),
                                     password=data.password,
                                     username=None,
-                                    phone_number=data.phone_number,
                                     auth_mode=AuthType.EMAIL.value,
                                type=UserType.TALENT.value,
                                email_verified=True, is_active=True)
     Talent.objects.create(
-        user=user,
-        country=data.country,
-        preferred_communication=data.preferred_communication.value,
-        state=data.state,
-        city=data.city,
-        postal_code=data.postal_code
+        user=user
     )
     return user
-
-
-
-@router.patch("complete-profile/first_step",
-             response=talent_schemas.UserSchema,
-             auth=JWTAuth())
-@transaction.atomic
-def complete_talent_profile(request, data: PatchDict[talent_schemas.CompleteTalentProfileSchema]):
-    IsTalentUser.check(request)
-    talent_user = request.user.talent
-    if "gender" in data:
-        talent_user.user.update(gender=data.pop("gender").value)
-    availability = data.pop("availability", list())
-    for available_day in availability:
-        available_day["day"] = available_day["day"].value
-        uid =  available_day.pop("uid", None)
-        active = available_day.pop("active", True)
-        if uid and not active:
-            talent_user.talentavailableday_set.filter(uid=uid).delete()
-        elif uid and active:
-            talent_user.talentavailableday_set.filter(uid=uid).update(**available_day)
-        elif not uid:
-            day = available_day['day']
-            if talent_user.talentavailableday_set.filter(day=day).exists():
-                raise HttpError(400, f"{day} already exists")
-            TalentAvailableDay.objects.create(**available_day, talent=talent_user)
-    if data.get("photo"):
-        data["photo"] = convert_base64_to_image_file(data["photo"])
-    if data.get("notice_period_type"):
-        data["notice_period_type"] = data["notice_period_type"].value
-    talent_user.update(**data)
-    return talent_user.user
-
-
-@router.patch("complete-profile/next_step", response=talent_schemas.UserSchema, auth=JWTAuth())
-@transaction.atomic
-def complete_talent_profile2(request, data: PatchDict[talent_schemas.CompleteTalentProfileSchema2]):
-    IsTalentUser.check(request)
-    talent_user = request.user.talent
-    education_history = data.pop("education_history", list())
-    for education in education_history:
-        edu_uid = education.pop("uid", None)
-        if edu_uid:
-            if not talent_user.education_set.filter(uid=edu_uid).exists():
-                continue
-            talent_user.education_set.filter(uid=edu_uid).update(**education)
-        else:
-            Education(**education, talent=talent_user).save()
-    additional_languages = data.pop("additional_languages", list())
-    talent_user.update(**data)
-    talent_user.additional_languages.set(additional_languages)
-    return talent_user.user
-
-
-@router.patch("complete-profile/last_step", response=talent_schemas.UserSchema, auth=JWTAuth())
-@transaction.atomic
-def complete_talent_profile3(request, data: PatchDict[talent_schemas.CompleteTalentProfileSchema3]):
-    IsTalentUser.check(request)
-    talent_user = request.user.talent
-    if "skills" in data:
-        talent_user.skills.set(data["skills"])
-    if "business_models" in data:
-        talent_user.business_models.set(data["business_models"])
-    if "additional_skills" in data:
-        talent_user.additionalskill_set.exclude(name__in=data["additional_skills"]).delete()
-        existing_skills = talent_user.get_additional_skills()
-        AdditionalSkill.objects.bulk_create(
-            [
-                AdditionalSkill(name=skill, talent=talent_user)
-                for skill in data["additional_skills"]
-                if skill not in existing_skills
-            ]
-        )
-    if "experience_history" in data:
-        for experience in data["experience_history"]:
-            experience_uid = experience.pop("uid", None)
-            if experience_uid:
-                if not talent_user.experience_set.filter(uid=experience_uid).exists():
-                    continue
-                talent_user.experience_set.filter(uid=experience_uid).update(**experience)
-            else:
-                Experience(**experience, talent=talent_user).save()
-    return talent_user.user
 
 @router.get("profile", response=talent_schemas.TalentUserSchema, auth=JWTAuth())
 def talent_profile(request):
@@ -214,6 +125,7 @@ def talent_interview_chart(request):
 
 
 @router.patch("profile", auth=JWTAuth())
+@transaction.atomic
 def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentProfileSchema2]):
     IsTalentUser.check(request)
     talent_user = request.user.talent
@@ -231,65 +143,51 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
         user_data["last_name"] = data.pop("last_name", None)
     if "gender" in data:
         user_data["gender"] = data.pop("gender", None)
+    if "photo" in data:
+        data["photo"] = convert_base64_to_image_file(data["photo"])
     if "phone_number" in data:
         user_data["phone_number"] = data.pop("phone_number")
+    if "skills" in data and data["skills"]:
+        talent_user.skills.set(data.pop("skills"))
+    if "business_models" in data and data["business_models"]:
+        talent_user.business_models.set(data.pop("business_models"))
+    if "experience_history" in data and data["experience_history"]:
+        for experience in data.pop("experience_history"):
+            experience_uid = experience.pop("uid", None)
+            if experience_uid:
+                if not talent_user.experience_set.filter(uid=experience_uid).exists():
+                    continue
+                talent_user.experience_set.filter(uid=experience_uid).update(**experience)
+            else:
+                Experience(**experience, talent=talent_user).save()
+    if "education_history" in data and data["education_history"]:
+        for education in data.pop("education_history"):
+            edu_uid = education.pop("uid", None)
+            if edu_uid:
+                if not talent_user.education_set.filter(uid=edu_uid).exists():
+                    continue
+                talent_user.education_set.filter(uid=edu_uid).update(**education)
+            else:
+                Education(**education, talent=talent_user).save()
+    if "additional_languages" in data and data["additional_languages"]:
+        additional_languages = data.pop("additional_languages")
+        talent_user.additional_languages.set(additional_languages)
+    if "availability" in data and data["availability"]:
+        for available_day in data.pop("availability"):
+            available_day["day"] = available_day["day"].value
+            uid = available_day.pop("uid", None)
+            active = available_day.pop("active", True)
+            if uid and not active:
+                talent_user.talentavailableday_set.filter(uid=uid).delete()
+            elif uid and active:
+                talent_user.talentavailableday_set.filter(uid=uid).update(**available_day)
+            elif not uid:
+                day = available_day['day']
+                if not talent_user.talentavailableday_set.filter(day=day).exists():
+                    TalentAvailableDay.objects.create(**available_day, talent=talent_user)
     user.update(**user_data)
     talent_user.update(**data)
     return Response(status=200, data={"message": "Profile updated successfully"})
-
-@router.patch("visibility", auth=JWTAuth())
-def toggle_talent_visibility(request, visible: bool):
-    IsTalentUser.check(request)
-    request.user.talent.visible = visible
-    request.user.talent.save()
-    return Response(status=200, data={"message": "Visibility updated successfully"})
-
-@router.patch("education-history", auth=JWTAuth())
-def update_education_history(request, data: List[PatchDict[talent_schemas.MutateEducationSchema]]):
-    IsTalentUser.check(request)
-    talent_user = request.user.talent
-    for education in data:
-        edu_uid = education.pop("uid", None)
-        if edu_uid:
-            if not talent_user.education_set.filter(uid=edu_uid).exists():
-                continue
-            talent_user.education_set.filter(uid=edu_uid).update(**education)
-        else:
-            Education(**education, talent=talent_user).save()
-    return Response(status=200, data={"message": "Education history updated successfully"})
-
-@router.patch("experience-history", auth=JWTAuth())
-def update_experience_history(request, data:List[PatchDict[talent_schemas.MutateExperienceSchema]]):
-    IsTalentUser.check(request)
-    talent_user = request.user.talent
-    for experience in data:
-        experience_uid = experience.pop("uid", None)
-        if experience_uid:
-            if not talent_user.experience_set.filter(uid=experience_uid).exists():
-                continue
-            talent_user.experience_set.filter(uid=experience_uid).update(**experience)
-        else:
-            Experience(**experience, talent=talent_user).save()
-    return Response(status=200, data={"message": "Experience history updated successfully"})
-
-@router.patch("availability", auth=JWTAuth())
-def update_talent_availability(request, data: List[PatchDict[talent_schemas.MutateTalentAvailableDaySchema]]):
-    IsTalentUser.check(request)
-    talent_user = request.user.talent
-    for available_day in data:
-        available_day["day"] = available_day["day"].value
-        uid =  available_day.pop("uid", None)
-        active = available_day.pop("active", True)
-        if uid and not active:
-            talent_user.talentavailableday_set.filter(uid=uid).delete()
-        elif uid and active:
-            talent_user.talentavailableday_set.filter(uid=uid).update(**available_day)
-        elif not uid:
-            day = available_day['day']
-            if talent_user.talentavailableday_set.filter(day=day).exists():
-                raise HttpError(400, f"{day} already exists")
-            TalentAvailableDay.objects.create(**available_day, talent=talent_user)
-    return Response(status=200, data={"message": "Availability updated successfully"})
 
 @router.patch("change-password", auth=JWTAuth())
 def change_talent_password(request, data: talent_schemas.TalentChangePasswordSchema):
@@ -297,6 +195,7 @@ def change_talent_password(request, data: talent_schemas.TalentChangePasswordSch
     user = request.user
     if not user.check_password(data.old_password):
         raise HttpError(400, "Incorrect Password")
+    validate_password(password=data.new_password)
     user.set_password(data.new_password)
     user.save()
     return Response(status=200, data={"message": "Password changed successfully"})
