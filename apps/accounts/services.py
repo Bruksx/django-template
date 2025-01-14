@@ -1,19 +1,18 @@
+from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import render
+from helpers.utils import html_to_pdf
 
-import settings
-from accounts.schemas.talent import TalentUserSchema
-from helpers.utils import convert_base64_to_image_file, html_to_pdf
+from accounts.schemas.talent import TalentResumeSchema
+
 
 def download_talent_cv(request, talent):
-    cv_data = TalentUserSchema.from_orm(talent).dict()
-    cv_data["image_url"] = settings.IMAGE_URL
-    cv_data["css_url"] = settings.CSS_URL
+    cv_data = TalentResumeSchema.from_orm(talent).dict()
+    asset_url = f"{settings.WEB_URL}/static/img"
     rendered_html = render(
         request, "accounts/en/talent-cv.html",
-        context=cv_data
+        context=dict(talent=cv_data, asset_url=asset_url)
     ).content.decode()
-    #todo: design the cv html
     file_name = f"talent-cv-{talent.uid}.pdf"
     pdf_file = html_to_pdf(rendered_html)
     response = HttpResponse(pdf_file, content_type="application/pdf")
