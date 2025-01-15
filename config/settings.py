@@ -150,6 +150,28 @@ STATICFILES_DIRS = (os.path.join(BASE_DIR, "templates\\assets"),)
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
+
+STORAGES = {
+    "default": {
+        "BACKEND": "core.storages.MediaStorage",
+        "OPTIONS": {
+        },
+    },
+    "staticfiles": {
+        "BACKEND": "core.storages.StaticStorage",
+    },
+}
+
+DEFAULT_FILE_STORAGE = "core.storages.MediaStorage"
+STATICFILES_STORAGE = "core.storages.StaticStorage"
+
+AWS_STORAGE_BUCKET_NAME = os.environ["AWS_STORAGE_BUCKET_NAME"]
+AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
+AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
+AWS_S3_REGION_NAME = 'us-east-1' 
+AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
+AWS_S3_FILE_OVERWRITE = False
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = "accounts.User"

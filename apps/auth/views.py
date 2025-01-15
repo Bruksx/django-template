@@ -1,14 +1,15 @@
-from accounts.enums import SocialType
-from accounts.models import User
+from django.db import transaction
+from django.utils import timezone
+from ninja.responses import Response
+
+from accounts.models import User, VerificationCode
 from accounts.schemas import common as common_schema
 from ninja import Router
 from ninja.errors import HttpError
 
-from helpers.utils import failure_response
-from services.auth import google, linkedin
+from helpers.utils import validate_password
 from services.auth.schema import ProfileSchema
-from services.auth.facebook import facebook_client
-from auth.schema import LoginSchema, GoogleAuthSchema, FaceBookLoginSchema, LinkedInAuthSchema
+from auth.schema import LoginSchema, SocialAuthSchema, ResetPasswordSchema
 from auth.services import handle_social_login, validate_login
 
 # Create your views here.
@@ -24,38 +25,27 @@ def login(request, data:LoginSchema):
     return user
 
 
-@router.post("google", response=common_schema.UserSchema)
-def google_auth(request, data: GoogleAuthSchema):
-    tokens = google.get_tokens(code=data.code)
-    if not tokens:
-        return failure_response(message="Tokens not found", status=404)
-    profile = google.get_profile_details(tokens.access_token)
-    if not profile:
-        return failure_response(message="Profile not found", status=404)
-    user = handle_social_login(profile, data.user_type, SocialType.GOOGLE, data.action)
+@router.post("social-login", response=common_schema.UserSchema)
+@transaction.atomic
+def social_auth(request, data: SocialAuthSchema):
+    profile = ProfileSchema(id=data.social_id, email=data.email, first_name=data.first_name, last_name=data.last_name)
+    user = handle_social_login(profile, data.user_type, data.social_type, data.action)
     validate_login(user)
     return user
 
-
-@router.post("linkedin", response=common_schema.UserSchema)
-def linkedin_auth(request, data: LinkedInAuthSchema):
-    tokens = linkedin.get_tokens(code=data.code)
-    if not tokens:
-        return failure_response(message= "Tokens not found", status=404)
-    profile = linkedin.get_profile_details(tokens.access_token)
-    if not profile:
-        return failure_response(message="Profile not found", status=404)
-    user = handle_social_login(profile, data.user_type, SocialType.LINKEDIN, data.action)
-    validate_login(user)
-    return user
-
-
-@router.post('facebook', response=common_schema.UserSchema)
-def facebook_auth(request, data: FaceBookLoginSchema):
-    fb_user = facebook_client.get_user(data.user_id, data.access_token)
-    if not fb_user:
-        return failure_response(message="Profile not found", status=404)
-    profile = ProfileSchema(id=fb_user.id, email=fb_user.email, first_name=fb_user.first_name, last_name=fb_user.last_name)
-    user = handle_social_login(profile, data.user_type, SocialType.FACEBOOK, data.action)
-    validate_login(user)
-    return user
+@router.post("reset-password")
+@transaction.atomic
+def reset_password(request, data: ResetPasswordSchema):
+    validate_password(data.password)
+    code = VerificationCode.objects.filter(email=data.email, code=data.otp).first()
+    if not code:
+        raise HttpError(400, "Invalid otp")
+    if code.expires_at < timezone.now():
+        raise HttpError(400, "Otp has expired")
+    user = User.objects.filter(email__iexact=data.email).first()
+    if not user:
+        raise HttpError(404, "No user was found")
+    user.set_password(data.password)
+    user.save()
+    code.delete()
+    return Response(data={"message": "password reset successfully"})

@@ -1472,4 +1472,64 @@ class GetScreeningAnswersTest(TestCase):
         response = self.client.get(self.url(uuid4()), headers=headers)
         self.assertEqual(response.status_code, 404)
 
+class UpdateJobApplicationTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.job = JobFactory.create(created_by=self.business_user)
+        self.job_post = JobPostFactory.create(job=self.job, recruiter=self.business_user)
+        self.application = JobApplicationFactory.create(job_post=self.job_post, recruiter=self.business_user,
+                                                        stage=None)
+        self.url = lambda application_id: f"job-posts/applications/{application_id}"
+
+
+    def test_job_applications_update(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        data = {
+            "stage": str(stage.uid)
+        }
+        response = self.client.patch(self.url(self.application.uid), headers=headers, json=data)
+        self.assertEqual(response.status_code, 200)
+        self.application.refresh_from_db()
+        self.assertEqual(self.application.stage.uid, stage.uid)
+
+
+    def test_by_another_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        data = {
+            "stage": str(stage.uid)
+        }
+        response = self.client.patch(self.url(self.application.uid), headers=headers, json=data)
+        self.assertEqual(response.status_code, 404)
+
+    def test_by_talent_user(self):
+        talent_user = TalentFactory.create()
+        headers = {
+            "authorization": f"Bearer {talent_user.user.token}"
+        }
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        data = {
+            "stage": str(stage.uid)
+        }
+        response = self.client.patch(self.url(self.application.uid), headers=headers, json=data)
+        self.assertEqual(response.status_code, 403)
+
+    def test_by_invalid_uid(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        data = {
+            "stage": str(stage.uid)
+        }
+        response = self.client.patch(self.url(uuid4()), headers=headers, json=data)
+        self.assertEqual(response.status_code, 404)
+
 

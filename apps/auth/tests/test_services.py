@@ -74,6 +74,16 @@ class TestHandleSocialLogin(TestCase):
         self.assertTrue(user.email_verified)
         self.assertEqual(user.auth_mode, AuthType.GOOGLE.value)
 
+    def test_signup_with_just_social_id(self):
+        profile = ProfileSchema(id="12345")
+        user_type = UserType.TALENT
+        self.assertFalse(User.objects.filter(email__iexact=profile.email).exists())
+        with self.assertRaises(HttpError) as context:
+            handle_social_login(profile, user_type, SocialType.GOOGLE, AuthActionEnum.SIGNUP)
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertEqual(context.exception.message, "First name and email are required")
+
+
 class TestValidateLogin(TestCase):
 
 

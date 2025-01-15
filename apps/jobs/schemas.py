@@ -646,3 +646,9 @@ class TalentListJobPostSchema(ModelSchema):
         job_post = request.context.get("job_post")
         score = obj.job_match_score(job_post)
         return score
+
+class UpdateApplicationSchema(ModelSchema):
+    class Meta:
+        model = JobApplication
+        fields = ("stage",)
+    stage: Optional[UUID]

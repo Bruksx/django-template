@@ -24,6 +24,9 @@ class UserListSchema(UserSchema):
 class RegisterSchema(Schema):
     email: str
 
+class SendEmailOtpSchema(Schema):
+    email: EmailStr
+
 class MutateCustomerCaseSchema(ModelSchema):
     class Meta:
         model = CustomerCase

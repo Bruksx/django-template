@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -17,6 +18,6 @@ class TokenSchema:
 @dataclass
 class ProfileSchema:
     id: str
-    email: str
-    first_name: str
-    last_name: str
+    email: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None

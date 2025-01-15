@@ -47,6 +47,9 @@ jobs:
         LINKEDIN_REDIRECT_URI: http://example.com
         FACEBOOK_APP_ID: ${{secrets.FACEBOOK_APP_ID}}
         FACEBOOK_APP_SECRET: ${{secrets.FACEBOOK_APP_SECRET}}
+        AWS_ACCESS_KEY_ID: ${{secrets.AWS_ACCESS_KEY_ID}}
+        AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+        AWS_STORAGE_BUCKET_NAME: ${{secrets.AWS_STORAGE_BUCKET_NAME}}
       run: |
         python manage.py migrate
         python manage.py test accounts

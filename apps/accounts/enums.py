@@ -9,11 +9,13 @@ class SocialType(BaseEnum):
     GOOGLE = "google"
     LINKEDIN = "linkedIn"
     FACEBOOK = "facebook"
+    APPLE = "apple"
 
 class AuthType(BaseEnum):
     GOOGLE = "Google"
     LINKEDIN = "LinkedIn"
     FACEBOOK = "Facebook"
+    APPLE = "Apple"
     EMAIL = "Email"
 
 class BusinessUserRoleType(BaseEnum):
