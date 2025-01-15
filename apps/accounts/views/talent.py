@@ -6,6 +6,7 @@ from apps.accounts.enums import MeetingType
 from config.permissions import IsBusinessUser
 from config.permissions import IsTalentUser
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from helpers.email.auth import send_verification_code
 from helpers.utils import convert_base64_to_image_file, validate_password
 from monkeypatches.q_cluster import async_task
@@ -246,16 +247,17 @@ def download_talent_system_resume(request, talent_uid:UUID):
     return download_talent_cv(request, talent)
 
 
-@router.post("schedule-meeting", auth=JWTAuth(), response=talent_schemas.MeetingResponse)
-def schedule_meeting(request, data: talent_schemas.ScheduleMeetingSchema):
+@router.post("{talent_uid}/schedule-meeting", auth=JWTAuth(), response=talent_schemas.MeetingResponse)
+def schedule_meeting(request, talent_uid, data: talent_schemas.ScheduleMeetingSchema):
     IsBusinessUser.check(request)
     meeting_response = None
+    talent = get_object_or_404(Talent, uid=talent_uid)
     if data.meeting_type == MeetingType.GOOGLE_MEET:
-        meeting_response = meeting.google_meet.create_event(data.meeting)
+        meeting_response = meeting.google_meet.create_meeting(data.meeting, data.meeting.google_meet_specifi.get("access_token"))
     elif data.meeting_type == MeetingType.ZOOM:
-        meeting_response = meeting.zoom.create_event(data.meeting)
+        meeting_response = meeting.zoom.create_meeting(data.meeting)
     elif data.meeting_type == MeetingType.MICROSOFT_TEAMS:
-        meeting_response = meeting.teams.create_event(data.meeting)
+        meeting_response = meeting.teams.create_meeting(data.meeting)
     if not meeting_response:
         raise HttpError(400, "Meeting could not be scheduled")
 

@@ -31,11 +31,6 @@ class ZoomService(IMeetingService):
             password="Password",
             default_password=False
         )
-        response = ZoomRequestor.post(url, payload=meeting.__dict__)
+        response = ZoomRequestor().post(url, payload=meeting.__dict__)
         event = response.json()
-        """event = self.service.meetings().create(
-            body=meeting.__dict__,
-            conferenceId=data.service_specific_data.zoom_meet_specific.conference_id
-        ).execute()"""
-
         return MeetingResponseSchema(link=event.get('joinUrl'), url=event.get('startUrl'))

@@ -247,3 +247,6 @@ WEB_URL = "http://localhost:8000"
 
 ZOOM_CLIENT_ID = os.environ.get("ZOOM_CLIENT_ID")
 ZOOM_CLIENT_SECRET = os.environ.get("ZOOM_CLIENT_SECRET")
+
+TEAMS_CLIENT_ID = os.environ.get("TEAMS_CLIENT_ID")
+TEAMS_CLIENT_SECRET = os.environ.get("TEAMS_CLIENT_SECRET")

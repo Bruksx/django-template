@@ -1,7 +1,7 @@
 from services.meeting.base import IMeetingService
 from services.meeting.schemas.common import MeetingSchema, MeetingResponseSchema
 from services.meeting.schemas.teams import Meeting, Attendee, EmailAddress, DateTime, Location, Body
-
+from services.meeting.requestors.teams import TeamsRequestor
 
 class TeamsMeetingService(IMeetingService):
     def __init__(self):
@@ -34,11 +34,8 @@ class TeamsMeetingService(IMeetingService):
             onlineMeetingProvider="teamsForBusiness",
             isOnlineMeeting=True,
         )
-
-        response = self.service.meetings().create(
-            body=meeting.__dict__,
-            conferenceId=data.service_specific_data.teams_specific.conference_id
-        ).execute()
+        url = "https://graph.microsoft.com/v1.0/me/onlineMeetings"
+        response = TeamsRequestor().post(url, payload=meeting.__dict__).json()
 
         return MeetingResponseSchema(
             link=response.get('htmlLink'),
