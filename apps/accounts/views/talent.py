@@ -20,7 +20,6 @@ from accounts.models import Talent, TalentAvailableDay
 from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
-from accounts.services import download_talent_cv
 
 router = Router(tags=["Account"])
 
@@ -209,12 +208,6 @@ def upload_talent_cv(request, file: UploadedFile):
     talent_user.update(cv=file)
     return Response(status=200, data={"message": "CV uploaded successfully"})
 
-@router.get("resume", auth=JWTAuth())
-def download_talent_system_generated_cv(request):
-    IsTalentUser.check(request)
-    talent_user = request.user.talent
-    return download_talent_cv(request, talent_user)
-
 @router.post("profile-pic", auth=JWTAuth())
 def upload_talent_profile_picture(request, file: UploadedFile):
     IsTalentUser.check(request)
@@ -235,15 +228,6 @@ def talent_details(request, talent_uid:UUID):
     if not talent:
         raise HttpError(404, "This talent does not exist")
     return talent
-
-
-@router.get("{talent_uid}/resume", auth=JWTAuth())
-def download_talent_system_resume(request, talent_uid:UUID):
-    IsBusinessUser.check(request)
-    talent = Talent.objects.filter(uid=talent_uid).first()
-    if not talent:
-        raise HttpError(404, "This talent does not exist")
-    return download_talent_cv(request, talent)
 
 
 @router.post("schedule-meeting", auth=JWTAuth(), response=talent_schemas.MeetingResponse)
