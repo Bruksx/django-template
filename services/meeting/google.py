@@ -2,6 +2,8 @@ from services.meeting.base import IMeetingService
 from services.meeting.schemas.common import MeetingSchema, MeetingResponseSchema
 from services.meeting.schemas.google import Meeting, CreateRequest, Attendee, DateTime, ConferenceData, \
     ConferenceSolutionKey
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 
 # Path to your service account JSON file
 
@@ -14,10 +16,9 @@ class GoogleService(IMeetingService):
 
         self.service = {}
 
-    def create_meeting(self, data: MeetingSchema)->MeetingResponseSchema:
-        # Replace with your calendar ID
-        calendar_id = data.service_specific_data.google_meet_specific.calendar_id
-
+    def create_meeting(self, data: MeetingSchema, access_token)->MeetingResponseSchema:
+        creds = Credentials(access_token)
+        service = build("calendar", "v3", credentials=creds)
         event = Meeting(
             summary=data.topic,
             description=data.agenda,
@@ -36,8 +37,8 @@ class GoogleService(IMeetingService):
             notes=data.agenda
         )
 
-        event = self.service.events().insert(
-            calendarId=calendar_id,
+        event = service.events().insert(
+            calendarId="primary",
             body=event.__dict__,
             conferenceDataVersion=1
         ).execute()

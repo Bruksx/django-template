@@ -1,6 +1,7 @@
 from services.meeting.base import IMeetingService
 from services.meeting.schemas.common import MeetingSchema, MeetingResponseSchema
 from services.meeting.schemas.zoom import Meeting, Settings, Invitee
+from services.meeting.requestors.zoom import ZoomRequestor
 
 
 class ZoomService(IMeetingService):
@@ -9,6 +10,8 @@ class ZoomService(IMeetingService):
         self.service = {}
 
     def create_meeting(self, data:MeetingSchema) ->MeetingResponseSchema:
+        user_id = "me"
+        url = f"https://api.zoom.us/v2/users/{user_id}/meetings"
         meeting = Meeting(
             topic=data.topic,
             type=2,
@@ -28,10 +31,6 @@ class ZoomService(IMeetingService):
             password="Password",
             default_password=False
         )
-
-        event = self.service.meetings().create(
-            body=meeting.__dict__,
-            conferenceId=data.service_specific_data.zoom_meet_specific.conference_id
-        ).execute()
-
+        response = ZoomRequestor().post(url, payload=meeting.__dict__)
+        event = response.json()
         return MeetingResponseSchema(link=event.get('joinUrl'), url=event.get('startUrl'))

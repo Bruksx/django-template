@@ -121,9 +121,7 @@ def apply_to_job_post(request, job_post_id:UUID, data:Optional[List[MutateAnswer
         raise HttpError(400, "Job post is no longer available")
     if JobApplication.objects.filter(job_post=job_post, applicant=talent).exists():
         raise HttpError(400, "Already applied")
-    async_task(
-        create_job_application, job_post=job_post, talent=talent, data=data
-    )
+    create_job_application(job_post=job_post, talent=talent, data=data)
     return Response(status=200, data={"message": "Applied successfully"})
 
 @router.post("talent/job-posts/answer-files", response={200: None}, tags=["Talent Jobs"])

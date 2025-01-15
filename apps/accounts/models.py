@@ -138,6 +138,9 @@ class Country(BaseModel):
     name = models.CharField(max_length=64)
     code = models.CharField(max_length=4)
 
+    class Meta:
+        ordering = ["name"]
+
     def __str__(self) -> str:
         return self.name
 
