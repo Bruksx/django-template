@@ -247,11 +247,10 @@ def download_talent_system_resume(request, talent_uid:UUID):
     return download_talent_cv(request, talent)
 
 
-@router.post("{talent_uid}/schedule-meeting", auth=JWTAuth(), response=talent_schemas.MeetingResponse)
-def schedule_meeting(request, talent_uid, data: talent_schemas.ScheduleMeetingSchema):
+@router.post("/schedule-meeting", auth=JWTAuth(), response=talent_schemas.MeetingResponse)
+def schedule_meeting(request, data: talent_schemas.ScheduleMeetingSchema):
     IsBusinessUser.check(request)
     meeting_response = None
-    talent = get_object_or_404(Talent, uid=talent_uid)
     if data.meeting_type == MeetingType.GOOGLE_MEET:
         meeting_response = meeting.google_meet.create_meeting(data.meeting, data.meeting.google_meet_specifi.get("access_token"))
     elif data.meeting_type == MeetingType.ZOOM:
