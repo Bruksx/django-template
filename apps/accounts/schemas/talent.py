@@ -2,8 +2,6 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
-from setuptools.command.alias import alias
-
 from apps.accounts.enums import MeetingType
 from ninja import Schema, ModelSchema, PatchDict
 from pydantic import Field, EmailStr

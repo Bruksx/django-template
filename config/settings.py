@@ -150,20 +150,22 @@ STATICFILES_DIRS = (os.path.join(BASE_DIR, "templates\\assets"),)
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
+USE_AWS_S3 = False if os.environ.get('USE_AWS_S3', "false").lower() == "false" else True
 
-STORAGES = {
-    "default": {
-        "BACKEND": "core.storages.MediaStorage",
-        "OPTIONS": {
+if USE_AWS_S3:
+    STORAGES = {
+        "default": {
+            "BACKEND": "core.storages.MediaStorage",
+            "OPTIONS": {
+            },
         },
-    },
-    "staticfiles": {
-        "BACKEND": "core.storages.StaticStorage",
-    },
-}
+        "staticfiles": {
+            "BACKEND": "core.storages.StaticStorage",
+        },
+    }
 
-DEFAULT_FILE_STORAGE = "core.storages.MediaStorage"
-STATICFILES_STORAGE = "core.storages.StaticStorage"
+    DEFAULT_FILE_STORAGE = "core.storages.MediaStorage"
+    STATICFILES_STORAGE = "core.storages.StaticStorage"
 
 AWS_STORAGE_BUCKET_NAME = os.environ["AWS_STORAGE_BUCKET_NAME"]
 AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
@@ -241,6 +243,5 @@ CSS_URL =  "http://localhost:8000/static/css"
 FRONTEND_URL = "http://localhost:3000"
 COMPANY_NAME = "1840 GTC"
 
-USE_AWS_S3 = os.environ.get("USE_AWS_S3", False)
 
 WEB_URL = "http://localhost:8000"
