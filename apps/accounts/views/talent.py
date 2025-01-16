@@ -2,26 +2,24 @@ from datetime import date, timedelta
 from typing import List
 from uuid import UUID
 
-from apps.accounts.enums import MeetingType
-from config.permissions import IsBusinessUser
-from config.permissions import IsTalentUser
-from django.db import transaction
-from django.shortcuts import get_object_or_404
-from helpers.email.auth import send_verification_code
-from helpers.utils import convert_base64_to_image_file, validate_password
-from monkeypatches.q_cluster import async_task
-from ninja import Router, PatchDict, UploadedFile
-from ninja.errors import HttpError
-from ninja.responses import Response
-from ninja_jwt.authentication import JWTAuth
-from services import meeting
-
 from accounts.enums import UserType, AuthType
 from accounts.models import Talent, TalentAvailableDay
 from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
-from accounts.services import download_talent_cv
+from django.db import transaction
+from ninja import Router, PatchDict, UploadedFile
+from ninja.errors import HttpError
+from ninja.responses import Response
+from ninja_jwt.authentication import JWTAuth
+
+from apps.accounts.enums import MeetingType
+from config.permissions import IsBusinessUser
+from config.permissions import IsTalentUser
+from helpers.email.auth import send_verification_code
+from helpers.utils import convert_base64_to_image_file, validate_password
+from monkeypatches.q_cluster import async_task
+from services import meeting
 
 router = Router(tags=["Account"])
 
@@ -210,12 +208,6 @@ def upload_talent_cv(request, file: UploadedFile):
     talent_user.update(cv=file)
     return Response(status=200, data={"message": "CV uploaded successfully"})
 
-@router.get("resume", auth=JWTAuth())
-def download_talent_system_generated_cv(request):
-    IsTalentUser.check(request)
-    talent_user = request.user.talent
-    return download_talent_cv(request, talent_user)
-
 @router.post("profile-pic", auth=JWTAuth())
 def upload_talent_profile_picture(request, file: UploadedFile):
     IsTalentUser.check(request)
@@ -238,16 +230,7 @@ def talent_details(request, talent_uid:UUID):
     return talent
 
 
-@router.get("{talent_uid}/resume", auth=JWTAuth())
-def download_talent_system_resume(request, talent_uid:UUID):
-    IsBusinessUser.check(request)
-    talent = Talent.objects.filter(uid=talent_uid).first()
-    if not talent:
-        raise HttpError(404, "This talent does not exist")
-    return download_talent_cv(request, talent)
-
-
-@router.post("/schedule-meeting", auth=JWTAuth(), response=talent_schemas.MeetingResponse)
+@router.post("schedule-meeting", auth=JWTAuth(), response=talent_schemas.MeetingResponse)
 def schedule_meeting(request, data: talent_schemas.ScheduleMeetingSchema):
     IsBusinessUser.check(request)
     meeting_response = None

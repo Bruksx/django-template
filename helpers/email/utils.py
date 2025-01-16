@@ -88,8 +88,10 @@ def render_text_email(file: str, context: dict):
 
 def render_html_email(file: str, context: dict):
     context["frontend_url"] = settings.FRONTEND_URL
+    context["image_url"] = f"{settings.IMAGE_URL}"
     if not context.get("company"):
         context["company"] = settings.COMPANY_NAME
+
     template = loader.get_template(file)
     return template.render(context)
 
