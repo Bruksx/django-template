@@ -900,8 +900,8 @@ class Business(BaseModel):
 
 class VerificationCode(BaseModel):
     def default_code():
-        characters = string.ascii_letters + string.digits
-        return ''.join(random.choice(characters.upper()) for _ in range(4))
+        characters = string.digits
+        return ''.join(random.choice(characters.upper()) for _ in range(6))
 
     def default_expiration():
         return timezone.now() + timedelta(minutes=5)
