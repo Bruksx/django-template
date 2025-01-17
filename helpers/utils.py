@@ -3,6 +3,7 @@ import os
 import random
 import string
 import uuid
+from io import BytesIO
 from typing import Optional
 import re
 import boto3
@@ -18,6 +19,7 @@ from helpers.loggers import Logger
 import psutil
 from sys import getsizeof
 from django.utils.translation import gettext_lazy as _
+from io import BytesIO
 
 
 
@@ -55,8 +57,9 @@ def html_to_pdf(html: str):
         pdf_file = pdfkit.from_string(
             html,
             False,
-            cover_first=False,
-            options={"enable-local-file-access": ""},
+            options={"enable-local-file-access": "",
+                     'print-media-type': True
+                     },
         )
         return pdf_file
     except OSError as e:
@@ -66,6 +69,22 @@ def html_to_pdf(html: str):
             description=str(e)
         ))
         return
+
+def html_to_pdf3(source_html):
+    try:
+        # Create a BytesIO object to store the PDF output.
+        pdf_output = BytesIO()
+
+        # Use xhtml2pdf to convert the HTML content to a PDF and store it in pdf_output.
+        pisa.CreatePDF(source_html, dest=pdf_output, encoding='UTF-8')
+
+        # Return the BytesIO object containing the PDF data.
+        return pdf_output
+
+    except Exception as e:
+        print(f"Error during PDF conversion: {e}")
+        return None
+
 
 def delete_s3_item(key):
     from boto3.session import Session
