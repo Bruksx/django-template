@@ -240,11 +240,6 @@ COMPANY_NAME = "1840 GTC"
 
 
 WEB_URL = os.environ.get("WEB_URL", "http://localhost:8000")
-
-# pdf rendering settings
-IMAGE_URL = f"{WEB_URL}/static/img"
-CSS_URL =  f"{WEB_URL}/static/css"
-
 ZOOM_CLIENT_ID = os.environ.get("ZOOM_CLIENT_ID")
 ZOOM_CLIENT_SECRET = os.environ.get("ZOOM_CLIENT_SECRET")
 

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+{% load static %}
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -39,7 +39,7 @@
       <!-- Header Image -->
       <img
         alt="Job Recommendation Header"
-        src="{{asset_url}}/share_job/header-image.png"
+        src="{% static 'img/share_job/header-image.png' %}"
         style="width: 100%; height: auto"
       />
 
@@ -63,7 +63,7 @@
           <!-- Job Image -->
           <img
             alt="Job Image"
-            src="{{asset_url}}/share_job/job-image.png"
+            src="{% static 'img/share_job/job-image.png' %}"
             style="
               width: 100px;
               height: 100px;
@@ -113,7 +113,7 @@
               <div style="display: flex; gap: 5px">
                 <img
                   alt="Location Icon"
-                  src="{{asset_url}}/share_job/location.png"
+                  src="{% static 'img/share_job/location.png' %}"
                   style="width: 11px; height: 13px; object-fit: cover"
                 />
                 {{ location }}
@@ -125,7 +125,7 @@
             <div style="display: flex; gap: 12px">
               <img
                 alt="Share Icon"
-                src="{{asset_url}}/share_job/share.png"
+                src="{% static 'img/share_job/share.png' %}"
                 style="
                   width: 17px;
                   height: 13px;
@@ -135,7 +135,7 @@
               />
               <img
                 alt="Save Icon"
-                src="{{asset_url}}/share_job/save.png"
+                src="{% static 'img/share_job/save.png' %}"
                 style="
                   width: 12px;
                   height: 15px;
