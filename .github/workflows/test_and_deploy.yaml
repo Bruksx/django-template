@@ -51,6 +51,25 @@ jobs:
         AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY}}
         AWS_STORAGE_BUCKET_NAME: ${{secrets.AWS_STORAGE_BUCKET_NAME}}
         USE_AWS_S3: False
+        AWS_EC2_STAGING_PRIVATE_KEY: ${{secrets.AWS_EC2_STAGING_PRIVATE_KEY}}
+        AWS_EC2_USER_NAME: ubuntu
+        AWS_EC2_STAGING_HOSTNAME: ${{secrets.AWS_EC2_STAGING_HOSTNAME}}
       run: |
         python manage.py migrate
         python manage.py test accounts
+  
+  - name: Deploy to Staging
+      if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
+      run: |
+          echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
+          ssh -o StrictHostKeyChecking=no -i private_key ${AWS_EC2_USER_NAME}@${AWS_EC2_STAGING_HOSTNAME} << 'EOF'
+            cd /home
+            source environment/venv/bin/activate
+            cd code/GTC-backend
+            git pull
+            pip install -r requirements.txt
+            python manage.py migrate
+            sudo systemctl restart gunicorn
+            sudo systemctl restart qcluster
+            sudo systemctl restart nginx
+          EOF
