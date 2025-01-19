@@ -86,3 +86,4 @@ static
 ws_test_client.py
 ws_tester.py
 email_test_client.py
+test_space.py

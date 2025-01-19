@@ -87,6 +87,11 @@ class Job(BaseModel):
     def logo_url(self):
         return self.logo.url if self.logo else self.created_by.business.get_logo()
 
+    def hiring_company(self):
+        if self.hiring_company_name:
+            return self.hiring_company_name
+        return self.created_by.business.name
+
     def business_logo(self):
         return self.created_by.business.get_logo()
 
@@ -135,7 +140,7 @@ class Job(BaseModel):
 class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     status = models.CharField(max_length=16, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
-    date_posted = models.DateTimeField(null=True)
+    #date_posted = models.DateTimeField(null=True)
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     province = models.CharField(max_length=64, null=True)
     postal_code = models.CharField(max_length=8, null=True)
@@ -239,7 +244,7 @@ class JobPost(BaseModel):
         return data
 
     def view(self):
-        metric, _ = JobPostMetrics.objects.get_or_create(job=self)
+        metric, _ = JobPostMetrics.objects.get_or_create(job_post=self)
         metric.weekly_views = F("weekly_views") + 1
         metric.save()
         return
