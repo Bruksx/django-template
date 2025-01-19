@@ -70,6 +70,6 @@ jobs:
             pip install -r requirements.txt
             python manage.py migrate
             sudo systemctl restart gunicorn
-            sudo systemctl restart qcluster
+            sudo systemctl restart run_qcluster
             sudo systemctl restart nginx
           EOF
