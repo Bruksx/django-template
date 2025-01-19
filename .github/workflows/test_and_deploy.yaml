@@ -59,7 +59,7 @@ jobs:
         python manage.py migrate
         python manage.py test accounts
 
-  if: github.ref == 'refs/heads/staging' && github.event_name == 'push'  
+
   deploy:
     - name: Deploy to Staging
       run: |
