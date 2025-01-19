@@ -246,7 +246,7 @@ ZOOM_CLIENT_SECRET = os.environ.get("ZOOM_CLIENT_SECRET")
 
 TEAMS_CLIENT_ID = os.environ.get("TEAMS_CLIENT_ID")
 TEAMS_CLIENT_SECRET = os.environ.get("TEAMS_CLIENT_SECRET")
-USE_SENTRY = True if os.environ.get('USE_SENTRY').lower() == "true" else False
+USE_SENTRY = True if os.environ.get('USE_SENTRY', "false").lower() == "true" else False
 
 if USE_SENTRY:
     sentry_sdk.init(
