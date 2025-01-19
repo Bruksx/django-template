@@ -61,9 +61,11 @@ jobs:
 
 
   deploy:
+    runs-on: ubuntu-latest
+    steps:
     - name: Deploy to Staging
       run: |
-          echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
+          echo "$AWS_EC2_STAGING_PRIVATE_KEY" > private_key && chmod 600 private_key
           ssh -o StrictHostKeyChecking=no -i private_key ${AWS_EC2_USER_NAME}@${AWS_EC2_STAGING_HOSTNAME} << 'EOF'
             cd /home
             source environment/venv/bin/activate
