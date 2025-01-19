@@ -2,7 +2,7 @@ name: Test
 on:
   push:
     branches:
-      - 'stag'
+      - 'staging'
 env:
   DEBUG: true
   SECRET_KEY: ${{ secrets.SECRET_KEY }}
