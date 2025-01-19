@@ -61,6 +61,8 @@ jobs:
 
 
   deploy:
+    runs-on: ubuntu-latest
+    steps:
     - name: Deploy to Staging
       run: |
           echo "$PRIVATE_KEY" > private_key && chmod 600 private_key
