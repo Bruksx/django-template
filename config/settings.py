@@ -16,6 +16,7 @@ import os
 import sys
 import dj_database_url
 from datetime import timedelta
+import sentry_sdk
 
 load_dotenv()
 
@@ -245,3 +246,18 @@ ZOOM_CLIENT_SECRET = os.environ.get("ZOOM_CLIENT_SECRET")
 
 TEAMS_CLIENT_ID = os.environ.get("TEAMS_CLIENT_ID")
 TEAMS_CLIENT_SECRET = os.environ.get("TEAMS_CLIENT_SECRET")
+USE_SENTRY = True if os.environ.get('USE_SENTRY').lower() == "true" else False
+
+if USE_SENTRY:
+    sentry_sdk.init(
+        dsn=os.environ.get("SENTRY_DSN"),
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for tracing.
+        traces_sample_rate=1.0,
+        _experiments={
+            # Set continuous_profiling_auto_start to True
+            # to automatically start the profiler on when
+            # possible.
+            "continuous_profiling_auto_start": True,
+        },
+    )
