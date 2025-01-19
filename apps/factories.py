@@ -250,7 +250,7 @@ class JobPostFactory(DjangoModelFactory):
     recruiter = factory.SubFactory(BusinessUserFactory)
     province = factory.Faker('city')
     postal_code = factory.Faker('postcode')
-    date_posted = factory.Faker("date_this_decade", before_today=True)
+    #date_posted = factory.Faker("date_this_decade", before_today=True)
     annual_salary_min = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
     annual_salary_max = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
     annual_salary_currency = factory.SubFactory(CurrencyFactory)
