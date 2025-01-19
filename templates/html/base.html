@@ -8,7 +8,7 @@
   <body style="margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; background-color: #e7effa; padding: 20px;">
     <div style="width: 100%; max-width: 660px; margin: 0 auto; background-color: #ffffff; border: 1px solid #dddddd; border-radius: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);">
       <!-- Header Image -->
-      <img alt="header-image" src="{{ image_url }}/base/header-image.png" style="width: 100%; height: auto; display: block; border-bottom: 1px solid #dddddd;">
+      <img alt="header-image" src="{% static 'img/base/header-image.png' %}" style="width: 100%; height: auto; display: block; border-bottom: 1px solid #dddddd;">
 
       <!-- Main Content Block -->
       <div style="padding: 20px;">
@@ -18,7 +18,7 @@
 
       <!-- Footer -->
       <div style="padding: 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 20px; background-color: #f7f7f7; border-top: 1px solid #dddddd;">
-        <img alt="logo" src="{{ image_url }}/base/logo.png" style="width: 120px; height: auto; flex: 1 1 100px; max-width: 160px;">
+        <img alt="logo" src="{% static 'img/base/logo.png' %}" style="width: 120px; height: auto; flex: 1 1 100px; max-width: 160px;">
         <div style="flex: 1 1 300px; font-size: 12px; font-weight: 500; color: #333333;">
           <p style="margin: 0;">Let us help you scale!</p>
           <p style="margin: 0;">Finance, Marketing, Sales, DevOps, Contact Center</p>
@@ -31,16 +31,16 @@
           <p style="margin: 0;">Park, KS 66211</p>
           <div style="margin-top: 10px; display: flex; gap: 10px;">
             <a href="#" style="display: inline-block;">
-              <img alt="facebook" src="{{ image_url }}/base/facebook.png" style="width: 16px; height: 16px;">
+              <img alt="facebook" src="{% static 'img/base/facebook.png' %}" style="width: 16px; height: 16px;">
             </a>
             <a href="#" style="display: inline-block;">
-              <img alt="twitter" src="{{ image_url }}/base/twitter.png" style="width: 16px; height: 16px;">
+              <img alt="twitter" src="{% static 'img/base/twitter.png' %}" style="width: 16px; height: 16px;">
             </a>
             <a href="#" style="display: inline-block;">
-              <img alt="linkedin" src="{{ image_url }}/base/linkedin.png" style="width: 16px; height: 16px;">
+              <img alt="linkedin" src="{% static 'img/base/linkedin.png' %}" style="width: 16px; height: 16px;">
             </a>
             <a href="#" style="display: inline-block;">
-              <img alt="instagram" src="{{ image_url }}/base/instagram.png" style="width: 16px; height: 16px;">
+              <img alt="instagram" src="{% static 'img/base/instagram.png' %}" style="width: 16px; height: 16px;">
             </a>
           </div>
         </div>
