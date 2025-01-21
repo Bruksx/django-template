@@ -38,7 +38,7 @@ DEBUG = True if os.environ['DEBUG'].lower() == "true" else False
 
 ALLOWED_HOSTS = [
     "gtc-staging.1840andco.com",
-    "127.0.0.1:8000",
+    "127.0.0.1",
 ]
 
 
@@ -177,10 +177,14 @@ AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
 AWS_S3_REGION_NAME = 'us-east-1' 
 AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
 AWS_S3_FILE_OVERWRITE = False
+STATICFILES_LOCATION = "static"
+STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{STATICFILES_LOCATION}/"
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = "accounts.User"
+
 
 EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 EMAIL_HOST = "smtp.office365.com"
@@ -188,7 +192,7 @@ EMAIL_PORT = 587
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD")
 EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = f"1840 GTC <{EMAIL_HOST_USER}>"
+DEFAULT_FROM_EMAIL = f"contact@1840andco.com"
 
 
 NINJA_JWT = {
