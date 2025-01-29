@@ -87,6 +87,11 @@ class Job(BaseModel):
     def logo_url(self):
         return self.logo.url if self.logo else self.created_by.business.get_logo()
 
+    def hiring_company(self):
+        if self.hiring_company_name:
+            return self.hiring_company_name
+        return self.created_by.business.name
+
     def business_logo(self):
         return self.created_by.business.get_logo()
 

@@ -177,6 +177,66 @@ class TalentUserSchema(ModelSchema):
     def resolve_availability(obj):
         return obj.get_available_days()
 
+class TalentResumeSchema(ModelSchema):
+    photo_url: Optional[str]
+    name: str = Field(alias="user.fullname")
+    email: EmailStr = Field(alias="user.email")
+    phone_number: str = Field(alias="user.phone_number")
+    bio: str
+    address: str
+    languages: str
+    skills: List[TalentSkillSchema]
+    availability: List[TalentAvailabilitySchema]
+    notice_period: Optional[str] = None
+    experience_history: List[ExperienceSchema]
+    education_history: List[EducationSchema]
+
+    class Meta:
+        model = Talent
+        fields = ("bio", )
+
+    @staticmethod
+    def resolve_address(obj):
+        address_list = []
+        if obj.address:
+            address_list.append(obj.address)
+        if obj.city:
+            address_list.append(obj.city)
+        if obj.state:
+            address_list.append(obj.state)
+        if obj.country:
+            address_list.append(obj.country.name)
+        return ", ".join(address_list)
+
+    @staticmethod
+    def resolve_notice_period(obj):
+        if not obj.notice_period or not obj.notice_period_type:
+            return
+        return f"{obj.notice_period} {obj.notice_period_type}"
+
+    @staticmethod
+    def resolve_languages(obj):
+        languages = set()
+        if obj.native_language:
+            languages.add(obj.native_language.name)
+        if obj.additional_languages:
+            languages.update(set(obj.additional_languages.values_list("name", flat=True)))
+        return ", ".join(languages)
+
+    @staticmethod
+    def resolve_skills(obj):
+        return obj.get_skills()
+
+    @staticmethod
+    def resolve_availability(obj):
+        return obj.get_available_days()
+
+
+
+
+
+
+
 class TalentUserListSchema(ModelSchema):
     first_name: str =  Field(alias="user.first_name")
     last_name: str = Field(alias="user.last_name")

@@ -16,6 +16,7 @@ import os
 import sys
 import dj_database_url
 from datetime import timedelta
+import sentry_sdk
 
 load_dotenv()
 
@@ -35,7 +36,10 @@ SECRET_KEY = os.environ['SECRET_KEY']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True if os.environ['DEBUG'].lower() == "true" else False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "gtc-staging.1840andco.com",
+    "127.0.0.1",
+]
 
 
 # Application definition
@@ -146,24 +150,26 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = "static"
 STATIC_DIR = (os.path.join(BASE_DIR.parent, "static"),)
-STATICFILES_DIRS = (os.path.join(BASE_DIR, "templates\\assets"),)
+STATICFILES_DIRS = (os.path.join(BASE_DIR, "templates/assets"),)
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
+USE_AWS_S3 = False if os.environ.get('USE_AWS_S3', "false").lower() == "false" else True
 
-STORAGES = {
-    "default": {
-        "BACKEND": "core.storages.MediaStorage",
-        "OPTIONS": {
+if USE_AWS_S3:
+    STORAGES = {
+        "default": {
+            "BACKEND": "core.storages.MediaStorage",
+            "OPTIONS": {
+            },
         },
-    },
-    "staticfiles": {
-        "BACKEND": "core.storages.StaticStorage",
-    },
-}
+        "staticfiles": {
+            "BACKEND": "core.storages.StaticStorage",
+        },
+    }
 
-DEFAULT_FILE_STORAGE = "core.storages.MediaStorage"
-STATICFILES_STORAGE = "core.storages.StaticStorage"
+    DEFAULT_FILE_STORAGE = "core.storages.MediaStorage"
+    STATICFILES_STORAGE = "core.storages.StaticStorage"
 
 AWS_STORAGE_BUCKET_NAME = os.environ["AWS_STORAGE_BUCKET_NAME"]
 AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
@@ -171,10 +177,14 @@ AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
 AWS_S3_REGION_NAME = 'us-east-1' 
 AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
 AWS_S3_FILE_OVERWRITE = False
+STATICFILES_LOCATION = "static"
+STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{STATICFILES_LOCATION}/" if USE_AWS_S3 else STATIC_URL
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = "accounts.User"
+
 
 EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 EMAIL_HOST = "smtp.office365.com"
@@ -232,21 +242,29 @@ CHANNEL_LAYERS = {
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join("media")
 
-# pdf rendering settings
-IMAGE_URL = "http://localhost:8000/static/img"
-CSS_URL =  "http://localhost:8000/static/css"
-
-
 # email rendering service
-FRONTEND_URL = "http://localhost:3000"
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 COMPANY_NAME = "1840 GTC"
 
-USE_AWS_S3 = os.environ.get("USE_AWS_S3", False)
 
-WEB_URL = "http://localhost:8000"
-
+WEB_URL = os.environ.get("WEB_URL", "http://localhost:8000")
 ZOOM_CLIENT_ID = os.environ.get("ZOOM_CLIENT_ID")
 ZOOM_CLIENT_SECRET = os.environ.get("ZOOM_CLIENT_SECRET")
 
 TEAMS_CLIENT_ID = os.environ.get("TEAMS_CLIENT_ID")
 TEAMS_CLIENT_SECRET = os.environ.get("TEAMS_CLIENT_SECRET")
+USE_SENTRY = True if os.environ.get('USE_SENTRY', "false").lower() == "true" else False
+
+if USE_SENTRY:
+    sentry_sdk.init(
+        dsn=os.environ.get("SENTRY_DSN"),
+        # Set traces_sample_rate to 1.0 to capture 100%
+        # of transactions for tracing.
+        traces_sample_rate=1.0,
+        _experiments={
+            # Set continuous_profiling_auto_start to True
+            # to automatically start the profiler on when
+            # possible.
+            "continuous_profiling_auto_start": True,
+        },
+    )

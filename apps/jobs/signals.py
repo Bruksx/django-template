@@ -24,7 +24,7 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
                     current_attribute = attributes[i]
                     setattr(instance, current_attribute, 0) # setting jumped timelines to 0
                 current_attribute = attributes[index]
-                setattr(instance, current_attribute, (today - instance.job_post.date_posted).days)
+                setattr(instance, current_attribute, (today - instance.job_post.created_at).days)
                 setattr(instance, "stage_date_updated", today)
 
             else:

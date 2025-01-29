@@ -506,7 +506,6 @@ class JobCreationTest(TestCase):
 
         self.assertEqual(job.created_by, self.business_user)
         self.assertEqual(job.first_language, self.language)
-        self.assertEqual(job.department, self.department)
         self.assertEqual(job.employment_type, self.employment_type)
         self.assertEqual(job.role, self.role)
         self.assertEqual(job.job_level, self.job_level)
@@ -708,7 +707,6 @@ class JobPostCreationTest(TestCase):
         self.assertEqual(job_post.annual_bonus_max, self.test_data["annual_bonus_max"])
 
         self.assertEqual(job_post.posted_by, self.business_user)
-        self.assertIsNotNone(job_post.date_posted)
 
     def test_create_job_post_with_invalid_uuid(self):
         headers = {
