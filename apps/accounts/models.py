@@ -21,6 +21,8 @@ from core.models import BaseModel
 from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType
 from notification.enums import NotificationGroup
 
+from helpers.utils import delete_s3_item
+
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -122,15 +124,22 @@ class User(AbstractUser, BaseModel):
         return None
 
     def delete_account(self):
-        self.delete()
+        self.first_name = "deleted"
+        self.last_name = "user"
+        self.email = f"deleted_user_{self.uid}@example.com"
+        self.phone_number = None
+        self.facebook_id = None
+        self.linkedin_id = None
+        self.google_id = None
+        self.apple_id = None
+        self.username = str(self.uid)
         self.is_active = False
-        self.save(update_fields=["is_active"])
+        self.save()
+        self.delete()
         if hasattr(self, "talent"):
-            self.talent.delete()
+            self.talent.delete_account()
         elif hasattr(self, "businessuser"):
-            self.businessuser.delete()
-            self.businessuser.status = BusinessUserStatusType.DELETED.value
-            self.businessuser.save(update_fields=["status"])
+            self.businessuser.delete_account()
         return
 
 
@@ -418,6 +427,13 @@ class Talent(BaseModel):
             )
         return data
 
+
+    def dashboard_charts(self):
+        return {
+            "applications": self.applications_made_chart(),
+            "interviews": self.interviews_chart()
+        }
+
     def role(self):
         from jobs.models import JobFilter
         job_filter = JobFilter.objects.filter(talent=self).first()
@@ -447,6 +463,41 @@ class Talent(BaseModel):
                 viewers__id=self.user.id
             )
         return notifications.order_by("-id")
+
+    def delete_account(self):
+        self.savedjob_set.hard_delete()
+        if hasattr(self, "jobfilter"):
+            self.jobfilter.hard_delete()
+        self.education_set.hard_delete()
+        self.experience_set.hard_delete()
+        self.whatsapp_number = None
+        self.viber_number = None
+        self.country = None
+        self.state = None
+        self.city = None
+        self.address = None
+        self.postal_code = None
+        self.bio = None
+        self.instagram = None
+        self.linkedin = None
+        self.twitter_x = None
+        self.notice_period = None
+        self.additional_skills = list()
+        self.skills.clear()
+        self.business_models.clear()
+        self.save()
+        if self.photo:
+            delete_s3_item(self.photo.url)
+            self.photo.delete()
+            self.photo = None
+        if self.cv:
+            delete_s3_item(self.cv.url)
+            self.cv.delete()
+            self.cv = None
+        self.save()
+        self.delete()
+
+
 
 
 
@@ -962,6 +1013,14 @@ class BusinessUser(BaseModel):
         if hasattr(self, "businessusernotificationsettings"):
             return self.businessusernotificationsettings.notifications(viewed)
         return Notification.objects.none()
+
+    def delete_account(self):
+        self.status = BusinessUserStatusType.DELETED.value
+        self.save(update_fields=["status"])
+        self.delete()
+        if hasattr(self, "businessusernotificationsettings"):
+            self.businessusernotificationsettings.hard_delete()
+        return
 
 
 

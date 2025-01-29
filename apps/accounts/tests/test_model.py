@@ -254,6 +254,16 @@ class TalentModelTest(TestCase):
         self.assertTrue(isinstance(interview_chart[0], MonthlyChartSchema))
         self.assertEqual(len(interview_chart), 12)
 
+    def test_dashboard_charts(self):
+        dashboard_chart = self.talent.dashboard_charts()
+        self.assertTrue(isinstance(dashboard_chart, dict))
+        self.assertTrue(isinstance(dashboard_chart["applications"], list))
+        self.assertTrue(isinstance(dashboard_chart["interviews"], list))
+        self.assertTrue(isinstance(dashboard_chart["applications"][0], MonthlyChartSchema))
+        self.assertTrue(isinstance(dashboard_chart["interviews"][0], MonthlyChartSchema))
+        self.assertEqual(len(dashboard_chart["applications"]), 12)
+        self.assertEqual(len(dashboard_chart["interviews"]), 12)
+
 
     def test_saved_jobs(self):
         self.assertEqual(self.talent.saved_jobs().count(), 0)

@@ -18,7 +18,7 @@ fake = Faker()
 from core.models import Currency, Language
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, WithdrawalFeedbackType, PhaseType, QuestionTypeEnum
 from jobs.models import JobLevel, EmploymentType, JobPost, Job, JobApplication, Qualification, JobApplicationWithdrawal, \
-    RequiredAttribute, JobFilter, BusinessModel, ScreeningQuestion, Answer, QuestionOption, JobPostMetrics
+    RequiredAttribute, JobFilter, BusinessModel, ScreeningQuestion, Answer, QuestionOption, JobPostMetrics, SavedJob
 
 
 class CountryFactory(DjangoModelFactory):
@@ -276,6 +276,14 @@ class EmailTemplateFactory(DjangoModelFactory):
     delays = factory.Iterator([0, 1, 2, 3, 4, 5])
     bcc = factory.lazy_attribute(lambda _: [fake.email() for x in range(5)])
     cc = factory.lazy_attribute(lambda _: [fake.email() for x in range(5)])
+
+class SavedJobFactory(DjangoModelFactory):
+    class Meta:
+        model = SavedJob
+
+    job_post = factory.SubFactory(JobPostFactory)
+    talent = factory.SubFactory(TalentFactory)
+
 
 
 class WorkflowStageFactory(DjangoModelFactory):

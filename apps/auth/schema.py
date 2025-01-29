@@ -21,7 +21,6 @@ class SocialAuthSchema(BaseModel):
     email: Optional[str] = None
     user_type: UserType
     social_type: SocialType
-    action: AuthActionEnum
 
 
 class GoogleAuthSchema(BaseModel):

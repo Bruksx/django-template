@@ -111,19 +111,11 @@ def talent_dashboard_report(request, start_date: date=None, end_date: date=None)
 
     return Response(data=talent_schemas.TalentDashboardReport.from_orm(request.user.talent))
 
-@router.get("applications-chart", response=List[talent_schemas.MonthlyChartSchema], auth=JWTAuth(),
+@router.get("dashboard-charts", response=talent_schemas.TalentDashboardChartsSchema, auth=JWTAuth(),
             tags=["Talent Dashboard"])
-def talent_applications_chart(request):
+def talent_dashboard_chart(request):
     IsTalentUser.check(request)
-    return request.user.talent.applications_made_chart()
-
-
-@router.get("interviews-chart", response=List[talent_schemas.MonthlyChartSchema],
-            tags=["Talent Dashboard"], auth=JWTAuth())
-def talent_interview_chart(request):
-    IsTalentUser.check(request)
-    return request.user.talent.interviews_chart()
-
+    return request.user.talent.dashboard_charts()
 
 @router.patch("profile", auth=JWTAuth())
 @transaction.atomic
@@ -261,3 +253,10 @@ def schedule_meeting(request, data: talent_schemas.ScheduleMeetingSchema):
         raise HttpError(400, "Meeting could not be scheduled")
 
     return meeting_response
+
+@router.delete("users", auth=JWTAuth())
+@transaction.atomic
+def delete_account(request):
+    IsTalentUser.check(request)
+    request.user.delete_account()
+    return Response(status=204, data={"message": "Account deleted successfully"})
