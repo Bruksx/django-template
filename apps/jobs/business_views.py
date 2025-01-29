@@ -153,7 +153,6 @@ def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
         request_data["status"] = request_data["status"].value
         if request_data["status"] == JobStatusType.POSTED.value:
             request_data["posted_by"] = business_user
-            request_data["date_posted"] = timezone.now()
 
     job_post = JobPost(
         **request_data,
