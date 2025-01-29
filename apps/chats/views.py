@@ -21,7 +21,7 @@ from monkeypatches.q_cluster import async_task
 router = Router(tags=["Chats"])
 
 @router.get("", auth=JWTAuth(), response=PaginatedResponseSchema[ChatListSchema])
-@paginate(PageNumberPaginationExtra, page_size=50, pass_parameter="pagination_info")
+@paginate(PageNumberPaginationExtra, page_size=50)
 def get_chats(request, search:str=""):
     user = request.user
     queryset = Conversation.objects.filter(users__id=user.id).order_by(F("last_message_time").desc(nulls_last=True))

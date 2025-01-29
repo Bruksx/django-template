@@ -126,13 +126,13 @@ class User(AbstractUser, BaseModel):
     def delete_account(self):
         self.first_name = "deleted"
         self.last_name = "user"
-        self.email = f"deleted_user_{self.uid}@example.com"
+        self.email = f"deleted_user_{self.id}@example.com"
         self.phone_number = None
         self.facebook_id = None
         self.linkedin_id = None
         self.google_id = None
         self.apple_id = None
-        self.username = str(self.uid)
+        self.username = f"user-{self.id}"
         self.is_active = False
         self.save()
         self.delete()
