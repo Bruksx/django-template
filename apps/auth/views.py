@@ -7,7 +7,7 @@ from accounts.schemas import common as common_schema
 from ninja import Router
 from ninja.errors import HttpError
 
-from apps.auth.enums import AuthActionEnum
+from auth.enums import AuthActionEnum
 from helpers.utils import validate_password
 from services.auth.schema import ProfileSchema
 from auth.schema import LoginSchema, SocialAuthSchema, ResetPasswordSchema
