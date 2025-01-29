@@ -465,11 +465,11 @@ class Talent(BaseModel):
         return notifications.order_by("-id")
 
     def delete_account(self):
-        self.savedjob_set.hard_delete()
+        self.savedjob_set.all().hard_delete()
         if hasattr(self, "jobfilter"):
             self.jobfilter.hard_delete()
-        self.education_set.hard_delete()
-        self.experience_set.hard_delete()
+        self.education_set.all().hard_delete()
+        self.experience_set.all().hard_delete()
         self.whatsapp_number = None
         self.viber_number = None
         self.country = None
@@ -489,11 +489,11 @@ class Talent(BaseModel):
         if self.photo:
             delete_s3_item(self.photo.url)
             self.photo.delete()
-            self.photo = None
+        self.photo = None
         if self.cv:
             delete_s3_item(self.cv.url)
             self.cv.delete()
-            self.cv = None
+        self.cv = None
         self.save()
         self.delete()
 

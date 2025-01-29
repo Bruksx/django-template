@@ -237,7 +237,7 @@ def schedule_meeting(request, data: talent_schemas.ScheduleMeetingSchema):
 
     return meeting_response
 
-@router.delete("users", auth=JWTAuth())
+@router.delete("", auth=JWTAuth(), response={204: None})
 @transaction.atomic
 def delete_account(request):
     IsTalentUser.check(request)

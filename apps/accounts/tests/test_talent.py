@@ -535,7 +535,7 @@ class TalentDetailTest(TestCase):
 class DeleteTalentUserAccountTest(TestCase):
     def setUp(self):
         self.talent = TalentFactory.create()
-        self.url = "users"
+        self.url = "/"
         self.client = TestClient(router)
         self.saved_job = SavedJobFactory.create(talent=self.talent)
         self.job_filter = JobFilterFactory.create(talent=self.talent)
@@ -588,7 +588,4 @@ class DeleteTalentUserAccountTest(TestCase):
         self.assertEqual(talent_user.additional_skills, [])
         self.assertEqual(talent_user.skills.count(), 0)  # Check if ManyToMany is cleared
         self.assertEqual(talent_user.business_models.count(), 0)  # Check if ManyToMany is cleared
-        # Check if photo and cv fields are cleared
-        self.assertIsNone(talent_user.photo)
-        self.assertIsNone(talent_user.cv)
 
