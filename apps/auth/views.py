@@ -7,6 +7,7 @@ from accounts.schemas import common as common_schema
 from ninja import Router
 from ninja.errors import HttpError
 
+from auth.enums import AuthActionEnum
 from helpers.utils import validate_password
 from services.auth.schema import ProfileSchema
 from auth.schema import LoginSchema, SocialAuthSchema, ResetPasswordSchema
@@ -29,7 +30,11 @@ def login(request, data:LoginSchema):
 @transaction.atomic
 def social_auth(request, data: SocialAuthSchema):
     profile = ProfileSchema(id=data.social_id, email=data.email, first_name=data.first_name, last_name=data.last_name)
-    user = handle_social_login(profile, data.user_type, data.social_type, data.action)
+    if data.email is None or data.first_name is None or data.last_name is None:
+        action = AuthActionEnum.LOGIN
+    else:
+        action = AuthActionEnum.SIGNUP
+    user = handle_social_login(profile, data.user_type, data.social_type, action)
     validate_login(user)
     return user
 

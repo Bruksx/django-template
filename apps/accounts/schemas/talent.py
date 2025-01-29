@@ -322,6 +322,10 @@ class MonthlyChartSchema(Schema):
     month: Months
     count: int
 
+class TalentDashboardChartsSchema(Schema):
+    applications: List[MonthlyChartSchema]
+    interviews: List[MonthlyChartSchema]
+
 class TalentChangePasswordSchema(Schema):
     old_password: str
     new_password: str

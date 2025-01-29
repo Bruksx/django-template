@@ -53,8 +53,6 @@ def handle_social_login(profile: ProfileSchema, user_type: UserType, social_type
         profile_dict["apple_id"] = profile.id
     else:
         raise HttpError(400, "Invalid social type")
-    if User.deleted_objects.filter(social_query).exists():
-        raise HttpError(400, "Reach out to get your account restored")
     user = User.objects.filter(social_query).first()
     if user:
         if user.auth_mode == AuthType.EMAIL.value:
