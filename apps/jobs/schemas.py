@@ -373,12 +373,12 @@ class JobFullListSchema(ModelSchema):
     location: Optional[str]
     applicants:int
     posted_by: Optional[str]
-    date_posted: datetime = Field(alias="created_at")
+    date_posted: Optional[datetime] = None
     status: Optional[str]
 
     class Meta:
         model = Job
-        fields = ["uid",]
+        fields = ["uid", ]
 
     @staticmethod
     def resolve_status(obj):
