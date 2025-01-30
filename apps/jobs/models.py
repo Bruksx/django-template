@@ -140,7 +140,7 @@ class Job(BaseModel):
 class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     status = models.CharField(max_length=16, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
-     #date_posted = models.DateTimeField(null=True)
+    date_posted = models.DateTimeField(null=True)
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     province = models.CharField(max_length=64, null=True)
     postal_code = models.CharField(max_length=8, null=True)

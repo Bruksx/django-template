@@ -261,7 +261,7 @@ class JobPostFactory(DjangoModelFactory):
     def update_date_posted(self, created, extracted, **kwargs):
         date_posted = fake.date_this_decade(before_today=True)
         self.date_posted = datetime.datetime.combine(date_posted, timezone.now().time(), tzinfo=timezone.get_current_timezone())
-        self.save(update_fields=['updated_at'])
+        self.save(update_fields=['date_posted'])
 
 class EmailTemplateFactory(DjangoModelFactory):
     class Meta:
