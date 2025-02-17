@@ -7,7 +7,7 @@ from django.utils import timezone
 from helpers.utils import convert_base64_to_image_file
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
-from ninja.responses import Response
+from monkeypatches.response import Response
 from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 

@@ -6,7 +6,7 @@ from django.db import transaction
 from monkeypatches.q_cluster import async_task
 from ninja import Router, PatchDict, UploadedFile
 from ninja.errors import HttpError
-from ninja.responses import Response
+from monkeypatches.response import Response
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
 from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth

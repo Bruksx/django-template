@@ -1,7 +1,6 @@
 from django.db import transaction
 from django.utils import timezone
-from ninja.responses import Response
-
+from monkeypatches.response import Response
 from accounts.models import User, VerificationCode
 from accounts.schemas import common as common_schema
 from ninja import Router

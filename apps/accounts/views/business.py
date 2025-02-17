@@ -12,7 +12,7 @@ from helpers.utils import convert_base64_to_image_file
 from monkeypatches.q_cluster import async_task
 from ninja import Router, UploadedFile, PatchDict, Form
 from ninja.errors import HttpError
-from ninja.responses import Response
+from monkeypatches.response import Response
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import User, Business, BusinessUser, VerificationCode

@@ -14,7 +14,7 @@ from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.db.models import QuerySet
 from ninja.errors import HttpError
-from ninja.responses import Response
+from monkeypatches.response import Response
 from helpers.loggers import Logger
 import psutil
 from sys import getsizeof
