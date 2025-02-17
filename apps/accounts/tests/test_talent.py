@@ -443,12 +443,12 @@ class TalentDashboardTests(TestCase):
         }
         response = self.client.get("/dashboard-report", headers=headers)
         self.assertEqual(response.status_code, 200)
-        data = response.json()
+        data = response.json()["data"]
         self.assertIn("jobs_applied", data)
         self.assertEqual(data["jobs_applied"], 1)
         response = self.client.get("/dashboard-report?start_date=2022-02-02&end_date=2022-09-02", headers=headers)
         self.assertEqual(response.status_code, 200)
-        data = response.json()
+        data = response.json()["data"]
         self.assertIn("jobs_applied", data)
         self.assertEqual(data["jobs_applied"], 0)
 
