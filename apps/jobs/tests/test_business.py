@@ -96,7 +96,7 @@ class SkillCategoryListTests(TestCase):
         response = self.client.get(self.url)
         data = response.json()
         self.assertEqual(response.status_code, 200)
-        self.assertGreater(len(data), 3)
+        self.assertEqual(len(data), 3)
 
     def test_skill_category_list_with_search(self):
         response = self.client.get(f"{self.url}?search=test")

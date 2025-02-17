@@ -33,11 +33,16 @@ class NinjaJSONEncoder(DjangoJSONEncoder):
 
 class Response(JsonResponse):
     def __init__(self, data: Any, **kwargs: Any) -> None:
-        data_dict = dict(data)
-        if not data_dict.get("code") or data_dict.get("message"):
+        if data:
+            message = ""
+            try:
+                data_dict = dict(data)
+                message = data_dict.get("message", "")
+            except ValueError as e: 
+                print(e)
             res = {
                 "code": kwargs.get("code", 200),
-                "message": "",
+                "message": message,
                 "data": data,
             }
             data = res

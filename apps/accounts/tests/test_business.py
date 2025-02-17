@@ -209,7 +209,7 @@ class BusinessDashboardTestCase(TestCase):
         }
         response = self.client.get("dashboard", headers=headers)
         for key in self.dashboard_keys:
-            self.assertIn(key, response.json())
+            self.assertIn(key, response.json()["data"])
         self.assertEqual(response.status_code, 200)
 
     def test_dashboard_by_business_staff_with_filters(self):
@@ -230,7 +230,7 @@ class BusinessDashboardTestCase(TestCase):
         query = "/dashboard?" + urlencode(filters)
         response = self.client.get(query, headers=headers)
         for key in self.dashboard_keys:
-            self.assertIn(key, response.json())
+            self.assertIn(key, response.json()["data"])
 
         self.assertEqual(response.status_code, 200)
 
