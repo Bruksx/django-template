@@ -58,7 +58,7 @@ class Job(BaseModel):
     about = models.TextField(null=True)
     years_of_experience = models.IntegerField(null=True)
     minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
-    business_models = models.ManyToManyField("BusinessModel")
+    business_models = models.ManyToManyField("BusinessModel", blank=True)
     job_level = models.ForeignKey(JobLevel, on_delete=models.SET_NULL, null=True)
     qualification = models.ForeignKey(Qualification, on_delete=models.SET_NULL, null=True, blank=True)
     work_structure = models.CharField(choices=WorkStructureEnum.choices(), null=True, blank=True)
