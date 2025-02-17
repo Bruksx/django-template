@@ -3,7 +3,7 @@ from uuid import UUID
 
 from django.db import transaction
 from ninja import Router, PatchDict
-from ninja.responses import Response
+from monkeypatches.response import Response
 from ninja_extra import paginate
 from ninja_extra.pagination import PageNumberPaginationExtra
 from ninja_extra.schemas import PaginatedResponseSchema

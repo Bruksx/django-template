@@ -4,7 +4,7 @@ from uuid import UUID
 from config.permissions import IsBusinessUser
 from ninja import Router, Form, UploadedFile, PatchDict
 from ninja.errors import HttpError
-from ninja.responses import Response
+from monkeypatches.response import Response
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import BusinessUserRoleType

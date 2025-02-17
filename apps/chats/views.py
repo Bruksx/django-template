@@ -10,7 +10,7 @@ from django.db import transaction
 from django.db.models import Q, F
 from ninja import Router, PatchDict, UploadedFile, Form
 from ninja.errors import HttpError
-from ninja.responses import Response
+from monkeypatches.response import Response
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
 from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
