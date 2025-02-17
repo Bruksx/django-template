@@ -10,10 +10,8 @@ from accounts.schemas import talent as talent_schemas
 from django.db import transaction
 from ninja import Router, PatchDict, UploadedFile
 from ninja.errors import HttpError
-"""from ninja.responses import Response"""
 from monkeypatches.response import Response
 from ninja_jwt.authentication import JWTAuth
-
 from apps.accounts.enums import MeetingType
 from config.permissions import IsBusinessUser
 from config.permissions import IsTalentUser
