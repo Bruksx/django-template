@@ -6,7 +6,7 @@ from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent, \
-    EducationLevel
+    EducationLevel, SkillCategory
 from core.models import Currency
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
     JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, SkillFactory, BusinessModelFactory, \
@@ -17,6 +17,7 @@ from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
     Qualification, BusinessModel
 )
+
 
 
 class EmploymentTypeListTests(TestCase):
@@ -100,9 +101,25 @@ class SkillCategoryListTests(TestCase):
 
     def test_skill_category_list_with_search(self):
         response = self.client.get(f"{self.url}?search=test")
-        data = response.json()
+        data = response.json()["data"]
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(data), 3)
+
+    def test_skill_category_list_with_category(self):
+        test_name = SkillCategory.objects.first().name
+        response = self.client.get(f"{self.url}?category={str(test_name).upper()}")
+        data = response.json()["data"]
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data), 1)
+        self.assertEqual(response.json()["data"][0]["category_name"], test_name)
+
+    def test_skill_category_list_with_random_text(self):
+        test_name = SkillCategory.objects.first().name[:6]
+        response = self.client.get(f"{self.url}?category={test_name}")
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data), 0)
+
 
 class TestJobPostDetail(TestCase):
     def setUp(self):
