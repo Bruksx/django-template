@@ -72,11 +72,13 @@ def get_qualififcations(request, search=""):
     return queryset
 
 @router.get("skill-categories", response={200: list[SkillCategorySchema]}, tags=["Common"])
-def get_skills(request, search=""):
+def get_skills(request, search="", category=""):
     queryset = SkillCategory.objects.all().prefetch_related("skill_set")
     if search:
         queryset = queryset.filter(Q(name__icontains=search)|
                                    Q(skill__name__icontains=search)).distinct("uid")
+    if category:
+        queryset = queryset.filter(name__iexact=category)
     return Response(data=[SkillCategorySchema.from_orm(q, context={"search": search}) for q in queryset])
 
 

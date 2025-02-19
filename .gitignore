@@ -81,6 +81,7 @@ ehthumbs.db
 /files
 static
 *~
+_trial_temp*
 
 # local utility test files
 ws_test_client.py
