@@ -1,22 +1,22 @@
-import logging
 from typing import Optional, Literal, List
 from uuid import UUID
+
 from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from helpers.utils import convert_base64_to_image_file
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
-from monkeypatches.response import Response
 from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Department, Role, SkillCategory, Skill
+from accounts.schemas.talent import SkillSchema
 from notification.notifications import send_talents_job_matching_notification
 from paginations import CustomPageNumberPaginationExtra
-
-from monkeypatches.q_cluster import async_task
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum
 from .models import (
@@ -28,7 +28,6 @@ from .schemas import (
     JobLevelSchema, TalentListJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema
 )
 from .services import notify_business_on_matched_talents
-from accounts.schemas.talent import SkillSchema
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
