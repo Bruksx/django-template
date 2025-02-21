@@ -120,6 +120,38 @@ class SkillCategoryListTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(data), 0)
 
+class SkillListTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = "/skills"
+
+    def test_skill_list_endpoint(self):
+        response = self.client.get(self.url)
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(len(data), 1)
+
+    def test_skill_list_with_search(self):
+        response = self.client.get(f"{self.url}?search=test")
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(len(data), 1)
+
+    def test_skill_list_with_category(self):
+        test_name = SkillCategory.objects.first().name
+        response = self.client.get(f"{self.url}?category={str(test_name).upper()}")
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(len(data), 1)
+
+
+    def test_skill_list_with_random_text(self):
+        test_name = SkillCategory.objects.first().name[:6]
+        response = self.client.get(f"{self.url}?category={test_name}")
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data), 0)
+
 
 class TestJobPostDetail(TestCase):
     def setUp(self):

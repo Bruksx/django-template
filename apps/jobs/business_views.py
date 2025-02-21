@@ -1,3 +1,4 @@
+import logging
 from typing import Optional, Literal, List
 from uuid import UUID
 from config.permissions import IsBusinessUser
@@ -11,7 +12,7 @@ from monkeypatches.response import Response
 from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import Department, Role, SkillCategory
+from accounts.models import Department, Role, SkillCategory, Skill
 from notification.notifications import send_talents_job_matching_notification
 from paginations import CustomPageNumberPaginationExtra
 
@@ -27,6 +28,7 @@ from .schemas import (
     JobLevelSchema, TalentListJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema
 )
 from .services import notify_business_on_matched_talents
+from accounts.schemas.talent import SkillSchema
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -72,7 +74,7 @@ def get_qualififcations(request, search=""):
     return queryset
 
 @router.get("skill-categories", response={200: list[SkillCategorySchema]}, tags=["Common"])
-def get_skills(request, search="", category=""):
+def get_skills_categories(request, search="", category=""):
     queryset = SkillCategory.objects.all().prefetch_related("skill_set")
     if search:
         queryset = queryset.filter(Q(name__icontains=search)|
@@ -80,6 +82,16 @@ def get_skills(request, search="", category=""):
     if category:
         queryset = queryset.filter(name__iexact=category)
     return Response(data=[SkillCategorySchema.from_orm(q, context={"search": search}) for q in queryset])
+
+
+@router.get("skills", response={200: list[SkillSchema]}, tags=["Common"])
+def get_skills(request, search="", category=""):
+    queryset = Skill.objects.all()
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    if category:
+        queryset = queryset.filter(category__name__iexact=category)
+    return queryset.distinct("name").order_by("name")
 
 
 @router.get("business-models", response=list[GenericNameAndUidSchema], tags=["Common"])
