@@ -1,21 +1,22 @@
 from typing import Optional, Literal, List
 from uuid import UUID
+
 from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from helpers.utils import convert_base64_to_image_file
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
-from monkeypatches.response import Response
 from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import Department, Role, SkillCategory
+from accounts.models import Department, Role, SkillCategory, Skill
+from accounts.schemas.talent import SkillSchema
 from notification.notifications import send_talents_job_matching_notification
 from paginations import CustomPageNumberPaginationExtra
-
-from monkeypatches.q_cluster import async_task
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum
 from .models import (
@@ -72,7 +73,7 @@ def get_qualififcations(request, search=""):
     return queryset
 
 @router.get("skill-categories", response={200: list[SkillCategorySchema]}, tags=["Common"])
-def get_skills(request, search="", category=""):
+def get_skills_categories(request, search="", category=""):
     queryset = SkillCategory.objects.all().prefetch_related("skill_set")
     if search:
         queryset = queryset.filter(Q(name__icontains=search)|
@@ -80,6 +81,16 @@ def get_skills(request, search="", category=""):
     if category:
         queryset = queryset.filter(name__iexact=category)
     return Response(data=[SkillCategorySchema.from_orm(q, context={"search": search}) for q in queryset])
+
+
+@router.get("skills", response={200: list[SkillSchema]}, tags=["Common"])
+def get_skills(request, search="", category=""):
+    queryset = Skill.objects.all()
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    if category:
+        queryset = queryset.filter(category__name__iexact=category)
+    return queryset.distinct("name").order_by("name")
 
 
 @router.get("business-models", response=list[GenericNameAndUidSchema], tags=["Common"])
