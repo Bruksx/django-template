@@ -3,9 +3,12 @@ import random
 import secrets
 import string
 from datetime import timedelta, date, datetime
-from typing import List, Tuple, Optional
+from typing import Tuple, Optional
 from uuid import UUID
 
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
+    BusinessUserStatusType
+from core.models import BaseModel
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
@@ -13,12 +16,8 @@ from django.db.models import Q, Count, F, Value, Avg, IntegerField
 from django.db.models.functions import Concat, Cast
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from ninja_jwt.tokens import RefreshToken
-
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessUserStatusType
-from core.models import BaseModel
 from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType
+from ninja_jwt.tokens import RefreshToken
 from notification.enums import NotificationGroup
 
 from helpers.utils import delete_s3_item
@@ -1049,8 +1048,8 @@ class Experience(BaseModel):
                                                      related_name="annual_salary_bonus_currency")
     level = models.ForeignKey("jobs.JobLevel", on_delete=models.SET_NULL, null=True)
     employment_type = models.ForeignKey("jobs.EmploymentType", on_delete=models.SET_NULL, null=True)
-    start_date = models.DateField()
-    end_date = models.DateField()
+    start_date = models.DateField(null=True)
+    end_date = models.DateField(null=True)
     currently_works_here = models.BooleanField()
 
     def duration(self):
