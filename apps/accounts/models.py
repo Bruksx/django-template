@@ -278,6 +278,8 @@ class Talent(BaseModel):
             return 0,0
         start_date: date = experiences.order_by("start_date").first().start_date
         end_date: date = experiences.order_by("end_date").last().end_date
+        if not end_date:
+            end_date = timezone.now().date()
         months = (end_date - start_date).days/30
         return int(months//12), int(months)
 
@@ -1053,6 +1055,8 @@ class Experience(BaseModel):
     currently_works_here = models.BooleanField()
 
     def duration(self):
+        if not self.end_date:
+            self.end_date = timezone.now().date()
         days = (self.end_date - self.start_date).days
         months = days // 30
         years = months // 12
