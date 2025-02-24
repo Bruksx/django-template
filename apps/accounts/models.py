@@ -1039,11 +1039,11 @@ class Experience(BaseModel):
     talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE, null=True)
     role = models.ForeignKey("accounts.Role", on_delete=models.SET_NULL, null=True)
     company = models.CharField(max_length=100, null=True)
-    annual_salary = models.FloatField(default=0)
+    annual_salary = models.FloatField(default=0, null=True)
     annual_salary_currency = models.ForeignKey("core.Currency", on_delete=models.SET_NULL,
                                                null=True,
                                                related_name="annual_salary_currency")
-    annual_salary_bonus = models.FloatField(default=0)
+    annual_salary_bonus = models.FloatField(default=0, null=True)
     annual_salary_bonus_currency = models.ForeignKey("core.Currency",
                                                      on_delete=models.SET_NULL,
                                                      null=True,
