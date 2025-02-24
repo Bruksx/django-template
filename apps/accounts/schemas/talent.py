@@ -60,8 +60,8 @@ class ExperienceSchema(ModelSchema):
     role: RoleSchema
     level: Optional[JobLevelSchema]
     employment_type: EmploymentTypeSchema
-    annual_salary_currency: CurrencySchema
-    annual_salary_bonus_currency: CurrencySchema
+    annual_salary_currency: Optional[CurrencySchema]
+    annual_salary_bonus_currency: Optional[CurrencySchema]
     duration: str
     class Meta:
         model = Experience
