@@ -334,7 +334,7 @@ class Talent(BaseModel):
             score -=1
         if  required_attribute.job_level and not self.experience_set.filter(level=job.job_level).exists():
             score -=1
-        if  required_attribute.years_of_experience and required_attribute.years_of_experience > job.years_of_experience:
+        if  required_attribute.years_of_experience and self.years_of_experience > (job.years_of_experience or 0):
             score -=1
         if required_attribute.business_models.count() > 0 and required_attribute.business_models.intersection(self.business_models.all()).count() == 0:
             score -= 1
@@ -1072,8 +1072,8 @@ class TalentAvailableDay(BaseModel):
 
 class CustomerCase(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    reason = models.CharField(max_length=200)
-    subject = models.CharField(max_length=200)
+    reason = models.CharField(max_length=255)
+    subject = models.CharField(max_length=255)
     description = models.TextField()
 
 
