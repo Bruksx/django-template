@@ -14,7 +14,9 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
     attributes = ["posted_timeline", "screening_timeline", "interview_timeline", "onboarding_timeline"]
     today = timezone.now()
     if instance.id:
-        application = JobApplication.objects.get(id=instance.id)
+        application = JobApplication.objects.filter(id=instance.id)
+        if not application:
+            return
         if instance.stage and application.stage != instance.stage and instance.stage.phase != PhaseType.REJECTED.value:
             index = phases.index(instance.stage.phase)
             if application.stage is None:
