@@ -12,10 +12,13 @@ from accounts.models import Country, Department, EducationLevel, Business, Busin
 from core.models import Currency
 from factories import TalentFactory, BusinessFactory, BusinessUserFactory, JobFactory, JobPostFactory, \
     RequiredAttributeFactory, TalentAvailableDayFactory, JobFilterFactory, JobApplicationFactory, SavedJobFactory, \
-    WorkflowStageFactory, EmailTemplateFactory, CustomerCaseFactory
+    WorkflowStageFactory, EmailTemplateFactory, CustomerCaseFactory, ScreeningQuestionFactory, AnswerFactory
 from jobs.enums import PhaseType
-from jobs.models import JobPost, EmploymentType, JobApplication, JobLevel, SavedJob, Qualification
+from jobs.models import JobPost, EmploymentType, JobApplication, JobLevel, SavedJob, Qualification, ScreeningQuestion, \
+    Job
 from settings.models import WorkFlowStage
+from helpers.email.utils import send_email
+
 
 fake = Faker()
 
@@ -41,7 +44,7 @@ class SeederTest(TestCase):
         countries = [*Country.objects.exclude(name__iexact="Nigeria").order_by('?')[:4]]
         nigeria = Country.objects.filter(name__iexact="Nigeria").first()
 
-        departments =  Department.objects.all()
+        departments = Department.objects.all()
         educational_levels = EducationLevel.objects.all()
         employment_type = EmploymentType.objects.all()
         job_level = JobLevel.objects.all()
@@ -84,8 +87,9 @@ class SeederTest(TestCase):
             BusinessUserFactory(business=business,
                                 role=BusinessUserRoleType.ADMIN.value,
                                 user=business.created_by,
-                    )
-            staffs = BusinessUserFactory.create_batch(5, business=business, role=BusinessUserRoleType.TEAM_MEMBER.ADMIN.value)
+                                )
+            staffs = BusinessUserFactory.create_batch(5, business=business,
+                                                      role=BusinessUserRoleType.TEAM_MEMBER.ADMIN.value)
 
             for staff in staffs:
                 user_ids.append(staff.user.id)
@@ -96,12 +100,13 @@ class SeederTest(TestCase):
                     qualification=get_random_data(qualifications),
                     role=get_random_data(roles),
                     employment_type=get_random_data(employment_type)
-                 )
+                )
 
                 # job count should be 15 per business, so in total 15 * 5 = 75, thats 75 jobs
                 for job in jobs:
                     job.skills.set(get_random_list(skills, 10))
                     job.save()
+
                     # create job required attribute for all jobs:
                     RequiredAttributeFactory.create(job=job)
                     for country in countries:
@@ -112,6 +117,8 @@ class SeederTest(TestCase):
                             annual_salary_currency=get_random_data(currencies),
                             annual_bonus_currency=get_random_data(currencies)
                         )
+                    ScreeningQuestionFactory.create_batch(5, job=job)
+
             # now we have have 75 * 5 = 375 job posts
 
         for business in businesses:
@@ -150,10 +157,13 @@ class SeederTest(TestCase):
         job_applications = JobApplication.objects.filter(id__in=applications).order_by("?")[:100]
 
         for job_application in job_applications:
-
-            job_application.stage = choice(WorkFlowStage.objects.filter(created_by__business=job_application.recruiter.business))
+            questions = job_application.job_post.job.screeningquestion_set.all()
+            for question in questions:
+                AnswerFactory.create(application=job_application,
+                                     question=question)
+            job_application.stage = choice(
+                WorkFlowStage.objects.filter(created_by__business=job_application.recruiter.business))
             job_application.save()
-
 
         users = User.objects.filter(id__in=user_ids)
         message = ""
@@ -165,35 +175,16 @@ class SeederTest(TestCase):
             user.save()
             message = f"{message}\nName: {user.fullname}\nEmail: {user.email}\nPassword: {password}\nUser Type: {user.type}\n\n"
 
-
-        send_mail("Seeded Users", message, settings.EMAIL_HOST_USER, email_recipients)
+        send_email(subject="Seeded Users",
+                   plain_body=message,
+                   emails=email_recipients)
         print(message)
 
-    def test_seed(self):
-        message = "\n"
-
+    @staticmethod
+    def show_data():
         print("businesses: ", Business.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
         print("talents: ", Talent.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
-        print("job posts: ", JobPost.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
-        print("job applications: ", JobApplication.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
-        print("saved jobs: ", SavedJob.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
-        print("staffs: ", BusinessUser.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
-
-        print("departments: ", Department.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
-        print("educational levels: ", EducationLevel.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
-        print("job levels: ", JobLevel.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
-        print("employment types: ", EmploymentType.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
-        print("roles: ", Role.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
-        print("skills: ", Skill.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
-        print("countries: ", Country.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
-        print("workflows: ", WorkFlowStage.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
-
-        self.generate_data(self.password, self.email_recipients)
-
-
-        print("\n\nAfter creation: \n\n")
-        print("businesses: ", Business.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
-        print("talents: ", Talent.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
+        print("jobs: ", Job.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
         print("job posts: ", JobPost.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
         print("job applications: ",
               JobApplication.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
@@ -210,4 +201,12 @@ class SeederTest(TestCase):
         print("skills: ", Skill.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
         print("countries: ", Country.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
         print("workflows: ", WorkFlowStage.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
+        print("questions: ",
+              ScreeningQuestion.objects.filter(created_at__gte=datetime.now() - timedelta(days=1)).count())
+
+    def test_seed(self):
+        self.show_data()
+        self.generate_data(self.password, self.email_recipients)
+        print("\n\nAfter creation: \n\n")
+        self.show_data()
 

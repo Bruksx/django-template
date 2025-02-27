@@ -19,7 +19,8 @@ from settings.models import WorkFlowStage
 
 from apps.factories import TalentFactory, BusinessFactory, BusinessUserFactory, JobFactory, JobPostFactory, \
     RequiredAttributeFactory, JobFilterFactory, JobApplicationFactory, SavedJobFactory, \
-    WorkflowStageFactory, EmailTemplateFactory, CustomerCaseFactory, TalentAvailableDayFactory
+    WorkflowStageFactory, EmailTemplateFactory, CustomerCaseFactory, TalentAvailableDayFactory, \
+    ScreeningQuestionFactory, AnswerFactory
 
 
 def create_talent_available_days(talent):
@@ -37,138 +38,144 @@ def get_random_list(data, count):
 
 @transaction.atomic
 def generate_data(password, email_recipients):
-        fake = Faker()
-        countries = [*Country.objects.exclude(name__iexact="Nigeria").order_by('?')[:4]]
-        nigeria = Country.objects.filter(name__iexact="Nigeria").first()
+    fake = Faker()
+    countries = [*Country.objects.exclude(name__iexact="Nigeria").order_by('?')[:4]]
+    nigeria = Country.objects.filter(name__iexact="Nigeria").first()
 
-        departments =  Department.objects.all()
-        educational_levels = EducationLevel.objects.all()
-        employment_type = EmploymentType.objects.all()
-        job_level = JobLevel.objects.all()
-        roles = Role.objects.all()
-        skills = Skill.objects.all()
-        qualifications = Qualification.objects.all()
-        currencies = Currency.objects.all()
+    departments = Department.objects.all()
+    educational_levels = EducationLevel.objects.all()
+    employment_type = EmploymentType.objects.all()
+    job_level = JobLevel.objects.all()
+    roles = Role.objects.all()
+    skills = Skill.objects.all()
+    qualifications = Qualification.objects.all()
+    currencies = Currency.objects.all()
 
-        user_ids = []
+    user_ids = []
 
-        countries.append(nigeria)
+    countries.append(nigeria)
 
-        talents = TalentFactory.create_batch(50, country=nigeria)
+    talents = TalentFactory.create_batch(50, country=nigeria)
 
-        count = 0
-        for country in countries:
-            for talent in talents[(count * 10):((count + 1) * 10)]:
-                talent.country = country
-                talent.save()
-                user_ids.append(talent.user.id)
-                create_talent_available_days(talent)
-                JobFilterFactory(talent=talent,
-                                 department=get_random_data(departments),
-                                 minimum_education_level=get_random_data(educational_levels),
-                                 employment_type=get_random_data(employment_type),
-                                 office_location=talent.country)
-                talent.country = country
-                talent.save()
-                count += 1
-        # we have 50 talents from 5 different countries
+    count = 0
+    for country in countries:
+        for talent in talents[(count * 10):((count + 1) * 10)]:
+            talent.country = country
+            talent.save()
+            user_ids.append(talent.user.id)
+            create_talent_available_days(talent)
+            JobFilterFactory(talent=talent,
+                             department=get_random_data(departments),
+                             minimum_education_level=get_random_data(educational_levels),
+                             employment_type=get_random_data(employment_type),
+                             office_location=talent.country)
+            talent.country = country
+            talent.save()
+            count += 1
+    # we have 50 talents from 5 different countries
 
-        businesses = BusinessFactory.create_batch(
-            5, country=get_random_data(Country.objects.all())
-        )
+    businesses = BusinessFactory.create_batch(
+        5, country=get_random_data(Country.objects.all())
+    )
 
-        # we have 5 different businesses each with 6 staffs
+    # we have 5 different businesses each with 6 staffs
 
-        for business in businesses:
-            user_ids.append(business.created_by.id)
-            BusinessUserFactory(business=business,
-                                role=BusinessUserRoleType.ADMIN.value,
-                                user=business.created_by,
+    for business in businesses:
+        user_ids.append(business.created_by.id)
+        BusinessUserFactory(business=business,
+                            role=BusinessUserRoleType.ADMIN.value,
+                            user=business.created_by,
+                            )
+        staffs = BusinessUserFactory.create_batch(5, business=business,
+                                                  role=BusinessUserRoleType.TEAM_MEMBER.ADMIN.value)
+
+        for staff in staffs:
+            user_ids.append(staff.user.id)
+            jobs = JobFactory.create_batch(
+                3, created_by=staff,
+                minimum_education_level=get_random_data(educational_levels),
+                job_level=get_random_data(job_level),
+                qualification=get_random_data(qualifications),
+                role=get_random_data(roles),
+                employment_type=get_random_data(employment_type)
+            )
+
+            # job count should be 15 per business, so in total 15 * 5 = 75, thats 75 jobs
+            for job in jobs:
+                job.skills.set(get_random_list(skills, 10))
+                job.save()
+
+                # create job required attribute for all jobs:
+                RequiredAttributeFactory.create(job=job)
+                for country in countries:
+                    JobPostFactory(
+                        country=country,
+                        recruiter=staff,
+                        job=job,
+                        annual_salary_currency=get_random_data(currencies),
+                        annual_bonus_currency=get_random_data(currencies)
                     )
-            staffs = BusinessUserFactory.create_batch(5, business=business, role=BusinessUserRoleType.TEAM_MEMBER.ADMIN.value)
+                ScreeningQuestionFactory.create_batch(5, job=job)
 
-            for staff in staffs:
-                user_ids.append(staff.user.id)
-                jobs = JobFactory.create_batch(
-                    3, created_by=staff,
-                    minimum_education_level=get_random_data(educational_levels),
-                    job_level=get_random_data(job_level),
-                    qualification=get_random_data(qualifications),
-                    role=get_random_data(roles),
-                    employment_type=get_random_data(employment_type)
-                 )
+        # now we have have 75 * 5 = 375 job posts
 
-                # job count should be 15 per business, so in total 15 * 5 = 75, thats 75 jobs
-                for job in jobs:
-                    job.skills.set(get_random_list(skills, 10))
-                    job.save()
-                    # create job required attribute for all jobs:
-                    RequiredAttributeFactory.create(job=job)
-                    for country in countries:
-                        JobPostFactory(
-                            country=country,
-                            recruiter=staff,
-                            job=job,
-                            annual_salary_currency=get_random_data(currencies),
-                            annual_bonus_currency=get_random_data(currencies)
-                        )
-            # now we have have 75 * 5 = 375 job posts
+    for business in businesses:
+        for phase in PhaseType.values():
+            staff = BusinessUser.objects.filter(user=business.created_by).first()
+            color = fake.color_name()
+            data = dict(created_by=staff, phase=phase, name=color)
+            workflow = WorkFlowStage.objects.filter(**data).first()
+            if not workflow:
+                email_template = EmailTemplateFactory(
+                    created_by=staff
+                )
+                WorkflowStageFactory(**data, email_template=email_template)
 
-        for business in businesses:
-            for phase in PhaseType.values():
-                staff = BusinessUser.objects.filter(user=business.created_by).first()
-                color = fake.color_name()
-                data = dict(created_by=staff, phase=phase, name=color)
-                workflow = WorkFlowStage.objects.filter(**data).first()
-                if not workflow:
-                    email_template = EmailTemplateFactory(
-                        created_by=staff
-                    )
-                    WorkflowStageFactory(**data, email_template=email_template)
+    applications = []
 
-        applications = []
+    for talent in talents:
+        job_posts = JobPost.objects.filter(country=talent.country).order_by("?")
 
-        for talent in talents:
-            job_posts = JobPost.objects.filter(country=talent.country).order_by("?")
+        apply_count = choice(range(1, 15))
+        save_count = choice(range(1, 20))
+        # apply for job posts
+        for job_post in job_posts[:apply_count]:
+            application = JobApplicationFactory(
+                job_post=job_post,
+                applicant=talent,
+                recruiter=job_post.recruiter,
+                stage=None,
+                match=talent.job_match_score(job_post))
+            applications.append(application.id)
 
-            apply_count = choice(range(1, 15))
-            save_count = choice(range(1, 20))
-            # apply for job posts
-            for job_post in job_posts[:apply_count]:
-                application = JobApplicationFactory(
-                    job_post=job_post,
-                    applicant=talent,
-                    recruiter=job_post.recruiter,
-                    stage=None,
-                    match=talent.job_match_score(job_post))
-                applications.append(application.id)
+        # save job posts
+        for job_post in job_posts[:save_count]:
+            SavedJobFactory(job_post=job_post, talent=talent)
 
-            # save job posts
-            for job_post in job_posts[:save_count]:
-                SavedJobFactory(job_post=job_post, talent=talent)
+    job_applications = JobApplication.objects.filter(id__in=applications).order_by("?")[:100]
 
-        job_applications = JobApplication.objects.filter(id__in=applications).order_by("?")[:100]
+    for job_application in job_applications:
+        questions = job_application.job_post.job.screeningquestion_set.all()
+        for question in questions:
+            AnswerFactory.create(application=job_application,
+                                 question=question)
+        job_application.stage = choice(
+            WorkFlowStage.objects.filter(created_by__business=job_application.recruiter.business))
+        job_application.save()
 
-        for job_application in job_applications:
+    users = User.objects.filter(id__in=user_ids)
+    message = ""
+    for user in users:
+        CustomerCaseFactory.create(user=user)
+        user.is_active = True
+        user.email_verified = True
+        user.set_password(password)
+        user.save()
+        message = f"{message}\nName: {user.fullname}\nEmail: {user.email}\nPassword: {password}\nUser Type: {user.type}\n\n"
 
-            job_application.stage = choice(WorkFlowStage.objects.filter(created_by__business=job_application.recruiter.business))
-            job_application.save()
-
-
-        users = User.objects.filter(id__in=user_ids)
-        message = ""
-        for user in users:
-            CustomerCaseFactory.create(user=user)
-            user.is_active = True
-            user.email_verified = True
-            user.set_password(password)
-            user.save()
-            message = f"{message}\nName: {user.fullname}\nEmail: {user.email}\nPassword: {password}\nUser Type: {user.type}\n\n"
-
-
-        send_email(subject="Seeded Users",
-                   plain_body=message,
-                   emails=email_recipients)
-        print(message)
+    send_email(subject="Seeded Users",
+               plain_body=message,
+               emails=email_recipients)
+    print(message)
 
 generate_data("P455@1840GTC", ["ohaegbulouis@gmail.com"])
