@@ -1,4 +1,4 @@
-from typing import List, Any
+from typing import List
 
 import requests
 from django.conf import settings
@@ -8,14 +8,15 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from pydantic import EmailStr
 
-from helpers.decorators import test_env_decorator
 from helpers.loggers import Logger
 from helpers.utils import is_valid_email
 
 
-@test_env_decorator(None)
 def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_body:str=None):
     retries = 3
+    emails = [email for email in emails if email.split("@")[1].split(".")[0].lower() not in ("example", "localhost", "test")]
+    if not emails:
+        return
     for retry in range(retries):
         try:
             body = plain_body or strip_tags(html_body)
@@ -36,11 +37,19 @@ def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_b
                 description=str(e)
             ), exc_info=True)
 
-@test_env_decorator(None)
+
 def send_template_email(subject:str, body:str, emails:List[EmailStr], from_user:str, attachment_urls:List[str]=None,
                         bcc:List[EmailStr]=None, cc:List[EmailStr]=None):
     html_content = render_html_email("email_template.html", dict(body=body))
     retries = 3
+    emails = [email for email in emails if
+              email.split("@")[1].split(".")[0].lower() not in ("example", "localhost", "test")]
+    bcc = [email for email in bcc if
+              email.split("@")[1].split(".")[0].lower() not in ("example", "localhost", "test")]
+    cc = [email for email in cc if
+              email.split("@")[1].split(".")[0].lower() not in ("example", "localhost", "test")]
+    if not emails or not bcc or not cc:
+        return
 
     if is_valid_email(from_user):
         user = from_user.split("@")[0].title()

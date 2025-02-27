@@ -1072,8 +1072,8 @@ class TalentAvailableDay(BaseModel):
 
 class CustomerCase(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    reason = models.CharField(max_length=200)
-    subject = models.CharField(max_length=200)
+    reason = models.CharField(max_length=255)
+    subject = models.CharField(max_length=255)
     description = models.TextField()
 
 

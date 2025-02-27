@@ -49,7 +49,7 @@ class EmailTemplate(BaseModel):
                     bcc=self.bcc,
                     cc=self.cc,
                     from_user=self.sender,
-                    attachments=attachments
+                    attachment_urls=attachments
                 )
         if self.delays == 0:
             async_task(send_template_email,

@@ -94,7 +94,7 @@ class UserFactory(DjangoModelFactory):
     first_name = factory.Faker('first_name', )
     last_name = factory.Faker('last_name')
     gender = factory.Iterator(GenderType.values())
-    email  = factory.Sequence(lambda n: f'user{n}@example.com')
+    email  = factory.Sequence(lambda n: f'usersx_{n}@test.com')
     phone_number = factory.LazyAttribute(lambda _: fake.phone_number()[:15])
     password = factory.Faker('password')
 
@@ -118,8 +118,16 @@ class TalentFactory(DjangoModelFactory):
     def education(self, create, extracted, **kwargs):
         if not create:
             return
-        EducationFactory.create_batch(2, talent=self)
-        ExperienceFactory.create_batch(3, talent=self)
+        EducationFactory.create_batch(
+            2, talent=self,
+            level=EducationLevel.objects.order_by("?").first()
+                                      )
+        ExperienceFactory.create_batch(
+            3, talent=self,
+            level=JobLevel.objects.order_by("?").first(),
+            employment_type=EmploymentType.objects.order_by("?").first(),
+            role=Role.objects.order_by("?").first()
+        )
         return
 
 
@@ -158,7 +166,7 @@ class EducationFactory(DjangoModelFactory):
     end_date = factory.Faker('date_this_decade', before_today=True)
     major = factory.lazy_attribute(lambda _: fake.job()[:20])
     level = factory.SubFactory(EducationLevelFactory)
-    university = factory.lazy_attribute(lambda _: fake.sentence()[:20])
+    university = factory.lazy_attribute(lambda _: fake.company()[:20])
 
 class ExperienceFactory(DjangoModelFactory):
     class Meta:
@@ -192,8 +200,8 @@ class CustomerCaseFactory(DjangoModelFactory):
     class Meta:
         model = CustomerCase
 
-    reason = factory.Faker('sentence', nb_words=50)
-    subject = factory.Faker('sentence', nb_words=20)
+    reason = factory.lazy_attribute(lambda _: fake.sentence()[:100])
+    subject = factory.lazy_attribute(lambda _: fake.sentence()[:100])
     description = factory.Faker('sentence', nb_words=100)
     user = factory.SubFactory(UserFactory)
 
@@ -210,7 +218,7 @@ class JobFactory(DjangoModelFactory):
     created_by = factory.SubFactory(BusinessUserFactory)
     hiring_company_name = factory.Faker('company')
     hiring_company_description = factory.Faker('sentence', nb_words=100)
-    title = factory.lazy_attribute(lambda _: fake.sentence()[:15])
+    title = factory.lazy_attribute(lambda _: fake.job()[:15])
     about = factory.Faker('sentence', nb_words=100)
     years_of_experience = factory.Faker('pyint', min_value=1, max_value=10)
     minimum_education_level = factory.SubFactory(EducationLevelFactory)
@@ -290,7 +298,7 @@ class WorkflowStageFactory(DjangoModelFactory):
         model = WorkFlowStage
 
     phase = factory.Iterator([*filter(lambda x: x not in (PhaseType.REJECTED.value, PhaseType.HIRED.value), PhaseType.values())])
-    name = factory.Faker('sentence', nb_words=5)
+    name = factory.lazy_attribute(lambda _: fake.color_name()[:20])
     email_template = factory.SubFactory(EmailTemplateFactory)
     created_by = factory.SubFactory(BusinessUserFactory)
     is_active = factory.Iterator([True, False])
@@ -309,7 +317,11 @@ class JobApplicationFactory(DjangoModelFactory):
             return
         if self.stage:
             return
-        self.stage = WorkflowStageFactory.create(created_by=self.recruiter)
+        workflow_stage = WorkFlowStage.objects.filter(created_by__business=self.recruiter.business).order_by("?").first()
+        if not workflow_stage:
+            email_template = EmailTemplateFactory(created_by=self.recruiter)
+            workflow_stage = WorkflowStageFactory.create(created_by=self.recruiter, email_template=email_template)
+        self.stage=workflow_stage
         self.save()
         return
 
@@ -356,7 +368,7 @@ class JobFilterFactory(DjangoModelFactory):
         model = JobFilter
 
     talent = factory.SubFactory(TalentFactory)
-    role = factory.lazy_attribute(lambda _: fake.sentence()[:20])
+    role = factory.lazy_attribute(lambda _: fake.job()[:20])
     years_of_experience = factory.Iterator([1,2,3,4,5,6,7])
     office_location = factory.SubFactory(CountryFactory)
     employment_type = factory.SubFactory(EmploymentTypeFactory)

@@ -14,7 +14,7 @@ from notification.enums import EntityType, EntityActionType, NotificationType, N
 
 
 class Notification(BaseModel):
-    title = models.CharField(max_length=200)
+    title = models.CharField(max_length=255)
     description = models.TextField()
     action = models.CharField(max_length=150, choices=EntityActionType.choices, null=True)
     entity = models.CharField(max_length=150, choices=EntityType.choices, null=True)

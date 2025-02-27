@@ -28,6 +28,8 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
                 setattr(instance, "stage_date_updated", today)
 
             else:
+                if application.stage.phase not in phases:
+                    return
                 # if an application is moved from a stage to another in a forward movement
                 prev_index = phases.index(application.stage.phase)
                 if prev_index < index:
