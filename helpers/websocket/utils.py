@@ -1,4 +1,5 @@
 import json
+import sys
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
@@ -24,6 +25,8 @@ def validate_data(data:dict):
 
 
 def send_ws(channel:str, data:dict):
+    if "test" in sys.argv:
+        return
     is_valid = validate_data(data)
     if not is_valid:
         Logger.error(dict(

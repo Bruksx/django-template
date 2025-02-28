@@ -80,7 +80,9 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
 @receiver(pre_save, sender=JobApplication)
 def handle_stage_update(sender, instance,  **kwargs):
     if instance.id:
-        application = JobApplication.objects.get(id=instance.id)
+        application = JobApplication.objects.filter(id=instance.id).first()
+        if not application:
+            return
         if instance.stage and application.stage != instance.stage:
             if instance.stage.email_template:
                 context = instance.get_email_context()
@@ -91,7 +93,9 @@ def handle_stage_update(sender, instance,  **kwargs):
 def handle_stage_timeline_update(sender, instance,  **kwargs):
     today = timezone.now()
     if instance.id:
-        application = JobApplication.objects.get(id=instance.id)
+        application = JobApplication.objects.filter(id=instance.id).first()
+        if not application:
+            return
         if instance.stage and application.stage != instance.stage:
             if application.stage is None:
                 # if application is new and is being moved to next stage
@@ -154,7 +158,9 @@ def handle_job_post_metric(sender, instance, created, **kwargs):
 @receiver(pre_save, sender=JobPost)
 def handle_job_post_date(sender, instance, **kwargs):
     if instance.id:
-        existing_instance = JobPost.objects.get(id=instance.id)
+        existing_instance = JobPost.objects.filter(id=instance.id).first()
+        if not existing_instance:
+            return
         if instance.status == JobStatusType.POSTED.value and existing_instance.status != JobStatusType.POSTED.value:
             instance.date_posted = timezone.now()
     else:

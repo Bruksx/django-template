@@ -584,6 +584,17 @@ class TalentJobPostListSchema(ModelSchema):
             return None
         return JobApplication.objects.filter(job_post=obj, applicant=talent).exists()
 
+class AppliedTalentJobPostListSchema(TalentJobPostListSchema):
+    application_uid: Optional[UUID]
+
+    @staticmethod
+    def resolve_application_uid(obj, context):
+        request = context.get("request")
+        talent = request.context.get("talent")
+        if not talent:
+            return None
+        application = JobApplication.objects.filter(job_post=obj, applicant=talent).first()
+        return application.uid if application else None
 
 class TalentJobPostSchema(JobPostListSchema):
     job: JobDetailSchema

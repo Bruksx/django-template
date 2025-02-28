@@ -1,3 +1,4 @@
+import sys
 from typing import List
 
 import requests
@@ -13,6 +14,8 @@ from helpers.utils import is_valid_email
 
 
 def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_body:str=None):
+    if "test" in sys.argv:
+        return
     retries = 3
     emails = [email for email in emails if email.split("@")[1].split(".")[0].lower() not in ("example", "localhost", "test")]
     if not emails:
@@ -41,6 +44,8 @@ def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_b
 def send_template_email(subject:str, body:str, emails:List[EmailStr], from_user:str, attachment_urls:List[str]=None,
                         bcc:List[EmailStr]=None, cc:List[EmailStr]=None):
     html_content = render_html_email("email_template.html", dict(body=body))
+    if "test" in sys.argv:
+        return
     retries = 3
     emails = [email for email in emails if
               email.split("@")[1].split(".")[0].lower() not in ("example", "localhost", "test")]
