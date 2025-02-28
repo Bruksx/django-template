@@ -50,7 +50,7 @@ class Job(BaseModel):
         (UNPAID, UNPAID)
     )
     logo = models.ImageField(upload_to="jobs/logos", null=True, blank=True)
-    created_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True)
+    created_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True) #TODO take care during delete account
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     hiring_company_name = models.CharField(max_length=64, null=True)
     hiring_company_description = models.TextField(null=True)
@@ -256,7 +256,7 @@ class JobPost(BaseModel):
         return
 
 class JobPostMetrics(BaseModel):
-    job_post = models.OneToOneField(JobPost, on_delete=models.SET_NULL, null=True)
+    job_post = models.OneToOneField(JobPost, on_delete=models.CASCADE, null=True)
     daily_email_shares = models.PositiveIntegerField(default=0)
     weekly_views = models.PositiveIntegerField(default=0)
 
@@ -271,7 +271,7 @@ class JobPostMetrics(BaseModel):
 
 
 class JobApplication(BaseModel):
-    job_post = models.ForeignKey(JobPost, on_delete=models.SET_NULL, null=True)
+    job_post = models.ForeignKey(JobPost, on_delete=models.CASCADE, null=True)
     applicant = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE)
     recruiter = models.ForeignKey(
         "accounts.BusinessUser",
@@ -470,8 +470,8 @@ class RequiredAttribute(BaseModel):
 
 
 class JobApplicationWithdrawal(BaseModel):
-    job_post = models.ForeignKey(JobPost, on_delete=models.SET_NULL, null=True, default=None)
-    talent = models.ForeignKey("accounts.Talent", on_delete=models.SET_NULL, null=True)
+    job_post = models.ForeignKey(JobPost, on_delete=models.CASCADE, null=True, default=None)
+    talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE, null=True)
     feedback_type = models.PositiveSmallIntegerField(default=0)
     feedback = models.TextField()
 
