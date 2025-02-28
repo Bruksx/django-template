@@ -584,9 +584,12 @@ class TalentJobPostListSchema(ModelSchema):
             return None
         return JobApplication.objects.filter(job_post=obj, applicant=talent).exists()
 
+class StageSchema(GenericNameAndUidSchema):
+    phase: str
+
 class AppliedTalentJobPostListSchema(TalentJobPostListSchema):
     application_uid: Optional[UUID]
-    stage: Optional[GenericNameAndUidSchema]
+    stage: Optional[StageSchema]
 
     @staticmethod
     def resolve_application_uid(obj, context):
