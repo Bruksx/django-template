@@ -586,6 +586,7 @@ class TalentJobPostListSchema(ModelSchema):
 
 class AppliedTalentJobPostListSchema(TalentJobPostListSchema):
     application_uid: Optional[UUID]
+    stage: Optional[GenericNameAndUidSchema]
 
     @staticmethod
     def resolve_application_uid(obj, context):
@@ -593,8 +594,17 @@ class AppliedTalentJobPostListSchema(TalentJobPostListSchema):
         talent = request.context.get("talent")
         if not talent:
             return None
-        application = JobApplication.objects.filter(job_post=obj, applicant=talent).first()
+        application = JobApplication.objects.filter(job_post=obj, applicant=talent).only("uid").first()
         return application.uid if application else None
+
+    @staticmethod
+    def resolve_stage(obj, context):
+        request = context.get("request")
+        talent = request.context.get("talent")
+        if not talent:
+            return None
+        application = JobApplication.objects.filter(job_post=obj, applicant=talent).only("stage").first()
+        return application.stage if application else None
 
 class TalentJobPostSchema(JobPostListSchema):
     job: JobDetailSchema

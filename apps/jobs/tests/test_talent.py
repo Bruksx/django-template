@@ -131,6 +131,8 @@ class TalentJobListTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
         self.assertEqual(response.json()["results"][0]["application_uid"], str(application.uid))
+        self.assertEqual(response.json()["results"][0]["stage"]["uid"], str(stage.uid))
+
         response = self.client.get("talent/applied-jobs?use_filter=false&page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
