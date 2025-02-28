@@ -1,22 +1,22 @@
-import logging
 from datetime import timezone, date, time
 from decimal import Decimal
 from uuid import uuid4
 
+from database_seeder import generate_data
 from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.enums import PreferredCommunicationType, GenderType, NoticePeriodType, Days, BusinessUserRoleType
+from accounts.enums import Days, BusinessUserRoleType
 from accounts.models import User, VerificationCode, Country, Talent, EducationLevel, Industry, \
-    Skill, Department, SkillCategory, Role, Business, BusinessUser, Experience, TalentAvailableDay
+    Skill, Department, Role, Business, BusinessUser, Experience, TalentAvailableDay
 from accounts.views.talent import router
 from chats.models import Conversation, Message
-from core.models import Language, Currency
+from core.models import Currency
 from factories import WorkflowStageFactory, TalentFactory, BusinessUserFactory, CountryFactory, IndustryFactory, \
     LanguageFactory, EducationFactory, EducationLevelFactory, RoleFactory, ExperienceFactory, SkillFactory, \
-    BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory, JobFilterFactory, SavedJobFactory
-from jobs.enums import LunchBreakEnum, WorkStructureEnum, PhaseType, JobStatusType
+    BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory, SavedJobFactory, JobFilterFactory
+from jobs.enums import LunchBreakEnum, PhaseType, JobStatusType
 from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, RequiredAttribute, AvailableDay, \
     JobApplication, JobInterview
 
@@ -532,15 +532,17 @@ class TalentDetailTest(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
-class DeleteTalentUserAccountTest(TestCase):
+class DeleteTalentUserAccountTest2(TestCase):
     def setUp(self):
-        self.talent = TalentFactory.create()
+        generate_data("PASSWORD", [],
+                      talent_amount=5,
+                      silent=True
+                      )
         self.url = "/"
         self.client = TestClient(router)
-        self.saved_job = SavedJobFactory.create(talent=self.talent)
-        self.job_filter = JobFilterFactory.create(talent=self.talent)
-        self.education = EducationFactory.create(talent=self.talent)
-        self.experience = ExperienceFactory.create(talent=self.talent)
+
+        self.talent = Talent.objects.order_by("?").first()
+        self.business_user = BusinessUser.objects.order_by("?").first()
 
     def test_delete_talent_user_account(self):
         from jobs.models import SavedJob, JobFilter #noqa
@@ -549,6 +551,7 @@ class DeleteTalentUserAccountTest(TestCase):
         headers = {
             "authorization": f"bearer {self.talent.user.token}"
         }
+
         response = self.client.delete(self.url, headers=headers)
         self.assertEqual(response.status_code, 204)
         user = User.objects.filter(id=self.talent.user.id).first()

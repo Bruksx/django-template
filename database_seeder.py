@@ -38,7 +38,12 @@ def get_random_list(data, count):
 
 
 @transaction.atomic
-def generate_data(password, email_recipients):
+def generate_data(password, email_recipients, talent_amount=50,
+                  business_amount=5, staff_amount=5, job_amount=3,
+                  question_amount=3, max_applied_jobs=10, max_withdrawals=10,
+                  max_saved_jobs=7, silent=True
+
+                  ):
     fake = Faker()
     countries = [*Country.objects.exclude(name__iexact="Nigeria").order_by('?')[:4]]
     nigeria = Country.objects.filter(name__iexact="Nigeria").first()
@@ -57,15 +62,17 @@ def generate_data(password, email_recipients):
     countries.append(nigeria)
 
     talent_count = Talent.objects.all().count()
-    if talent_count < 50:
-        print("creating new talents")
-        talents = TalentFactory.create_batch(50-talent_count, country=nigeria)
+    if talent_count < talent_amount:
+        if not silent:
+            print("creating new talents")
+        talents = TalentFactory.create_batch(talent_amount-talent_count, country=nigeria)
         user_ids.extend([talent.user.id for talent in talents])
 
     talents = Talent.objects.all()
 
     count = 0
-    print("creating job filters for talents")
+    if not silent:
+        print("creating job filters for talents")
     for country in countries:
         for talent in talents[(count * 10):((count + 1) * 10)]:
             if not talent.country:
@@ -84,10 +91,11 @@ def generate_data(password, email_recipients):
     # we have 50 talents from 5 different countries
 
     business_count = Business.objects.count()
-    if business_count < 5:
-        print("creating new businesses")
+    if business_count < business_amount:
+        if not silent:
+            print("creating new businesses")
         BusinessFactory.create_batch(
-            5 - business_count, country=get_random_data(Country.objects.all())
+            business_amount - business_count, country=get_random_data(Country.objects.all())
         )
 
     businesses = Business.objects.all()
@@ -101,18 +109,20 @@ def generate_data(password, email_recipients):
                                 user=business.created_by,
                                 )
         staff_count = business.businessuser_set.all().count()
-        if staff_count < 5:
-            print(f"creating new staffs for {business.name} ")
-            staffs = BusinessUserFactory.create_batch(5 - staff_count, business=business,
+        if staff_count < staff_amount:
+            if not silent:
+                print(f"creating new staffs for {business.name} ")
+            staffs = BusinessUserFactory.create_batch(staff_amount - staff_count, business=business,
                                              role=BusinessUserRoleType.TEAM_MEMBER.ADMIN.value)
             user_ids.extend([staff.user.id for staff in staffs])
         staffs = business.businessuser_set.all()
-        print(f"creating jobs and job posts for {business.name}")
+        if not silent:
+            print(f"creating jobs and job posts for {business.name}")
         for staff in staffs:
             job_count_per_staff = staff.job_set.all().count()
-            if job_count_per_staff < 3:
+            if job_count_per_staff < job_amount:
                 JobFactory.create_batch(
-                    3-job_count_per_staff, created_by=staff,
+                    job_amount-job_count_per_staff, created_by=staff,
                     minimum_education_level=get_random_data(educational_levels),
                     job_level=get_random_data(job_level),
                     qualification=get_random_data(qualifications),
@@ -139,11 +149,12 @@ def generate_data(password, email_recipients):
                             annual_bonus_currency=get_random_data(currencies)
                         )
                 question_count = job.screeningquestion_set.all().count()
-                if question_count < 5:
-                    ScreeningQuestionFactory.create_batch(5-question_count, job=job)
+                if question_count < question_amount:
+                    ScreeningQuestionFactory.create_batch(question_amount-question_count, job=job)
 
         # now we have have 75 * 5 = 375 job posts
-    print("creating workflows for businesses")
+    if not silent:
+        print("creating workflows for businesses")
     for business in businesses:
         for phase in PhaseType.values():
             staff = BusinessUser.objects.filter(user=business.created_by).first()
@@ -154,13 +165,14 @@ def generate_data(password, email_recipients):
                 WorkflowStageFactory(**data, email_template=email_template)
 
     applications = []
-    print("creating applications, saved jobs and application withdrawal for talents")
+    if not silent:
+        print("creating applications, saved jobs and application withdrawal for talents")
     for talent in talents:
         job_posts = JobPost.objects.filter(country=talent.country).order_by("?")
 
-        apply_count = choice(range(1, 15))
-        save_count = choice(range(1, 20))
-        withdrawal_count = choice(range(1, 5))
+        apply_count = choice(range(1, max_applied_jobs))
+        save_count = choice(range(1, max_saved_jobs))
+        withdrawal_count = choice(range(1, max_withdrawals))
         # apply for job posts
         for job_post in job_posts[:apply_count]:
             if not JobApplication.objects.filter(
@@ -186,7 +198,8 @@ def generate_data(password, email_recipients):
 
     job_applications = JobApplication.objects.all().order_by("?")
 
-    print("creating questions and answers for job applications")
+    if not silent:
+        print("creating questions and answers for job applications")
     for job_application in job_applications:
         questions = job_application.job_post.job.screeningquestion_set.all()
         for question in questions:
@@ -201,7 +214,8 @@ def generate_data(password, email_recipients):
 
     users = User.objects.filter(type__in=(UserType.values()))
     message = ""
-    print("creating customer case for users")
+    if not silent:
+        print("creating customer case for users")
     for user in users:
         if user.customercase_set.all().count() == 0:
             CustomerCaseFactory.create(user=user)
@@ -215,6 +229,7 @@ def generate_data(password, email_recipients):
     send_email(subject="Seeded Users",
                plain_body=message,
                emails=email_recipients)
-    print(message)
+    if not silent:
+        print(message)
 
-generate_data("P455@1840GTC", ["ohaegbulouis@gmail.com"])
+# generate_data("P455@1840GTC", ["ohaegbulouis@gmail.com"])

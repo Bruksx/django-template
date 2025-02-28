@@ -1,3 +1,4 @@
+import logging
 import random
 import random
 import secrets
@@ -123,6 +124,10 @@ class User(AbstractUser, BaseModel):
         return None
 
     def delete_account(self):
+        if hasattr(self, "talent"):
+            self.talent.delete_account()
+        elif hasattr(self, "businessuser"):
+            self.businessuser.delete_account()
         self.first_name = "deleted"
         self.last_name = "user"
         self.email = f"deleted_user_{self.id}@example.com"
@@ -135,10 +140,6 @@ class User(AbstractUser, BaseModel):
         self.is_active = False
         self.save()
         self.delete()
-        if hasattr(self, "talent"):
-            self.talent.delete_account()
-        elif hasattr(self, "businessuser"):
-            self.businessuser.delete_account()
         return
 
 

@@ -17,7 +17,7 @@ from jobs.enums import JobStatusType
 from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
     TalentJobApplicationWithdrawalSchema, ShareJobPostViaEmailSchema, ShareJobPostViaChatSchema, \
-    TalentJobPostSchema, MutateAnswerSchema
+    TalentJobPostSchema, MutateAnswerSchema, AppliedTalentJobPostListSchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service
 from notification import notifications
 
@@ -71,7 +71,7 @@ def job_posts_by_talent_country(request, search="", use_filter=False, **kwargs):
         queryset = talent.jobfilter.get_queryset(queryset)
     return queryset.order_by("-created_at")
 
-@router.get("talent/applied-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
+@router.get("talent/applied-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[AppliedTalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
 def talent_applied_jobs(request, search="", use_filter=False, **kwargs):
     IsTalentUser.check(request)

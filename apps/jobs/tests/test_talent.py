@@ -118,7 +118,7 @@ class TalentJobListTests(TestCase):
 
     def test_applied_job_endpoints(self):
         stage = WorkflowStageFactory.create(phase=PhaseType.INTERVIEW.value)
-        JobApplication.objects.create(
+        application = JobApplication.objects.create(
             job_post=self.job_post,
             applicant=self.talent,
             stage=stage,
@@ -130,9 +130,11 @@ class TalentJobListTests(TestCase):
         response = self.client.get("talent/applied-jobs", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
+        self.assertEqual(response.json()["results"][0]["application_uid"], str(application.uid))
         response = self.client.get("talent/applied-jobs?use_filter=false&page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
+
 
     def test_job_post_list_endpoints(self):
         headers = {
