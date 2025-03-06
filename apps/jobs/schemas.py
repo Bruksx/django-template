@@ -557,7 +557,7 @@ class JobApplicationListSchema(ModelSchema):
 
 
 class TalentJobPostListSchema(ModelSchema):
-    job: JobListSchema
+    job: JobDetailSchema
     match_score: Optional[int]
     applied: bool
     country: GenericNameAndUidSchema
