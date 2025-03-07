@@ -143,7 +143,7 @@ class JobPost(BaseModel):
     date_posted = models.DateTimeField(null=True)
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     province = models.CharField(max_length=64, null=True)
-    postal_code = models.CharField(max_length=8, null=True)
+    postal_code = models.CharField(max_length=20, null=True)
     benefits = models.JSONField(default=list)
     share_compensation = models.BooleanField(default=True)
     annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
