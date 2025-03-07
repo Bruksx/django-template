@@ -232,4 +232,17 @@ def generate_data(password, email_recipients, talent_amount=50,
     if not silent:
         print(message)
 
-# generate_data("P455@1840GTC", ["ohaegbulouis@gmail.com"])
+@transaction.atomic
+def update_talent_applications_to_no_stage():
+    talents = Talent.objects.all()
+    for talent in talents:
+        count = talent.jobapplication_set.all().count()
+        if count > 2:
+            applications = talent.jobapplication_set.exclude(
+                stage__phase__in=(PhaseType.HIRED.value, PhaseType.REJECTED.value)
+            ).order_by("?")[:2]
+            ids = [app.id for app in applications]
+            JobApplication.objects.filter(id__in=ids).update(stage=None)
+    print("finished updating stages in job applications")
+    return
+
