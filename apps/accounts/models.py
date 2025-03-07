@@ -203,7 +203,7 @@ class Talent(BaseModel):
     state = models.CharField(max_length=64, null=True)
     city = models.CharField(max_length=64, null=True)
     address = models.CharField(max_length=128, null=True)
-    postal_code = models.CharField(max_length=8, null=True)
+    postal_code = models.CharField(max_length=20, null=True)
     employment_type = models.CharField(max_length=32, null=True)
     visible = models.BooleanField(default=True)
     preferred_communication = models.CharField(max_length=64, null=True)
