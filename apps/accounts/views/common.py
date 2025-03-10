@@ -34,7 +34,7 @@ def country_list(request, search:str=""):
     return queryset
 
 
-@router.get("educational-levels", response=List[talent_schemas.EducationLevelSchema], auth=JWTAuth(),
+@router.get("educational-levels", response=List[talent_schemas.EducationLevelSchema], 
             tags=["Common"])
 def educational_levels(request, search=""):
     queryset = EducationLevel.objects.all()
