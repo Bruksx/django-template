@@ -57,7 +57,7 @@ class MutateExperienceSchema(ModelSchema):
         exclude = [*MUTATE_EXCLUDE_FIELDS, "talent"]
 
 class ExperienceSchema(ModelSchema):
-    role: RoleSchema
+    role: Optional[RoleSchema]
     level: Optional[JobLevelSchema]
     employment_type: EmploymentTypeSchema
     annual_salary_currency: Optional[CurrencySchema]
