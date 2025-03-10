@@ -276,12 +276,23 @@ class UpdateTalentProfileTests(TestCase):
             "Authorization": f"Bearer {self.talent.user.token}"
         }
         data = {
-            "visible": False
+            "visible": False,
+            "bio": "hello"
         }
         response = self.client.patch(path=self.url, json=data, headers=headers)
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.assertFalse(self.talent.visible)
+        self.assertEqual(self.talent.bio, "hello")
+        data = {
+            "visible": False,
+            "bio": ""
+        }
+        response = self.client.patch(path=self.url, json=data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        self.assertFalse(self.talent.visible)
+        self.assertEqual(self.talent.bio, "")
 
     def test_update_by_business_user(self):
         business_user = BusinessUserFactory.create()

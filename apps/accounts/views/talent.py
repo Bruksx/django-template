@@ -78,7 +78,7 @@ def delete_talent_education(request, education_uid:UUID):
     education = talent_user.education_set.filter(uid=education_uid).first()
     if not education:
         raise HttpError(404, "This education does not exist")
-    education.delete()
+    education.hard_delete()
     return Response(status=204, data=None)
 
 
@@ -90,7 +90,7 @@ def delete_talent_experience(request, experience_uid:UUID):
     experience = talent_user.experience_set.filter(uid=experience_uid).first()
     if not experience:
         raise HttpError(404, "This experience does not exist")
-    experience.delete()
+    experience.hard_delete()
     return Response(status=204, data=None)
 
 
@@ -142,23 +142,31 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
     if "business_models" in data and data["business_models"]:
         talent_user.business_models.set(data.pop("business_models"))
     if "experience_history" in data and data["experience_history"]:
+        uids = list()
         for experience in data.pop("experience_history"):
             experience_uid = experience.pop("uid", None)
             if experience_uid:
                 if not talent_user.experience_set.filter(uid=experience_uid).exists():
                     continue
                 talent_user.experience_set.filter(uid=experience_uid).update(**experience)
+                uids.append(experience_uid)
             else:
-                Experience(**experience, talent=talent_user).save()
+                experience = Experience(**experience, talent=talent_user).save()
+                uids.append(experience.uid)
+        talent_user.experience_set.exclude(uid__in=uids).hard_delete()
     if "education_history" in data and data["education_history"]:
+        uids = list()
         for education in data.pop("education_history"):
             edu_uid = education.pop("uid", None)
             if edu_uid:
                 if not talent_user.education_set.filter(uid=edu_uid).exists():
                     continue
                 talent_user.education_set.filter(uid=edu_uid).update(**education)
+                uids.append(edu_uid)
             else:
-                Education(**education, talent=talent_user).save()
+                education  = Education(**education, talent=talent_user).save()
+                uids.append(education.uid)
+        talent_user.education_set.exclude(uid__in=uids).hard_delete()
     if "additional_languages" in data and data["additional_languages"]:
         additional_languages = data.pop("additional_languages")
         talent_user.additional_languages.set(additional_languages)
