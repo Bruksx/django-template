@@ -89,7 +89,7 @@ class ChatListSchema(ModelSchema):
 
     class Meta:
         model = Conversation
-        fields = ("uid",)
+        fields = ("uid", "locked")
 
     @staticmethod
     def resolve_unread_messages_count(obj, context):
