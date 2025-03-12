@@ -564,7 +564,7 @@ class TalentJobPostListSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ("uid", "job", "country", "province","postal_code")
+        fields = ("uid", "job", "country", "province","postal_code", "status")
         custom_fields = ("match_score",)
 
     @staticmethod
