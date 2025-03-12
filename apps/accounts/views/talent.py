@@ -151,7 +151,7 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
                 talent_user.experience_set.filter(uid=experience_uid).update(**experience)
                 uids.append(experience_uid)
             else:
-                experience = Experience(**experience, talent=talent_user).save()
+                experience = Experience.objects.create(**experience, talent=talent_user)
                 uids.append(experience.uid)
         talent_user.experience_set.exclude(uid__in=uids).hard_delete()
     if "education_history" in data and data["education_history"]:
@@ -164,7 +164,7 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
                 talent_user.education_set.filter(uid=edu_uid).update(**education)
                 uids.append(edu_uid)
             else:
-                education  = Education(**education, talent=talent_user).save()
+                education  = Education.objects.create(**education, talent=talent_user)
                 uids.append(education.uid)
         talent_user.education_set.exclude(uid__in=uids).hard_delete()
     if "additional_languages" in data and data["additional_languages"]:

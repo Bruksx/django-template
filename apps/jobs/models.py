@@ -65,13 +65,13 @@ class Job(BaseModel):
     first_language = models.ForeignKey(Language, on_delete=models.SET_NULL, null=True)
     additional_languages = models.ManyToManyField(Language, related_name="jobs")
     office_address = models.CharField(max_length=128)
-    lunch_break = models.CharField(max_length=16, choices=LunchBreakEnum.choices())
+    lunch_break = models.CharField(max_length=50, choices=LunchBreakEnum.choices())
     lunch_break_time = models.PositiveSmallIntegerField(default=0)
     responsibilities = models.JSONField(default=list, blank=True)
     additional_hours_description = models.TextField(null=True)
     additional_hours_start = models.TimeField(null=True)
     additional_hours_end = models.TimeField(null=True)
-    technological_requirement = models.CharField(max_length=16, null=True, blank=True)
+    technological_requirement = models.CharField(max_length=100, null=True, blank=True)
     availability_timezone = TimeZoneField(default="America/Vancouver")
     flexible_availability = models.BooleanField(default=False)
     department = models.ForeignKey("accounts.Department", null=True, on_delete=models.SET_NULL)
@@ -139,7 +139,7 @@ class Job(BaseModel):
 
 class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
-    status = models.CharField(max_length=16, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
+    status = models.CharField(max_length=50, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
     date_posted = models.DateTimeField(null=True)
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     province = models.CharField(max_length=64, null=True)
@@ -395,7 +395,7 @@ class JobFilter(BaseModel):
 
 class ScreeningQuestion(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
-    type = models.CharField(max_length=16, choices=QuestionTypeEnum.choices())
+    type = models.CharField(max_length=50, choices=QuestionTypeEnum.choices())
     text = models.TextField()
     is_knockout = models.BooleanField(default=False)
 

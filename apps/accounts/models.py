@@ -66,10 +66,10 @@ class User(AbstractUser, BaseModel):
     REQUIRED_FIELDS = []
 
     gender = models.CharField(max_length=32, choices=GenderType.choices(), default=GenderType.OTHERS.value)
-    phone_number = models.CharField(max_length=16, null=True)
+    phone_number = models.CharField(max_length=50, null=True)
     email = models.EmailField(unique=True, null=True)
     email_verified = models.BooleanField(default=False)
-    type = models.CharField(max_length=16, null=True, choices=UserType.choices())
+    type = models.CharField(max_length=50, null=True, choices=UserType.choices())
     username = models.CharField(max_length=32, null=True)
     auth_mode = models.CharField(max_length=20, choices=AuthType.choices(),
                                  default=AuthType.EMAIL.value)
@@ -197,8 +197,8 @@ class Skill(BaseModel):
 
 class Talent(BaseModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    whatsapp_number = models.CharField(max_length=16, null=True)
-    viber_number = models.CharField(max_length=16, null=True)
+    whatsapp_number = models.CharField(max_length=50, null=True)
+    viber_number = models.CharField(max_length=50, null=True)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
     state = models.CharField(max_length=64, null=True)
     city = models.CharField(max_length=64, null=True)
