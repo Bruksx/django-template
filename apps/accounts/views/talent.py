@@ -2,6 +2,8 @@ from datetime import date, timedelta
 from typing import List
 from uuid import UUID
 
+from django.utils import timezone
+
 from accounts.enums import UserType, AuthType
 from accounts.models import Talent, TalentAvailableDay
 from accounts.models import User, VerificationCode, Education, Experience
@@ -145,9 +147,22 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
         uids = list()
         for experience in data.pop("experience_history"):
             experience_uid = experience.pop("uid", None)
+            currently_works = experience.get("currently_works_here", False)
+            start_date = experience.get("start_date", None)
+            end_date = experience.get("end_date", None)
+            if not start_date:
+                raise HttpError(400, "Experience start date is required")
+            if currently_works:
+                experience["end_date"] = None
+            else:
+                if not end_date:
+                    raise HttpError(400, "Experience end date is required if not currently working here")
+                if end_date < start_date:
+                    raise HttpError(400, "Experience end date cannot be before start date")
+                if end_date > timezone.now().date():
+                    raise HttpError(400, "Experience end date cannot be in the future")
+
             if experience_uid:
-                if not talent_user.experience_set.filter(uid=experience_uid).exists():
-                    continue
                 talent_user.experience_set.filter(uid=experience_uid).update(**experience)
                 uids.append(experience_uid)
             else:
@@ -159,8 +174,6 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
         for education in data.pop("education_history"):
             edu_uid = education.pop("uid", None)
             if edu_uid:
-                if not talent_user.education_set.filter(uid=edu_uid).exists():
-                    continue
                 talent_user.education_set.filter(uid=edu_uid).update(**education)
                 uids.append(edu_uid)
             else:

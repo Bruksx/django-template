@@ -291,7 +291,6 @@ class RequiredAttributeSchema(ModelSchema):
     def resolve_skills(obj):
         return obj.get_skills()
 
-
 class JobDetailSchema(ModelSchema):
     uid: UUID
     logo_url: Optional[str]
