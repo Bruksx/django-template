@@ -149,7 +149,7 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
             experience_uid = experience.pop("uid", None)
             currently_works = experience.get("currently_works_here", False)
             start_date = experience.get("start_date", None)
-            end_date = experience.get()("end_date", None)
+            end_date = experience.get("end_date", None)
             if not start_date:
                 raise HttpError(400, "Experience start date is required")
             if currently_works:
