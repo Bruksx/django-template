@@ -5,7 +5,8 @@ from accounts.enums import UserType
 from accounts.models import User
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, Conversation, MessageAttachment
-from chats.schemas import ChatListSchema, ChatMessageSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema
+from chats.schemas import ChatListSchema, ChatMessageSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema, \
+    ChatMessagePaginatedSchema
 from django.db import transaction
 from django.db.models import Q, F
 from ninja import Router, PatchDict, UploadedFile, Form
@@ -16,6 +17,8 @@ from ninja_extra.schemas import PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from monkeypatches.q_cluster import async_task
+
+from jobs.business_views import pagination_class
 
 # Create your views here.
 router = Router(tags=["Chats"])
@@ -34,22 +37,21 @@ def get_chats(request, search:str=""):
 
     return queryset.distinct()
 
-@router.get("{conversation_uid}/messages", auth=JWTAuth(), response=PaginatedResponseSchema[ChatMessageSchema])
-@paginate(PageNumberPaginationExtra, page_size=50, pass_parameter="pagination_info")
-def get_messages(request, conversation_uid:UUID, **kwargs):
+@router.get("{conversation_uid}/messages", auth=JWTAuth(), response=ChatMessagePaginatedSchema)
+def get_messages(request, conversation_uid:UUID, page_size=50, page=1, **kwargs):
     user = request.user
     conversation = Conversation.objects.filter(users__id=user.id, uid=conversation_uid).first()
     if not conversation:
         raise HttpError(403, "Not allowed")
-    pagination = kwargs.get("pagination_info")
-    page = pagination.page
-    page_size = pagination.page_size
-    start = (page - 1) * page_size
-    end = start + page_size
-    queryset = Message.objects.filter(conversation__uid=conversation_uid).order_by("-created_at")[start:end]
+    queryset = Message.objects.filter(conversation__uid=conversation_uid).order_by("-created_at")
     async_task(conversation.read_messages, message_ids=list(queryset.values_list("id", flat=True)), user_id=user.id)
-    return queryset
-
+    pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
+    return pagination_class(page_size).paginate_queryset(
+        queryset=queryset,
+        request=request,
+        pagination=pagination,
+        locked=conversation.locked
+    )
 
 @router.get("messages/{message_uid}/read-by", auth=JWTAuth(), response=List[ChatUserSchema])
 def get_chat_message_readers(request, message_uid:UUID):

@@ -1,17 +1,14 @@
-from django.db import models, transaction
+from django.db import models
 from django.db.models import F, Q
 from timezone_field import TimeZoneField
 
 from accounts.enums import Days
-from accounts.models import Talent, TalentAvailableDay, Education
-from accounts.schemas.talent import ExperienceSchema, TalentAvailabilitySchema
+from accounts.models import Talent, TalentAvailableDay
 from core.models import BaseModel, Language
-from core.schemas import EducationLevelSchema, LanguageSchema, CountrySchema
+from jobs.managers import JobManager
 from settings.enums import PlaceHolderType
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
     JobStatusType
-from .managers import JobManager
-from .schemas import SkillSchema, BusinessModelSchema, RoleSchema, JobLevelSchema, JobAvailableDaySchema
 
 
 # Create your models here.
@@ -86,7 +83,7 @@ class Job(BaseModel):
 
     required_attributes_keys = (
             "skills", "role", "job_level", "years_of_experience",
-            "business_model", "minimum_education_level",
+            "business_models", "minimum_education_level",
             "work_structure", "technological_requirement",
             "first_language", "secondary_language", "working_hours",
             "location"
@@ -104,6 +101,8 @@ class Job(BaseModel):
 
     @property
     def required_keys(self):
+        if not hasattr(self, "requiredattribute"):
+           return []
         attributes = self.requiredattribute
         data = []
         for attribute in self.required_attributes_keys:
@@ -114,6 +113,8 @@ class Job(BaseModel):
 
     @property
     def non_required_keys(self):
+        if not hasattr(self, "requiredattribute"):
+           return []
         attributes = self.requiredattribute
         data = []
         for attribute in self.required_attributes_keys:
@@ -122,148 +123,6 @@ class Job(BaseModel):
                 data.append(attribute)
         return data
 
-    def get_data(self, talent, weak=True):
-        attributes = self.requiredattribute
-        non_negotiables = self.required_keys
-        data = dict()
-        for attribute in non_negotiables:
-            if attribute == "skills":
-                skills = attributes.skills.intersection(talent.skills.all())
-                skill_count = skills.count()
-                if skill_count == 0:
-                    skills = attributes.skills.all()
-                if (skill_count == 0 and weak) or (skill_count > 0 and not weak):
-                    data["skills"]=[
-                        SkillSchema.from_orm(skill).__dict__
-                        for skill in skills
-                    ]
-            elif attribute == "business_models":
-                business_models = attribute.business_models.intersection(talent.business_models.all())
-                bm_count = business_models.count()
-                if bm_count == 0:
-                    business_models = attribute.business_models.all()
-                if (bm_count == 0 and weak) or (bm_count > 0 and not weak):
-                    data["business_models"] = [
-                        BusinessModelSchema.from_orm(bm).__dict__
-                        for bm in business_models
-                    ]
-
-            elif attribute == "role":
-                experiences = talent.experience_set.filter(role=self.role).count()
-                if (experiences > 0 and not weak) or (experiences == 0 and weak):
-                    data["role"] = RoleSchema.from_orm(self.role).__dict__
-
-            elif attribute == "job_level":
-                experiences = talent.experience_set.filter(level=self.job_level).count()
-                if (experiences > 0 and not weak) or (experiences == 0 and weak):
-                    data["job_level"] = JobLevelSchema.from_orm(self.job_level).__dict__
-
-            elif attribute == "years_of_experience":
-                fits = talent.years_of_experience > (self.years_of_experience or  0)
-                if (fits and not weak) or (not fits and weak):
-                    data["years_of_experience"] = talent.years_of_experience
-
-            elif attribute == "minimum_education_level":
-                education = talent.education_set.filter(level=self.minimum_education_level).count()
-                if (education > 0 and not weak) or (education == 0 and weak):
-                    data["minimum_education_level"] = (EducationLevelSchema
-                                                       .from_orm(self.minimum_education_level).__dict__)
-            elif attribute == "work_structure":
-                if not weak:
-                    data["work_structure"]  = self.work_structure
-
-            elif attribute == "technological_requirement":
-                if not weak:
-                    data["technological_requirement"] = self.technological_requirement
-
-            elif attribute == "first_language":
-                fits = talent.native_language == self.first_language
-                if (fits and not weak) or (not fits and weak):
-                    data["first_language"] = LanguageSchema.from_orm(self.first_language).__dict__
-
-            elif attribute == "secondary_language":
-                languages = self.additional_languages.intersection(talent.additional_languages)
-                language_count = languages.count()
-                if language_count == 0:
-                    languages = self.additional_languages.all()
-                if (language_count > 0 and not weak) or (language_count == 0 and weak):
-                    data["secondary_language"] = [
-                        LanguageSchema.from_orm(l).__dict__
-                        for l in languages
-                    ]
-
-            elif attribute == "location":
-                fits = attribute.location == self.country
-                if (fits and not weak) or (not fits and weak):
-                    data["location"] = CountrySchema.from_orm(self.country).__dict__
-
-            elif attribute == "working_hours":
-                talent_wh_query = talent.availability_query()
-                wh_query = self.availableday_set.filter(talent_wh_query)
-                wh_count = wh_query.count()
-                if wh_count == 0:
-                    wh_query = self.availabileday_set.all()
-                if (wh_count > 0 and not weak) or (wh_count == 0 and weak):
-                    data["working_hours"] = self.get_availability(JobAvailableDaySchema, wh_query)
-
-            return data
-
-    def weakness(self, talent):
-        return self.get_data(talent, weak=True)
-
-    def strength(self, talent):
-        return self.get_data(talent, weak=False)
-
-    def non_negotiable(self):
-        attributes = self.requiredattribute
-        non_negotiables = self.required_keys
-        data = dict()
-        for attribute in non_negotiables:
-            if attribute == "skills":
-                data["skills"] = [
-                    SkillSchema.from_orm(skill).__dict__
-                    for skill in attributes.skills.all()
-                ]
-            elif attribute == "business_models":
-                    data["business_models"] = [
-                        BusinessModelSchema.from_orm(bm).__dict__
-                        for bm in attributes.business_models.all()
-                    ]
-
-            elif attribute == "role":
-                data["role"] = RoleSchema.from_orm(self.role).__dict__
-
-            elif attribute == "job_level":
-                data["job_level"] = JobLevelSchema.from_orm(self.job_level).__dict__
-
-            elif attribute == "years_of_experience":
-                data["years_of_experience"] = self.years_of_experience
-
-            elif attribute == "minimum_education_level":
-                data["minimum_education_level"] = (EducationLevelSchema
-                                                       .from_orm(self.minimum_education_level).__dict__)
-            elif attribute == "work_structure":
-                data["work_structure"] = self.work_structure
-
-            elif attribute == "technological_requirement":
-                data["technological_requirement"] = self.technological_requirement
-
-            elif attribute == "first_language":
-                data["first_language"] = LanguageSchema.from_orm(self.first_language).__dict__
-
-            elif attribute == "secondary_language":
-                data["secondary_language"] = [
-                        LanguageSchema.from_orm(l).__dict__
-                        for l in self.additional_languages.all()
-                 ]
-
-            elif attribute == "location":
-                data["location"] = CountrySchema.from_orm(self.country).__dict__
-
-            elif attribute == "working_hours":
-                data["working_hours"] = self.get_availability(JobAvailableDaySchema, self.availabileday_set.all())
-
-            return data
 
     def __str__(self) -> str:
         return f"{self.title}({self.uid})"
@@ -393,6 +252,10 @@ class JobPost(BaseModel):
             query = get_query(Q(business_models__id__in=ids))
         if required_attribute.minimum_education_level and job.minimum_education_level:
             query = get_query(Q(education__level=job.minimum_education_level))
+
+        if required_attribute.work_structure and job.work_structure:
+            query = get_query(Q(work_model=job.work_structure))
+
         if required_attribute.first_language:
             query = get_query(Q(native_language=job.first_language))
         if required_attribute.secondary_language and job.additional_languages.count() > 0:
@@ -438,6 +301,192 @@ class JobPost(BaseModel):
         metric.daily_email_shares = F("daily_email_shares") + 1
         metric.save()
         return
+
+    def get_data(self, talent, weak=True):
+        from .schemas import JobAvailableDaySchema
+        job = self.job
+        if not hasattr(job, "requiredattribute"):
+            data = dict(
+                skills = None,
+                business_models = None,
+                role = None,
+                job_level = None,
+                years_of_experience = None,
+                minimum_education_level = None,
+                work_structure = None,
+                first_language = None,
+                secondary_language = None,
+                working_hours = None,
+                location = None,
+            )
+            if weak is False:
+                data["match_score"] = 100
+            return data
+
+        attributes = job.requiredattribute
+        non_negotiables = job.required_keys
+        data = dict()
+        total_score = attributes.total_score()
+        score = total_score
+        for attribute in non_negotiables:
+            if attribute == "skills":
+                skills = attributes.skills.intersection(talent.skills.all())
+                skill_count = skills.count()
+                if skill_count == 0:
+                    score -= 1
+                    skills = attributes.skills.all()
+                if (skill_count == 0 and weak is True) or (skill_count > 0 and weak is False):
+                    data["skills"]= skills  if skills.count() > 0 else None
+            elif attribute == "business_models":
+                business_models = attributes.business_models.intersection(talent.business_models.all())
+                bm_count = business_models.count()
+                if bm_count == 0:
+                    score -= 1
+                    business_models = attributes.business_models.all()
+                if (bm_count == 0 and weak is True) or (bm_count > 0 and weak is False):
+                    data["business_models"] = business_models if business_models.count() > 0 else None
+
+            elif attribute == "role":
+                experiences = talent.experience_set.filter(role=job.role).count()
+                if experiences == 0:
+                    score -= 1
+                if (experiences > 0 and weak is False) or (experiences == 0 and weak is True):
+                    data["role"] = job.role
+
+            elif attribute == "job_level":
+                experiences = talent.experience_set.filter(level=job.job_level).count()
+                if experiences == 0:
+                    score -= 1
+                if (experiences > 0 and weak is False) or (experiences == 0 and weak is True):
+                    data["job_level"] = job.job_level
+
+            elif attribute == "years_of_experience":
+                fits = talent.years_of_experience > (job.years_of_experience or  0)
+                if not fits:
+                    score -= 1
+                if (fits and weak is False) or (not fits and weak is True):
+                    data["years_of_experience"] = talent.years_of_experience
+
+            elif attribute == "minimum_education_level":
+                education = talent.education_set.filter(level=job.minimum_education_level).count()
+                if education == 0:
+                    score -= 1
+                if (education > 0 and weak is False) or (education == 0 and weak is True):
+                    data["minimum_education_level"] = job.minimum_education_level
+            elif attribute == "work_structure":
+                fits = talent.work_model == job.work_structure
+                if not fits:
+                    score -= 1
+                if (fits and weak is False) or (not fits and weak is True):
+                    data["work_structure"]  = job.work_structure
+
+            # elif attribute == "technological_requirement":
+            #     if weak is False:
+            #         data["technological_requirement"] = self.technological_requirement
+
+            elif attribute == "first_language":
+                fits = talent.native_language == job.first_language
+                if not fits and job.first_language:
+                    score -= 1
+                if (fits and weak is False) or (not fits and weak is True):
+                    data["first_language"] = job.first_language
+
+            elif attribute == "secondary_language":
+                languages = job.additional_languages.all().intersection(talent.additional_languages.all())
+                language_count = languages.count()
+                if language_count == 0:
+                    score -= 1
+                    languages = job.additional_languages.all()
+                if (language_count > 0 and weak is False) or (language_count == 0 and weak is True):
+                    data["secondary_language"] = languages if languages.count() > 0 else None
+
+            elif attribute == "location":
+                fits = self.country == talent.country
+                if not fits and self.country:
+                    score -= 1
+                if (fits and weak is False) or (not fits and weak is True):
+                    data["location"] = talent.country
+
+            elif attribute == "working_hours":
+                talent_wh_query = talent.availability_query()
+                wh_query = job.availableday_set.filter(talent_wh_query)
+                wh_count = wh_query.count()
+                if wh_count == 0:
+                    score -= 1
+                    wh_query = job.availableday_set.all()
+                if (wh_count > 0 and weak is False) or (wh_count == 0 and weak is True):
+                    data["working_hours"] = job.get_availability(JobAvailableDaySchema, wh_query) if wh_query.count() > 0 else None
+        match_score = int((score/total_score) * 100)
+        if weak is False:
+            data["match_score"] = match_score
+        return data
+
+    def weakness(self, talent):
+        return self.get_data(talent, weak=True)
+
+    def strength(self, talent):
+        return self.get_data(talent, weak=False)
+
+    def non_negotiable(self):
+        from core.schemas import LanguageSchema
+        from .schemas import JobAvailableDaySchema
+        job = self.job
+        if not hasattr(job, "requiredattribute"):
+            return dict(
+                skills = None,
+                business_models = None,
+                role = None,
+                job_level = None,
+                years_of_experience = None,
+                minimum_education_level = None,
+                work_structure = None,
+                first_language = None,
+                secondary_language = None,
+                working_hours = None,
+                location = None,
+            )
+
+        attributes = job.requiredattribute
+        non_negotiables = job.required_keys
+        data = dict()
+        for attribute in non_negotiables:
+            if attribute == "skills":
+                if attributes.skills.count() > 0:
+                    data["skills"] = attributes.skills.all()
+            elif attribute == "business_models":
+                if attributes.business_models.count() > 0:
+                    data["business_models"] = attributes.business_models.all() if attributes.business_models.count() > 0 else None
+
+            elif attribute == "role":
+                data["role"] = job.role
+
+            elif attribute == "job_level":
+                data["job_level"] = job.job_level
+
+            elif attribute == "years_of_experience":
+                data["years_of_experience"] = job.years_of_experience
+
+            elif attribute == "minimum_education_level":
+                data["minimum_education_level"] = job.minimum_education_level
+            elif attribute == "work_structure":
+                data["work_structure"] = job.work_structure
+
+            # elif attribute == "technological_requirement":
+            #     data["technological_requirement"] = job.technological_requirement
+
+            elif attribute == "first_language":
+                data["first_language"] = job.first_language
+
+            elif attribute == "secondary_language":
+                data["secondary_language"] = job.additional_languages.all() if job.additional_languages.count() > 0 else None
+
+            elif attribute == "location":
+                data["location"] = self.country
+
+            elif attribute == "working_hours":
+                data["working_hours"] = job.get_availability(JobAvailableDaySchema, job.availableday_set.all()) if job.availableday_set.count() > 0 else None
+        return data
+
 
 class JobPostMetrics(BaseModel):
     job_post = models.OneToOneField(JobPost, on_delete=models.CASCADE, null=True)

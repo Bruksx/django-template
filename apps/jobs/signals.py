@@ -3,7 +3,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 from jobs.enums import PhaseType, JobStatusType
-from jobs.models import JobApplication, JobPost, JobPostMetrics
+from jobs.models import JobApplication, JobPost, JobPostMetrics, RequiredAttribute, Job
 from notification import notifications
 
 
@@ -185,3 +185,7 @@ def handle_job_post_recruiter(sender, instance, **kwargs):
             notifications.send_job_post_assignment_notification(
                 job_post=instance, previous_recruiter=job_post.recruiter)
 
+@receiver(post_save, sender=Job)
+def handle_job_required_attributes(sender,  instance, created, **kwargs):
+    if created:
+        RequiredAttribute.objects.create(job=instance)

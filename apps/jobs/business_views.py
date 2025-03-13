@@ -25,7 +25,8 @@ from .models import (
 )
 from .schemas import (
     EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
-    JobLevelSchema, TalentListJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema
+    JobLevelSchema, TalentListJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
+    MutateRequiredAttributeSchema
 )
 from .services import notify_business_on_matched_talents
 
@@ -108,6 +109,7 @@ def set_required_attributes(request, data:job_schemas.MutateRequiredAttributeSch
     job = Job.objects.filter(created_by__business=business_user.business, uid=job_uid).first()
     if not job:
         raise HttpError(404, "Job not found")
+    MutateRequiredAttributeSchema.validate_required_attribute(request_data, job)
     required_attributes, _ = RequiredAttribute.objects.get_or_create(job=job)
     required_attributes.skills.set(request_data.pop("skills"))
     required_attributes.business_models.set(request_data.pop("business_models"))

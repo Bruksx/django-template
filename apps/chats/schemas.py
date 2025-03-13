@@ -1,6 +1,8 @@
 from typing import Optional, List, Any
 from uuid import UUID
 
+from ninja_extra.schemas import PaginatedResponseSchema
+
 from accounts.models import User
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, MessageAttachment, Conversation
@@ -152,3 +154,5 @@ class ResponseSchema(Schema):
     message: str
     data: Optional[AnyObject]
 
+class ChatMessagePaginatedSchema(PaginatedResponseSchema[ChatMessageSchema]):
+    locked: bool
