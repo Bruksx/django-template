@@ -11,6 +11,7 @@ from accounts.models import (Talent, User, TalentAvailableDay, Education,
                              Experience, Skill, Role)
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema, \
     EducationLevelSchema, CountrySchema
+from jobs.enums import WorkStructureEnum
 from jobs.schemas import JobLevelSchema, EmploymentTypeSchema, BusinessModelSchema
 
 
@@ -101,8 +102,10 @@ class UpdateTalentProfileSchema2(Schema):
     country: Optional[UUID] = None
     state: Optional[str] = None
     city: Optional[str] = None
+    employment_type: Optional[str] = None
     postal_code: Optional[str] = None
     whatsapp_number: Optional[str] = None
+    work_model: Optional[WorkStructureEnum] = None
     viber_number: Optional[str] = None
     address: Optional[str] = None
     gender: Optional[GenderType] = None

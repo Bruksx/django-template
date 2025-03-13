@@ -116,7 +116,7 @@ class TalentModelTest(TestCase):
             annual_salary_currency=self.currency,
             recruiter=self.business_user
         )
-        self.job_required_attrs = RequiredAttribute.objects.create(
+        job.requiredattribute.update(
             job=job,
             role=True,
             job_level=True,
@@ -130,9 +130,10 @@ class TalentModelTest(TestCase):
             location=True
         )
         stage = WorkflowStageFactory.create(phase=PhaseType.INTERVIEW.value)
-        self.job_required_attrs.skills.set(Skill.objects.all()[:2])
-        self.job_required_attrs.business_models.set(BusinessModel.objects.all()[:2])
-        self.job_required_attrs.refresh_from_db()
+        job.requiredattribute.skills.set(Skill.objects.all()[:2])
+        job.requiredattribute.business_models.set(BusinessModel.objects.all()[:2])
+        job.requiredattribute.save()
+        job.refresh_from_db()
         TalentAvailableDay.objects.create(
             talent=self.talent,
             day=Days.WEDNESDAY.value,
@@ -216,9 +217,9 @@ class TalentModelTest(TestCase):
         self.assertEqual(match_score, 54)
         self.talent.business_models.set(BusinessModel.objects.all()[:3])
         self.talent.refresh_from_db()
-        self.job_required_attrs.secondary_language = False
-        self.job_required_attrs.save()
-        self.job_required_attrs.refresh_from_db()
+        self.job_post.job.requiredattribute.update(secondary_language=False)
+        self.job_post.job.refresh_from_db()
+        self.job_post.refresh_from_db()
         match_score = self.talent.job_match_score(self.job_post)
         self.assertEqual(match_score, 70)
 

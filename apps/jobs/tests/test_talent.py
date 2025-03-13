@@ -9,7 +9,7 @@ from accounts.enums import BusinessUserRoleType
 from accounts.models import Country, Industry, User, Talent, BusinessUser, Business, Role, EducationLevel, Department
 from core.models import Currency
 from factories import TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory, \
-    JobApplicationFactory, RequiredAttributeFactory, CountryFactory, ScreeningQuestionFactory, fake
+    JobApplicationFactory, RequiredAttributeFactory, CountryFactory, ScreeningQuestionFactory, fake, JobFilterFactory
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusType, WithdrawalFeedbackType, \
     QuestionTypeEnum
 from jobs.models import JobPost, JobLevel, EmploymentType, Job, SavedJob, JobApplication, JobFilter
@@ -30,10 +30,7 @@ class TalentJobListTests(TestCase):
         self.user = User.objects.create_user(**self.user_data,
                                              email_verified=True,
                                              is_active=True)
-        self.talent = Talent.objects.create(
-            user=self.user,
-            country=self.country
-        )
+        self.talent = TalentFactory.create(user=self.user, country=self.country)
         self.role = Role.objects.first()
         self.education_level = EducationLevel.objects.first()
         self.department = Department.objects.first()
@@ -78,6 +75,18 @@ class TalentJobListTests(TestCase):
             department=self.department,
             availability_timezone=timezone.utc  # Set to UTC for this example
         )
+        job.requiredattribute.update(
+            role=True,
+            job_level=True,
+            years_of_experience=True,
+            minimum_education_level=True,
+            work_structure=True,
+            technological_requirement=True,
+            first_language=True,
+            secondary_language=True,
+            working_hours=True,
+            location=True
+        )
         self.job_post = JobPost.objects.create(
             job=job,
             status=JobStatusType.POSTED.value,  # Can be changed to True for posting
@@ -96,10 +105,10 @@ class TalentJobListTests(TestCase):
         }
         response = self.client.get("talent/job-recommendations", headers=headers)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["count"], 0)
+        self.assertEqual(response.json()["count"], 1)
         response = self.client.get("talent/job-recommendations?use_filter=false&page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["count"], 0)
+        self.assertEqual(response.json()["count"], 1)
 
     def test_saved_job_endpoints(self):
         SavedJob.objects.create(
@@ -139,12 +148,19 @@ class TalentJobListTests(TestCase):
 
 
     def test_job_post_list_endpoints(self):
+
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
         response = self.client.get("talent/job-posts", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
+        self.assertIn("weakness", response.json()["results"][0])
+        self.assertIn("strength", response.json()["results"][0])
+        self.assertIn("non_negotiable", response.json()["results"][0])
+        strength = response.json()["results"][0]["strength"]
+        self.assertIn("match_score", strength)
+        self.assertGreaterEqual(strength["match_score"], 0)
 
         # when talent has no job filter
         response = self.client.get("talent/job-posts?use_filter=true&page_size=100&page=1", headers=headers)
@@ -256,7 +272,6 @@ class ApplyToJobPostTest(TestCase):
         self.job = JobFactory.create(
             title="Test Job"
         )
-        RequiredAttributeFactory.create(job=self.job)
         self.business_user = self.job.created_by
         self.job_post = JobPostFactory.create(
             status=JobStatusType.POSTED.value,
@@ -593,7 +608,7 @@ class TestJobRecommendationsEndpoint(TestCase):
         self.talent = TalentFactory.create(years_of_experience=years_of_experience, country=country)
         jobs = JobFactory.create_batch(5, created_by=self.business_user, years_of_experience=years_of_experience)
         for job in jobs:
-            RequiredAttributeFactory.create(job=job, years_of_experience=True, location=True)
+            job.requiredattribute.update(job=job, years_of_experience=True, location=True)
             JobPostFactory.create(job=job, posted_by=self.business_user, country=country)
         JobApplicationFactory.create(job_post=JobPost.objects.first(), applicant=self.talent)
 

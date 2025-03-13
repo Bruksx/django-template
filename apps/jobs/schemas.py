@@ -5,6 +5,7 @@ from typing import Optional
 from uuid import UUID
 
 from ninja import ModelSchema, UploadedFile
+from ninja.errors import HttpError
 from ninja.schema import Schema
 from ninja_extra.schemas import PaginatedResponseSchema
 from pydantic import Field, EmailStr
@@ -335,6 +336,20 @@ class JobDetailSchema(ModelSchema):
         return obj.requiredattribute
 
 
+class JobMatchSchema(Schema):
+    skills: Optional[List[JobSkillSchema]] = None
+    job_level: Optional[GenericNameAndUidSchema] = None
+    role: Optional[GenericNameAndUidSchema] = None
+    business_models: Optional[List[GenericNameAndUidSchema]] = None
+    minimum_education_level: Optional[EducationLevelSchema] = None
+    work_structure: Optional[WorkStructureEnum] = None
+    years_of_experience: Optional[int] = None
+    match_score: Optional[int] = None
+    first_language: Optional[GenericNameAndUidSchema] = None
+    secondary_language: Optional[List[GenericNameAndUidSchema]] = None
+    location: Optional[GenericNameAndUidSchema] = None
+    working_hours: Optional[List[JobAvailabilitySchema]] = None
+
 
 class JobPostListSchema(ModelSchema):
     role: Optional[str]
@@ -513,6 +528,17 @@ class MutateRequiredAttributeSchema(ModelSchema):
         model = RequiredAttribute
         exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid"]
 
+    @classmethod
+    def validate_required_attribute(cls, data, job):
+        count = 0
+        for key in job.required_attributes_keys:
+            value = data.get(key, None)
+            if not value:
+                continue
+            count += 1
+            if count > 5:
+                raise HttpError(400, "You can only add up to 5 required attributes")
+        return
 
 class JobListSchema(ModelSchema):
     business_logo: Optional[str]
@@ -557,23 +583,25 @@ class JobApplicationListSchema(ModelSchema):
 
 class TalentJobPostListSchema(ModelSchema):
     job: JobDetailSchema
-    match_score: Optional[int]
     applied: bool
     country: GenericNameAndUidSchema
+    strength: Optional[JobMatchSchema]
+    weakness: Optional[JobMatchSchema]
+    non_negotiable: JobMatchSchema
 
     class Meta:
         model = JobPost
         fields = ("uid", "job", "country", "province","postal_code", "status")
-        custom_fields = ("match_score",)
+        custom_fields = ("strength", "weakness")
 
-    @staticmethod
-    def resolve_match_score(obj, context)->Optional[int]:
-        request = context.get("request")
-        talent = request.context.get("talent")
-        if not talent:
-            return None
-        score = talent.job_match_score(obj)
-        return score
+    # @staticmethod
+    # def resolve_match_score(obj, context)->Optional[int]:
+    #     request = context.get("request")
+    #     talent = request.context.get("talent")
+    #     if not talent:
+    #         return None
+    #     score = talent.job_match_score(obj)
+    #     return score
 
     @staticmethod
     def resolve_applied(obj, context):
@@ -582,6 +610,25 @@ class TalentJobPostListSchema(ModelSchema):
         if not talent:
             return None
         return JobApplication.objects.filter(job_post=obj, applicant=talent).exists()
+
+
+    @staticmethod
+    def resolve_strength(obj, context):
+        request = context.get("request")
+        talent = request.context.get("talent")
+        if not talent:
+            return None
+        return obj.strength(talent)
+
+
+    @staticmethod
+    def resolve_weakness(obj, context):
+        request = context.get("request")
+        talent = request.context.get("talent")
+        if not talent:
+            return None
+        return obj.weakness(talent)
+
 
 class StageSchema(GenericNameAndUidSchema):
     phase: str
@@ -610,7 +657,25 @@ class AppliedTalentJobPostListSchema(TalentJobPostListSchema):
 
 class TalentJobPostSchema(JobPostListSchema):
     job: JobDetailSchema
+    strength: Optional[JobMatchSchema] = None
+    weakness: Optional[JobMatchSchema] = None
+    non_negotiable: JobMatchSchema
 
+    @staticmethod
+    def resolve_strength(obj, context):
+        request = context.get("request")
+        talent = request.context.get("talent")
+        if not talent:
+            return None
+        return obj.strength(talent)
+
+    @staticmethod
+    def resolve_weakness(obj, context):
+        request = context.get("request")
+        talent = request.context.get("talent")
+        if not talent:
+            return None
+        return obj.weakness(talent)
 
 class MutateTalentJobFilterSchema(ModelSchema):
     location_type:WorkStructureEnum

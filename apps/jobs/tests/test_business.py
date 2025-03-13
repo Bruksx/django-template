@@ -163,7 +163,7 @@ class TestJobPostDetail(TestCase):
         self.job = JobFactory.create(created_by=self.business_user)
         self.job_post = JobPostFactory.create(country=country,job=self.job, recruiter=self.business_user)
         self.talent = TalentFactory.create(country=country)
-        RequiredAttributeFactory.create(job=self.job_post.job)
+
 
     def test_job_post_detail_endpoint_by_business_user(self):
         headers = {
@@ -209,7 +209,6 @@ class TestJobList(TestCase):
         jobs = JobFactory.create_batch(5, created_by=self.business_user)
         for job in jobs:
             JobPostFactory.create_batch(5, country=country, job=job, recruiter=self.business_user)
-            RequiredAttributeFactory.create(job=job)
 
 
     def test_job_list_endpoint_by_business_user(self):
@@ -262,7 +261,6 @@ class TestJobDetail(TestCase):
         self.business_user = BusinessUserFactory.create(user=self.business.created_by, business=self.business)
         self.job = JobFactory.create(created_by=self.business_user)
         self.talent = TalentFactory.create(country=country)
-        RequiredAttributeFactory.create(job=self.job)
 
 
 
@@ -905,6 +903,8 @@ class SetJobRequirementTest(TestCase):
         self.client = TestClient(router)
         self.business_user = BusinessUserFactory.create()
         self.job = JobFactory.create(created_by=self.business_user)
+        self.job.requiredattribute.hard_delete()
+        self.job.refresh_from_db()
         self.url = lambda job_uid : f"{job_uid}/required-attributes"
         self.skills = SkillFactory.create_batch(5)
         self.business_models = BusinessModelFactory.create_batch(5)
@@ -913,13 +913,13 @@ class SetJobRequirementTest(TestCase):
             "business_models": list(map(lambda x:str(x.uid), self.business_models)),
             "role": False,
             "job_level": True,
-            "years_of_experience": True,
+            "years_of_experience": False,
             "minimum_education_level": False,
             "work_structure": False,
             "technological_requirement": True,
             "first_language": True,
             "secondary_language": False,
-            "working_hours": True,
+            "working_hours": False,
             "location": False
         }
 
@@ -1002,6 +1002,8 @@ class GetJobRequirementTest(TestCase):
         self.client = TestClient(router)
         self.business_user = BusinessUserFactory.create()
         self.job = JobFactory.create(created_by=self.business_user)
+        self.job.requiredattribute.hard_delete()
+        self.job.refresh_from_db()
         self.url = lambda job_uid: f"{job_uid}/required-attributes"
 
     def test_job_without_required_attributes(self):
@@ -1057,7 +1059,7 @@ class TalentsByJobPostTest(TestCase):
         self.business_user = BusinessUserFactory.create()
         TalentFactory.create_batch(5, country=country)
         job = JobFactory.create(created_by=self.business_user)
-        RequiredAttributeFactory.create(job=job, location=True)
+        job.requiredattribute.update(location=True)
         self.job_post = JobPostFactory.create(job=job, country=country)
         self.url = lambda job_post_uid: f"job-posts/{job_post_uid}/talents"
 

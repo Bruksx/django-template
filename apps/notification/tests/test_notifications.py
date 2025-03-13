@@ -57,11 +57,13 @@ class TestSendTalentJobMatchingNotification(TestCase):
         self.country = CountryFactory.create()
         self.job_post = JobPostFactory.create(country=self.country)
         self.talent = TalentFactory.create(country=self.country)
-        self.requirements = RequiredAttributeFactory.create(job=self.job_post.job, location=True,
+        self.job_post.job.requiredattribute.update(location=True,
                                         working_hours=False, years_of_experience=False,
                                         role=False, minimum_education_level=False, work_structure=False,
                                         technological_requirement=False, job_level=False,
                                         first_language=False, secondary_language=False)
+        self.job_post.job.refresh_from_db()
+        self.job_post.refresh_from_db()
 
     def test_send_talent_job_matching_notification(self):
         notification_count = Notification.objects.all().count()
@@ -70,11 +72,13 @@ class TestSendTalentJobMatchingNotification(TestCase):
 
     def test_when_talent_score_is_low(self):
         notification_count = Notification.objects.all().count()
-        self.requirements.update(location=False,
+        self.job_post.job.requiredattribute.update(location=False,
                                         working_hours=True, years_of_experience=True,
                                         role=True, minimum_education_level=True, work_structure=True,
                                         technological_requirement=True, job_level=True,
                                         first_language=True, secondary_language=True)
+        self.job_post.job.refresh_from_db()
+        self.job_post.refresh_from_db()
         send_talent_job_matching_notification(self.talent, self.job_post)
         self.assertEqual(Notification.objects.all().count(), notification_count)
 

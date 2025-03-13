@@ -123,6 +123,10 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
     talent_user = request.user.talent
     if "gender" in data:
         data["gender"] = data["gender"].value
+
+    if "work_model" in data:
+        data["work_model"] = data["work_model"].value
+
     if "preferred_communication" in data:
         data["preferred_communication"] = data["preferred_communication"].value
     if "notice_period_type" in data:

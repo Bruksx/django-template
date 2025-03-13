@@ -17,7 +17,7 @@ from django.db.models import Q, Count, F, Value, Avg, IntegerField
 from django.db.models.functions import Concat, Cast
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
 from ninja_jwt.tokens import RefreshToken
 from notification.enums import NotificationGroup
 
@@ -207,6 +207,7 @@ class Talent(BaseModel):
     employment_type = models.CharField(max_length=32, null=True)
     visible = models.BooleanField(default=True)
     preferred_communication = models.CharField(max_length=64, null=True)
+    work_model = models.CharField(max_length=64, null=True, choices=WorkStructureEnum.choices())
     bio = models.TextField(null=True)
     notice_period = models.IntegerField(null=True)
     instagram = models.URLField(null=True)
@@ -304,6 +305,7 @@ class Talent(BaseModel):
             Q(requiredattribute__minimum_education_level=True, minimum_education_level_id__in=education_level_ids)|
             Q(requiredattribute__business_models__id__in=business_model_ids)|
             Q(requiredattribute__role=True, role_id__in=role_ids)|
+            Q(requiredattribute__work_structure=True, work_structure=self.work_model)|
             Q(requiredattribute__years_of_experience=True, years_of_experience=years_of_experience)|
             Q(requiredattribute__first_language=True, first_language=self.native_language)|
             Q(requiredattribute__secondary_language=True, additional_languages__id__in=additional_language_ids)|
@@ -345,6 +347,8 @@ class Talent(BaseModel):
         if required_attribute.first_language and self.native_language != job.first_language:
             score -= 1
         if required_attribute.secondary_language and job.additional_languages.intersection(self.additional_languages.all()).count() == 0:
+            score -= 1
+        if required_attribute.work_structure and self.work_model != job.work_structure:
             score -= 1
         if required_attribute.working_hours:
             working_hours_query = self.availability_query()

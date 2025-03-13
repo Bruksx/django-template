@@ -16,7 +16,7 @@ from core.models import Currency
 from factories import WorkflowStageFactory, TalentFactory, BusinessUserFactory, CountryFactory, IndustryFactory, \
     LanguageFactory, EducationFactory, EducationLevelFactory, RoleFactory, ExperienceFactory, SkillFactory, \
     BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory, SavedJobFactory, JobFilterFactory
-from jobs.enums import LunchBreakEnum, PhaseType, JobStatusType
+from jobs.enums import LunchBreakEnum, PhaseType, JobStatusType, WorkStructureEnum
 from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, RequiredAttribute, AvailableDay, \
     JobApplication, JobInterview
 
@@ -100,11 +100,7 @@ class ValidateOtpTests(TestCase):
 class GetTalentProfileTests(TestCase):
     def setUp(self):
         self.client = TestClient(router)
-        self.country = Country.objects.create(name="Nigeria", code="NG")
-        self.industry = Industry.objects.create(name="TestIndustry")
         self.talent = TalentFactory.create()
-        self.auth = JWTAuth()
-        self.auth.authenticate = lambda r: self.user
 
 
     def test_get_talent_profile(self):
@@ -277,13 +273,17 @@ class UpdateTalentProfileTests(TestCase):
         }
         data = {
             "visible": False,
-            "bio": "hello"
+            "bio": "hello",
+            "work_model": "hybrid",
+            "employment_type": "full_time"
         }
         response = self.client.patch(path=self.url, json=data, headers=headers)
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.assertFalse(self.talent.visible)
         self.assertEqual(self.talent.bio, "hello")
+        self.assertEqual(self.talent.work_model, "hybrid")
+        self.assertEqual(self.talent.employment_type, "full_time")
         data = {
             "visible": False,
             "bio": ""
@@ -293,6 +293,7 @@ class UpdateTalentProfileTests(TestCase):
         self.talent.refresh_from_db()
         self.assertFalse(self.talent.visible)
         self.assertEqual(self.talent.bio, "")
+
 
     def test_update_by_business_user(self):
         business_user = BusinessUserFactory.create()
@@ -392,8 +393,7 @@ class TalentDashboardTests(TestCase):
             annual_salary_currency=self.currency,
             recruiter=self.business_user
         )
-        self.job_required_attrs = RequiredAttribute.objects.create(
-            job=job,
+        job.requiredattribute.update(
             role=True,
             job_level=True,
             years_of_experience=True,
@@ -405,9 +405,10 @@ class TalentDashboardTests(TestCase):
             working_hours=True,
             location=True
         )
-        self.job_required_attrs.skills.set(Skill.objects.all()[:2])
-        self.job_required_attrs.business_models.set(BusinessModel.objects.all()[:2])
-        self.job_required_attrs.refresh_from_db()
+        job.requiredattribute.skills.set(Skill.objects.all()[:2])
+        job.requiredattribute.business_models.set(BusinessModel.objects.all()[:2])
+        job.requiredattribute.save()
+        job.refresh_from_db()
         TalentAvailableDay.objects.create(
             talent=self.talent,
             day=Days.WEDNESDAY,
