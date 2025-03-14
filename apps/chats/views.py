@@ -11,6 +11,8 @@ from django.db import transaction
 from django.db.models import Q, F
 from ninja import Router, PatchDict, UploadedFile, Form
 from ninja.errors import HttpError
+
+from notification.notifications import send_new_chat_notification
 from monkeypatches.response import Response
 from ninja_extra.pagination import PageNumberPaginationExtra, paginate
 from ninja_extra.schemas import PaginatedResponseSchema
@@ -79,7 +81,7 @@ def create_chat_message(request, conversation_uid:UUID,
         raise HttpError(403, "Conversation is locked")
     if recipient.type == UserType.BUSINESS.value and user.type == UserType.BUSINESS.value:
         raise HttpError(403, "Not allowed")
-
+    async_task(send_new_chat_notification,conversation)
     message = Message.objects.create(conversation=conversation, sender=user, body=body.body, job_post=body.job_post)
     if attachments:
         message_attachments = list()
