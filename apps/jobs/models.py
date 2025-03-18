@@ -409,7 +409,7 @@ class JobPost(BaseModel):
 
             elif attribute == "working_hours":
                 talent_wh_query = talent.availability_query()
-                if talent_wh_query:
+                if talent_wh_query != Q():
                     wh_query = job.availableday_set.filter(talent_wh_query)
                     wh_count = wh_query.count()
                 else:
