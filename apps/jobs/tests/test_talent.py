@@ -110,6 +110,18 @@ class TalentJobListTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
 
+    def test_job_recommendations_endpoint_without_availability(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        self.talent.talentavailableday_set.all().delete()
+        response = self.client.get("talent/job-recommendations", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+        response = self.client.get("talent/job-recommendations?use_filter=false&page_size=100&page=1", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+
     def test_saved_job_endpoints(self):
         SavedJob.objects.create(
             job_post=self.job_post,
