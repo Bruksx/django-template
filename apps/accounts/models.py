@@ -298,7 +298,11 @@ class Talent(BaseModel):
         additional_language_ids = self.additional_languages.only("id").values_list("id", flat=True)
         skill_ids = self.skills.only("id").values_list("id", flat=True)
 
-        working_hours_query = self.availability_query()
+        availability_query = self.availability_query()
+        if availability_query:
+            available_days = AvailableDay.objects.filter(availability_query)
+        else:
+            available_days = AvailableDay.objects.none()
 
         job_matching_query = Q(
             Q(requiredattribute__job_level=True, job_level_id__in=job_level_ids)|
@@ -309,7 +313,7 @@ class Talent(BaseModel):
             Q(requiredattribute__years_of_experience=True, years_of_experience=years_of_experience)|
             Q(requiredattribute__first_language=True, first_language=self.native_language)|
             Q(requiredattribute__secondary_language=True, additional_languages__id__in=additional_language_ids)|
-            Q(requiredattribute__working_hours=True, availableday__in=AvailableDay.objects.filter(working_hours_query))|
+            Q(requiredattribute__working_hours=True, availableday__in=available_days)|
             Q(requiredattribute__location=True, jobpost__country=self.country)|
             Q(requiredattribute__skills__id__in=skill_ids)
         )
@@ -352,7 +356,9 @@ class Talent(BaseModel):
             score -= 1
         if required_attribute.working_hours:
             working_hours_query = self.availability_query()
-            if not job.availableday_set.filter(working_hours_query).exists():
+            if working_hours_query:
+                score -= 1
+            if working_hours_query and not job.availableday_set.filter(working_hours_query).exists():
                 score -= 1
         if required_attribute.location and self.country != job_post.country:
             score -= 1
