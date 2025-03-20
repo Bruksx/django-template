@@ -156,3 +156,4 @@ class ResponseSchema(Schema):
 
 class ChatMessagePaginatedSchema(PaginatedResponseSchema[ChatMessageSchema]):
     locked: bool
+    recipient: ChatUserSchema

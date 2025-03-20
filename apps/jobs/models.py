@@ -54,7 +54,7 @@ class Job(BaseModel):
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     hiring_company_name = models.CharField(max_length=64, null=True)
     hiring_company_description = models.TextField(null=True)
-    title = models.CharField(max_length=32, null=True)
+    title = models.CharField(max_length=100, null=True)
     about = models.TextField(null=True)
     years_of_experience = models.IntegerField(null=True)
     minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)

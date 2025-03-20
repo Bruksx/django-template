@@ -52,7 +52,8 @@ def get_messages(request, conversation_uid:UUID, page_size=50, page=1, **kwargs)
         queryset=queryset,
         request=request,
         pagination=pagination,
-        locked=conversation.locked
+        locked=conversation.locked,
+        recipient=ChatUserSchema.from_orm(conversation.get_recipient(user)).__dict__
     )
 
 @router.get("messages/{message_uid}/read-by", auth=JWTAuth(), response=List[ChatUserSchema])
