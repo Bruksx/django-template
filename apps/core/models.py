@@ -79,7 +79,7 @@ class Currency(BaseModel):
 
 
 class Language(BaseModel):
-    name = models.CharField(max_length=32)
+    name = models.CharField(max_length=50)
 
     class Meta:
         ordering = ["name"]

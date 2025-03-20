@@ -70,13 +70,13 @@ class User(AbstractUser, BaseModel):
     email = models.EmailField(unique=True, null=True)
     email_verified = models.BooleanField(default=False)
     type = models.CharField(max_length=50, null=True, choices=UserType.choices())
-    username = models.CharField(max_length=32, null=True)
-    auth_mode = models.CharField(max_length=20, choices=AuthType.choices(),
+    username = models.CharField(max_length=50, null=True)
+    auth_mode = models.CharField(max_length=50, choices=AuthType.choices(),
                                  default=AuthType.EMAIL.value)
-    facebook_id = models.CharField(max_length=32, null=True, unique=True)
-    linkedin_id = models.CharField(max_length=32, null=True)
-    google_id = models.CharField(max_length=32, null=True)
-    apple_id = models.CharField(max_length=32, null=True)
+    facebook_id = models.CharField(max_length=50, null=True, unique=True)
+    linkedin_id = models.CharField(max_length=50, null=True)
+    google_id = models.CharField(max_length=50, null=True)
+    apple_id = models.CharField(max_length=50, null=True)
     fullname = models.GeneratedField(
         expression=Concat(F("first_name"), Value(" "),
                           F("last_name")),
@@ -204,7 +204,7 @@ class Talent(BaseModel):
     city = models.CharField(max_length=64, null=True)
     address = models.CharField(max_length=128, null=True)
     postal_code = models.CharField(max_length=20, null=True)
-    employment_type = models.CharField(max_length=32, null=True)
+    employment_type = models.CharField(max_length=100, null=True)
     visible = models.BooleanField(default=True)
     preferred_communication = models.CharField(max_length=64, null=True)
     work_model = models.CharField(max_length=64, null=True, choices=WorkStructureEnum.choices())
@@ -216,7 +216,7 @@ class Talent(BaseModel):
     twitter_x = models.URLField(null=True)
     cv = models.FileField(upload_to="cvs")
     photo = models.ImageField(upload_to="talents")
-    notice_period_type = models.CharField(max_length=32, choices=NoticePeriodType.choices(),
+    notice_period_type = models.CharField(max_length=50, choices=NoticePeriodType.choices(),
                                           default=NoticePeriodType.MONTH.value)
     native_language = models.ForeignKey("core.Language", on_delete=models.SET_NULL, null=True,
                                         related_name="native_language")
@@ -999,8 +999,8 @@ class BusinessUser(BaseModel):
     business = models.ForeignKey(Business, on_delete=models.CASCADE)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     added_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True)
-    role = models.CharField(max_length=32, choices=BusinessUserRoleType.choices())
-    status = models.CharField(max_length=32, choices=BusinessUserStatusType.choices(),
+    role = models.CharField(max_length=100, choices=BusinessUserRoleType.choices())
+    status = models.CharField(max_length=100, choices=BusinessUserStatusType.choices(),
                               default=BusinessUserStatusType.ACTIVE.value)
 
     def __str__(self) -> str:
@@ -1072,7 +1072,7 @@ class Experience(BaseModel):
 
 class TalentAvailableDay(BaseModel):
     talent = models.ForeignKey("Talent", on_delete=models.CASCADE)
-    day = models.CharField(max_length=32, choices=Days.choices())
+    day = models.CharField(max_length=50, choices=Days.choices())
     end_time = models.TimeField(null=True)
     start_time = models.TimeField(null=True)
 
