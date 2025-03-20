@@ -102,7 +102,7 @@ class UpdateTalentProfileSchema2(Schema):
     country: Optional[UUID] = None
     state: Optional[str] = None
     city: Optional[str] = None
-    employment_type: Optional[UUID] = None
+
     postal_code: Optional[str] = None
     whatsapp_number: Optional[str] = None
     work_model: Optional[WorkStructureEnum] = None
