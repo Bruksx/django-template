@@ -156,7 +156,7 @@ class TalentUserSchema(ModelSchema):
     user: UserSchema
     role: Optional[RoleSchema]
     country: Optional[CountrySchema]
-    employment_type: Optional[EmploymentTypeSchema]
+
     skills: List[TalentSkillSchema]
     business_models: List[BusinessModelSchema]
     experience_history: List[ExperienceSchema]
