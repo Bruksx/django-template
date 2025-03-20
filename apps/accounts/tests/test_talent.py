@@ -284,7 +284,7 @@ class UpdateTalentProfileTests(TestCase):
         self.assertFalse(self.talent.visible)
         self.assertEqual(self.talent.bio, "hello")
         self.assertEqual(self.talent.work_model, "hybrid")
-        self.assertEqual(self.talent.employment_type, employment_type)
+        self.assertEqual(self.talent.employment_type.uid, employment_type)
         data = {
             "visible": False,
             "bio": ""
