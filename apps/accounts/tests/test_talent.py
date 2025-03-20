@@ -271,11 +271,12 @@ class UpdateTalentProfileTests(TestCase):
         headers = {
             "Authorization": f"Bearer {self.talent.user.token}"
         }
+        employment_type = EmploymentType.objects.first().uid
         data = {
             "visible": False,
             "bio": "hello",
             "work_model": "hybrid",
-            "employment_type": "full_time"
+            "employment_type": str(employment_type)
         }
         response = self.client.patch(path=self.url, json=data, headers=headers)
         self.assertEqual(response.status_code, 200)
@@ -283,7 +284,7 @@ class UpdateTalentProfileTests(TestCase):
         self.assertFalse(self.talent.visible)
         self.assertEqual(self.talent.bio, "hello")
         self.assertEqual(self.talent.work_model, "hybrid")
-        self.assertEqual(self.talent.employment_type, "full_time")
+        self.assertEqual(self.talent.employment_type, employment_type)
         data = {
             "visible": False,
             "bio": ""
