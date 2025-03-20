@@ -65,7 +65,7 @@ class User(AbstractUser, BaseModel):
     objects = CustomUserManager()
     REQUIRED_FIELDS = []
 
-    gender = models.CharField(max_length=32, choices=GenderType.choices(), default=GenderType.OTHERS.value)
+    gender = models.CharField(max_length=100, choices=GenderType.choices(), default=GenderType.OTHERS.value)
     phone_number = models.CharField(max_length=50, null=True)
     email = models.EmailField(unique=True, null=True)
     email_verified = models.BooleanField(default=False)
@@ -204,7 +204,7 @@ class Talent(BaseModel):
     city = models.CharField(max_length=64, null=True)
     address = models.CharField(max_length=128, null=True)
     postal_code = models.CharField(max_length=20, null=True)
-    employment_type = models.CharField(max_length=100, null=True)
+    employment_type = models.ForeignKey("jobs.EmploymentType", on_delete=models.SET_NULL, null=True)
     visible = models.BooleanField(default=True)
     preferred_communication = models.CharField(max_length=64, null=True)
     work_model = models.CharField(max_length=64, null=True, choices=WorkStructureEnum.choices())
