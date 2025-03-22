@@ -249,13 +249,13 @@ def update_talent_applications_to_no_stage():
 def create_job_posts_in_all_countries(job):
     t_countries = Talent.objects.only("country").values_list("country_id", flat=True).distinct()
     j_countries = JobPost.objects.only("country").values_list("country_id", flat=True).distinct()
-    countries = Country.objects.filter(id__in=t_countries).exclude(id__in=j_countries)
+    countries = Country.objects.filter(id__in=t_countries)
 
 
     dollars = Currency.objects.filter(abbreviation="USD").first()
     for country in countries:
-        if not JobPost.objects.filter(job=job, country=country).exists():
-            JobPostFactory.create(job=job, recruiter=job.created_by, country=country,
+        if JobPost.objects.filter(job=job, country=country).count() < 5:
+            JobPostFactory.create_batch(5, job=job, recruiter=job.created_by, country=country,
                                   annual_bonus_currency=dollars, annual_salary_currency=dollars)
 
 def create_job_posts():
