@@ -248,7 +248,6 @@ def update_talent_applications_to_no_stage():
 
 def create_job_posts_in_all_countries(job):
     t_countries = Talent.objects.only("country").values_list("country_id", flat=True).distinct()
-    j_countries = JobPost.objects.only("country").values_list("country_id", flat=True).distinct()
     countries = Country.objects.filter(id__in=t_countries)
 
 
