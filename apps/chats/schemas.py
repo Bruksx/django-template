@@ -1,7 +1,7 @@
 from typing import Optional, List, Any
 from uuid import UUID
 
-from ninja_extra.schemas import PaginatedResponseSchema
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
 from accounts.models import User
 from chats.enums import ChatMessageAttachmentType

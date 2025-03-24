@@ -14,8 +14,9 @@ from ninja.errors import HttpError
 
 from notification.notifications import send_new_chat_notification
 from monkeypatches.response import Response
-from ninja_extra.pagination import PageNumberPaginationExtra, paginate
-from ninja_extra.schemas import PaginatedResponseSchema
+from ninja_extra.pagination import paginate
+from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
+from paginations import CustomPaginatedResponseSchema as  PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from monkeypatches.q_cluster import async_task

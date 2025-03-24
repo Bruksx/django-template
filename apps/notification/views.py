@@ -5,8 +5,8 @@ from django.db import transaction
 from ninja import Router, PatchDict
 from monkeypatches.response import Response
 from ninja_extra import paginate
-from ninja_extra.pagination import PageNumberPaginationExtra
-from ninja_extra.schemas import PaginatedResponseSchema
+from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from notification.models import BusinessUserNotificationSettings, Notification
