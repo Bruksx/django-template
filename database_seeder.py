@@ -2,7 +2,6 @@ import os
 from random import choice
 
 import django
-from django.db.models import Count
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
@@ -17,6 +16,8 @@ from faker import Faker
 from jobs.enums import PhaseType
 from jobs.models import JobPost, EmploymentType, JobApplication, Job, JobLevel, Qualification, JobApplicationWithdrawal, SavedJob
 from settings.models import WorkFlowStage
+from apps.jobs.enums import JobStatusType
+
 
 from apps.factories import TalentFactory, BusinessFactory, BusinessUserFactory, JobFactory, JobPostFactory, \
     RequiredAttributeFactory, JobFilterFactory, JobApplicationFactory, SavedJobFactory, \
@@ -249,16 +250,29 @@ def update_talent_applications_to_no_stage():
 def create_job_posts_in_all_countries(job):
     t_countries = Talent.objects.only("country").values_list("country_id", flat=True).distinct()
     countries = Country.objects.filter(id__in=t_countries)
+    print("countries: ", countries.count())
 
 
     dollars = Currency.objects.filter(abbreviation="USD").first()
     for country in countries:
+        print(f"creating job posts in {country.name}")
         if JobPost.objects.filter(job=job, country=country).count() < 5:
+
             JobPostFactory.create_batch(5, job=job, recruiter=job.created_by, country=country,
                                   annual_bonus_currency=dollars, annual_salary_currency=dollars)
 
 def create_job_posts():
     jobs = Job.objects.all()
+    print("jobs: ", jobs.count())
     for job in jobs:
+        print("job_posts: ", job.jobpost_set.count())
+
         create_job_posts_in_all_countries(job)
     print("finished creating job posts")
+
+
+def update_job_post_status():
+    job_posts = JobPost.objects.exclude(
+        status__in=(JobStatusType.CLOSED.value, JobStatusType.PAUSED.value)
+    ).update(status=JobStatusType.POSTED.value)
+    print("finished updating job post status")

@@ -10,7 +10,7 @@ from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
-from ninja_extra.schemas import PaginatedResponseSchema
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Department, Role, SkillCategory, Skill

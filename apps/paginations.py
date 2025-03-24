@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from typing import Optional, Any
+from typing import Optional, Any, List, Generic
 
 from django.core.paginator import Page, InvalidPage
 from django.db.models import QuerySet
@@ -8,7 +8,20 @@ from ninja import Schema
 from ninja.types import DictStrAny
 from ninja_extra.exceptions import NotFound
 from ninja_extra.pagination import PageNumberPaginationExtra
+from ninja_extra.schemas.response import Url, T, BasePaginatedResponseSchema
 from pydantic import Field
+
+
+
+
+class CustomBasePaginatedResponseSchema(BasePaginatedResponseSchema):
+    next_page: Optional[int]
+    previous_page: Optional[int]
+
+
+class CustomPaginatedResponseSchema(CustomBasePaginatedResponseSchema, Generic[T]):
+    results: List[T]
+
 
 
 class CustomPageNumberPaginationExtra(PageNumberPaginationExtra):
@@ -22,8 +35,8 @@ class CustomPageNumberPaginationExtra(PageNumberPaginationExtra):
         return OrderedDict(
             [
                 ('count', page.paginator.count),
-                ("next_page", page.next_page_number()),
-                ("previous_page", page.previous_page_number()),
+                ("next_page", page.next_page_number() if page.has_next() else None),
+                ("previous_page", page.previous_page_number() if page.has_previous() else None),
                 ("next", self.get_next_link(base_url, page=page)),
                 ("previous", self.get_previous_link(base_url, page=page)),
                 ("results", list(page)),

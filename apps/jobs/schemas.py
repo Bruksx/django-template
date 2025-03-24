@@ -7,7 +7,7 @@ from uuid import UUID
 from ninja import ModelSchema, UploadedFile
 from ninja.errors import HttpError
 from ninja.schema import Schema
-from ninja_extra.schemas import PaginatedResponseSchema
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from pydantic import Field, EmailStr
 
 from accounts.enums import Days
