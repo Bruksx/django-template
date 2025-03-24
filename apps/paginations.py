@@ -22,6 +22,8 @@ class CustomPageNumberPaginationExtra(PageNumberPaginationExtra):
         return OrderedDict(
             [
                 ('count', page.paginator.count),
+                ("next_page", page.next_page_number()),
+                ("previous_page", page.previous_page_number()),
                 ("next", self.get_next_link(base_url, page=page)),
                 ("previous", self.get_previous_link(base_url, page=page)),
                 ("results", list(page)),
