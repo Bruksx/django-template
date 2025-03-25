@@ -506,6 +506,7 @@ class JobPostMetrics(BaseModel):
 class JobApplication(BaseModel):
     job_post = models.ForeignKey(JobPost, on_delete=models.CASCADE, null=True)
     applicant = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE)
+    available_for_schedule = models.BooleanField(default=True)
     recruiter = models.ForeignKey(
         "accounts.BusinessUser",
         null=True,

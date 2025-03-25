@@ -8,7 +8,7 @@ from ninja.errors import HttpError
 
 from jobs.enums import PhaseType
 from jobs.models import JobApplication, Answer
-from jobs.schemas import MutateAnswerSchema
+from jobs.schemas import MutateAnswerSchema, ApplyToJobSchema
 from notification.notifications import send_talents_job_matching_notification
 from settings.models import WorkFlowStage
 
@@ -24,9 +24,10 @@ def get_talent_job_recommendations(talent, search="", use_filter=False, **kwargs
     return queryset.order_by("-created_at")
 
 @transaction.atomic
-def create_job_application(job_post, talent, data:Optional[List[MutateAnswerSchema]] = None):
+def create_job_application(job_post, talent, data:ApplyToJobSchema):
     application = JobApplication.objects.create(job_post=job_post, applicant=talent,
                                                 recruiter=job_post.recruiter,
+                                                available_for_schedule=data.available_for_schedule,
                                                 match=talent.job_match_score(job_post))
     if job_post.job.min_match_score and application.match < job_post.job.min_match_score:
         rejected_stage = WorkFlowStage.objects.filter(
@@ -35,9 +36,9 @@ def create_job_application(job_post, talent, data:Optional[List[MutateAnswerSche
         ).order_by("order").first()
         application.update(stage=rejected_stage)
 
-    if not data:
+    if not data.answers:
         return
-    for answer_data in data:
+    for answer_data in data.answers:
         answer = Answer.objects.create(application=application,
                         question=answer_data.question, text=answer_data.text,
                         files=answer_data.files)

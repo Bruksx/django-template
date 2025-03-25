@@ -291,6 +291,9 @@ class ApplyToJobPostTest(TestCase):
         self.job_post = JobPostFactory.create(
             status=JobStatusType.POSTED.value,
             job=self.job,)
+        self.test_data = {
+            "available_for_schedule": True
+        }
         self.url = lambda job_post_uid: f"talent/job-posts/{job_post_uid}/apply"
         WorkflowStageFactory.create(phase=PhaseType.REJECTED.value, created_by=self.job.created_by)
 
@@ -299,14 +302,14 @@ class ApplyToJobPostTest(TestCase):
             "authorization": f"bearer {self.user.token}"
         }
         self.assertEqual(self.talent.applied_jobs().count(), 0)
-        response = self.client.post(self.url(self.job_post.uid),
+        response = self.client.post(self.url(self.job_post.uid), json=self.test_data,
                                     headers=headers)
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.assertEqual(self.talent.applied_jobs().count(), 1)
 
         # test to ensure that you cannot apply for one job twice
-        response = self.client.post(self.url(self.job_post.uid),
+        response = self.client.post(self.url(self.job_post.uid), json=self.test_data,
                                     headers=headers)
         self.assertEqual(response.status_code, 400)
 
@@ -327,8 +330,9 @@ class ApplyToJobPostTest(TestCase):
             elif question.type == QuestionTypeEnum.FILE.value:
                 answer_dict["files"] = ["http://test.com"]
             data.append(answer_dict)
+        self.test_data["answers"] = data
         response = self.client.post(self.url(self.job_post.uid),
-                                    headers=headers, json=data)
+                                    headers=headers, json=self.test_data)
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.assertEqual(self.talent.applied_jobs().count(), 1)
@@ -340,7 +344,7 @@ class ApplyToJobPostTest(TestCase):
         headers = {
             "authorization": f"bearer {self.business_user.user.token}"
         }
-        response = self.client.post(self.url(self.job_post.uid),
+        response = self.client.post(self.url(self.job_post.uid), json=self.test_data,
                                     headers=headers)
         self.assertEqual(response.status_code, 403)
 
@@ -348,7 +352,7 @@ class ApplyToJobPostTest(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.post(self.url(uuid.uuid4()),
+        response = self.client.post(self.url(uuid.uuid4()), json=self.test_data,
                                     headers=headers)
         self.assertEqual(response.status_code, 404)
 
@@ -361,7 +365,7 @@ class ApplyToJobPostTest(TestCase):
             "authorization": f"bearer {self.talent.user.token}"
         }
         self.assertEqual(self.talent.applied_jobs().count(), 0)
-        response = self.client.post(self.url(self.job_post.uid),
+        response = self.client.post(self.url(self.job_post.uid), json=self.test_data,
                                     headers=headers)
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
