@@ -1058,7 +1058,7 @@ class Experience(BaseModel):
     level = models.ForeignKey("jobs.JobLevel", on_delete=models.SET_NULL, null=True)
     employment_type = models.ForeignKey("jobs.EmploymentType", on_delete=models.SET_NULL, null=True)
     start_date = models.DateField(null=True)
-    end_date = models.DateField(null=True)
+    end_date = models.DateField(null=True, default=None)
     currently_works_here = models.BooleanField()
 
     def duration(self):
