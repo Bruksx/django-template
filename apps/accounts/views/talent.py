@@ -156,7 +156,7 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
             end_date = experience.get("end_date", None)
             if not start_date:
                 raise HttpError(400, "Experience start date is required")
-            if currently_works:
+            if currently_works is True:
                 experience["end_date"] = None
             else:
                 if not end_date:
