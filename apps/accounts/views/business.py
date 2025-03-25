@@ -17,6 +17,7 @@ from monkeypatches.response import Response
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry
+from core.schemas import GenericNameAndUidSchema
 from jobs.models import Job
 from notification import notifications
 from ..enums import UserType, BusinessUserStatusType
@@ -76,7 +77,7 @@ def create_account(request, data: business_schema.ValidateOTPSchema):
 
 
 @router.patch("complete-company-profile", response=business_schema.BusinessSchema, auth=JWTAuth())
-def complete_company_profile(request, data: business_schema.BusinessSchema):
+def complete_company_profile(request, data: business_schema.CompleteBusinessProfileSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     business: Business = business_user.business
@@ -140,7 +141,12 @@ def update_business_details(request, data: PatchDict[business_schema.MutateBusin
         raise HttpError(400, "Password is required")
     if not request.user.check_password(password):
         raise HttpError(400, "Incorrect password")
-    business = request.user.businessuser.business
+    business: Business = request.user.businessuser.business
+    if data.get("industry_uid"):
+        industry_uid = data.pop("industry_uid")
+        industry = get_object_or_404(BusinessIndustry, uid=industry_uid)
+        business.industry = industry
+    business.save()
     business.update(**data)
     return Response(status=200, data={"message": "Details updated successfully"})
 
@@ -253,3 +259,7 @@ def delete_account(request):
     request.user.delete_account()
     return Response(status=204, data={"message": "Account deleted successfully"})
 
+
+@router.get("industries", response=list[GenericNameAndUidSchema], tags=["Common"])
+def get_business_industries(request):
+    return BusinessIndustry.objects.all()

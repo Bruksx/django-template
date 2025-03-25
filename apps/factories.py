@@ -8,7 +8,7 @@ from faker import Faker
 
 from accounts.enums import GenderType, PreferredCommunicationType, BusinessUserRoleType, Days
 from accounts.models import User, Talent, Business, BusinessUser, Education, Role, TalentAvailableDay, CustomerCase, \
-    EducationLevel, Industry, Country, Department, Experience, Skill, SkillCategory
+    EducationLevel, Industry, Country, Department, Experience, Skill, SkillCategory, BusinessIndustry
 from chats.models import Conversation, Message
 from notification.enums import EntityActionType, EntityType, NotificationType
 from notification.models import BusinessUserNotificationSettings, Notification
@@ -139,6 +139,13 @@ class RoleFactory(DjangoModelFactory):
     name = factory.Faker("job")
     department = factory.SubFactory(DepartmentFactory)
 
+
+class BusinessIndustryFactory(DjangoModelFactory):
+    name = factory.Faker("name")
+    class Meta:
+        model = BusinessIndustry
+
+
 class BusinessFactory(DjangoModelFactory):
     class Meta:
         model = Business
@@ -148,8 +155,7 @@ class BusinessFactory(DjangoModelFactory):
     website = factory.Faker('url')
     address = factory.Faker('address')
     country = factory.SubFactory(CountryFactory)
-    industry = factory.Faker("company")
-    name = factory.Faker('company')
+    industry = factory.SubFactory(BusinessIndustryFactory)
 
 class BusinessUserFactory(DjangoModelFactory):
     class Meta:

@@ -5,8 +5,8 @@ from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.enums import BusinessUserRoleType, BusinessUserStatusType
-from accounts.models import User, VerificationCode, Business, BusinessUser
+from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, BusinessSize
+from accounts.models import User, VerificationCode, Business, BusinessUser, BusinessIndustry
 from accounts.views.business import router
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
@@ -79,17 +79,17 @@ class CompleteCompanyProfileTestCase(TestCase):
         self.user = User.objects.create_user(email='testuser@mail.com', password='testpass')
         self.business = Business.objects.create(name="Test Business", created_by=self.user)
         self.business_user = BusinessUser.objects.create(user=self.user, business=self.business)
-
+        self.industry = BusinessIndustry.objects.first()
         self.auth = JWTAuth()
         self.auth.authenticate = lambda r: self.user
 
     def test_complete_company_profile_success(self):
 
         data = {
-            "size": 10,
+            "size": BusinessSize.SIZE_251_1000.value,
             "description": "string",
             "website": "string",
-            "industry": "string",
+            "industry_uid": str(self.industry.uid),
             "location": "string",
             "logo": "base64string",
             "instagram": "www.instagram.com",
@@ -110,10 +110,10 @@ class CompleteCompanyProfileTestCase(TestCase):
     def test_complete_company_profile_forbidden(self):
         other_user = User.objects.create_user(email='otheruser@mail.com', password='otherpass')
         data = {
-            "size": 10,
+            "size": BusinessSize.SIZE_251_1000.value,
             "description": "string",
             "website": "string",
-            "industry": "string",
+            "industry_uid": str(self.industry.uid),
             "location": "string",
             "logo": "base64string",
             "instagram": "www.instagram.com",
@@ -125,7 +125,6 @@ class CompleteCompanyProfileTestCase(TestCase):
             "authorization": f"bearer {other_user.token}"
         }
         response = self.client.patch("/complete-company-profile", json=data, headers=headers)
-
         self.assertEqual(response.status_code, 403)
 
 class BusinessDashboardTestCase(TestCase):
@@ -243,6 +242,7 @@ class UpdateBusinessDetailTest(TestCase):
         user = self.business_user.user
         user.set_password("TestPassword")
         user.save()
+        self.industry = BusinessIndustry.objects.first()
         self.url = ""
 
     def test_update_business_detail(self):
@@ -253,17 +253,16 @@ class UpdateBusinessDetailTest(TestCase):
             "password": "TestPassword",
             "name": "Test Company",
             "description": "Good company",
-            "industry": "Software"
+            "industry_uid": str(self.industry.uid),
         }
         self.assertNotEqual(self.business.name, data["name"])
         self.assertNotEqual(self.business.description, data["description"])
-        self.assertNotEqual(self.business.industry, data["industry"])
         response = self.client.patch(self.url, json=data,  headers=headers)
         self.assertEqual(response.status_code, 200)
         self.business.refresh_from_db()
         self.assertEqual(self.business.name, data["name"])
         self.assertEqual(self.business.description, data["description"])
-        self.assertEqual(self.business.industry, data["industry"])
+        self.assertEqual(self.business.industry, self.industry)
 
     def test_data_without_password(self):
         headers = {
@@ -272,14 +271,13 @@ class UpdateBusinessDetailTest(TestCase):
         data = {
             "name": "Test Company",
             "description": "Good company",
-            "industry": "Software"
         }
         response = self.client.patch(self.url, json=data, headers=headers)
         self.assertEqual(response.status_code, 400)
         self.business.refresh_from_db()
         self.assertNotEqual(self.business.name, data["name"])
         self.assertNotEqual(self.business.description, data["description"])
-        self.assertNotEqual(self.business.industry, data["industry"])
+        self.assertNotEqual(self.business.industry, self.industry)
 
     def test_data_with_incorrect_password(self):
         headers = {
@@ -296,7 +294,7 @@ class UpdateBusinessDetailTest(TestCase):
         self.business.refresh_from_db()
         self.assertNotEqual(self.business.name, data["name"])
         self.assertNotEqual(self.business.description, data["description"])
-        self.assertNotEqual(self.business.industry, data["industry"])
+        self.assertNotEqual(self.business.industry, self.industry)
 
     def test_request_by_team_member(self):
         self.business_user.update(role=BusinessUserRoleType.TEAM_MEMBER.value)
@@ -306,14 +304,14 @@ class UpdateBusinessDetailTest(TestCase):
         data = {
             "name": "Test Company",
             "description": "Good company",
-            "industry": "Software"
+            "industry_uid": str(self.industry.uid)
         }
         response = self.client.patch(self.url, json=data, headers=headers)
         self.assertEqual(response.status_code, 403)
         self.business.refresh_from_db()
         self.assertNotEqual(self.business.name, data["name"])
         self.assertNotEqual(self.business.description, data["description"])
-        self.assertNotEqual(self.business.industry, data["industry"])
+        self.assertNotEqual(self.business.industry, self.industry)
 
 
 class GetBusinessDetailTest(TestCase):
