@@ -8,7 +8,7 @@ from typing import Tuple, Optional
 from uuid import UUID
 
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessUserStatusType
+    BusinessUserStatusType, BusinessSize
 from core.models import BaseModel
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -506,13 +506,17 @@ class Talent(BaseModel):
         self.delete()
 
 
+class BusinessIndustry(BaseModel):
+    name = models.CharField(max_length=128)
 
+    def __str__(self):
+        return self.name
 
 
 class Business(BaseModel):
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     name = models.CharField(max_length=128)
-    size = models.IntegerField(null=True)
+    size = models.CharField(null=True, choices=BusinessSize.choices())
     description = models.TextField(null=True)
     website = models.URLField(null=True)
     address = models.CharField(max_length=128, null=True)
@@ -522,7 +526,7 @@ class Business(BaseModel):
     linkedin = models.URLField(null=True)
     facebook = models.URLField(null=True)
     twitter_x = models.URLField(null=True)
-    industry = models.CharField(max_length=64, null=True)
+    industry = models.ForeignKey(BusinessIndustry, null=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return self.name

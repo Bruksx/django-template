@@ -5,6 +5,7 @@ from uuid import UUID
 from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
 from helpers.email.auth import send_verification_code
@@ -15,7 +16,7 @@ from ninja.errors import HttpError
 from monkeypatches.response import Response
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import User, Business, BusinessUser, VerificationCode
+from accounts.models import User, Business, BusinessUser, VerificationCode, Country
 from jobs.models import Job
 from notification import notifications
 from ..enums import UserType, BusinessUserStatusType

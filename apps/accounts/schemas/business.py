@@ -22,9 +22,10 @@ class ValidateOTPSchema(Schema):
 
 
 class BusinessSchema(ModelSchema):
+
     class Meta:
         model = Business
-        fields = ["size", "description", "website", "industry", "address", "country", "logo", "instagram", "linkedin", "facebook",
+        fields = ["size", "description", "website", "industry", "address", "logo", "instagram", "linkedin", "facebook",
                   "twitter_x"]
 
 

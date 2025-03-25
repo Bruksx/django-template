@@ -71,5 +71,6 @@ jobs:
             python manage.py migrate
             sudo systemctl restart gunicorn
             sudo systemctl restart run_qcluster
+            sudo systemctl restart daphne
             sudo systemctl restart nginx
           EOF
