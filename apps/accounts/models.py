@@ -1062,9 +1062,8 @@ class Experience(BaseModel):
     currently_works_here = models.BooleanField()
 
     def duration(self):
-        if not self.end_date:
-            self.end_date = timezone.now().date()
-        days = (self.end_date - self.start_date).days
+        end_date = self.end_date if self.end_date else timezone.now().date()
+        days = (end_date - self.start_date).days
         months = days // 30
         years = months // 12
         return f"{years} years, {months % 12} months"
