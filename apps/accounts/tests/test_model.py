@@ -5,7 +5,7 @@ from django.test import TestCase
 
 from accounts.enums import BusinessUserRoleType, Days
 from accounts.models import User, Talent, Skill, Department, Experience, Role, Education, EducationLevel, \
-    BusinessUser, Business, Country, TalentAvailableDay
+    BusinessUser, Business, Country, TalentAvailableDay, BusinessIndustry
 from accounts.schemas.talent import TalentSkillSchema, MonthlyChartSchema, TalentAvailableDaySchema
 from chats.models import Conversation, Message
 from core.models import Currency
@@ -38,6 +38,7 @@ class TalentModelTest(TestCase):
         self.employment_type = EmploymentType.objects.first()
         self.education_level = EducationLevel.objects.first()
         self.country = Country.objects.first()
+        self.industry = BusinessIndustry.objects.first()
         self.user2 = User.objects.create_user(
             email="testuser1@example.com",
             password="securedPassword1",
@@ -63,7 +64,7 @@ class TalentModelTest(TestCase):
             website="https://example.com",
             address="Lekki, Lagos, Nigeria",
             country=Country.objects.first().uid,
-            industry="Technology"
+            industry=self.industry,
         )
         self.business_user = BusinessUser.objects.create(
             user=self.user,

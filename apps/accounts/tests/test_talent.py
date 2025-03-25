@@ -9,7 +9,7 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import Days, BusinessUserRoleType
 from accounts.models import User, VerificationCode, Country, Talent, EducationLevel, Industry, \
-    Skill, Department, Role, Business, BusinessUser, Experience, TalentAvailableDay
+    Skill, Department, Role, Business, BusinessUser, Experience, TalentAvailableDay, BusinessIndustry
 from accounts.views.talent import router
 from chats.models import Conversation, Message
 from core.models import Currency
@@ -334,6 +334,7 @@ class TalentDashboardTests(TestCase):
         self.employment_type = EmploymentType.objects.first()
         self.education_level = EducationLevel.objects.first()
         self.country = Country.objects.first()
+        self.industry = BusinessIndustry.objects.order_by("?").first()
         self.user2 = User.objects.create_user(
             email="testuser1@example.com",
             password="securedPassword1",
@@ -349,7 +350,7 @@ class TalentDashboardTests(TestCase):
             website="https://example.com",
             address="Lekki, Lagos, Nigeria",
             country=Country.objects.first().uid,
-            industry="Technology"
+            industry=self.industry
         )
         self.business_user = BusinessUser.objects.create(
             user=self.user,
