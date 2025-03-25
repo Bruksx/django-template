@@ -22,10 +22,11 @@ class ValidateOTPSchema(Schema):
 
 
 class BusinessSchema(ModelSchema):
+    industry_uid: UUID
 
     class Meta:
         model = Business
-        fields = ["size", "description", "website", "industry", "address", "logo", "instagram", "linkedin", "facebook",
+        fields = ["size", "description", "website", "address", "logo", "instagram", "linkedin", "facebook",
                   "twitter_x"]
 
 

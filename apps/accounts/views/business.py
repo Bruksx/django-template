@@ -16,7 +16,7 @@ from ninja.errors import HttpError
 from monkeypatches.response import Response
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import User, Business, BusinessUser, VerificationCode, Country
+from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry
 from jobs.models import Job
 from notification import notifications
 from ..enums import UserType, BusinessUserStatusType
@@ -79,12 +79,16 @@ def create_account(request, data: business_schema.ValidateOTPSchema):
 def complete_company_profile(request, data: business_schema.BusinessSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    business = business_user.business
-    if business.created_by == request.user:
-        for key, value in data:
+    business: Business = business_user.business
+    if business.size or business.created_by != request.user:
+        raise HttpError(403, "Not allowed!")
+    industry = get_object_or_404(BusinessIndustry, uid=data.industry_uid)
+    for key, value in data:
+        if hasattr(business, key):
             setattr(business, key, value)
-        business.logo = convert_base64_to_image_file(data.logo)
-        business.save()
+    business.logo = convert_base64_to_image_file(data.logo)
+    business.industry = industry
+    business.save()
     return business
 
 @router.get("dashboard", auth=JWTAuth(), response={200: business_schema.DashboardSchema})
