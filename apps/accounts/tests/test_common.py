@@ -262,7 +262,7 @@ class TalentListTest(TestCase):
         }
         response = self.client.get(self.url, headers=headers)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 6)
+        self.assertEqual(response.json()["count"], 6)
 
     def test_talent_list_with_search(self):
         headers = {
@@ -270,7 +270,7 @@ class TalentListTest(TestCase):
         }
         response = self.client.get(f"{self.url}?search={self.talent.user.email}", headers=headers)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data["count"], 1)
 
     def test_for_talent_invisibility(self):
         self.talent.update(visible=False)
@@ -279,7 +279,7 @@ class TalentListTest(TestCase):
         }
         response = self.client.get(self.url, headers=headers)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 5)
+        self.assertEqual(response.json()["count"], 5)
 
     def test_for_endpoint_by_business_user(self):
         business_user = BusinessUserFactory.create()
@@ -289,7 +289,7 @@ class TalentListTest(TestCase):
         }
         response = self.client.get(self.url, headers=headers)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.json()), 5)
+        self.assertEqual(response.json()["count"], 5)
 
 class SendEmailToOTPTest(TestCase):
     def setUp(self):
