@@ -18,7 +18,7 @@ from jobs.enums import JobStatusType
 from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
     TalentJobApplicationWithdrawalSchema, ShareJobPostViaEmailSchema, ShareJobPostViaChatSchema, \
-    TalentJobPostSchema, MutateAnswerSchema, AppliedTalentJobPostListSchema
+    TalentJobPostSchema, AppliedTalentJobPostListSchema,ApplyToJobSchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service
 from notification import notifications
 
@@ -112,7 +112,7 @@ def get_talent_job_filter(request):
 
 @router.post("talent/job-posts/{job_post_id}/apply", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 @transaction.atomic
-def apply_to_job_post(request, job_post_id:UUID, data:Optional[List[MutateAnswerSchema]]=None):
+def apply_to_job_post(request, job_post_id:UUID, data: ApplyToJobSchema):
     IsTalentUser.check(request)
     talent = request.user.talent
     job_post = JobPost.objects.filter(uid=job_post_id).first()

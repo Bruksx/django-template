@@ -561,7 +561,7 @@ class JobApplicationListSchema(ModelSchema):
     applicant_photo:Optional[str] = Field(alias="applicant.photo_url")
     class Meta:
         model = JobApplication
-        fields = ("uid",  "created_at")
+        fields = ("uid",  "created_at", "available_for_schedule")
 
     @staticmethod
     def resolve_stage(obj):
@@ -740,3 +740,7 @@ class UpdateApplicationSchema(ModelSchema):
         model = JobApplication
         fields = ("stage",)
     stage: Optional[UUID]
+
+class ApplyToJobSchema(Schema):
+    answers:Optional[List[MutateAnswerSchema]]=None
+    available_for_schedule:bool
