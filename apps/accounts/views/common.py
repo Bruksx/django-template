@@ -7,15 +7,18 @@ from monkeypatches.q_cluster import async_task
 from ninja import Router
 from ninja.errors import HttpError
 from monkeypatches.response import Response
+from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
 from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
+from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 
 router = Router(tags=["Common Account APIs"])
 
 
-@router.get("talents", response=list[talent_schemas.TalentUserListSchema], auth=JWTAuth())
+@router.get("talents", response=CustomPaginatedResponseSchema[talent_schemas.TalentUserListSchema], auth=JWTAuth())
+@paginate(CustomPageNumberPaginationExtra, page_size=50)
 def talent_lists(request, search=""):
     talents = Talent.objects.prefetch_related("user").filter(visible=True)
     if search:
