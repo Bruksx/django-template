@@ -84,11 +84,13 @@ def complete_company_profile(request, data: business_schema.CompleteBusinessProf
     if business.created_by != request.user:
         raise HttpError(403, "Not allowed!")
     industry = get_object_or_404(BusinessIndustry, uid=data.industry_uid)
+    country = get_object_or_404(Country, uid=data.country_uid)
     for key, value in data:
         if hasattr(business, key):
             setattr(business, key, value)
     business.logo = convert_base64_to_image_file(data.logo)
     business.industry = industry
+    business.country = country
     business.save()
     return business
 
