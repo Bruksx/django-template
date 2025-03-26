@@ -81,7 +81,7 @@ def complete_company_profile(request, data: business_schema.CompleteBusinessProf
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     business: Business = business_user.business
-    if business.size or business.created_by != request.user:
+    if business.created_by != request.user:
         raise HttpError(403, "Not allowed!")
     industry = get_object_or_404(BusinessIndustry, uid=data.industry_uid)
     for key, value in data:

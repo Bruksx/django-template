@@ -255,15 +255,20 @@ class MutateBusinessSchema(ModelSchema):
     industry_uid: Optional[UUID] = None
     class Meta:
         model = Business
-        exclude = (*MUTATE_EXCLUDE_FIELDS, "logo", "created_by", "uid")
+        fields = (
+            "name", "size", "description", "website", "address", "instagram", "linkedin", "facebook", 
+            "twitter_x",
+        )
 
 
 class BusinessDetailSchema(ModelSchema):
     logo: Optional[str] = Field(alias="get_logo")
     location: str = Field(alias="location")
+    country: GenericNameAndUidSchema
+    industry: GenericNameAndUidSchema
     class Meta:
         model = Business
-        exclude = (*READ_EXCLUDE_FIELDS,)
+        exclude = (*READ_EXCLUDE_FIELDS, "created_by")
 
 class BusinessUserListSchema(ModelSchema):
     fullname:str = Field(alias="user.fullname")
