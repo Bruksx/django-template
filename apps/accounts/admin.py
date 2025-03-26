@@ -1,5 +1,6 @@
 from django.contrib import admin
 from . import models
+from django.contrib import messages
 
 
 class DepartmentInline(admin.TabularInline):
@@ -32,10 +33,28 @@ class SkillCategoryAdmin(admin.ModelAdmin):
     inlines = [SkillInline, ]
 
 
+class UserAdmin(admin.ModelAdmin):
+    list_display = ('email', 'first_name', 'last_name',)  # Extra columns
+    search_fields = ('email', 'first_name', 'last_name',)
+    ordering = ('-created_at',)
+
+    def get_queryset(self, request):
+        return models.User.global_objects.all()
+
+    def delete_model(self, request, obj):
+        messages.warning(request, f"Permanently deleting: {obj.name}")
+        return obj.hard_delete()
+    
+    def delete_queryset(self, request, queryset):
+        users = ", ".join(queryset.values_list('email', flat=True))
+        messages.warning(request, f"Deleting Users: {users}")
+        return queryset.hard_delete()
+
+
 
 # Register your models here.
 admin.site.register(models.Business)
-admin.site.register(models.User)
+admin.site.register(models.User, UserAdmin)
 admin.site.register(models.BusinessUser)
 admin.site.register(models.Talent)
 admin.site.register(models.Industry, IndustryAdmin)
