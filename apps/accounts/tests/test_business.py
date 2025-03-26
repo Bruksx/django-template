@@ -6,7 +6,7 @@ from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, BusinessSize
-from accounts.models import User, VerificationCode, Business, BusinessUser, BusinessIndustry
+from accounts.models import User, VerificationCode, Business, BusinessUser, BusinessIndustry, Country
 from accounts.views.business import router
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
@@ -80,6 +80,7 @@ class CompleteCompanyProfileTestCase(TestCase):
         self.business = Business.objects.create(name="Test Business", created_by=self.user)
         self.business_user = BusinessUser.objects.create(user=self.user, business=self.business)
         self.industry = BusinessIndustry.objects.first()
+        self.country = Country.objects.first()
         self.auth = JWTAuth()
         self.auth.authenticate = lambda r: self.user
 
@@ -95,7 +96,8 @@ class CompleteCompanyProfileTestCase(TestCase):
             "instagram": "www.instagram.com",
             "linkedin": "www.linkedin.com",
             "facebook": "www.fb.com",
-            "twitter_x": "www.x.com"
+            "twitter_x": "www.x.com",
+            "country_uid": str(self.country.uid)
         }
         headers = {
             "authorization": f"bearer {self.user.token}"
