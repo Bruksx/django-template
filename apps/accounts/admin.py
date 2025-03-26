@@ -42,7 +42,7 @@ class UserAdmin(admin.ModelAdmin):
         return models.User.global_objects.all()
 
     def delete_model(self, request, obj):
-        messages.warning(request, f"Permanently deleting: {obj.name}")
+        messages.warning(request, f"Permanently deleting: {obj.email}")
         return obj.hard_delete()
     
     """def delete_queryset(self, request, queryset):
