@@ -77,10 +77,13 @@ def remove_attachments_from_email_template(request, template_uid:UUID, data: Lis
     return Response(status=204, data={"message": "attachments have been removed successfully"})
 
 @router.get("email-templates", auth=JWTAuth(), response=List[EmailTemplateListSchema])
-def retrieve_all_email_templates(request):
+def retrieve_all_email_templates(request, personal:bool=None):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    return EmailTemplate.objects.filter(created_by__business=business_user.business).order_by("name")
+    queryset = EmailTemplate.objects.filter(created_by__business=business_user.business)
+    if personal is not None:
+        queryset = queryset.filter(personal=personal)
+    return queryset.order_by("name")
 
 
 @router.get("email-templates/{template_uid}", auth=JWTAuth(), response=EmailTemplateDetailSchema)

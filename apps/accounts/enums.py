@@ -82,3 +82,9 @@ class BusinessSize(BaseEnum):
     SIZE_1001_5000 = "1001-5000 Employees"
     SIZE_5001_10000 = "5001-10,000 Employees"
     SIZE_10000_PLUS = "10,001+ Employees"
+
+class CaseReasonType(BaseEnum):
+    TECHNICAL_ISSUES = "Technical Issues"
+    SYSTEM_HELP = "System Help"
+    REPORT_BUSINESS = "Report a Business"
+    OTHERS = "Others"

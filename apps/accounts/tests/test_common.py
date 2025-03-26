@@ -4,6 +4,7 @@ from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
+from accounts.enums import CaseReasonType
 from accounts.models import Country, Industry, User, Talent, CustomerCase, VerificationCode
 from accounts.views.common import router
 from factories import UserFactory, TalentFactory, BusinessUserFactory
@@ -61,7 +62,7 @@ class CustomerCaseTest(TestCase):
         self.assertFalse(CustomerCase.objects.filter(user=self.user).exists())
 
         response = self.client.post("customer-cases",
-                                    json=dict(reason="test reason",
+                                    json=dict(reason=CaseReasonType.SYSTEM_HELP.value,
                                             description="test description",
                                               subject="test subject",),
                                     headers=headers)

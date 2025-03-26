@@ -109,6 +109,11 @@ class EmailTemplateAttachment(BaseModel):
             return
         return self.file.url
 
+    def file_name(self):
+        if not self.file:
+            return
+        return self.file.name
+
 class WorkFlowStage(BaseModel):
     phase = models.CharField(max_length=100, choices=PhaseType.choices())
     name = models.CharField(max_length=125)

@@ -654,3 +654,5 @@ class TestJobRecommendationsEndpoint(TestCase):
         }
         response = self.client.get(self.url(uuid.uuid4()), headers=headers)
         self.assertEqual(response.status_code, 404)
+
+

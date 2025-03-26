@@ -44,3 +44,10 @@ class JobStatusType(BaseEnum):
     PAUSED = "paused"
     POSTED = "posted"
     CLOSED = "closed"
+
+class ActionType(BaseEnum):
+    DRAFT = "draft"
+    PAUSED = "paused"
+    POSTED = "posted"
+    CLOSED = "closed"
+    DELETE = "delete"

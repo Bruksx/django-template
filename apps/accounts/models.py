@@ -1,4 +1,3 @@
-import logging
 import random
 import random
 import secrets
@@ -7,9 +6,6 @@ from datetime import timedelta, date, datetime
 from typing import Tuple, Optional
 from uuid import UUID
 
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessUserStatusType, BusinessSize
-from core.models import BaseModel
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
@@ -17,11 +13,14 @@ from django.db.models import Q, Count, F, Value, Avg, IntegerField
 from django.db.models.functions import Concat, Cast
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
-from ninja_jwt.tokens import RefreshToken
-from notification.enums import NotificationGroup
-
 from helpers.utils import delete_s3_item
+from ninja_jwt.tokens import RefreshToken
+
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
+    BusinessSize, BusinessUserStatusType, CaseReasonType
+from core.models import BaseModel
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
+from notification.enums import NotificationGroup
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -1082,7 +1081,7 @@ class TalentAvailableDay(BaseModel):
 
 class CustomerCase(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    reason = models.CharField(max_length=255)
+    reason = models.CharField(max_length=255, choices=CaseReasonType.choices())
     subject = models.CharField(max_length=255)
     description = models.TextField()
 
