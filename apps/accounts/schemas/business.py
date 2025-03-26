@@ -23,6 +23,7 @@ class ValidateOTPSchema(Schema):
 
 class CompleteBusinessProfileSchema(ModelSchema):
     industry_uid: Optional[UUID] = None
+    country_uid: Optional[UUID] = None
 
     class Meta:
         model = Business
