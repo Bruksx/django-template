@@ -45,10 +45,10 @@ class UserAdmin(admin.ModelAdmin):
         messages.warning(request, f"Permanently deleting: {obj.name}")
         return obj.hard_delete()
     
-    def delete_queryset(self, request, queryset):
+    """def delete_queryset(self, request, queryset):
         users = ", ".join(queryset.values_list('email', flat=True))
         messages.warning(request, f"Deleting Users: {users}")
-        return queryset.hard_delete()
+        return queryset.hard_delete()"""
 
 
 
