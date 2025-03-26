@@ -20,7 +20,7 @@ from accounts.models import User, Business, BusinessUser, VerificationCode, Coun
 from core.schemas import GenericNameAndUidSchema
 from jobs.models import Job
 from notification import notifications
-from ..enums import UserType, BusinessUserStatusType
+from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
 
@@ -64,6 +64,7 @@ def create_account(request, data: business_schema.ValidateOTPSchema):
             business = Business(
                 name=data.company_name,
                 created_by=user,
+                role=BusinessUserRoleType.OWNER.value
             )
             business.save()
             business_user = BusinessUser(
