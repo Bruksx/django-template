@@ -78,7 +78,7 @@ def create_account(request, data: business_schema.ValidateOTPSchema):
 
 
 @router.patch("complete-company-profile", response=business_schema.BusinessSchema, auth=JWTAuth())
-def complete_company_profile(request, data: business_schema.CompleteBusinessProfileSchema):
+def complete_company_profile(request, data: business_schema.CompleteBusinessProfileSchema,):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     business: Business = business_user.business
@@ -119,19 +119,19 @@ def get_job_clients(request):
 
 @router.post("logo", auth=JWTAuth())
 @transaction.atomic()
-def upload_business_logo(request, file: UploadedFile,
-                         password:str = Form()):
+def upload_business_logo(request, file: UploadedFile):
     IsBusinessOwnerOrAdmin.check(request)
-    if not password:
+    """if not password:
         raise HttpError(400, "Password is required")
     if not request.user.check_password(password):
-        raise HttpError(400, "Incorrect password")
+        raise HttpError(400, "Incorrect password")"""
     extension = file.name.split(".")[-1]
     if extension not in ["jpg", "jpeg", "png"]:
         raise HttpError(400, "This file type is not supported. Only JPG/JPEG/PNG files")
     business = request.user.businessuser.business
     async_task(business.update, logo=file)
     return Response(status=200, data={"message": "Logo uploaded successfully"})
+
 
 @router.patch("", auth=JWTAuth())
 @transaction.atomic()
