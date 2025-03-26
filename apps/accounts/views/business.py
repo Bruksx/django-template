@@ -5,6 +5,7 @@ from uuid import UUID
 from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
 from helpers.email.auth import send_verification_code
@@ -15,10 +16,11 @@ from ninja.errors import HttpError
 from monkeypatches.response import Response
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import User, Business, BusinessUser, VerificationCode
+from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry
+from core.schemas import GenericNameAndUidSchema
 from jobs.models import Job
 from notification import notifications
-from ..enums import UserType, BusinessUserStatusType
+from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
 
@@ -67,7 +69,7 @@ def create_account(request, data: business_schema.ValidateOTPSchema):
             business_user = BusinessUser(
                 business=business,
                 user=user,
-                role=data.role
+                role=BusinessUserRoleType.OWNER.value,
             )
             business_user.save()
             return user
@@ -75,15 +77,21 @@ def create_account(request, data: business_schema.ValidateOTPSchema):
 
 
 @router.patch("complete-company-profile", response=business_schema.BusinessSchema, auth=JWTAuth())
-def complete_company_profile(request, data: business_schema.BusinessSchema):
+def complete_company_profile(request, data: business_schema.CompleteBusinessProfileSchema,):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    business = business_user.business
-    if business.created_by == request.user:
-        for key, value in data:
+    business: Business = business_user.business
+    if business.created_by != request.user:
+        raise HttpError(403, "Not allowed!")
+    industry = get_object_or_404(BusinessIndustry, uid=data.industry_uid)
+    country = get_object_or_404(Country, uid=data.country_uid)
+    for key, value in data:
+        if hasattr(business, key):
             setattr(business, key, value)
-        business.logo = convert_base64_to_image_file(data.logo)
-        business.save()
+    business.logo = convert_base64_to_image_file(data.logo)
+    business.industry = industry
+    business.country = country
+    business.save()
     return business
 
 @router.get("dashboard", auth=JWTAuth(), response={200: business_schema.DashboardSchema})
@@ -112,19 +120,19 @@ def get_job_clients(request):
 
 @router.post("logo", auth=JWTAuth())
 @transaction.atomic()
-def upload_business_logo(request, file: UploadedFile,
-                         password:str = Form()):
+def upload_business_logo(request, file: UploadedFile):
     IsBusinessOwnerOrAdmin.check(request)
-    if not password:
+    """if not password:
         raise HttpError(400, "Password is required")
     if not request.user.check_password(password):
-        raise HttpError(400, "Incorrect password")
+        raise HttpError(400, "Incorrect password")"""
     extension = file.name.split(".")[-1]
     if extension not in ["jpg", "jpeg", "png"]:
         raise HttpError(400, "This file type is not supported. Only JPG/JPEG/PNG files")
     business = request.user.businessuser.business
     async_task(business.update, logo=file)
     return Response(status=200, data={"message": "Logo uploaded successfully"})
+
 
 @router.patch("", auth=JWTAuth())
 @transaction.atomic()
@@ -135,7 +143,12 @@ def update_business_details(request, data: PatchDict[business_schema.MutateBusin
         raise HttpError(400, "Password is required")
     if not request.user.check_password(password):
         raise HttpError(400, "Incorrect password")
-    business = request.user.businessuser.business
+    business: Business = request.user.businessuser.business
+    if data.get("industry_uid"):
+        industry_uid = data.pop("industry_uid")
+        industry = get_object_or_404(BusinessIndustry, uid=industry_uid)
+        business.industry = industry
+    business.save()
     business.update(**data)
     return Response(status=200, data={"message": "Details updated successfully"})
 
@@ -248,3 +261,7 @@ def delete_account(request):
     request.user.delete_account()
     return Response(status=204, data={"message": "Account deleted successfully"})
 
+
+@router.get("industries", response=list[GenericNameAndUidSchema], tags=["Common"])
+def get_business_industries(request):
+    return BusinessIndustry.objects.all()

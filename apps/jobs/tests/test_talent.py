@@ -6,7 +6,9 @@ from django.test import TestCase
 from ninja.testing import TestClient
 
 from accounts.enums import BusinessUserRoleType
-from accounts.models import Country, Industry, User, Talent, BusinessUser, Business, Role, EducationLevel, Department
+from accounts.models import (
+    Country, Industry, User, Talent, BusinessUser, Business, Role, EducationLevel, Department, BusinessIndustry
+)
 from core.models import Currency
 from factories import TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory, \
     JobApplicationFactory, RequiredAttributeFactory, CountryFactory, ScreeningQuestionFactory, fake, JobFilterFactory
@@ -21,6 +23,7 @@ class TalentJobListTests(TestCase):
         self.client = TestClient(router)
         self.country = Country.objects.first()
         self.industry = Industry.objects.first()
+        self.business_industry = BusinessIndustry.objects.first()
         self.user_data = dict(
             first_name="Test",
             last_name="User",
@@ -53,7 +56,7 @@ class TalentJobListTests(TestCase):
             website="https://example.com",
             address="Lekki, Lagos, Nigeria",
             country=Country.objects.first().uid,
-            industry="Technology"
+            industry=self.business_industry,
         )
         self.business_user = BusinessUser.objects.create(
             user=self.user,

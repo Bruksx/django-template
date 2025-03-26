@@ -7,7 +7,7 @@ from pydantic import EmailStr, Field
 
 from accounts.enums import BusinessUserRoleType
 from accounts.models import Business, BusinessUser
-from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS
+from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, GenericNameAndUidSchema
 from jobs.models import EmploymentType
 
 
@@ -21,11 +21,22 @@ class ValidateOTPSchema(Schema):
     password: str
 
 
-class BusinessSchema(ModelSchema):
+class CompleteBusinessProfileSchema(ModelSchema):
+    industry_uid: Optional[UUID] = None
+    country_uid: Optional[UUID] = None
+
     class Meta:
         model = Business
-        fields = ["size", "description", "website", "industry", "address", "country", "logo", "instagram", "linkedin", "facebook",
+        fields = ["size", "description", "website", "address", "logo", "instagram", "linkedin", "facebook",
                   "twitter_x"]
+
+class BusinessSchema(ModelSchema):
+    industry: GenericNameAndUidSchema
+
+    class Meta:
+        model = Business
+        fields = ["size", "description", "website", "address", "logo", "instagram", "linkedin", "facebook",
+                  "twitter_x", "industry"]
 
 
 class EmploymentTypeSchema(ModelSchema):
@@ -242,17 +253,23 @@ class DashboardSchema(ModelSchema):
 class MutateBusinessSchema(ModelSchema):
     password:str
     country: UUID
+    industry_uid: Optional[UUID] = None
     class Meta:
         model = Business
-        exclude = (*MUTATE_EXCLUDE_FIELDS, "logo", "created_by", "uid")
+        fields = (
+            "name", "size", "description", "website", "address", "instagram", "linkedin", "facebook", 
+            "twitter_x",
+        )
 
 
 class BusinessDetailSchema(ModelSchema):
     logo: Optional[str] = Field(alias="get_logo")
     location: str = Field(alias="location")
+    country: Optional[GenericNameAndUidSchema] = None
+    industry: GenericNameAndUidSchema
     class Meta:
         model = Business
-        exclude = (*READ_EXCLUDE_FIELDS,)
+        exclude = (*READ_EXCLUDE_FIELDS, "created_by")
 
 class BusinessUserListSchema(ModelSchema):
     fullname:str = Field(alias="user.fullname")

@@ -74,6 +74,15 @@ class MeetingType(BaseEnum):
     ZOOM = "zoom"
     MICROSOFT_TEAMS = "microsoft_teams"
 
+class BusinessSize(BaseEnum):
+    SIZE_0_10 = "0-10 Employees"
+    SIZE_11_50 = "11-50 Employees"
+    SIZE_51_250 = "51-250 Employees"
+    SIZE_251_1000 = "251-1000 Employees"
+    SIZE_1001_5000 = "1001-5000 Employees"
+    SIZE_5001_10000 = "5001-10,000 Employees"
+    SIZE_10000_PLUS = "10,001+ Employees"
+
 class CaseReasonType(BaseEnum):
     TECHNICAL_ISSUES = "Technical Issues"
     SYSTEM_HELP = "System Help"

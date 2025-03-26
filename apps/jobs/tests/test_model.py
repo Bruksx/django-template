@@ -5,7 +5,9 @@ from django.test import TestCase
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import BusinessUserRoleType
-from accounts.models import Country, Industry, User, Talent, BusinessUser, Business, Department, Role, EducationLevel
+from accounts.models import (
+    Country, Industry, User, Talent, BusinessUser, Business, Department, Role, EducationLevel, BusinessIndustry
+)
 from core.models import Currency
 from jobs.enums import LunchBreakEnum, WorkStructureEnum, JobStatusType
 from jobs.models import JobPost, Job, JobLevel, EmploymentType, JobFilter, JobApplication
@@ -15,6 +17,7 @@ class JobFilterModelTest(TestCase):
     def setUp(self):
         self.country = Country.objects.first()
         self.industry = Industry.objects.first()
+        self.business_industry = BusinessIndustry.objects.first()
         self.user_data = dict(
             first_name="Test",
             last_name="User",
@@ -50,7 +53,7 @@ class JobFilterModelTest(TestCase):
             website="https://example.com",
             address="Lekki, Lagos, Nigeria",
             country=Country.objects.first().uid,
-            industry="Technology"
+            industry=self.business_industry,
         )
         self.business_user = BusinessUser.objects.create(
             user=self.user,

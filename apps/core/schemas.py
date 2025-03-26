@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from ninja import Schema, ModelSchema
 from pydantic import condecimal
 from core.models import Currency, Language
@@ -54,6 +56,11 @@ class EducationLevelSchema(ModelSchema):
     @staticmethod
     def resolve_industry(obj):
         return obj.industry.name
+
+
+class GenericNameAndUidSchema(Schema):
+    uid: UUID
+    name: str
 
 
 
