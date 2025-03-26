@@ -264,7 +264,7 @@ class MutateBusinessSchema(ModelSchema):
 class BusinessDetailSchema(ModelSchema):
     logo: Optional[str] = Field(alias="get_logo")
     location: str = Field(alias="location")
-    country: GenericNameAndUidSchema
+    country: Optional[GenericNameAndUidSchema] = None
     industry: GenericNameAndUidSchema
     class Meta:
         model = Business
