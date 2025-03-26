@@ -48,9 +48,11 @@ def educational_levels(request, search=""):
 @router.post("customer-cases", auth=JWTAuth())
 def create_customer_case(request, data:common_schemas.MutateCustomerCaseSchema):
     user = request.user
-    if user.customercase_set.filter(**data.dict()).exists():
+    data = data.dict()
+    data["reason"] = data["reason"].value
+    if user.customercase_set.filter(**data).exists():
         raise HttpError(400, "Case already exists")
-    CustomerCase.objects.create(**data.dict(), user=user).save()
+    CustomerCase.objects.create(**data, user=user).save()
     return Response(status=200, data={"message": "Case created successfully"})
 
 @router.get("customer-cases", auth=JWTAuth(), response=List[common_schemas.CustomerCaseSchema])

@@ -73,3 +73,9 @@ class MeetingType(BaseEnum):
     GOOGLE_MEET = "google_meet"
     ZOOM = "zoom"
     MICROSOFT_TEAMS = "microsoft_teams"
+
+class CaseReasonType(BaseEnum):
+    TECHNICAL_ISSUES = "Technical Issues"
+    SYSTEM_HELP = "System Help"
+    REPORT_BUSINESS = "Report a Business"
+    OTHERS = "Others"

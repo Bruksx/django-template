@@ -249,9 +249,10 @@ class TalentUserListSchema(ModelSchema):
     role: Optional[RoleSchema]
     phone_number: Optional[str] = Field(alias="user.phone_number")
     photo_url:Optional[str]
+    cv_url:Optional[str]
     class Meta:
         model = Talent
-        fields = ("uid", )
+        fields = ("uid", "country", "years_of_experience",  )
 
 
 class CompleteTalentProfileSchema(ModelSchema):

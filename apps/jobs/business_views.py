@@ -10,6 +10,8 @@ from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
+
+from chats.schemas import ResponseSchema
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
@@ -18,7 +20,7 @@ from accounts.schemas.talent import SkillSchema
 from notification.notifications import send_talents_job_matching_notification
 from paginations import CustomPageNumberPaginationExtra
 from . import schemas as job_schemas
-from .enums import JobStatusType, PhaseType, QuestionTypeEnum
+from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication, AvailableDay,
     ScreeningQuestion, QuestionOption, Answer, Qualification
@@ -26,7 +28,7 @@ from .models import (
 from .schemas import (
     EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
     JobLevelSchema, TalentListJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
-    MutateRequiredAttributeSchema
+    MutateRequiredAttributeSchema, BulkJobPostSchema
 )
 from .services import notify_business_on_matched_talents
 
@@ -155,6 +157,18 @@ def update_job_post(request, job_post_uid, data: PatchDict[job_schemas.MutateJob
     job_post.update(**data)
     return job_post
 
+@router.patch("job-posts", response=ResponseSchema, auth=JWTAuth())
+def bulk_job_post_update(request, data: BulkJobPostSchema):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    job_posts = JobPost.objects.filter(job__created_by__business=business_user.business, uid__in=data.job_posts)
+    if data.action == ActionType.DELETE:
+        job_ids = (JobApplication.objects.filter(job_post__in=job_posts).
+                       only("job_post_id").values_list("job_post_id", flat=True))
+        job_posts.exclude(id__in=job_ids).delete()
+    else:
+        job_posts.update(status=data.action.value)
+    return Response({"message" : "actions have been applied successfully"}, status=200)
 
 @router.post("{job_uid}/job-post", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
 def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
@@ -352,7 +366,8 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
 "match", "created_at", "stage", "phase", "experience"]]=None, asc:bool=True, search:str="", ):
     IsBusinessUser.check(request)
     business = request.user.businessuser.business
-    queryset = JobApplication.objects.filter(job_post__uid=job_post_uid, recruiter__business=business)
+    queryset = JobApplication.objects.filter(job_post__uid=job_post_uid, recruiter__business=business,
+                                             applicant__deleted_at__isnull=True)
     if search:
         queryset = queryset.filter(Q(
             Q(applicant__user__fullname__icontains=search)|

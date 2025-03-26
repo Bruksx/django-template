@@ -69,22 +69,18 @@ class MutateEmailTemplateSchema(ModelSchema):
             return False
 
 
-
-
-
-
-
-
 class EmailTemplateListSchema(ModelSchema):
     class Meta:
         model = EmailTemplate
         fields = ("uid", "name", "personal","created_at")
 
 class EmailTemplateAttachmentSchema(ModelSchema):
-    url: Optional[str] = None
+    url: Optional[str] = Field(alias="file_url")
+    name: Optional[str] = Field(alias="file_name")
     class Meta:
         model = EmailTemplateAttachment
         fields = ("uid", "created_at")
+
 
 
 class EmailTemplateDetailSchema(ModelSchema):

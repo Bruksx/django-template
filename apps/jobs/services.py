@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 from config import settings
 from django.conf import settings
 from django.db import transaction
@@ -8,7 +6,7 @@ from ninja.errors import HttpError
 
 from jobs.enums import PhaseType
 from jobs.models import JobApplication, Answer
-from jobs.schemas import MutateAnswerSchema, ApplyToJobSchema
+from jobs.schemas import ApplyToJobSchema
 from notification.notifications import send_talents_job_matching_notification
 from settings.models import WorkFlowStage
 
@@ -21,6 +19,7 @@ def get_talent_job_recommendations(talent, search="", use_filter=False, **kwargs
         if not hasattr(talent, "jobfilter"):
             raise HttpError(400, "You have not set a job filter yet")
         queryset = talent.jobfilter.get_queryset(queryset)
+
     return queryset.order_by("-created_at")
 
 @transaction.atomic

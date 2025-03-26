@@ -1,6 +1,6 @@
 from datetime import time, datetime
 from decimal import Decimal
-from typing import List
+from typing import List, LiteralString, Literal
 from typing import Optional
 from uuid import UUID
 
@@ -14,7 +14,7 @@ from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySchema, EducationLevelSchema
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
-    WithdrawalFeedbackType, PhaseType, JobStatusType
+    WithdrawalFeedbackType, PhaseType, JobStatusType, ActionType
 from .models import BusinessModel, JobFilter, JobApplication, Answer
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
 from .models import (
@@ -744,3 +744,8 @@ class UpdateApplicationSchema(ModelSchema):
 class ApplyToJobSchema(Schema):
     answers:Optional[List[MutateAnswerSchema]]=None
     available_for_schedule:bool
+
+
+class BulkJobPostSchema(Schema):
+    job_posts: List[UUID]
+    action: ActionType

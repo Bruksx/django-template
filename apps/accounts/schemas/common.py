@@ -3,6 +3,7 @@ from typing import Optional
 from ninja import ModelSchema, Schema
 from pydantic import EmailStr
 
+from accounts.enums import CaseReasonType
 from accounts.models import User, CustomerCase
 from core.schemas import READ_EXCLUDE_FIELDS
 
@@ -13,13 +14,13 @@ class UserSchema(ModelSchema):
 
     class Meta:
         model = User
-        fields = ['uid', 'email', 'first_name', 'last_name', 'type']
+        fields = ['uid', 'email', 'first_name', 'last_name', 'type', 'phone_number']
 
 class UserListSchema(UserSchema):
     photo_url: Optional[str]
     class Meta:
         model = User
-        fields = ['uid', 'email', 'first_name', 'last_name', 'type']
+        fields = ['uid', 'email', 'first_name', 'last_name', 'type', "phone_number"]
 
 class RegisterSchema(Schema):
     email: str
@@ -28,6 +29,7 @@ class SendEmailOtpSchema(Schema):
     email: EmailStr
 
 class MutateCustomerCaseSchema(ModelSchema):
+    reason: CaseReasonType
     class Meta:
         model = CustomerCase
         fields = ("reason", "subject", "description")

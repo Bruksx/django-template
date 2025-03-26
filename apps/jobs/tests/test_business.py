@@ -12,7 +12,7 @@ from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPo
     JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, SkillFactory, BusinessModelFactory, \
     CountryFactory, ScreeningQuestionFactory, AnswerFactory
 from jobs.business_views import router
-from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum
+from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
     Qualification, BusinessModel
@@ -1581,4 +1581,56 @@ class UpdateJobApplicationTest(TestCase):
         response = self.client.patch(self.url(uuid4()), headers=headers, json=data)
         self.assertEqual(response.status_code, 404)
 
+class JobPostBulkUpdateTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.job = JobFactory.create(created_by=self.business_user)
+        self.job_posts = JobPostFactory.create_batch(5, job=self.job, recruiter=self.business_user)
+        for job_post in self.job_posts[:2]:
+            JobApplicationFactory.create(job_post=job_post, recruiter=self.business_user)
+        self.url = "job-posts"
+        self.test_data = {
+            "job_posts" : [str(job_post.uid) for job_post in self.job_posts],
+            "action": ActionType.DELETE.value
+        }
 
+    def test_successful_status_update(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        self.test_data["action"] = ActionType.CLOSED.value
+        response = self.client.patch(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(JobPost.objects.filter(status=ActionType.CLOSED.value).count(), 5)
+
+    def test_successful_delete(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        self.test_data["action"] = ActionType.DELETE.value
+        response = self.client.patch(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        # It didn't delete the ones with applications
+        self.assertEqual(JobPost.objects.count(), 2)
+
+    def test_by_another_business_user(self):
+        business_user = BusinessUserFactory()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        self.test_data["action"] = ActionType.DELETE.value
+        response = self.client.patch(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        # It didn't delete any of the jobs above because  it doesn't belong to the business user
+        self.assertEqual(JobPost.objects.count(), 5)
+
+
+    def test_by_talent(self):
+        talent = TalentFactory()
+        headers = {
+            "authorization": f"Bearer {talent.user.token}"
+        }
+        self.test_data["action"] = ActionType.DELETE.value
+        response = self.client.patch(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 403)

@@ -8,7 +8,7 @@ from typing import Tuple, Optional
 from uuid import UUID
 
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessUserStatusType
+    BusinessUserStatusType, CaseReasonType
 from core.models import BaseModel
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -1078,7 +1078,7 @@ class TalentAvailableDay(BaseModel):
 
 class CustomerCase(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    reason = models.CharField(max_length=255)
+    reason = models.CharField(max_length=255, choices=CaseReasonType.choices())
     subject = models.CharField(max_length=255)
     description = models.TextField()
 
