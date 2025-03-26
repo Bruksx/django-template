@@ -1002,7 +1002,7 @@ class EducationLevel(BaseModel):
 class BusinessUser(BaseModel):
     business = models.ForeignKey(Business, on_delete=models.CASCADE)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    added_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True)
+    added_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True, blank=True)
     role = models.CharField(max_length=100, choices=BusinessUserRoleType.choices())
     status = models.CharField(max_length=100, choices=BusinessUserStatusType.choices(),
                               default=BusinessUserStatusType.ACTIVE.value)
