@@ -64,13 +64,12 @@ def create_account(request, data: business_schema.ValidateOTPSchema):
             business = Business(
                 name=data.company_name,
                 created_by=user,
-                role=BusinessUserRoleType.OWNER.value
             )
             business.save()
             business_user = BusinessUser(
                 business=business,
                 user=user,
-                role=data.role
+                role=BusinessUserRoleType.OWNER.value,
             )
             business_user.save()
             return user
