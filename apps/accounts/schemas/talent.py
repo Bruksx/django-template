@@ -293,6 +293,7 @@ class TalentDashboardReport(Schema):
     jobs_applied: int
     invitations_to_apply: int
     interviews: int
+    profile_views: int
 
     # class Meta:
     #     model = Talent
@@ -321,6 +322,10 @@ class TalentDashboardReport(Schema):
         if not context:
             context = dict()
         return obj.invitations_to_apply(**context)
+
+    @staticmethod
+    def resolve_profile_views(obj):
+        return obj.viewers.count()
 
 
 class MonthlyChartSchema(Schema):

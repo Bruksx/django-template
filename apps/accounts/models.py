@@ -225,6 +225,7 @@ class Talent(BaseModel):
     business_models = models.ManyToManyField("jobs.BusinessModel")
     years_of_experience = models.FloatField(default=0)
     months_of_experience = models.FloatField(default=0)
+    viewers = models.ManyToManyField("accounts.User", blank=True, related_name="talent_viewers")
 
     @property
     def photo_url(self):
