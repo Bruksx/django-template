@@ -243,6 +243,9 @@ def talent_details(request, talent_uid:UUID):
     talent = Talent.objects.filter(uid=talent_uid).first()
     if not talent:
         raise HttpError(404, "This talent does not exist")
+    if not talent.viewers.filter(id=request.user.id).exists():
+        talent.viewers.add(request.user)
+        talent.save()
     return talent
 
 

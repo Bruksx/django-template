@@ -196,23 +196,23 @@ class Skill(BaseModel):
 
 class Talent(BaseModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    whatsapp_number = models.CharField(max_length=50, null=True, blank=True)
-    viber_number = models.CharField(max_length=50, null=True, blank=True)
+    whatsapp_number = models.CharField(max_length=50, null=True)
+    viber_number = models.CharField(max_length=50, null=True)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
-    state = models.CharField(max_length=64, null=True, blank=True)
-    city = models.CharField(max_length=64, null=True, blank=True)
-    address = models.CharField(max_length=128, null=True, blank=True)
-    postal_code = models.CharField(max_length=20, null=True, blank=True)
+    state = models.CharField(max_length=64, null=True)
+    city = models.CharField(max_length=64, null=True)
+    address = models.CharField(max_length=128, null=True)
+    postal_code = models.CharField(max_length=20, null=True)
     employment_type = models.ForeignKey("jobs.EmploymentType", on_delete=models.SET_NULL, null=True)
     visible = models.BooleanField(default=True)
     preferred_communication = models.CharField(max_length=64, null=True)
     work_model = models.CharField(max_length=64, null=True, choices=WorkStructureEnum.choices())
-    bio = models.TextField(null=True, blank=True)
+    bio = models.TextField(null=True)
     notice_period = models.IntegerField(null=True)
-    instagram = models.URLField(null=True, blank=True)
-    linkedin = models.URLField(null=True, blank=True)
-    facebook = models.URLField(null=True, blank=True)
-    twitter_x = models.URLField(null=True, blank=True)
+    instagram = models.URLField(null=True)
+    linkedin = models.URLField(null=True)
+    facebook = models.URLField(null=True)
+    twitter_x = models.URLField(null=True)
     cv = models.FileField(upload_to="cvs")
     photo = models.ImageField(upload_to="talents")
     notice_period_type = models.CharField(max_length=50, choices=NoticePeriodType.choices(),
@@ -225,6 +225,7 @@ class Talent(BaseModel):
     business_models = models.ManyToManyField("jobs.BusinessModel")
     years_of_experience = models.FloatField(default=0)
     months_of_experience = models.FloatField(default=0)
+    viewers = models.ManyToManyField("accounts.User", blank=True, related_name="talent_viewers")
 
     @property
     def photo_url(self):
