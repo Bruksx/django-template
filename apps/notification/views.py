@@ -54,7 +54,7 @@ def read_notification(request, notification_uid: UUID):
     return Response(status=200, data={"message": "Notification marked as read"})
 
 
-@ws_router.get('notifications', response={200: NotificationSchema},
+@ws_router.get('notifications/', response={200: NotificationSchema},
              tags=["Websocket"])
 def websocket_notification(request, token: str):
     return Response(status=200, data={"message": "Message sent successfully"})

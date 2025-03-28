@@ -13,24 +13,36 @@ from helpers.loggers import Logger
 from helpers.utils import is_valid_email
 
 
-def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_body:str=None):
+def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_body:str=None,
+               attachments:list=None, from_user:str=None):
     if "test" in sys.argv:
         return
     retries = 3
     emails = [email for email in emails if email.split("@")[1].split(".")[0].lower() not in ("example", "localhost", "test")]
     if not emails:
         return
+    if from_user:
+        if is_valid_email(from_user):
+            user = from_user.split("@")[0].title()
+            company = from_user.split("@")[1].split(".")[0].title()
+            if company.lower() in ("gmail", "outlook", "hotmail", "yahoo"):
+                from_user = user
+            else:
+                from_user = f"{user} from {company}"
     for retry in range(retries):
         try:
             body = plain_body or strip_tags(html_body)
             email =EmailMultiAlternatives(
                     subject=subject,
                     body=body,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    from_email=settings.DEFAULT_FROM_EMAIL if not from_user else f"{from_user} <{settings.EMAIL_HOST_USER}>",
                     bcc=emails,
                 )
             if html_body:
                 email.attach_alternative(html_body, "text/html")
+            if attachments:
+                for attachment in attachments:
+                    email.attach_file(attachment)
             email.send(fail_silently=False)
             return
         except Exception as e:

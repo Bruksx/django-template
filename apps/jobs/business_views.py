@@ -559,4 +559,3 @@ def get_screening_answers(request, application_uid:UUID):
 
 
 
-

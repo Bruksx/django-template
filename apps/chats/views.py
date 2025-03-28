@@ -137,7 +137,7 @@ def start_conversation(request, user_id:UUID, data: PatchDict[MutateChatMessageS
     return Response(status=200, data={"message": "conversation started successfully"})
 
 
-@ws_router.post('chats/{conversation_uid}', response={200: ChatMessageResponseSchema, 400: ChatMessageErrorSchema,
+@ws_router.post('chats/{conversation_uid}/', response={200: ChatMessageResponseSchema, 400: ChatMessageErrorSchema,
                                              403: ChatMessageErrorSchema, 404: ChatMessageErrorSchema},
              tags=["Websocket"])
 def websocket_send_chat(request, conversation_uid:UUID, token: str, data: ChatMessageRequestSchema):
