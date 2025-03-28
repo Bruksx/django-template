@@ -250,8 +250,7 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
 
 
 @router.delete("users/{business_user_uid}/", auth=JWTAuth())
-@transaction.atomic
-def update_business_user(request, business_user_uid):
+def delete_business_user(request, business_user_uid):
     IsBusinessOwnerOrAdmin.check(request)
     user: User = request.user
     business_user = request.user.businessuser
