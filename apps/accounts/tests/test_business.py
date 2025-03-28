@@ -10,7 +10,7 @@ from accounts.models import User, VerificationCode, Business, BusinessUser, Busi
 from accounts.views.business import router
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
-    WorkflowStageFactory
+    WorkflowStageFactory, UserFactory
 from jobs.enums import PhaseType, JobStatusType
 from jobs.models import JobApplication
 
@@ -570,3 +570,76 @@ class DeleteBusinessUserAccountTest(TestCase):
         self.assertEqual(business_user.status, BusinessUserStatusType.DELETED.value)
         self.assertFalse(hasattr(business_user, "businessusernotificationsettings"))
 
+
+class UpdateBusinessUserTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business = self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.staff_user = UserFactory.create()
+        self.business_staff = BusinessUserFactory.create(
+            business = self.business,
+            user=self.staff_user,
+            role=BusinessUserRoleType.TEAM_MEMBER.value
+        )
+        self.user = self.business_user.user
+        self.url = f"users/{self.business_staff.uid}/"
+        self.existing_user = User.objects.create(email="existing@example.com")
+        self.deleted_user = User.objects.create(email="deleted@example.com")
+        self.deleted_user.delete()
+        self.auth_headers = {
+            "authorization": f"bearer {self.business.created_by.token}"
+        }
+
+    def test_update_business_user_success(self):
+        """Successful update of a business user."""
+        payload = {
+            "email": "newemail@example.com",
+            "first_name": "John",
+            "last_name": "Doe",
+            "role": BusinessUserRoleType.ADMIN.value
+        }
+        response = self.client.patch(self.url, json=payload, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["message"], "User updated successfully")
+
+        # Ensure changes were applied
+        self.staff_user.refresh_from_db()
+        self.business_staff.refresh_from_db()
+        self.assertEqual(self.staff_user.email, "newemail@example.com")
+        self.assertEqual(self.staff_user.first_name, "John")
+        self.assertEqual(self.business_staff.role, BusinessUserRoleType.ADMIN.value)
+
+    def test_update_business_user_deleted_email(self):
+        """Fails if email belongs to a deleted user."""
+        payload = {
+            "email": "deleted@example.com",
+            "role": BusinessUserRoleType.ADMIN.value,
+        }
+        response = self.client.patch(self.url, json=payload, headers=self.auth_headers)
+        print(response.json())
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "This email is not available")
+
+    def test_update_business_user_existing_email(self):
+        """Fails if email is already in use."""
+        payload = {
+            "email": "existing@example.com",
+            "role": BusinessUserRoleType.ADMIN.value,
+        }
+        response = self.client.patch(self.url, json=payload, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "This email is not available")
+
+    def test_update_business_user_invalid_uid(self):
+        """Fails when updating a non-existent user."""
+        payload = {
+            "email": "valid@example.com",
+            "role": BusinessUserRoleType.ADMIN.value,
+        }
+        response = self.client.patch(f"/users/{self.deleted_user.uid}/", json=payload, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 404)

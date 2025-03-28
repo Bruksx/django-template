@@ -1,6 +1,7 @@
 from datetime import date
 from typing import List
 from uuid import UUID
+from enum import Enum
 
 from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from django.db import transaction
@@ -202,6 +203,42 @@ def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
         user_uid=str(user.uid)
     )
     return Response(status=201, data={"message": "User invited successfully"})
+
+
+@router.patch("users/{business_user_uid}/", auth=JWTAuth())
+@transaction.atomic
+def update_business_user(request, business_user_uid, data: PatchDict[business_schema.MutateBusinessUserSchema]):
+    IsBusinessOwnerOrAdmin.check(request)
+    business_user = request.user.businessuser
+    business = business_user.business
+    data_dict = data
+    if data_dict.get("email"):
+        if User.global_objects.filter(email=data["email"]).exists():
+            raise HttpError(400, "This email is not available")
+    staff_user = BusinessUser.objects.filter(uid=business_user_uid, business=business).first()
+    if not staff_user:
+        raise HttpError(404, "User not found")
+    user = staff_user.user
+    for key, value in data_dict.items():
+        if hasattr(user, key):
+            if isinstance(value, str):
+                value = value.strip()
+            if isinstance(value, Enum):
+                value = value.value
+            setattr(user, key, value)
+    user.save()
+
+    for key, value in data_dict.items():
+        if hasattr(staff_user, key):
+            if isinstance(value, str):
+                value = value.strip()
+            if isinstance(value, Enum):
+                value = value.value
+            setattr(staff_user, key, value)
+    staff_user.save()
+
+    return Response(status=201, data={"message": "User updated successfully"})
+
 
 @router.post("users/{business_user_uid}/resend-invite", auth=JWTAuth())
 @transaction.atomic

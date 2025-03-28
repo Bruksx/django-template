@@ -288,6 +288,14 @@ class AddBusinessUserSchema(Schema):
     email: EmailStr
     role: BusinessUserRoleType
 
+
+class MutateBusinessUserSchema(Schema):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role: BusinessUserRoleType
+
+
 class AcceptBusinessUserInviteSchema(Schema):
     code: UUID
     password: str
