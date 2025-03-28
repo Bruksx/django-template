@@ -689,9 +689,8 @@ class DeleteBusinessUserTestCase(TestCase):
         self.assertEqual(response.json()["detail"], "Not allowed! you cannot delete your account")
     
     def test_admin_can_delete_team_member(self):
-        """Ensure an admin can delete a staff member."""
+        """Ensure an admin can delete a team member."""
         response = self.client.delete(f"users/{self.team_member.uid}/", headers=self.auth_headers)
-        
         self.assertEqual(response.status_code, 201)
         self.assertFalse(BusinessUser.objects.filter(uid=self.team_member.uid).exists())
         self.assertFalse(User.objects.filter(uid=self.team_member_user.uid).exists())
@@ -730,7 +729,7 @@ class GetBusinessUserTestCase(TestCase):
 
     def test_owner_can_get_business_user(self):
         """Ensure an admin can retrieve a staff user's details."""
-        response = self.client.get(f"users/{self.admin.uid}", headers=self.auth_headers)
+        response = self.client.get(f"users/{self.admin.uid}/", headers=self.auth_headers)
         self.assertEqual(response.status_code, 200)
 
     
@@ -739,10 +738,10 @@ class GetBusinessUserTestCase(TestCase):
         auth_headers = {
             "authorization": f"bearer {self.another_business_owner.user.token}"
         }
-        response = self.client.get(f"users/{self.admin.uid}", headers=auth_headers)
+        response = self.client.get(f"users/{self.admin.uid}/", headers=auth_headers)
         self.assertEqual(response.status_code, 404)
     
     def test_unauthorized_user_cannot_get_business_user(self):
         """Ensure an unauthorized user cannot retrieve a business user's details."""
-        response = self.client.get(f"users/{self.admin.uid}")
+        response = self.client.get(f"users/{self.admin.uid}/")
         self.assertEqual(response.status_code, 401)  

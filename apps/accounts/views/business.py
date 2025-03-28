@@ -205,7 +205,35 @@ def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
     return Response(status=201, data={"message": "User invited successfully"})
 
 
-@router.get("users/{business_user_uid}", auth=JWTAuth(), response=business_schema.BusinessUserListSchema)
+@router.post("users/accept-invite")
+@transaction.atomic
+def accept_business_user_invite(request, data: business_schema.AcceptBusinessUserInviteSchema):
+    business_user = BusinessUser.objects.filter(uid=data.code).first()
+    if not business_user:
+        raise HttpError(400, "This link is invalid")
+    if business_user.user.is_active or business_user.user.email_verified:
+        raise HttpError(400, "This link has expired")
+    if business_user.status != BusinessUserStatusType.PENDING.value:
+        raise HttpError(400, "You have already accepted this invite")
+    user = business_user.user
+    user.email_verified = True
+    user.is_active = True
+    user.save(update_fields=["email_verified", "is_active"])
+    user.set_password(data.password)
+    user.save()
+    business_user.status = BusinessUserStatusType.ACTIVE.value
+    business_user.save(update_fields=["status"])
+    notifications.send_business_user_notification(
+        business_user=business_user,
+        action=notifications.EntityActionType.NEW,
+        action_str="has joined your business"
+    )
+    async_task(send_business_user_welcome_email,
+               user=user.fullname, email=user.email, business=business_user.business.name)
+    return Response(status=200, data={"message": "You have successfully accepted the invite"})
+
+
+@router.get("users/{business_user_uid}/", auth=JWTAuth(), response=business_schema.BusinessUserListSchema)
 def invite_business_user(request, business_user_uid):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
@@ -250,8 +278,7 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
 
 
 @router.delete("users/{business_user_uid}/", auth=JWTAuth())
-@transaction.atomic
-def update_business_user(request, business_user_uid):
+def delete_business_user(request, business_user_uid):
     IsBusinessOwnerOrAdmin.check(request)
     user: User = request.user
     business_user = request.user.businessuser
@@ -262,6 +289,7 @@ def update_business_user(request, business_user_uid):
     if staff_user.role == BusinessUserRoleType.OWNER.value:
         raise HttpError(403, "Not allowed! you cannot delete owner account")
     staff_user.user.delete()
+    staff_user.delete()
     return Response(status=201, data={"message": "User updated successfully"})
 
 
@@ -282,33 +310,6 @@ def resend_business_user_invite(request, business_user_uid: UUID):
         user_uid=str(business_user.user.uid)
     )
     return Response(status=200, data={"message": "Invite resent successfully"})
-
-@router.post("users/accept-invite")
-@transaction.atomic
-def accept_business_user_invite(request, data: business_schema.AcceptBusinessUserInviteSchema):
-    business_user = BusinessUser.objects.filter(uid=data.code).first()
-    if not business_user:
-        raise HttpError(400, "This link is invalid")
-    if business_user.user.is_active or business_user.user.email_verified:
-        raise HttpError(400, "This link has expired")
-    if business_user.status != BusinessUserStatusType.PENDING.value:
-        raise HttpError(400, "You have already accepted this invite")
-    user = business_user.user
-    user.email_verified = True
-    user.is_active = True
-    user.save(update_fields=["email_verified", "is_active"])
-    user.set_password(data.password)
-    user.save()
-    business_user.status = BusinessUserStatusType.ACTIVE.value
-    business_user.save(update_fields=["status"])
-    notifications.send_business_user_notification(
-        business_user=business_user,
-        action=notifications.EntityActionType.NEW,
-        action_str="has joined your business"
-    )
-    async_task(send_business_user_welcome_email,
-               user=user.fullname, email=user.email, business=business_user.business.name)
-    return Response(status=200, data={"message": "You have successfully accepted the invite"})
 
 
 @router.delete("users", auth=JWTAuth())
