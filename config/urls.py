@@ -19,7 +19,8 @@ from django.contrib import admin
 from django.urls import path
 
 from . import settings
-from .api import api, websocket
+from .api import api
+from .websocket_endpoints import websocket
 
 
 urlpatterns = [
