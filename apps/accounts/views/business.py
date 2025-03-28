@@ -234,7 +234,7 @@ def accept_business_user_invite(request, data: business_schema.AcceptBusinessUse
 
 
 @router.get("users/{business_user_uid}/", auth=JWTAuth(), response=business_schema.BusinessUserListSchema)
-def invite_business_user(request, business_user_uid):
+def get_business_user(request, business_user_uid):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     business = business_user.business
