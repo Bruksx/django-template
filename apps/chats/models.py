@@ -69,13 +69,13 @@ class Message(BaseModel):
         return f"{self.sender}"
 
     def notify_chat(self):
-        from .schemas import ChatMessageListSchema
+        from .schemas import ChatMessageSchema
         send_ws(channel=self.conversation.get_recipient(self.sender).unique_chat_id, data=dict(
             sender_id=str(self.sender.uid),
             sender=self.sender.fullname,
             chat_id = str(self.conversation.uid),
             action="new_message",
-            data=json.loads(ChatMessageListSchema.from_orm(self).model_dump_json()))
+            data=json.loads(ChatMessageSchema.from_orm(self).model_dump_json()))
         )
 
     def handle_post_save(self, notify=False):
