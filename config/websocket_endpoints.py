@@ -1,7 +1,8 @@
 from ninja import NinjaAPI
 
 from apps.core.renderers import ORJSONRenderer
-from .websocket_routes import ws_router
-websocket = NinjaAPI(docs_url="docs",  renderer=ORJSONRenderer(),
+
+websocket = NinjaAPI(docs_url="websocket-docs",  renderer=ORJSONRenderer(),
                      urls_namespace="websocket")
-websocket.add_router("", ws_router)
+websocket.add_router("", "chats.views.ws_router")
+websocket.add_router("", "notification.views.ws_router")

@@ -8,6 +8,7 @@ from core.schemas import CurrencySchema, LanguageSchema
 
 # Create your views here.
 router = Router(tags=["core"])
+
 @router.get("currencies", response=List[CurrencySchema], tags=["Common"])
 def currency_list(request, search=""):
     queryset = Currency.objects.all()

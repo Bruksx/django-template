@@ -12,7 +12,6 @@ from django.db.models import Q, F
 from ninja import Router, PatchDict, UploadedFile, Form
 from ninja.errors import HttpError
 
-from config.websocket_routes import ws_router
 from notification.notifications import send_new_chat_notification
 from monkeypatches.response import Response
 from ninja_extra.pagination import paginate
@@ -26,6 +25,7 @@ from jobs.business_views import pagination_class
 
 # Create your views here.
 router = Router(tags=["Chats"])
+ws_router = Router(tags=["Websocket"])
 
 
 @router.get("", auth=JWTAuth(), response=PaginatedResponseSchema[ChatListSchema])
@@ -137,7 +137,7 @@ def start_conversation(request, user_id:UUID, data: PatchDict[MutateChatMessageS
     return Response(status=200, data={"message": "conversation started successfully"})
 
 
-@ws_router.post('chats/{conversation_uid}/', response={200: ChatMessageResponseSchema, 400: ChatMessageErrorSchema,
+@ws_router.post('ws/chats/{conversation_uid}/', response={200: ChatMessageResponseSchema, 400: ChatMessageErrorSchema,
                                              403: ChatMessageErrorSchema, 404: ChatMessageErrorSchema},
              tags=["Websocket"])
 def websocket_send_chat(request, conversation_uid:UUID, token: str, data: ChatMessageRequestSchema):
