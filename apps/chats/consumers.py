@@ -7,7 +7,7 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Conversation, Message, MessageAttachment
-from chats.schemas import CreateMessageSchema, ChatMessageErrorSchema, ChatMessageListSchema
+from chats.schemas import CreateMessageSchema, ChatMessageErrorSchema, ChatMessageSchema
 from django.db import transaction
 from jobs.models import JobPost
 from notification.notifications import send_new_chat_notification
@@ -144,7 +144,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 message_attachments = list()
                 for attachment in attachments:
                     attachment_obj = convert_base64_to_image_file(attachment["data"], attachment["name"])
-                    content_type = attachment["content_type"]
+                    content_type = attachment["content_type"].split("/")[-1] if "/" in attachment["content_type"] else attachment["content_type"]
                     if content_type in ("jpg", "jpeg", "gif", "png"):
                         file_type = ChatMessageAttachmentType.IMAGE.value
                     elif content_type in ("mp3", "ogg", "mpeg", "wav"):
@@ -155,7 +155,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         file_type = ChatMessageAttachmentType.DOCUMENT.value
                     message_attachments.append(MessageAttachment(message=message, file=attachment_obj, file_type=file_type))
                 MessageAttachment.objects.bulk_create(message_attachments)
-            return message, ChatMessageListSchema.from_orm(message).json()
+            return message, ChatMessageSchema.from_orm(message).json()
 
 
 

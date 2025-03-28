@@ -1,15 +1,13 @@
 from typing import Optional, List, Any, Literal
 from uuid import UUID
 
-from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
-
 from accounts.models import User
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, MessageAttachment, Conversation
 from jobs.models import JobPost
 from ninja import ModelSchema, Schema
 from ninja.orm.fields import AnyObject
-from ninja.types import DictStrAny
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
 
 class ChatUserSchema(ModelSchema):
@@ -185,5 +183,5 @@ class ChatMessageResponseSchema(Schema):
     sender: str
     chat_id: UUID
     action: Literal["new_message", "is_typing", "stopped_typing", "read_message"]
-    data: Optional[ChatMessageListSchema|Any]
+    data: Optional[ChatMessageSchema|Any]
 
