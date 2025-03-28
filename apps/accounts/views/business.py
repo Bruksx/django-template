@@ -205,6 +205,15 @@ def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
     return Response(status=201, data={"message": "User invited successfully"})
 
 
+@router.get("users/{business_user_uid}", auth=JWTAuth(), response=business_schema.BusinessUserListSchema)
+def invite_business_user(request, business_user_uid):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    business = business_user.business
+    staff_user = get_object_or_404(BusinessUser, uid=business_user_uid, business=business)
+    return staff_user
+
+
 @router.patch("users/{business_user_uid}/", auth=JWTAuth())
 @transaction.atomic
 def update_business_user(request, business_user_uid, data: PatchDict[business_schema.MutateBusinessUserSchema]):
@@ -237,6 +246,22 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
             setattr(staff_user, key, value)
     staff_user.save()
 
+    return Response(status=201, data={"message": "User updated successfully"})
+
+
+@router.delete("users/{business_user_uid}/", auth=JWTAuth())
+@transaction.atomic
+def update_business_user(request, business_user_uid):
+    IsBusinessOwnerOrAdmin.check(request)
+    user: User = request.user
+    business_user = request.user.businessuser
+    business = business_user.business
+    staff_user = get_object_or_404(BusinessUser, uid=business_user_uid, business=business)
+    if staff_user.user == user:
+        raise HttpError(403, "Not allowed! you cannot delete your account")
+    if staff_user.role == BusinessUserRoleType.OWNER.value:
+        raise HttpError(403, "Not allowed! you cannot delete owner account")
+    staff_user.user.delete()
     return Response(status=201, data={"message": "User updated successfully"})
 
 
