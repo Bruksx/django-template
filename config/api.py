@@ -1,10 +1,11 @@
 from ninja import NinjaAPI
+
+from apps.chats.views import ws_router
 from apps.core.renderers import ORJSONRenderer
 from ninja.pagination import PageNumberPagination
 
-
+from .websocket_routes import ws_router
 api = NinjaAPI(docs_url="docs_1840gtc_c6403omdxnc", renderer=ORJSONRenderer())
-
 api.add_router("auth/", "auth.views.router")
 api.add_router("accounts/talents/", "accounts.views.talent.router")
 api.add_router("accounts/business/", "accounts.views.business.router")
@@ -15,3 +16,7 @@ api.add_router("/", "settings.views.router")
 api.add_router("jobs/", "jobs.views.router")
 api.add_router("core/", "core.views.router")
 api.add_router("chats/", "chats.views.router")
+
+websocket = NinjaAPI(docs_url="docs",  renderer=ORJSONRenderer(),
+                     urls_namespace="websocket")
+websocket.add_router("", ws_router)

@@ -45,13 +45,12 @@ class Conversation(BaseModel):
         for message in messages:
             message.readers.add(user)
             message.save()
-            send_ws(channel=self.chat_group_name, data=dict(
+            send_ws(channel=self.get_recipient(user).unique_chat_id, data=dict(
                 sender_id=str(user.uid),
                 chat_id = str(self.uid),
                 sender=user.get_full_name(),
                 action="read_message",
-                data=json.loads(ChatMessageListSchema.from_orm(message).model_dump_json()),
-                data_type="message")
+                data=json.loads(ChatMessageListSchema.from_orm(message).model_dump_json()))
              )
         return
 
@@ -71,14 +70,22 @@ class Message(BaseModel):
 
     def notify_chat(self):
         from .schemas import ChatMessageListSchema
-        send_ws(channel=self.conversation.chat_group_name, data=dict(
+        send_ws(channel=self.conversation.get_recipient(self.sender).unique_chat_id, data=dict(
             sender_id=str(self.sender.uid),
             sender=self.sender.fullname,
             chat_id = str(self.conversation.uid),
             action="new_message",
-            data=json.loads(ChatMessageListSchema.from_orm(self).model_dump_json()),
-            data_type="message")
+            data=json.loads(ChatMessageListSchema.from_orm(self).model_dump_json()))
         )
+
+    def handle_post_save(self, notify=False):
+        from notification.notifications import send_new_chat_notification
+        self.conversation.last_message_time = self.created_at
+        self.conversation.save()
+        if notify is True:
+            self.notify_chat()
+        if self.conversation.message_set.count() == 1:
+            send_new_chat_notification(self.conversation)
 
 class MessageAttachment(BaseModel):
     message = models.ForeignKey("Message", on_delete=models.CASCADE)

@@ -114,6 +114,10 @@ class User(AbstractUser, BaseModel):
         refresh = RefreshToken.for_user(self)
         return str(refresh.access_token)
 
+    @property
+    def unique_chat_id(self):
+        return str(self.uid).replace("-", "")
+
 
     def photo_url(self):
         if hasattr(self, "talent"):

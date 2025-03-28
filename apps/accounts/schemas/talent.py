@@ -97,7 +97,7 @@ class UpdateTalentProfileSchema(Schema):
 class UpdateTalentProfileSchema2(Schema):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    preferred_communication: Optional[PreferredCommunicationType] = None
+    preferred_communication: Optional[PreferredCommunicationType|str] = None
     phone_number: Optional[str] = None
     country: Optional[UUID] = None
     state: Optional[str] = None
@@ -105,14 +105,14 @@ class UpdateTalentProfileSchema2(Schema):
     employment_type: Optional[UUID] = None
     postal_code: Optional[str] = None
     whatsapp_number: Optional[str] = None
-    work_model: Optional[WorkStructureEnum] = None
+    work_model: Optional[WorkStructureEnum|str] = None
     viber_number: Optional[str] = None
     address: Optional[str] = None
     gender: Optional[GenderType] = None
     visible: Optional[bool] = None
     bio: Optional[str] = None
     notice_period: Optional[int] = None
-    notice_period_type: Optional[NoticePeriodType] = None
+    notice_period_type: Optional[NoticePeriodType|str] = None
     instagram: Optional[str] = None
     linkedin: Optional[str] = None
     facebook: Optional[str] = None

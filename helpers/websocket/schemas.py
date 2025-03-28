@@ -4,7 +4,7 @@ from typing import Literal, Optional, Any
 """
 SOCKET URLS
 
-notification/ws/notifications/?token={user.token}
+ws/notifications/?token={user.token}
 ws/chats/<uuid:conversation_uid>/?token={user.token}
 
 
@@ -12,13 +12,11 @@ ws/chats/<uuid:conversation_uid>/?token={user.token}
 
 @dataclass
 class ChatWebsocketSchema:
-    sender_id: str
-    sender: str
-    chat_id: str
+    sender_id: Optional[str]
+    sender: Optional[str]
+    chat_id: Optional[str]
     action: Literal["new_message", "is_typing", "stopped_typing", "read_message"]
     data: Optional[Any] = None
-    data_type: Optional[Literal["chat", "message"]] = None
-
 
 
 

@@ -1,17 +1,16 @@
-from typing import List
 from uuid import UUID
 
+from config.permissions import IsBusinessUser
 from django.db import transaction
-from ninja import Router, PatchDict
 from monkeypatches.response import Response
+from ninja import Router, PatchDict
 from ninja_extra import paginate
-from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
-from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
-
+from config.websocket_routes import ws_router
 from notification.models import BusinessUserNotificationSettings, Notification
 from notification.schemas import NotificationSettingsSchema, NotificationSchema
-from config.permissions import IsBusinessUser
+from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
 # Create your views here.
 router = Router(tags=["Notifications"])
@@ -53,3 +52,9 @@ def read_notification(request, notification_uid: UUID):
         return Response(status=404, data={"message": "Notification not found"})
     notification.view(request.user)
     return Response(status=200, data={"message": "Notification marked as read"})
+
+
+@ws_router.get('notifications', response={200: NotificationSchema},
+             tags=["Websocket"])
+def websocket_notification(request, token: str):
+    return Response(status=200, data={"message": "Message sent successfully"})

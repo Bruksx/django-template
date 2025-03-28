@@ -122,15 +122,15 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
     IsTalentUser.check(request)
     talent_user = request.user.talent
     if "gender" in data:
-        data["gender"] = data["gender"].value
+        data["gender"] = data["gender"].value if type(data["gender"]) is not str else data["gender"]
 
     if "work_model" in data:
-        data["work_model"] = data["work_model"].value
+        data["work_model"] = data["work_model"].value if type(data["work_model"]) is not str else data["work_model"]
 
     if "preferred_communication" in data:
-        data["preferred_communication"] = data["preferred_communication"].value
+        data["preferred_communication"] = data["preferred_communication"].value if type(data["preferred_communication"]) is not str else data["preferred_communication"]
     if "notice_period_type" in data:
-        data["notice_period_type"] = data["notice_period_type"].value
+        data["notice_period_type"] = data["notice_period_type"].value if type(data["notice_period_type"]) is not str else data["notice_period_type"]
     user = request.user
     user_data = dict()
     if "first_name" in data:
