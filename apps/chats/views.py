@@ -6,7 +6,7 @@ from accounts.models import User
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, Conversation, MessageAttachment
 from chats.schemas import ChatListSchema, ChatMessageSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema, \
-    ChatMessagePaginatedSchema
+    ChatMessagePaginatedSchema, ChatMessageRequestSchema, ChatMessageResponseSchema, ChatMessageErrorSchema
 from django.db import transaction
 from django.db.models import Q, F
 from ninja import Router, PatchDict, UploadedFile, Form
@@ -25,6 +25,8 @@ from jobs.business_views import pagination_class
 
 # Create your views here.
 router = Router(tags=["Chats"])
+ws_router = Router(tags=["Websocket"])
+
 
 @router.get("", auth=JWTAuth(), response=PaginatedResponseSchema[ChatListSchema])
 @paginate(PageNumberPaginationExtra, page_size=50)
@@ -131,4 +133,12 @@ def start_conversation(request, user_id:UUID, data: PatchDict[MutateChatMessageS
         MessageAttachment(message=message, file=attachment["file"], file_type=attachment["file_type"].value) for
         attachment in attachments
     ])
+    message.handle_post_save(notify=True)
     return Response(status=200, data={"message": "conversation started successfully"})
+
+
+@ws_router.post('ws/chats/{conversation_uid}/', response={200: ChatMessageResponseSchema, 400: ChatMessageErrorSchema,
+                                             403: ChatMessageErrorSchema, 404: ChatMessageErrorSchema},
+             tags=["Websocket"])
+def websocket_send_chat(request, conversation_uid:UUID, token: str, data: ChatMessageRequestSchema):
+    return Response(status=200, data={"message": "Message sent successfully"})

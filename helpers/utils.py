@@ -233,3 +233,25 @@ def validate_password(password):
 
     if not any(char in '!@#$%^&*()_+=-[]{}|;:,.<>?' for char in password):
         raise HttpError(400, 'Password must contain at least one special character.')
+
+
+def prepare_for_json(data):
+    new_data = {}
+    for key, value in data.items():
+        if isinstance(value, uuid.UUID):
+            new_data[key] = str(value)
+        elif isinstance(value, dict):
+            new_data[key] = prepare_for_json(value)
+        elif isinstance(value, list):
+            new_list = []
+            for item in value:
+                if isinstance(item, uuid.UUID):
+                    new_list.append(str(item))
+                elif isinstance(item, dict):
+                    new_list.append(prepare_for_json(item))
+                else:
+                    new_list.append(item)
+            new_data[key] = new_list
+        else:
+            new_data[key] = value
+    return new_data

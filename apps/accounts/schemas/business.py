@@ -302,3 +302,8 @@ class AcceptBusinessUserInviteSchema(Schema):
     code: UUID
     password: str
 
+class SendEmailSchema(Schema):
+    emails: List[EmailStr]
+    subject: str
+    body : str
+    from_email: str

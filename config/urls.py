@@ -20,11 +20,13 @@ from django.urls import path
 
 from . import settings
 from .api import api
+from .websocket_endpoints import websocket
 
 
 urlpatterns = [
     path('admin_gtc_8hfj5dncgodxcuchnmaujsopq274/', admin.site.urls),
-    path('api/', api.urls)
+    path('api/', api.urls),
+    path("", websocket.urls),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

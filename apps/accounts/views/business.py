@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404
 
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
 from helpers.email.auth import send_verification_code
+from helpers.email.utils import send_email
 from helpers.utils import convert_base64_to_image_file
 from monkeypatches.q_cluster import async_task
 from ninja import Router, UploadedFile, PatchDict, Form
@@ -24,7 +25,7 @@ from notification import notifications
 from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
-
+from ..schemas.business import SendEmailSchema
 
 router = Router(tags=["Business Account"])
 
@@ -328,3 +329,11 @@ def delete_account(request):
 @router.get("industries", response=list[GenericNameAndUidSchema], tags=["Common"])
 def get_business_industries(request):
     return BusinessIndustry.objects.all()
+
+
+@router.post("email-talents", auth=JWTAuth())
+def send_email_to_talents(request, data:SendEmailSchema=Form(), attachments: List[UploadedFile]=None):
+    IsBusinessUser.check(request)
+    send_email(subject=data.subject, emails=data.emails, plain_body=data.body, attachments=attachments,
+               from_user=data.from_email)
+    return Response(status=200, data={"message": "Email sent successfully"})

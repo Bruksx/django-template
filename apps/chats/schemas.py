@@ -1,4 +1,4 @@
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Literal
 from uuid import UUID
 
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
@@ -157,3 +157,33 @@ class ResponseSchema(Schema):
 class ChatMessagePaginatedSchema(PaginatedResponseSchema[ChatMessageSchema]):
     locked: bool
     recipient: ChatUserSchema
+
+class AttachmentSchema(Schema):
+    content_type: str
+    data: str
+    name: str
+
+class CreateMessageSchema(Schema):
+    job_post: Optional[UUID] = None
+    attachments: Optional[List[AttachmentSchema]]
+    body: str
+
+
+class ChatMessageRequestSchema(Schema):
+    data: CreateMessageSchema|Any
+    action: Literal["new_message", "is_typing", "stopped_typing", "read_message"]
+
+
+
+class ChatMessageErrorSchema(Schema):
+    message: Optional[str]=None
+    data: Optional[Any]=None
+    status: int
+
+class ChatMessageResponseSchema(Schema):
+    sender_id: UUID
+    sender: str
+    chat_id: UUID
+    action: Literal["new_message", "is_typing", "stopped_typing", "read_message"]
+    data: Optional[ChatMessageListSchema|Any]
+
