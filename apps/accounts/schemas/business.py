@@ -273,6 +273,8 @@ class BusinessDetailSchema(ModelSchema):
 
 class BusinessUserListSchema(ModelSchema):
     fullname:str = Field(alias="user.fullname")
+    first_name: str = Field(alias="user.first_name")
+    last_name: str = Field(alias="user.last_name")
     email: EmailStr = Field(alias="user.email")
     user_uid: UUID = Field(alias="user.uid")
     added_by: Optional[str] = Field(alias="get_added_by")
