@@ -17,9 +17,15 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
         application = JobApplication.objects.filter(id=instance.id).first()
         if not application:
             return
-        if instance.stage and application.stage != instance.stage and instance.stage.phase != PhaseType.REJECTED.value:
-            index = phases.index(instance.stage.phase)
-            if application.stage is None:
+        stage = instance.stage
+        application_stage = application.stage
+        if stage and stage.phase == PhaseType.NEW.value:
+            stage = None
+        if application_stage and application_stage.phase == PhaseType.NEW.value:
+            application_stage = None
+        if stage and application_stage != stage and stage.phase != PhaseType.REJECTED.value:
+            index = phases.index(stage.phase)
+            if application_stage is None:
                 # if application is new and is being moved to next stage
                 # bypass to current stage
                 for i in range(index):
@@ -30,10 +36,10 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
                 setattr(instance, "stage_date_updated", today)
 
             else:
-                if application.stage.phase not in phases:
+                if application_stage.phase not in phases:
                     return
                 # if an application is moved from a stage to another in a forward movement
-                prev_index = phases.index(application.stage.phase)
+                prev_index = phases.index(application_stage.phase)
                 if prev_index < index:
                     for i in range(prev_index+1, index):
                         current_attribute = attributes[i]
@@ -66,9 +72,9 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
                     current_timeline += subtracted_days
                     setattr(instance, current_attribute, current_timeline)
 
-        elif application.stage and not instance.stage:
+        elif application_stage and not stage:
             subtracted_days = 0
-            index = phases.index(application.stage.phase)
+            index = phases.index(application_stage.phase)
             for i in (index, -1, -1):
                 current_attribute = attributes[i]
                 timeline = getattr(instance, current_attribute)
@@ -96,8 +102,14 @@ def handle_stage_timeline_update(sender, instance,  **kwargs):
         application = JobApplication.objects.filter(id=instance.id).first()
         if not application:
             return
-        if instance.stage and application.stage != instance.stage:
-            if application.stage is None:
+        stage = instance.stage
+        application_stage = application.stage
+        if stage and stage.phase == PhaseType.NEW.value:
+            stage = None
+        if application_stage and application_stage.phase == PhaseType.NEW.value:
+            application_stage = None
+        if stage and application_stage != stage:
+            if application_stage is None:
                 # if application is new and is being moved to next stage
                 # bypass to current stage
                 instance.stage.update_talent_stage_timeline(instance)
@@ -139,7 +151,7 @@ def handle_stage_timeline_update(sender, instance,  **kwargs):
                         """
                         instance.stage.update_talent_stage_timeline(instance, accumulated_days)
 
-        elif application.stage and not instance.stage:
+        elif application_stage and not stage:
             past_stages = application.stage.previous_stages()
             if past_stages:
                 accumulated_days = 0
