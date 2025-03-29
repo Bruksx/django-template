@@ -277,7 +277,7 @@ class JobPost(BaseModel):
         applications = self.jobapplication_set
         data = [
             {"key": "applicants", "count": applications.count()},
-            {"key": "new", "count": applications.filter(stage__isnull=True).count()},
+            {"key": "new", "count": applications.filter(Q(stage__isnull=True)| Q(stage__phase=PhaseType.NEW.value)).count()},
         ]
         data_set = applications.filter(stage__isnull=False).values("stage__phase")\
             .annotate(count=models.Count("stage__phase"),

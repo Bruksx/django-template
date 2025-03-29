@@ -24,8 +24,11 @@ def get_talent_job_recommendations(talent, search="", use_filter=False, **kwargs
 
 @transaction.atomic
 def create_job_application(job_post, talent, data:ApplyToJobSchema):
+    stage = (WorkFlowStage.objects.filter(phase=PhaseType.NEW.value, created_by__business=job_post.job.created_by.business)
+             .order_by("order").first())
     application = JobApplication.objects.create(job_post=job_post, applicant=talent,
                                                 recruiter=job_post.recruiter,
+                                                stage=stage,
                                                 available_for_schedule=data.available_for_schedule,
                                                 match=talent.job_match_score(job_post))
     if job_post.job.min_match_score and application.match < job_post.job.min_match_score:

@@ -2,6 +2,7 @@ import os
 from random import choice
 
 import django
+from django.db.models import Q
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
@@ -276,3 +277,20 @@ def update_job_post_status():
         status__in=(JobStatusType.CLOSED.value, JobStatusType.PAUSED.value)
     ).update(status=JobStatusType.POSTED.value)
     print("finished updating job post status")
+
+def delete_useless_workflows():
+    from settings.models import WorkFlowStage
+    workflows = WorkFlowStage.objects.exclude(phase__in=PhaseType.values())
+    workflows.delete()
+    print("finished deleting workflows")
+
+def assign_name_to_email_templates():
+    from settings.models import EmailTemplate
+    from faker import Faker
+
+    fake = Faker()
+    email_templates = EmailTemplate.objects.filter(Q(name__isnull=True) | Q(name=""))
+    for email_template in email_templates:
+        email_template.name = fake.color_name()[:20]
+        email_template.save()
+    print("finished assigning name to email templates")

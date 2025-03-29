@@ -11,7 +11,7 @@ from accounts.enums import BusinessUserRoleType
 from jobs.enums import PhaseType
 from settings.models import EmailTemplate, EmailTemplateAttachment, WorkFlowStage
 from settings.schemas import MutateEmailTemplateSchema, EmailTemplateListSchema, EmailTemplateDetailSchema, \
-    MutateWorkFlowStageSchema, WorkFlowStageSchema, PhaseWorkFlowStageSchema
+    MutateWorkFlowStageSchema, WorkFlowStageSchema, PhaseWorkFlowStageSchema, RearrangeWorkflowStageSchema
 
 router = Router(tags=["Settings"])
 
@@ -103,7 +103,10 @@ def create_workflow_stage(request, data: MutateWorkFlowStageSchema):
     if WorkFlowStage.objects.filter(created_by__business=business_user.business, name__iexact=data.name,
                                     phase=data.phase.value).exists():
         raise HttpError(400, "A workflow stage with this name in this phase already exists")
-    WorkFlowStage.objects.create(**data.dict(), created_by=business_user)
+    wrk_flow_data = data.__dict__.copy()
+    wrk_flow_data["phase"] = wrk_flow_data["phase"].value
+    wrk_flow_data["phase_order"] = PhaseType.values().index(wrk_flow_data["phase"])
+    WorkFlowStage.objects.create(**wrk_flow_data, created_by=business_user)
     return Response(status=201, data={"message": "workflow stage has been created successfully"})
 
 @router.patch("workflows/stages/{stage_uid}", auth=JWTAuth())
@@ -118,6 +121,7 @@ def update_workflow_stage(request, stage_uid:UUID, data:PatchDict[MutateWorkFlow
         raise HttpError(403, "You do not have permission to update this workflow stage")
     if "phase" in data:
         data["phase"] = data["phase"].value
+        data["phase_order"] = PhaseType.values().index(data["phase"])
     phase = data.get("phase", stage.phase)
     if "name" in data and  WorkFlowStage.objects.filter(created_by__business=business_user.business, name__iexact=data["name"],
                                     phase=phase).exclude(id=stage.id).exists():
@@ -142,3 +146,12 @@ def retrieve_all_workflow_stages(request):
         for phase in phases
         ]
 
+@router.patch("workflows/re-arrange-stages", auth=JWTAuth())
+def re_arrange_workflows(request, data:List[RearrangeWorkflowStageSchema]):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    for arrangement in data:
+        for stage in arrangement.stage_uids:
+            WorkFlowStage.objects.filter(uid=stage, created_by__business=business_user.business,
+                                         phase=arrangement.phase.value).update(order=arrangement.stage_uids.index(stage))
+    return Response(status=200, data={"message": "workflow stages have been updated successfully"})
