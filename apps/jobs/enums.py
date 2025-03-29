@@ -26,10 +26,11 @@ class QuestionTypeEnum(BaseEnum):
     
 
 class PhaseType(BaseEnum):
+    NEW = "new"
     SCREENING = "screening"
     INTERVIEW = "interview"
-    HIRED = "hired"
     ONBOARDING = "onboarding"
+    HIRED = "hired"
     REJECTED = "rejected"
 
 class WithdrawalFeedbackType(BaseEnum):

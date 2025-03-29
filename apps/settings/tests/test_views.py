@@ -224,8 +224,17 @@ class CreateWorkflowTest(TestCase):
         }
         response = self.client.post(self.url, json=data,
                                     headers=headers)
+        data = {
+            "name": "Test Workflow2",
+            "phase": PhaseType.HIRED.value,
+            "email_template": email_template.uid,
+            "is_active": True
+        }
+        response = self.client.post(self.url, json=data,
+                                    headers=headers)
         self.assertEqual(response.status_code, 201)
-        workflow = WorkFlowStage.objects.first()
+        workflow = WorkFlowStage.objects.last()
+        self.assertEqual(WorkFlowStage.objects.count(), 2)
         self.assertEqual(workflow.name, data["name"])
 
     def test_create_workflow_stage_with_same_name(self):
@@ -390,3 +399,28 @@ class DeleteAttachmentFromEmailTemplateTest(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
+class ReArrangeWorkflowTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = "workflows/re-arrange-stages"
+        self.business_user = BusinessUserFactory.create()
+        self.stage1 = WorkflowStageFactory.create(created_by=self.business_user, phase=PhaseType.HIRED.value, order=1)
+        self.stage2 = WorkflowStageFactory.create(created_by=self.business_user, phase=PhaseType.HIRED.value, order=2)
+
+    def test_successful_rearrangement(self):
+        headers = {"authorization": f"bearer {self.business_user.user.token}"}
+        data = [{"stage_uids": [str(self.stage2.uid), str(self.stage1.uid)], "phase": PhaseType.HIRED.value}]
+        response = self.client.patch(self.url, json=data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["message"], "workflow stages have been updated successfully")
+
+        self.stage1.refresh_from_db()
+        self.stage2.refresh_from_db()
+        self.assertEqual(self.stage1.order, 1)
+        self.assertEqual(self.stage2.order, 0)
+
+    def test_unauthorized_access(self):
+        """Test access without authentication"""
+        data = [{"stage_uids": [str(self.stage1.uid)], "phase": PhaseType.HIRED.value}]
+        response = self.client.patch(self.url, json=data)
+        self.assertEqual(response.status_code, 401)

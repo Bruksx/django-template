@@ -282,6 +282,7 @@ class EmailTemplateFactory(DjangoModelFactory):
     class Meta:
         model = EmailTemplate
 
+    name = factory.lazy_attribute(lambda _: fake.color_name()[:20])
     sender = factory.Sequence(lambda n: f'sender{n}@example.com')
     subject = factory.lazy_attribute(lambda _: fake.sentence()[:30])
     template  = factory.lazy_attribute(lambda _: fake.sentence()[:100])

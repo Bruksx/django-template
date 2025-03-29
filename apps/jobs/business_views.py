@@ -378,9 +378,9 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
         queryset = queryset.filter(stage__phase=phase.value)
     if new_application is not None:
         if new_application is True:
-            queryset = queryset.filter(stage__isnull=True)
+            queryset = queryset.filter(Q(stage__isnull=True)| Q(stage__phase=PhaseType.NEW.value))
         else:
-            queryset = queryset.filter(stage__isnull=False)
+            queryset = queryset.filter(Q(stage__isnull=False) & ~Q(stage__phase=PhaseType.NEW.value))
     if sort_by:
         sign = "-" if asc is False else ""
         if sort_by == "applicant":

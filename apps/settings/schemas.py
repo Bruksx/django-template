@@ -100,7 +100,7 @@ class MutateWorkFlowStageSchema(ModelSchema):
     email_template: Optional[UUID] = None
     class Meta:
         model = WorkFlowStage
-        exclude = [*MUTATE_EXCLUDE_FIELDS, "created_by"]
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "created_by", "phase_order", "order", "uid"]
 
 class WorkFlowStageSchema(ModelSchema):
     email_template: EmailTemplateListSchema
@@ -113,3 +113,8 @@ class WorkFlowStageSchema(ModelSchema):
 class PhaseWorkFlowStageSchema(Schema):
     phase: str
     stages: List[WorkFlowStageSchema]
+
+
+class RearrangeWorkflowStageSchema(Schema):
+    stage_uids: List[UUID]
+    phase: PhaseType
