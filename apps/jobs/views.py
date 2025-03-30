@@ -133,7 +133,7 @@ def upload_answer_files(request, files:List[UploadedFile]):
 
 
 
-@router.post("talent/job-posts/{job_post_id}", auth=JWTAuth(),
+@router.get("talent/job-posts/{job_post_id}", auth=JWTAuth(),
              description="this will notify the business connected to the job post if there is a match",
              response=TalentJobPostSchema, tags=["Talent Jobs"])
 def view_job_post(request, job_post_id:UUID):
