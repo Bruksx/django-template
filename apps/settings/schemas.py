@@ -1,7 +1,7 @@
 from typing import List, Optional
 from uuid import UUID
 
-from ninja import Field
+from ninja import Field, UploadedFile
 from ninja import ModelSchema, Schema
 from ninja.errors import HttpError
 from pydantic import EmailStr, validate_email
@@ -16,8 +16,11 @@ class MutateEmailTemplateSchema(ModelSchema):
     sender: EmailStr
     placeholders: str = Field(examples=PlaceHolderType.values(),
                               description="placeholders separated by comma without spacing")
-    bcc: str = Field(examples=["bob@examples.com"], description="emails separated by commas without spacing")
-    cc: str = Field(examples=["bob@examples.com"], description="emails separated by commas without spacing")
+    bcc: Optional[str] = Field(examples=["bob@examples.com"], description="emails separated by commas without spacing",
+                               default=None)
+    cc: Optional[str] = Field(examples=["bob@examples.com"], description="emails separated by commas without spacing",
+                              default=None)
+    attachments: Optional[List[UploadedFile]] = None
     class Meta:
         model = EmailTemplate
         exclude = [*MUTATE_EXCLUDE_FIELDS, "created_by"]
@@ -31,6 +34,8 @@ class MutateEmailTemplateSchema(ModelSchema):
 
     @staticmethod
     def validate_email_string_list(emails:str):
+        if not emails:
+            return list()
         emails = emails.split(",")
         for email in emails:
             try:
@@ -68,6 +73,9 @@ class MutateEmailTemplateSchema(ModelSchema):
                 raise HttpError(400, e.args[0])
             return False
 
+class AddAttachmentsToEmailTemplateSchema(Schema):
+    attachments: List[UploadedFile]
+
 
 class EmailTemplateListSchema(ModelSchema):
     class Meta:
@@ -81,7 +89,9 @@ class EmailTemplateAttachmentSchema(ModelSchema):
         model = EmailTemplateAttachment
         fields = ("uid", "created_at")
 
-
+class MoveApplicationToStageFromStageSchema(Schema):
+    previous_stage_uid: UUID
+    next_stage_uid: UUID
 
 class EmailTemplateDetailSchema(ModelSchema):
     sender: EmailStr

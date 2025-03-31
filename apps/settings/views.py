@@ -9,27 +9,31 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import BusinessUserRoleType
 from jobs.enums import PhaseType
+from jobs.models import JobApplication
 from settings.models import EmailTemplate, EmailTemplateAttachment, WorkFlowStage
 from settings.schemas import MutateEmailTemplateSchema, EmailTemplateListSchema, EmailTemplateDetailSchema, \
-    MutateWorkFlowStageSchema, WorkFlowStageSchema, PhaseWorkFlowStageSchema, RearrangeWorkflowStageSchema
+    MutateWorkFlowStageSchema, WorkFlowStageSchema, PhaseWorkFlowStageSchema, RearrangeWorkflowStageSchema, \
+    AddAttachmentsToEmailTemplateSchema, MoveApplicationToStageFromStageSchema
 
 router = Router(tags=["Settings"])
 
 @router.post("email-templates", auth=JWTAuth())
-def create_email_template(request, body:MutateEmailTemplateSchema=Form(), attachments: List[UploadedFile]=None):
+def create_email_template(request, body:MutateEmailTemplateSchema=Form()):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    if EmailTemplate.objects.filter(created_by__business=business_user.business, name__iexact=body.name).exists():
+    if EmailTemplate.objects.filter(created_by__business=business_user.business, name__iexact=body.name,
+                                    personal=body.personal).exists():
         raise HttpError(400, "An email template with this name already exists")
     data = body.__dict__.copy()
+    data.pop("attachments", None)
     MutateEmailTemplateSchema.is_valid(data=data)
     template = EmailTemplate.objects.create(**data, created_by=business_user)
-    if attachments:
+    if body.attachments:
         EmailTemplateAttachment.objects.bulk_create(
             [EmailTemplateAttachment(
                 email_template=template,
                 file=attachment
-            ) for attachment in attachments]
+            ) for attachment in body.attachments]
         )
     return Response(status=201, data={"message": "email template has been created successfully"})
 
@@ -40,8 +44,9 @@ def update_email_template(request, template_uid:UUID, data:PatchDict[MutateEmail
     template = EmailTemplate.objects.filter(uid=template_uid).first()
     if not template:
         raise HttpError(404, "This email template does not exist")
+    personal = data.pop("personal", template.personal)
     if "name" in data and EmailTemplate.objects.filter(created_by__business=business_user.business,
-                                    name__iexact=data["name"]).exclude(uid=template_uid).exists():
+        personal=personal, name__iexact=data["name"]).exclude(uid=template_uid).exists():
         raise HttpError(400, "An email template with this name already exists")
     if business_user.role not in [BusinessUserRoleType.OWNER.value, BusinessUserRoleType.ADMIN.value] and \
         template.created_by != business_user:
@@ -51,7 +56,7 @@ def update_email_template(request, template_uid:UUID, data:PatchDict[MutateEmail
     return Response(status=200, data={"message": "email template has been updated successfully"})
 
 @router.post("email-templates/{template_uid}/attachments", auth=JWTAuth())
-def add_attachments_to_email_template(request, template_uid:UUID, attachments: List[UploadedFile]):
+def add_attachments_to_email_template(request, template_uid:UUID, body:AddAttachmentsToEmailTemplateSchema=Form()):
     IsBusinessUser.check(request)
     template = EmailTemplate.objects.filter(uid=template_uid).first()
     if not template:
@@ -60,10 +65,9 @@ def add_attachments_to_email_template(request, template_uid:UUID, attachments: L
         [EmailTemplateAttachment(
             email_template=template,
             file=attachment
-        ) for attachment in attachments]
+        ) for attachment in body.attachments]
     )
     return Response(status=201, data={"message": "attachments have been added successfully"})
-
 
 @router.delete("email-templates/{template_uid}/attachments", auth=JWTAuth())
 def remove_attachments_from_email_template(request, template_uid:UUID, data: List[UUID]):
@@ -85,7 +89,6 @@ def retrieve_all_email_templates(request, personal:bool=None):
         queryset = queryset.filter(personal=personal)
     return queryset.order_by("name")
 
-
 @router.get("email-templates/{template_uid}", auth=JWTAuth(), response=EmailTemplateDetailSchema)
 def retrieve_email_template(request, template_uid:UUID):
     IsBusinessUser.check(request)
@@ -94,6 +97,37 @@ def retrieve_email_template(request, template_uid:UUID):
     if not template:
         raise HttpError(404, "This email template does not exist")
     return template
+
+@router.delete("email-templates", auth=JWTAuth())
+def bulk_delete_email_templates(request, template_uids:List[UUID]):
+    IsBusinessUser.check(request)
+    EmailTemplate.objects.filter(uid__in=template_uids, created_by__business=request.user.businessuser.business).delete()
+    return Response(status=204, data={"message": "email templates have been deleted successfully"})
+
+@router.delete("workflows/stages", auth=JWTAuth())
+def bulk_delete_workflow_stage(request, stage_uids:List[UUID]):
+    IsBusinessUser.check(request)
+    stages = WorkFlowStage.objects.filter(uid__in=stage_uids, created_by__business=request.user.businessuser.business)
+    for stage in stages:
+        if stage.is_active is True:
+            raise HttpError(400, f"This workflow stage '{stage.name}' is still active")
+        if stage.jobapplication_set.count() > 0:
+            raise HttpError(400, f"This workflow stage '{stage.name}' has job applications")
+    stages.delete()
+    return Response(status=204, data={"message": "workflow stage has been deleted successfully"})
+
+@router.post("workflows/stages/move-applications", auth=JWTAuth(), response=EmailTemplateDetailSchema)
+def move_applicants_across_stages(request, data: MoveApplicationToStageFromStageSchema):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    previous_stage = WorkFlowStage.objects.filter(uid=data.previous_stage_uid, created_by__business=business_user.business).first()
+    if not previous_stage:
+        raise HttpError(404, f"The selected previous stage does not exist")
+    next_stage = WorkFlowStage.objects.filter(uid=data.next_stage_uid, created_by__business=business_user.business).first()
+    if not next_stage:
+        raise HttpError(404, "This selected next stage does not exist")
+    JobApplication.objects.filter(stage=previous_stage).update(stage=next_stage)
+    return Response(status=200, data={"message": "applicants have been moved successfully"})
 
 
 @router.post("workflows/stages", auth=JWTAuth())
