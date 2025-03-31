@@ -334,6 +334,6 @@ def get_business_industries(request):
 @router.post("email-talents", auth=JWTAuth())
 def send_email_to_talents(request, data:SendEmailSchema=Form(), attachments: List[UploadedFile]=None):
     IsBusinessUser.check(request)
-    send_email(subject=data.subject, emails=data.emails, plain_body=data.body, attachments=attachments,
+    async_task(send_email, subject=data.subject, emails=data.emails, plain_body=data.body, attachments=attachments,
                from_user=data.from_email)
     return Response(status=200, data={"message": "Email sent successfully"})
