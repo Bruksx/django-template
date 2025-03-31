@@ -21,7 +21,8 @@ router = Router(tags=["Settings"])
 def create_email_template(request, body:MutateEmailTemplateSchema=Form()):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    if EmailTemplate.objects.filter(created_by__business=business_user.business, name__iexact=body.name).exists():
+    if EmailTemplate.objects.filter(created_by__business=business_user.business, name__iexact=body.name,
+                                    personal=body.personal).exists():
         raise HttpError(400, "An email template with this name already exists")
     data = body.__dict__.copy()
     data.pop("attachments", None)
@@ -43,8 +44,9 @@ def update_email_template(request, template_uid:UUID, data:PatchDict[MutateEmail
     template = EmailTemplate.objects.filter(uid=template_uid).first()
     if not template:
         raise HttpError(404, "This email template does not exist")
+    personal = data.pop("personal", template.personal)
     if "name" in data and EmailTemplate.objects.filter(created_by__business=business_user.business,
-                                    name__iexact=data["name"]).exclude(uid=template_uid).exists():
+        personal=personal, name__iexact=data["name"]).exclude(uid=template_uid).exists():
         raise HttpError(400, "An email template with this name already exists")
     if business_user.role not in [BusinessUserRoleType.OWNER.value, BusinessUserRoleType.ADMIN.value] and \
         template.created_by != business_user:
@@ -59,7 +61,6 @@ def add_attachments_to_email_template(request, template_uid:UUID, body:AddAttach
     template = EmailTemplate.objects.filter(uid=template_uid).first()
     if not template:
         raise HttpError(404, "This email template does not exist")
-    print("Attachments: ", body.attachments)
     EmailTemplateAttachment.objects.bulk_create(
         [EmailTemplateAttachment(
             email_template=template,

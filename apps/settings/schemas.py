@@ -20,7 +20,7 @@ class MutateEmailTemplateSchema(ModelSchema):
                                default=None)
     cc: Optional[str] = Field(examples=["bob@examples.com"], description="emails separated by commas without spacing",
                               default=None)
-    attachments: Optional[List[UploadedFile]]
+    attachments: Optional[List[UploadedFile]] = None
     class Meta:
         model = EmailTemplate
         exclude = [*MUTATE_EXCLUDE_FIELDS, "created_by"]

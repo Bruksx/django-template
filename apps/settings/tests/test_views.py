@@ -43,7 +43,6 @@ class TestCreateEmailTemplate(TestCase):
         response = self.client.post(self.url, data=data,
                                     headers=headers,
                                     content_type="multipart/form-data")
-        print("response: ", response.content)
         self.assertEqual(response.status_code, 201)
         template = EmailTemplate.objects.first()
         self.assertEqual(template.name, data["name"])
@@ -64,7 +63,6 @@ class TestCreateEmailTemplate(TestCase):
         response = self.client.post(self.url, data=data,
                                     headers=headers,
                                     content_type="multipart/form-data")
-        print("response: ", response.content)
         self.assertEqual(response.status_code, 201)
         template = EmailTemplate.objects.first()
         self.assertEqual(template.name, data["name"])
@@ -95,7 +93,7 @@ class TestCreateEmailTemplate(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_create_template_with_same_name(self):
-        EmailTemplateFactory.create(name="Test Template", created_by=self.business_user)
+        EmailTemplateFactory.create(name="Test Template", created_by=self.business_user, personal=self.test_data["personal"])
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
         data = self.test_data
         response = self.client.post(self.url, data=data,
@@ -164,10 +162,11 @@ class TestUpdateEmailTemplate(TestCase):
 
 
     def test_update_template_with_same_name(self):
-        EmailTemplateFactory.create(name="Test Template 2", created_by=self.business_user)
+        EmailTemplateFactory.create(name="Test Template 2", created_by=self.business_user, personal=True)
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
         data = {
-            "name": "Test Template 2"
+            "name": "Test Template 2",
+            "personal": True
         }
         response = self.client.patch(self.url(self.email_template.uid), json=data,
                                     headers=headers)
