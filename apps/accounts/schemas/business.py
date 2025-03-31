@@ -293,7 +293,7 @@ class AcceptBusinessUserInviteSchema(Schema):
     password: str
 
 class SendEmailSchema(Schema):
-    emails: List[EmailStr]
+    emails: List[str]
     subject: str
     body : str
     from_email: str
