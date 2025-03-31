@@ -112,7 +112,7 @@ class EmailTemplateAttachment(BaseModel):
     def file_name(self):
         if not self.file:
             return
-        return self.file.name
+        return self.file.name.split("/")[-1]
 
 class WorkFlowStage(BaseModel):
     phase = models.CharField(max_length=100, choices=PhaseType.choices())

@@ -42,7 +42,7 @@ def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_b
                 email.attach_alternative(html_body, "text/html")
             if attachments:
                 for attachment in attachments:
-                    email.attach_file(attachment)
+                    email.attach(attachment.name, attachment.read(), attachment.content_type)
             email.send(fail_silently=False)
             return
         except Exception as e:

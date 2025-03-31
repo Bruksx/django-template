@@ -16,7 +16,11 @@ class TestCreateEmailTemplate(TestCase):
         self.client = TestClient(router)
         self.url = "email-templates"
         self.business_user = BusinessUserFactory.create()
-        self.test_data = data = {
+        file_data = SimpleUploadedFile(
+            "test_file.txt", b"This is a test file", content_type="text/plain"
+        )
+
+        self.test_data = {
             "name": "Test Template",
             "sender": "info@example.com",
             "subject": f"Welcome <{PlaceHolderType.CANDIDATE_FULLNAME.value}>!",
@@ -25,7 +29,8 @@ class TestCreateEmailTemplate(TestCase):
             "delays": 2,
             "bcc": ",".join(["bob@example.com", "joe@example.com"]),
             "cc": ",".join(["pitt@example.com"]),
-            "personal": True
+            "personal": True,
+            "attachments":file_data
         }
 
 
@@ -38,6 +43,7 @@ class TestCreateEmailTemplate(TestCase):
         response = self.client.post(self.url, data=data,
                                     headers=headers,
                                     content_type="multipart/form-data")
+        print("response: ", response.content)
         self.assertEqual(response.status_code, 201)
         template = EmailTemplate.objects.first()
         self.assertEqual(template.name, data["name"])
@@ -45,6 +51,28 @@ class TestCreateEmailTemplate(TestCase):
         self.assertEqual(template.delays, data["delays"])
         self.assertEqual(template.personal, data["personal"])
         self.assertEqual(template.created_by, self.business_user)
+        self.assertEqual(template.attachments().count(), 1)
+
+    def test_create_email_template_without_bcc_and_cc(self):
+        headers = {"authorization": f"bearer {self.business_user.user.token}"}
+        data = self.test_data
+        del data["bcc"]
+        del data["cc"]
+
+        template = EmailTemplate.objects.first()
+        self.assertIsNone(template)
+        response = self.client.post(self.url, data=data,
+                                    headers=headers,
+                                    content_type="multipart/form-data")
+        print("response: ", response.content)
+        self.assertEqual(response.status_code, 201)
+        template = EmailTemplate.objects.first()
+        self.assertEqual(template.name, data["name"])
+        self.assertEqual(template.sender, data["sender"])
+        self.assertEqual(template.delays, data["delays"])
+        self.assertEqual(template.personal, data["personal"])
+        self.assertEqual(template.created_by, self.business_user)
+        self.assertEqual(template.attachments().count(), 1)
 
     def test_for_invalid_subject_placeholder(self):
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
@@ -175,7 +203,13 @@ class RetrieveEmailTemplateTest(TestCase):
         self.client = TestClient(router)
         self.url = lambda uid : f"email-templates/{uid}"
         self.business_user = BusinessUserFactory.create()
-        EmailTemplateFactory.create_batch(5, created_by=self.business_user)
+        templates = EmailTemplateFactory.create_batch(5, created_by=self.business_user)
+        for template in templates:
+            EmailTemplateAttachment.objects.create(email_template=template,
+                                                   file=SimpleUploadedFile(
+                                                       "test_file.txt", b"This is a test file", content_type="text/plain"
+                                                   ))
+
 
     def test_retrieve_email_template(self):
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
@@ -183,6 +217,9 @@ class RetrieveEmailTemplateTest(TestCase):
         response = self.client.get(self.url(uid), headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["uid"], str(uid))
+        self.assertEqual(len(response.json()["attachments"]), 1)
+        self.assertIn("name", response.json()["attachments"][0])
+        print(response.json()["attachments"])
 
     def test_retrieve_email_template_by_another_business(self):
         template = EmailTemplateFactory.create()
@@ -224,6 +261,7 @@ class CreateWorkflowTest(TestCase):
         }
         response = self.client.post(self.url, json=data,
                                     headers=headers)
+        self.assertEqual(response.status_code, 201)
         data = {
             "name": "Test Workflow2",
             "phase": PhaseType.HIRED.value,
@@ -342,30 +380,30 @@ class RetrieveWorkflowStagesTest(TestCase):
         self.assertIn("stages", first_data)
         self.assertGreaterEqual(len(first_data["stages"]), 1)
 
-# class AddAttachmentToEmailTemplateTest(TestCase):
-#     def setUp(self):
-#         self.client = self.client
-#         self.client = TestClient(router)
-#         self.url = lambda uid : f"email-templates/{uid}/attachments"
-#         self.business_user = BusinessUserFactory.create()
-#         self.email_template = EmailTemplateFactory.create(created_by=self.business_user)
-#
-#     def test_add_attachment_to_email_template(self):
-#         headers = {"authorization": f"bearer {self.business_user.user.token}"}
-#         file_data = SimpleUploadedFile(
-#             "test_file.txt", b"This is a test file", content_type="text/plain"
-#         )
-#         data = {
-#             "attachments": [file_data]
-#         }
-#         response = self.client.post(self.url(self.email_template.uid),
-#                                     data=data,
-#                                     headers=headers,
-#                                     content_type="multipart/form-data")
-#         logging.critical(response.content)
-#         self.assertEqual(response.status_code, 201)
-#         self.assertIn("attachment", response.json())
+class AddAttachmentToEmailTemplateTest(TestCase):
+    def setUp(self):
+        self.client = self.client
+        self.client = TestClient(router)
+        self.url = lambda uid : f"email-templates/{uid}/attachments"
+        self.business_user = BusinessUserFactory.create()
+        self.email_template = EmailTemplateFactory.create(created_by=self.business_user)
 
+    def test_add_attachment_to_email_template(self):
+        headers = {"authorization": f"bearer {self.business_user.user.token}"}
+        file_data = SimpleUploadedFile(
+            "test_file.txt", b"This is a test file", content_type="text/plain"
+        )
+        data = {
+            "attachments": file_data
+
+        }
+        response = self.client.post(self.url(self.email_template.uid),
+                                    data=data,
+                                    headers=headers,
+                                    content_type="multipart/form-data")
+        print(response.content)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(EmailTemplateAttachment.objects.filter(email_template=self.email_template).count(), 1)
 
 
 class DeleteAttachmentFromEmailTemplateTest(TestCase):
