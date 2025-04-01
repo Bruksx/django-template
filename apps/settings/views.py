@@ -2,9 +2,9 @@ from typing import List
 from uuid import UUID
 
 from config.permissions import IsBusinessUser
-from ninja import Router, Form, UploadedFile, PatchDict
-from ninja.errors import HttpError
 from monkeypatches.response import Response
+from ninja import Router, Form, PatchDict
+from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import BusinessUserRoleType
