@@ -253,7 +253,7 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
     business = business_user.business
     data_dict = data
     email = data_dict.get("email")
-    staff_user = get_object_or_404(uid=business_user_uid, business=business)
+    staff_user = get_object_or_404(BusinessUser, uid=business_user_uid, business=business)
     if email:
         if email != staff_user.email:
             if User.global_objects.filter(email=data["email"]).exists():
