@@ -320,7 +320,25 @@ def delete_business_user(request, business_user_uid):
         raise HttpError(403, "Not allowed! you cannot delete your account")
     if staff_user.role == BusinessUserRoleType.OWNER.value:
         raise HttpError(403, "Not allowed! you cannot delete owner account")
-    """if JobPost.objects.filter(Q(recruiter=business_user) | Q(posted_by=business_user))"""
+    has_jobs = Job.objects.annotate(
+            is_posted_by_business_user=Exists(
+                JobPost.objects.filter(
+                    job__pk=OuterRef("pk"), posted_by=staff_user
+                )
+            ),
+            is_recruiter=Exists(
+                JobPost.objects.filter(
+                    job__pk=OuterRef("pk"), recruiter=staff_user
+                )
+            )
+        ).filter(
+            Q(created_by=staff_user) |
+            Q(is_posted_by_business_user=True) |
+            Q(is_recruiter=True)
+    ).exists()
+    if has_jobs:
+        raise HttpError(403, "Not Allowed! Please reassign all jobs allocated to this user before proceeding with deletion")
+
     staff_user.user.delete()
     staff_user.delete()
     return Response(status=201, data={"message": "User updated successfully"})
