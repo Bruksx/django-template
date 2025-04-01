@@ -221,29 +221,31 @@ def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
 
 @router.post("", response=JobDetailSchema, auth=JWTAuth())
 @transaction.atomic
-def create_job(request, data:CreateJobSchema):
+def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     business = business_user.business
-    request_data = data.dict()
-    request_data["created_by"] = business_user
-    availability = request_data.pop("availability")
-    screening_questions = request_data.pop("screening_questions")
-    job_posts = request_data.pop("job_posts")
-    additional_languages = request_data.pop("additional_languages", list())
-    skills = request_data.pop("skills", list())
-    business_models = request_data.pop("business_models", list())
+    data["created_by"] = business_user
+    availability = data.pop("availability", list())
+    screening_questions = data.pop("screening_questions", list())
+    job_posts = data.pop("job_posts", list())
+    additional_languages = data.pop("additional_languages", list())
+    skills = data.pop("skills", list())
+    business_models = data.pop("business_models", list())
 
-    if not request_data.get("hiring_company_name"):
-        request_data["hiring_company_name"] = business.name
-    if not request_data.get("hiring_company_description"):
-        request_data["hiring_company_description"] = business.description
-    request_data["work_structure"] = request_data["work_structure"].value
-    request_data["lunch_break"] = request_data["lunch_break"].value
-    request_data["technological_requirement"] = request_data["technological_requirement"].value
+    if not data.get("hiring_company_name"):
+        data["hiring_company_name"] = business.name
+    if not data.get("hiring_company_description"):
+        data["hiring_company_description"] = business.description
+    if "work_structure" in data:
+        data["work_structure"] = data["work_structure"].value
+    if "lunch_break" in data:
+        data["lunch_break"] = data["lunch_break"].value
+    if "technological_requirement" in data:
+        data["technological_requirement"] = data["technological_requirement"].value
 
 
-    job = Job.objects.create(**request_data)
+    job = Job.objects.create(**data)
     job.business_models.set(business_models)
     job.skills.set(skills)
     job.additional_languages.set(additional_languages)
@@ -262,8 +264,8 @@ def create_job(request, data:CreateJobSchema):
             if job.availableday_set.filter(day=day).exists():
                 raise HttpError(400, f"{day} already exists")
             AvailableDay.objects.create(**available_day, job=job)
-    if request_data.get("logo"):
-        request_data["logo"] = convert_base64_to_image_file(request_data["logo"])
+    if data.get("logo"):
+        data["logo"] = convert_base64_to_image_file(data["logo"])
 
     for job_post in job_posts:
         job_post["status"] = job_post["status"].value if job_post.get("status") else JobStatusType.DRAFT.value

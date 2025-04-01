@@ -177,9 +177,38 @@ class CreateJobSchema(ModelSchema):
             *MUTATE_EXCLUDE_FIELDS, "business_models", "created_by","uid"]
         fields_optional = "__all__"
 
+class OptionalCreateJobSchema(ModelSchema):
+    employment_type: Optional[UUID] = None
+    availability: Optional[List[MutateJobAvailableDaySchema]] = None
+    work_structure: Optional[WorkStructureEnum] = None
+    technological_requirement: Optional[TechnologicalRequirementsEnum] = None
+    first_language: Optional[UUID] = None
+    additional_languages: Optional[List[UUID]] = None
+    job_posts: List[MutateJobPostSchema]
+    screening_questions: List[CreateQuestionSchema]
+    lunch_break: Optional[LunchBreakEnum] = None
+    department: Optional[UUID] = None
+    role: Optional[UUID] = None
+    qualification: Optional[UUID] = None
+    skills: Optional[List[UUID]] = None
+    job_level: Optional[UUID] = None
+    business_models: Optional[List[UUID]] = None
+    minimum_education_level: Optional[UUID] = None
+    responsibilities: Optional[List[str]] = None
+    min_match_score: Optional[float] = None
+
+    class Meta:
+        model = Job
+        exclude = [
+            *MUTATE_EXCLUDE_FIELDS, "role", "first_language", "job_level", "department",
+            "qualification", "business_models", "created_by", "employment_type", "minimum_education_level",
+            "uid"
+        ]
+        fields_optional = "__all__"
+
 class UpdateJobSchema(ModelSchema):
     employment_type: Optional[UUID] = None
-    availability: list[MutateJobAvailableDaySchema]
+    availability: Optional[List[MutateJobAvailableDaySchema]] = None
     work_structure: Optional[WorkStructureEnum] = None
     technological_requirement: Optional[TechnologicalRequirementsEnum] = None
     first_language: Optional[UUID] = None
@@ -188,11 +217,11 @@ class UpdateJobSchema(ModelSchema):
     department: Optional[UUID] = None
     role: Optional[UUID] = None
     qualification: Optional[UUID] = None
-    skills: list[UUID]
+    skills: List[Optional[UUID]] = None
     job_level: Optional[UUID] = None
-    business_models: List[UUID]
+    business_models: Optional[List[UUID]] = None
     minimum_education_level: Optional[UUID] = None
-    responsibilities: List[str]
+    responsibilities: Optional[List[str]] = None
     min_match_score: Optional[float] = None
 
     class Meta:
