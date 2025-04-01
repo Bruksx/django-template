@@ -65,3 +65,10 @@ class GenericNameAndUidSchema(Schema):
 
 
 DecimalType = condecimal(max_digits=12, decimal_places=2)
+
+
+class UserMiniSchema(Schema):
+    uid: UUID
+    first_name: str
+    last_name: str
+    email: str
