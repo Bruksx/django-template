@@ -44,7 +44,7 @@ def update_email_template(request, template_uid:UUID, data:PatchDict[MutateEmail
     template = EmailTemplate.objects.filter(uid=template_uid).first()
     if not template:
         raise HttpError(404, "This email template does not exist")
-    personal = data.pop("personal", template.personal)
+    personal = data.get("personal", template.personal)
     if "name" in data and EmailTemplate.objects.filter(created_by__business=business_user.business,
         personal=personal, name__iexact=data["name"]).exclude(uid=template_uid).exists():
         raise HttpError(400, "An email template with this name already exists")
@@ -101,13 +101,13 @@ def retrieve_email_template(request, template_uid:UUID):
 @router.delete("email-templates", auth=JWTAuth())
 def bulk_delete_email_templates(request, template_uids:List[UUID]):
     IsBusinessUser.check(request)
-    EmailTemplate.objects.filter(uid__in=template_uids, created_by__business=request.user.businessuser.business).delete()
+    EmailTemplate.objects.filter(uid__in=template_uids, created_by=request.user.businessuser).delete()
     return Response(status=204, data={"message": "email templates have been deleted successfully"})
 
 @router.delete("workflows/stages", auth=JWTAuth())
 def bulk_delete_workflow_stage(request, stage_uids:List[UUID]):
     IsBusinessUser.check(request)
-    stages = WorkFlowStage.objects.filter(uid__in=stage_uids, created_by__business=request.user.businessuser.business)
+    stages = WorkFlowStage.objects.filter(uid__in=stage_uids, created_by=request.user.businessuser)
     for stage in stages:
         if stage.is_active is True:
             raise HttpError(400, f"This workflow stage '{stage.name}' is still active")
