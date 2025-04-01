@@ -3,8 +3,10 @@ from django.test import TestCase
 from ninja.testing import TestClient
 
 from accounts.enums import BusinessUserRoleType
-from factories import BusinessUserFactory, EmailTemplateFactory, WorkflowStageFactory, JobApplicationFactory
+from factories import BusinessUserFactory, EmailTemplateFactory, WorkflowStageFactory, JobApplicationFactory, \
+    TalentFactory
 from jobs.enums import PhaseType
+from jobs.models import JobApplication
 from settings.enums import PlaceHolderType
 from settings.models import EmailTemplate, WorkFlowStage, EmailTemplateAttachment
 from settings.views import router
@@ -407,7 +409,6 @@ class AddAttachmentToEmailTemplateTest(TestCase):
 
 class DeleteAttachmentFromEmailTemplateTest(TestCase):
     def setUp(self):
-        self.client = self.client
         self.client = TestClient(router)
         self.url = lambda uid : f"email-templates/{uid}/attachments"
         self.business_user = BusinessUserFactory.create()
@@ -461,3 +462,158 @@ class ReArrangeWorkflowTest(TestCase):
         data = [{"stage_uids": [str(self.stage1.uid)], "phase": PhaseType.HIRED.value}]
         response = self.client.patch(self.url, json=data)
         self.assertEqual(response.status_code, 401)
+
+
+
+
+class BulkDeleteEmailTemplatesTest(TestCase):
+    def setUp(self):
+        self.url = "email-templates"
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        templates = EmailTemplateFactory.create_batch(5, created_by=self.business_user)
+        self.test_data = [
+            str(template.uid) for template in templates
+        ]
+
+    def test_bulk_delete_templates(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 204)
+
+        self.assertEqual(EmailTemplate.objects.filter(created_by=self.business_user).count(), 0)
+
+    def test_by_another_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 204)
+
+        self.assertEqual(EmailTemplate.objects.filter(created_by=self.business_user).count(), 5)
+
+    def test_bulk_delete_without_authorization(self):
+        response = self.client.delete(self.url, json=self.test_data)
+        self.assertEqual(response.status_code, 401)
+
+    def test_bulk_delete_by_talent(self):
+        talent_user = TalentFactory.create()
+        headers = {
+            "authorization": f"Bearer {talent_user.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+
+class BulkDeleteWorkflowStageTest(TestCase):
+    def setUp(self):
+        self.url = "workflows/stages"
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        stages = WorkflowStageFactory.create_batch(5, created_by=self.business_user, is_active=False)
+        self.test_data = [
+            str(stage.uid) for stage in stages
+        ]
+
+    def test_bulk_delete_by_business_user(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 0)
+
+    def test_when_one_stage_is_active(self):
+        w = WorkFlowStage.objects.last()
+        w.update(is_active=True)
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+
+    def test_when_one_stage_has_job_applications(self):
+        w = WorkFlowStage.objects.last()
+        JobApplicationFactory.create(stage=w)
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+
+
+    def test_by_another_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+
+    def test_by_talent(self):
+        talent = TalentFactory.create()
+        headers = {
+            "authorization": f"Bearer {talent.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+
+
+
+
+class MoveApplicantsAcrossStagesTest(TestCase):
+    def setUp(self):
+        self.url = "workflows/stages/move-applications"
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.previous_stage = WorkflowStageFactory.create(created_by=self.business_user, is_active=False)
+        self.next_stage = WorkflowStageFactory.create(created_by=self.business_user, is_active=False)
+        self.test_data = {
+            "previous_stage_uid": str(self.previous_stage.uid),
+            "next_stage_uid": str(self.next_stage.uid)
+        }
+        JobApplicationFactory.create_batch(5, stage=self.previous_stage)
+
+
+
+    def test_by_business_user(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        self.assertEqual(JobApplication.objects.filter(stage=self.previous_stage).count(), 5)
+        self.assertEqual(JobApplication.objects.filter(stage=self.next_stage).count(), 0)
+        response = self.client.post(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(JobApplication.objects.filter(stage=self.previous_stage).count(), 0)
+        self.assertEqual(JobApplication.objects.filter(stage=self.next_stage).count(), 5)
+
+    def test_by_another_business_user_in_another_company(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        self.assertEqual(JobApplication.objects.filter(stage=self.previous_stage).count(), 5)
+        self.assertEqual(JobApplication.objects.filter(stage=self.next_stage).count(), 0)
+        response = self.client.post(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(JobApplication.objects.filter(stage=self.previous_stage).count(), 5)
+        self.assertEqual(JobApplication.objects.filter(stage=self.next_stage).count(), 0)
+
+    def test_by_talent(self):
+        talent = TalentFactory.create()
+        headers = {
+            "authorization": f"Bearer {talent.user.token}"
+        }
+        self.assertEqual(JobApplication.objects.filter(stage=self.previous_stage).count(), 5)
+        self.assertEqual(JobApplication.objects.filter(stage=self.next_stage).count(), 0)
+        response = self.client.post(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(JobApplication.objects.filter(stage=self.previous_stage).count(), 5)
+        self.assertEqual(JobApplication.objects.filter(stage=self.next_stage).count(), 0)
