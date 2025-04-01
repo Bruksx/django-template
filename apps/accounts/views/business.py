@@ -5,9 +5,11 @@ from enum import Enum
 
 from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Exists, OuterRef
 from django.shortcuts import get_object_or_404
 
+from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
+from paginations import CustomPaginatedResponseSchema as  PaginatedResponseSchema
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
 from helpers.email.auth import send_verification_code
 from helpers.email.utils import send_email
@@ -20,7 +22,8 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry
 from core.schemas import GenericNameAndUidSchema
-from jobs.models import Job
+from jobs.models import Job, JobPost
+from jobs.schemas import BusinessUserJobSchema
 from notification import notifications
 from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
@@ -250,10 +253,12 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
     business_user = request.user.businessuser
     business = business_user.business
     data_dict = data
-    if data_dict.get("email"):
-        if User.global_objects.filter(email=data["email"]).exists():
-            raise HttpError(400, "This email is not available")
-    staff_user = BusinessUser.objects.filter(uid=business_user_uid, business=business).first()
+    email = data_dict.get("email")
+    staff_user = get_object_or_404(BusinessUser, uid=business_user_uid, business=business)
+    if email:
+        if email != staff_user.email:
+            if User.global_objects.filter(email=data["email"]).exists():
+                raise HttpError(400, "This email is not available")
     if not staff_user:
         raise HttpError(404, "User not found")
     user = staff_user.user
@@ -278,6 +283,33 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
     return Response(status=201, data={"message": "User updated successfully"})
 
 
+@router.get("users/{business_user_uid}/jobs/", auth=JWTAuth(), response=list[BusinessUserJobSchema])
+def business_user_jobs(request, business_user_uid):
+    IsBusinessOwnerOrAdmin.check(request)
+    business_user = request.user.businessuser
+    business = business_user.business
+    staff_user = get_object_or_404(BusinessUser, uid=business_user_uid)
+    if staff_user.business != business:
+        raise HttpError(403, "Not allowed! This user is not in your organization")
+    jobs = Job.objects.annotate(
+            is_posted_by_business_user=Exists(
+                JobPost.objects.filter(
+                    job__pk=OuterRef("pk"), posted_by=business_user
+                )
+            ),
+            is_recruiter=Exists(
+                JobPost.objects.filter(
+                    job__pk=OuterRef("pk"), recruiter=business_user
+                )
+            )
+        ).filter(
+            Q(created_by=business_user) |
+            Q(is_posted_by_business_user=True) |
+            Q(is_recruiter=True)
+    ).order_by("-updated_at")
+    return jobs
+
+
 @router.delete("users/{business_user_uid}/", auth=JWTAuth())
 def delete_business_user(request, business_user_uid):
     IsBusinessOwnerOrAdmin.check(request)
@@ -289,6 +321,25 @@ def delete_business_user(request, business_user_uid):
         raise HttpError(403, "Not allowed! you cannot delete your account")
     if staff_user.role == BusinessUserRoleType.OWNER.value:
         raise HttpError(403, "Not allowed! you cannot delete owner account")
+    has_jobs = Job.objects.annotate(
+            is_posted_by_business_user=Exists(
+                JobPost.objects.filter(
+                    job__pk=OuterRef("pk"), posted_by=staff_user
+                )
+            ),
+            is_recruiter=Exists(
+                JobPost.objects.filter(
+                    job__pk=OuterRef("pk"), recruiter=staff_user
+                )
+            )
+        ).filter(
+            Q(created_by=staff_user) |
+            Q(is_posted_by_business_user=True) |
+            Q(is_recruiter=True)
+    ).exists()
+    if has_jobs:
+        raise HttpError(403, "Not Allowed! Please reassign all jobs allocated to this user before proceeding with deletion")
+
     staff_user.user.delete()
     staff_user.delete()
     return Response(status=201, data={"message": "User updated successfully"})

@@ -11,7 +11,8 @@ from pydantic import Field, EmailStr
 
 from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
-from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySchema, EducationLevelSchema
+from accounts.schemas.business import BusinessUserListSchema
+from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySchema, EducationLevelSchema, UserMiniSchema
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, PhaseType, JobStatusType, ActionType
@@ -779,3 +780,10 @@ class ApplyToJobSchema(Schema):
 class BulkJobPostSchema(Schema):
     job_posts: List[UUID]
     action: ActionType
+
+
+class BusinessUserJobSchema(ModelSchema):
+    created_by: BusinessUserListSchema
+    class Meta:
+        model = Job
+        fields = ["uid", "title"]
