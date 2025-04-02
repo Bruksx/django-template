@@ -745,3 +745,87 @@ class GetBusinessUserTestCase(TestCase):
         """Ensure an unauthorized user cannot retrieve a business user's details."""
         response = self.client.get(f"users/{self.admin.uid}/")
         self.assertEqual(response.status_code, 401)  
+
+
+class ReassignJobPostsTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)  # Use Django Ninja's TestClient
+        self.business = BusinessFactory.create()
+
+        # Create a business owner
+        self.business_owner = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+
+        # Create two recruiters
+        self.recruiter1 = UserFactory.create()
+        self.business_recruiter1 = BusinessUserFactory.create(
+            business = self.business,
+            user=self.recruiter1,
+            role=BusinessUserRoleType.TEAM_MEMBER.value
+        )
+
+        self.recruiter2 = UserFactory.create()
+        self.business_recruiter2 = BusinessUserFactory.create(
+            business = self.business,
+            user=self.recruiter2,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.job = JobFactory.create(
+            created_by=self.business_recruiter1
+        )
+        self.job_post1 = JobPostFactory.create(
+            job=self.job
+        )
+        self.job_post2 = JobPostFactory.create(
+            job=self.job
+        )
+        self.auth_headers = {"Authorization": f"Bearer {self.business_owner.user.token}"}
+        self.url = f"/users/{self.business_recruiter1.uid}/reassign-job-posts/"
+        self.external_user = UserFactory.create()
+        self.external_business = BusinessFactory.create()
+        self.external_business_user = BusinessUserFactory.create(
+            business = self.external_business,
+            user=self.external_user,
+            role=BusinessUserRoleType.OWNER.value
+        )
+
+    def test_successful_reassignment(self):
+        """Test that job posts are reassigned successfully to another recruiter."""
+        payload = {"nominee_uid": str(self.business_recruiter2.uid)}
+        response = self.client.post(self.url, json=payload, headers=self.auth_headers)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["message"], "Job posts reassigned successfully")
+
+        # Ensure all job posts are now assigned to recruiter2
+        self.job_post1.refresh_from_db()
+        self.assertTrue(self.job_post1.recruiter, self.recruiter2)
+
+    def test_unauthorized_user_cannot_reassign(self):
+        """Test that an unauthorized user cannot reassign job posts."""
+        unauthorized_headers = {"Authorization": f"Bearer {self.recruiter1.token}"}
+        payload = {"nominee_uid": str(self.business_recruiter2.uid)}
+        response = self.client.post(self.url, json=payload, headers=unauthorized_headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_invalid_nominee_uid(self):
+        """Test reassigning job posts with an invalid nominee UID."""
+        payload = {"nominee_uid": str(uuid4())} 
+        response = self.client.post(self.url, json=payload, headers=self.auth_headers)
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_reassign_to_user_outside_business(self):
+        """Test that job posts cannot be reassigned to a user outside the business."""
+        payload = {"nominee_uid": str(self.external_business_user.uid)}
+        response = self.client.post(self.url, json=payload, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_missing_nominee_uid(self):
+        """Test reassigning job posts with missing nominee UID in request payload."""
+        response = self.client.post(self.url, json={}, headers=self.auth_headers)
+
+        self.assertEqual(response.status_code, 422)
