@@ -281,6 +281,17 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
     return Response(status=201, data={"message": "User updated successfully"})
 
 
+@router.post("users/{business_user_uid}/reassign-job-posts/", auth=JWTAuth())
+def reassign_job_posts(request, business_user_uid, data:business_schema.ReassignJobPostInputSchema):
+    IsBusinessOwnerOrAdmin.check(request)
+    business_user: BusinessUser = request.user.businessuser
+    business = business_user.business
+    staff = get_object_or_404(BusinessUser, uid=business_user_uid, business=business)
+    nominee = get_object_or_404(BusinessUser, uid=data.nominee_uid, business=business)
+    JobPost.objects.filter(recruiter=staff).update(recruiter=nominee)
+    return Response(status=200, data={"message": "Job posts reassigned successfully"})
+
+
 @router.get("users/{business_user_uid}/jobs/", auth=JWTAuth(), response=list[BusinessUserJobSchema])
 def business_user_jobs(request, business_user_uid):
     IsBusinessOwnerOrAdmin.check(request)
@@ -331,13 +342,10 @@ def delete_business_user(request, business_user_uid):
                 )
             )
         ).filter(
-            Q(created_by=staff_user) |
-            Q(is_posted_by_business_user=True) |
-            Q(is_recruiter=True)
+            is_recruiter=True
     ).exists()
     if has_jobs:
         raise HttpError(403, "Not Allowed! Please reassign all jobs allocated to this user before proceeding with deletion")
-
     staff_user.user.delete()
     staff_user.delete()
     return Response(status=201, data={"message": "User updated successfully"})

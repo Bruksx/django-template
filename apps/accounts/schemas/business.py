@@ -307,3 +307,7 @@ class SendEmailSchema(Schema):
     subject: str
     body : str
     from_email: str
+
+
+class ReassignJobPostInputSchema(Schema):
+    nominee_uid: UUID
