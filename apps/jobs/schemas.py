@@ -283,8 +283,6 @@ class SkillCategorySchema(Schema):
 
 
 class JobPostDetailSchema(ModelSchema):
-    annual_bonus_currency: Optional[str]
-    annual_salary_currency: Optional[str]
     country: GenericNameAndUidSchema | None
     recruiter: Optional[BusinessUserSchema]
     benefits: List[str]
@@ -387,11 +385,15 @@ class JobPostListSchema(ModelSchema):
     location: str = Field(alias="country.name")
     applicants: int
     posted_by: Optional[str]
+    annual_salary_min: Optional[float] = None
+    annual_salary_max: Optional[float] = None
+    annual_bonus_min: Optional[float] = None
+    annual_bonus_max: Optional[float] = None
+
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "created_at", "annual_salary_min", "annual_salary_max","annual_salary_currency",
-    "annual_bonus_min","annual_bonus_max", "annual_bonus_currency",]
+        fields = ["uid", "status", "created_at"]
 
 
     @staticmethod
@@ -613,18 +615,35 @@ class JobApplicationListSchema(ModelSchema):
 
 
 class TalentJobPostListSchema(ModelSchema):
+    annual_bonus_currency: Optional[str]
+    annual_salary_currency: Optional[str]
     job: JobDetailSchema
     applied: bool
     country: GenericNameAndUidSchema
     strength: Optional[JobMatchSchema]
     weakness: Optional[JobMatchSchema]
     non_negotiable: JobMatchSchema
+    annual_salary_min: Optional[float] = None
+    annual_salary_max: Optional[float] = None
+    annual_bonus_min: Optional[float] = None
+    annual_bonus_max: Optional[float] = None
 
     class Meta:
         model = JobPost
-        fields = ("uid", "job", "country", "province","postal_code", "status",  "annual_salary_min",
-    "annual_salary_max", "annual_salary_currency", "annual_bonus_min", "annual_bonus_max", "annual_bonus_currency",)
+        fields = ("uid", "job", "country", "province","postal_code", "status")
         custom_fields = ("strength", "weakness")
+
+    @staticmethod
+    def resolve_annual_bonus_currency(obj):
+        if obj.annual_bonus_currency:
+            return obj.annual_bonus_currency.abbreviation
+        return
+
+    @staticmethod
+    def resolve_annual_salary_currency(obj):
+        if obj.annual_salary_currency:
+            return obj.annual_salary_currency.abbreviation
+        return
 
     # @staticmethod
     # def resolve_match_score(obj, context)->Optional[int]:
