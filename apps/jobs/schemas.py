@@ -390,7 +390,8 @@ class JobPostListSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "created_at"]
+        fields = ["uid", "status", "created_at", "annual_salary_min", "annual_salary_max","annual_salary_currency",
+    "annual_bonus_min","annual_bonus_max", "annual_bonus_currency",]
 
 
     @staticmethod
