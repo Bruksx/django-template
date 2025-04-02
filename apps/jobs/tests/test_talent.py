@@ -64,7 +64,7 @@ class TalentJobListTests(TestCase):
             role=BusinessUserRoleType.OWNER.value
         )
 
-        job = Job.objects.create(
+        job = JobFactory.create(
             created_by=self.business_user,
             job_level=self.job_level,
             employment_type=self.employment_type,
@@ -90,7 +90,7 @@ class TalentJobListTests(TestCase):
             working_hours=True,
             location=True
         )
-        self.job_post = JobPost.objects.create(
+        self.job_post = JobPostFactory.create(
             job=job,
             status=JobStatusType.POSTED.value,  # Can be changed to True for posting
             country=self.country,
