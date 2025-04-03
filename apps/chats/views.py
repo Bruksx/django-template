@@ -85,8 +85,8 @@ def create_chat_message(request, conversation_uid:UUID,
         raise HttpError(403, "Conversation is locked")
     if recipient.type == UserType.BUSINESS.value and user.type == UserType.BUSINESS.value:
         raise HttpError(403, "Not allowed")
-    async_task(send_new_chat_notification,conversation)
     message = Message.objects.create(conversation=conversation, sender=user, body=body.body, job_post=body.job_post)
+    async_task(message.handle_post_save, notify=True)
     if attachments:
         message_attachments = list()
         for attachment in attachments:
@@ -133,7 +133,7 @@ def start_conversation(request, user_id:UUID, data: PatchDict[MutateChatMessageS
         MessageAttachment(message=message, file=attachment["file"], file_type=attachment["file_type"].value) for
         attachment in attachments
     ])
-    message.handle_post_save(notify=True)
+    async_task(message.handle_post_save, notify=True)
     return Response(status=200, data={"message": "conversation started successfully"})
 
 
