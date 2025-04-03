@@ -121,7 +121,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
                 return
         logging.critical("past validation")
-        await sync_to_async(async_task)(send_new_chat_notification, self.chat)
         message, data = await self.create_chat_message(body.get("body"),job_post, body.get("attachments"))
         await sync_to_async(message.handle_post_save)(notify=False)
         await sync_to_async(self.chat.refresh_from_db)()
