@@ -133,7 +133,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             data=data)
         logging.critical("about to send")
         await self.channel_layer.group_send(
-            self.recipient.unique_chat_id, {"type": "notify", "data": json.dumps(data)}
+            self.group_name, {"type": "notify", "data": json.dumps(data)}
         )
 
     @database_sync_to_async

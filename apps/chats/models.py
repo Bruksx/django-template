@@ -70,7 +70,7 @@ class Message(BaseModel):
 
     def notify_chat(self):
         from .schemas import ChatMessageSchema
-        send_ws(channel=self.conversation.get_recipient(self.sender).unique_chat_id, data=dict(
+        send_ws(channel=self.conversation.chat_group_name, data=dict(
             sender_id=str(self.sender.uid),
             sender=self.sender.fullname,
             chat_id = str(self.conversation.uid),
