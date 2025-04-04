@@ -125,18 +125,22 @@ def get_job_clients(request):
 
 @router.post("logo", auth=JWTAuth())
 @transaction.atomic()
-def upload_business_logo(request, file: UploadedFile):
+def upload_business_logo(request, file: UploadedFile=None):
     IsBusinessOwnerOrAdmin.check(request)
     """if not password:
         raise HttpError(400, "Password is required")
     if not request.user.check_password(password):
         raise HttpError(400, "Incorrect password")"""
-    extension = file.name.split(".")[-1]
-    if extension not in ["jpg", "jpeg", "png"]:
-        raise HttpError(400, "This file type is not supported. Only JPG/JPEG/PNG files")
-    business = request.user.businessuser.business
-    async_task(business.update, logo=file)
-    return Response(status=200, data={"message": "Logo uploaded successfully"})
+    business: Business = request.user.businessuser.business
+    if file:
+        extension = file.name.split(".")[-1]
+        if extension not in ["jpg", "jpeg", "png"]:
+            raise HttpError(400, "This file type is not supported. Only JPG/JPEG/PNG files")
+        async_task(business.update, logo=file)
+    else:
+        business.logo = None
+        business.save()
+    return Response(status=200, data={"message": "Logo updated successfully"})
 
 
 @router.patch("", auth=JWTAuth())
