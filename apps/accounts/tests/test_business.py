@@ -570,3 +570,9 @@ class DeleteBusinessUserAccountTest(TestCase):
         self.assertEqual(business_user.status, BusinessUserStatusType.DELETED.value)
         self.assertFalse(hasattr(business_user, "businessusernotificationsettings"))
 
+
+class UpdateTalentJobFilterTest(TestCase):
+    """TODO"""
+
+class GetTalentJobFilterTest(TestCase):
+    """TODO"""

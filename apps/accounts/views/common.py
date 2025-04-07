@@ -1,14 +1,16 @@
 from typing import List
+
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from helpers.email.auth import send_verification_code
 from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
 from ninja import Router
 from ninja.errors import HttpError
-from monkeypatches.response import Response
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
+
 from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
@@ -19,13 +21,20 @@ router = Router(tags=["Common Account APIs"])
 
 @router.get("talents", response=CustomPaginatedResponseSchema[talent_schemas.TalentUserListSchema], auth=JWTAuth())
 @paginate(CustomPageNumberPaginationExtra, page_size=50)
-def talent_lists(request, search=""):
+def talent_lists(request, search="", apply_filter=False):
     talents = Talent.objects.prefetch_related("user").filter(visible=True)
     if search:
         talents = talents.filter(Q(user__first_name__icontains=search)|
                                  Q(user__last_name__icontains=search)|
                                  Q(user__email__icontains=search)
                                  )
+    if apply_filter is True and hasattr(request.user, "businessuser"):
+        if not hasattr(request.user.businessuser, "talentfilter"):
+            talent_filter = TalentFilter.objects.create(business_user=request.user.businessuser)
+        else:
+            talent_filter = request.user.businessuser.talentfilter
+        talents = talent_filter.get_queryset(talents)
+
     return talents
 
 

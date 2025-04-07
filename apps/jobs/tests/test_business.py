@@ -1634,3 +1634,4 @@ class JobPostBulkUpdateTest(TestCase):
         self.test_data["action"] = ActionType.DELETE.value
         response = self.client.patch(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 403)
+

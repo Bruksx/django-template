@@ -756,14 +756,14 @@ class TalentJobApplicationWithdrawalSchema(Schema):
        feedback_type: WithdrawalFeedbackType
        feedback: str
 
-class ShareJobPostViaEmailSchema(Schema):
+class ShareJobViaEmailSchema(Schema):
     emails: List[str]
-    job_posts: List[UUID]
+    jobs: List[UUID]
 
 
-class ShareJobPostViaChatSchema(Schema):
+class ShareJobViaChatSchema(Schema):
     talents: List[UUID]
-    job_posts: List[UUID]
+    jobs: List[UUID]
 
 class TalentListJobPostSchema(ModelSchema):
     first_name: str = Field(alias="user.first_name")
@@ -800,3 +800,5 @@ class ApplyToJobSchema(Schema):
 class BulkJobPostSchema(Schema):
     job_posts: List[UUID]
     action: ActionType
+
+

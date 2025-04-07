@@ -1091,4 +1091,35 @@ class CustomerCase(BaseModel):
     description = models.TextField()
 
 
+class TalentFilter(BaseModel):
+    business_user = models.OneToOneField("accounts.BusinessUser", on_delete=models.CASCADE)
+    role = models.ForeignKey("accounts.Role", on_delete=models.SET_NULL, null=True)
+    industry = models.ForeignKey("accounts.Industry", on_delete=models.SET_NULL, null=True)
+    location = models.CharField(max_length=128, null=True)
+    languages = models.ManyToManyField("core.Language")
+    educational_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
+    maximum_notice_period = models.PositiveSmallIntegerField(null=True)
+    work_structure = models.CharField(max_length=100, choices=WorkStructureEnum.choices(), null=True)
+    skills = models.ManyToManyField("accounts.Skill")
 
+    def get_queryset(self, queryset):
+        if self.role:
+            ids = Experience.objects.filter(role=self.role).only("talent_id").distinct("talent_id").values_list("talent_id", flat=True)
+            queryset = queryset.filter(id__in=ids)
+        if self.industry:
+            queryset = queryset.filter(skills__department__industry=self.industry)
+        if self.location:
+            queryset = queryset.filter(Q(country__name__icontains=self.location)|
+                                       Q(state__icontains=self.location)|Q(city__icontains=self.location))
+        if self.languages.count() > 0:
+            queryset = queryset.filter(languages__in=self.languages)
+        if self.educational_level:
+            ids = Education.objects.filter(level=self.educational_level).only("talent_id").distinct("talent_id").values_list("talent_id", flat=True)
+            queryset = queryset.filter(id__in=ids)
+        if self.work_structure:
+            queryset = queryset.filter(work_model=self.work_structure)
+        if self.skills.count() > 0:
+            queryset = queryset.filter(skills__in=self.skills)
+        if self.maximum_notice_period:
+            queryset = queryset.filter(notice_period__gte=self.maximum_notice_period)
+        return queryset

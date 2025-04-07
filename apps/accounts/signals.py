@@ -1,8 +1,8 @@
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from accounts.enums import UserType
-from accounts.models import Experience, Talent, BusinessUser, User
+from accounts.models import Experience, Talent, BusinessUser
 
 
 @receiver(post_save, sender=Experience)

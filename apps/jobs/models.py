@@ -428,7 +428,6 @@ class JobPost(BaseModel):
         return self.get_data(talent, weak=False)
 
     def non_negotiable(self):
-        from core.schemas import LanguageSchema
         from .schemas import JobAvailableDaySchema
         job = self.job
         if not hasattr(job, "requiredattribute"):

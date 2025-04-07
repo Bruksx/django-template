@@ -237,22 +237,19 @@ class TalentResumeSchema(ModelSchema):
 
 
 
-
-
-
-
 class TalentUserListSchema(ModelSchema):
     first_name: str =  Field(alias="user.first_name")
     last_name: str = Field(alias="user.last_name")
     email: EmailStr = Field(alias="user.email")
     user_uid: UUID = Field(alias="user.uid")
     role: Optional[RoleSchema]
+    country: Optional[CountrySchema]
     phone_number: Optional[str] = Field(alias="user.phone_number")
     photo_url:Optional[str]
     cv_url:Optional[str]
     class Meta:
         model = Talent
-        fields = ("uid", "country", "years_of_experience",  )
+        fields = ("uid", "years_of_experience",  )
 
 
 class CompleteTalentProfileSchema(ModelSchema):
