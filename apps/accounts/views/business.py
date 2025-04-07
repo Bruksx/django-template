@@ -253,10 +253,11 @@ def accept_business_user_invite(request, data: business_schema.AcceptBusinessUse
 @transaction.atomic
 def transfer_business_user_role(request, data: business_schema.TransferRoleSchema):
     IsBusinessOwnerOrAdmin.check(request)
-    previous_assignee = BusinessUser.objects.filter(uid=data.from_business_user).first()
+    business = request.user.businessuser.business
+    previous_assignee = business.businessuser_set.filter(uid=data.from_business_user).first()
     if not previous_assignee:
         raise HttpError(404, "Previous Assignee not found")
-    new_assignee = BusinessUser.objects.filter(uid=data.to_business_user).first()
+    new_assignee = business.businessuser_set.filter(uid=data.to_business_user).first()
     if not new_assignee:
         raise HttpError(404, "New Assignee not found")
     if previous_assignee.role:
@@ -295,7 +296,7 @@ def send_email_to_talents(request, data:SendEmailSchema=Form(), attachments: Lis
 def update_talent_filter(request, data: PatchDict[MutateTalentFilterSchema]):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    if "work_structure" in data:
+    if data.get("work_structure"):
         data["work_structure"] = data["work_structure"].value
     if not hasattr(business_user, "talentfilter"):
         TalentFilter.objects.create(business_user=business_user, **data)

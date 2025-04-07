@@ -11,7 +11,7 @@ from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode
+from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode, TalentFilter
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
