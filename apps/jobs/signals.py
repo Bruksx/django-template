@@ -201,3 +201,5 @@ def handle_job_post_recruiter(sender, instance, **kwargs):
 def handle_job_required_attributes(sender,  instance, created, **kwargs):
     if created:
         RequiredAttribute.objects.create(job=instance)
+
+

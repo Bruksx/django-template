@@ -10,15 +10,14 @@ from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
-
-from chats.schemas import ResponseSchema
-from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Department, Role, SkillCategory, Skill
 from accounts.schemas.talent import SkillSchema
+from chats.schemas import ResponseSchema
 from notification.notifications import send_talents_job_matching_notification
 from paginations import CustomPageNumberPaginationExtra
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
@@ -26,7 +25,7 @@ from .models import (
     ScreeningQuestion, QuestionOption, Answer, Qualification
 )
 from .schemas import (
-    EmploymentTypeSchema, CreateJobSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
+    EmploymentTypeSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
     JobLevelSchema, TalentListJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     MutateRequiredAttributeSchema, BulkJobPostSchema
 )
@@ -558,6 +557,5 @@ def get_screening_answers(request, application_uid:UUID):
     if not application:
         raise HttpError(404, "This application does not exist")
     return Answer.objects.filter(application=application)
-
 
 

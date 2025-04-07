@@ -1,15 +1,13 @@
-from typing import List, Optional
+from typing import List
 from uuid import UUID
 
 from config.permissions import IsTalentUser, IsBusinessUser
 from django.db import transaction
 from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
 from ninja import Router, PatchDict, UploadedFile
 from ninja.errors import HttpError
-from monkeypatches.response import Response
 from ninja_extra.pagination import paginate
-from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
-from paginations import CustomPaginatedResponseSchema as  PaginatedResponseSchema
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Talent
@@ -17,10 +15,12 @@ from jobs import tasks
 from jobs.enums import JobStatusType
 from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
-    TalentJobApplicationWithdrawalSchema, ShareJobPostViaEmailSchema, ShareJobPostViaChatSchema, \
-    TalentJobPostSchema, AppliedTalentJobPostListSchema,ApplyToJobSchema
+    TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, AppliedTalentJobPostListSchema, ApplyToJobSchema, \
+    ShareJobViaEmailSchema, ShareJobViaChatSchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service
 from notification import notifications
+from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
 router = Router()
 
@@ -163,28 +163,28 @@ def withdraw_job_applications(request, application_id:UUID, data: TalentJobAppli
     application.delete()
     return Response(status=200, data={"message": "Withdrawn successfully"})
 
-@router.post("job-posts/share-via-email", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
+@router.post("share/via-email", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 @transaction.atomic
-def share_job_post_via_email(request, data: ShareJobPostViaEmailSchema):
-    if not data.job_posts:
-        raise HttpError(400, "No job posts selected")
+def share_jobs_via_email(request, data: ShareJobViaEmailSchema):
+    if not data.jobs:
+        raise HttpError(400, "No jobs selected")
     if not data.emails:
         raise HttpError(400, "No emails selected")
     async_task(tasks.share_job_via_email,
-        job_post_ids=data.job_posts, emails=data.emails
+        job_ids=data.jobs, emails=data.emails
     )
     return Response(status=200, data={"message": "Shared successfully"})
 
-@router.post("job-posts/share-via-chat", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
+@router.post("share/via-chat", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 @transaction.atomic
-def share_job_post_via_chat(request, data: ShareJobPostViaChatSchema):
+def share_jobs_via_chat(request, data: ShareJobViaChatSchema):
     user = request.user
     if not data.talents:
         raise HttpError(400, "No talents selected")
-    if not data.job_posts:
-        raise HttpError(400, "No job posts selected")
+    if not data.jobs:
+        raise HttpError(400, "No jobs selected")
     async_task(tasks.send_shared_job_chat,
-        job_post_ids=data.job_posts, talent_ids=data.talents, sender_id=user.id
+        job_ids=data.jobs, talent_ids=data.talents, sender_id=user.id
     )
     return Response(status=200, data={"message": "Shared successfully"})
 

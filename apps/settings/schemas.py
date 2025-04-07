@@ -1,7 +1,7 @@
 from typing import List, Optional
 from uuid import UUID
 
-from ninja import Field, UploadedFile
+from ninja import Field, UploadedFile, Form
 from ninja import ModelSchema, Schema
 from ninja.errors import HttpError
 from pydantic import EmailStr, validate_email
@@ -12,7 +12,7 @@ from settings.enums import PlaceHolderType
 from settings.models import EmailTemplate, EmailTemplateAttachment, WorkFlowStage
 
 
-class MutateEmailTemplateSchema(ModelSchema):
+class CreateEmailTemplateSchema(ModelSchema):
     sender: EmailStr
     placeholders: str = Field(examples=PlaceHolderType.values(),
                               description="placeholders separated by comma without spacing")
@@ -20,10 +20,9 @@ class MutateEmailTemplateSchema(ModelSchema):
                                default=None)
     cc: Optional[str] = Field(examples=["bob@examples.com"], description="emails separated by commas without spacing",
                               default=None)
-    attachments: Optional[List[UploadedFile]] = None
     class Meta:
         model = EmailTemplate
-        exclude = [*MUTATE_EXCLUDE_FIELDS, "created_by"]
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "created_by", "uid"]
 
     @staticmethod
     def validate_placeholders(placeholders:str):
@@ -44,15 +43,15 @@ class MutateEmailTemplateSchema(ModelSchema):
                 raise ValueError(f"Invalid email address: {email}")
         return emails
 
-    @staticmethod
-    def is_valid(data:dict, instance=None, raise_exception=True):
+    @classmethod
+    def is_valid(cls, data:dict, instance=None, raise_exception=True):
         try:
             if "bcc" in data:
-                data["bcc"] = MutateEmailTemplateSchema.validate_email_string_list(data["bcc"])
+                data["bcc"] = cls.validate_email_string_list(data["bcc"])
             if "cc" in data:
-                data["cc"] = MutateEmailTemplateSchema.validate_email_string_list(data["cc"])
+                data["cc"] = cls.validate_email_string_list(data["cc"])
             if "placeholders" in data:
-                data["placeholders"] = MutateEmailTemplateSchema.validate_placeholders(data["placeholders"])
+                data["placeholders"] = cls.validate_placeholders(data["placeholders"])
             if "subject" in data:
                 EmailTemplate.convert_to_template(data["subject"])
             if "template" in data:
@@ -72,6 +71,16 @@ class MutateEmailTemplateSchema(ModelSchema):
             if raise_exception is True:
                 raise HttpError(400, e.args[0])
             return False
+
+
+class UpdateEmailTemplateSchema(CreateEmailTemplateSchema):
+    subject: Optional[str]
+    template: Optional[str]
+    personal: Optional[bool]
+    delays : Optional[int]
+
+
+
 
 class AddAttachmentsToEmailTemplateSchema(Schema):
     attachments: List[UploadedFile]

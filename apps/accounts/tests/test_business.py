@@ -571,6 +571,11 @@ class DeleteBusinessUserAccountTest(TestCase):
         self.assertFalse(hasattr(business_user, "businessusernotificationsettings"))
 
 
+class UpdateTalentJobFilterTest(TestCase):
+    """TODO"""
+
+class GetTalentJobFilterTest(TestCase):
+    """TODO"""
 class UpdateBusinessUserTestCase(TestCase):
     def setUp(self):
         self.client = TestClient(router)
@@ -674,20 +679,20 @@ class DeleteBusinessUserTestCase(TestCase):
         )
         self.auth_headers = {
             "authorization": f"bearer {self.business.created_by.token}"
-        }             
+        }
 
     def test_owner_cannot_be_deleted(self):
         """Ensure an owner cannot be deleted."""
         response = self.client.delete(f"users/{self.owner2.uid}/", headers=self.auth_headers)
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json()["detail"], "Not allowed! you cannot delete owner account")
-    
+
     def test_user_cannot_delete_own_account(self):
         """Ensure a user cannot delete their own account."""
         response = self.client.delete(f"users/{self.owner.uid}/", headers=self.auth_headers)
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.json()["detail"], "Not allowed! you cannot delete your account")
-    
+
     def test_admin_can_delete_team_member(self):
         """Ensure an admin can delete a team member."""
         response = self.client.delete(f"users/{self.team_member.uid}/", headers=self.auth_headers)
@@ -698,7 +703,7 @@ class DeleteBusinessUserTestCase(TestCase):
     def test_unauthorized_user_cannot_delete(self):
         """Ensure an unauthorized user cannot delete a business user."""
         response = self.client.delete(f"users/{self.owner.uid}/")
-        self.assertEqual(response.status_code, 401)  
+        self.assertEqual(response.status_code, 401)
 
 
 class GetBusinessUserTestCase(TestCase):
@@ -732,7 +737,7 @@ class GetBusinessUserTestCase(TestCase):
         response = self.client.get(f"users/{self.admin.uid}/", headers=self.auth_headers)
         self.assertEqual(response.status_code, 200)
 
-    
+
     def test_owner_cannot_get_other_business_staff_user(self):
         """Ensure a staff user cannot retrieve another staff user's details."""
         auth_headers = {
@@ -740,11 +745,11 @@ class GetBusinessUserTestCase(TestCase):
         }
         response = self.client.get(f"users/{self.admin.uid}/", headers=auth_headers)
         self.assertEqual(response.status_code, 404)
-    
+
     def test_unauthorized_user_cannot_get_business_user(self):
         """Ensure an unauthorized user cannot retrieve a business user's details."""
         response = self.client.get(f"users/{self.admin.uid}/")
-        self.assertEqual(response.status_code, 401)  
+        self.assertEqual(response.status_code, 401)
 
 
 class ReassignJobPostsTestCase(TestCase):
@@ -813,7 +818,7 @@ class ReassignJobPostsTestCase(TestCase):
 
     def test_invalid_nominee_uid(self):
         """Test reassigning job posts with an invalid nominee UID."""
-        payload = {"nominee_uid": str(uuid4())} 
+        payload = {"nominee_uid": str(uuid4())}
         response = self.client.post(self.url, json=payload, headers=self.auth_headers)
 
         self.assertEqual(response.status_code, 404)

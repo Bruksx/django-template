@@ -2,8 +2,9 @@ from typing import List
 from uuid import UUID
 
 from config.permissions import IsBusinessUser
+from django.db import transaction
 from monkeypatches.response import Response
-from ninja import Router, Form, PatchDict
+from ninja import Router, Form, PatchDict, UploadedFile
 from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
 
@@ -11,39 +12,41 @@ from accounts.enums import BusinessUserRoleType
 from jobs.enums import PhaseType
 from jobs.models import JobApplication
 from settings.models import EmailTemplate, EmailTemplateAttachment, WorkFlowStage
-from settings.schemas import MutateEmailTemplateSchema, EmailTemplateListSchema, EmailTemplateDetailSchema, \
+from settings.schemas import CreateEmailTemplateSchema, EmailTemplateListSchema, EmailTemplateDetailSchema, \
     MutateWorkFlowStageSchema, WorkFlowStageSchema, PhaseWorkFlowStageSchema, RearrangeWorkflowStageSchema, \
-    AddAttachmentsToEmailTemplateSchema, MoveApplicationToStageFromStageSchema
+    MoveApplicationToStageFromStageSchema, UpdateEmailTemplateSchema
 
 router = Router(tags=["Settings"])
 
 @router.post("email-templates", auth=JWTAuth())
-def create_email_template(request, body:MutateEmailTemplateSchema=Form()):
+@transaction.atomic
+def create_email_template(request, body:CreateEmailTemplateSchema=Form(), attachments:List[UploadedFile]=None):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     if EmailTemplate.objects.filter(created_by__business=business_user.business, name__iexact=body.name,
                                     personal=body.personal).exists():
         raise HttpError(400, "An email template with this name already exists")
     data = body.__dict__.copy()
-    data.pop("attachments", None)
-    MutateEmailTemplateSchema.is_valid(data=data)
+    CreateEmailTemplateSchema.is_valid(data=data)
     template = EmailTemplate.objects.create(**data, created_by=business_user)
-    if body.attachments:
+    if attachments:
         EmailTemplateAttachment.objects.bulk_create(
             [EmailTemplateAttachment(
                 email_template=template,
                 file=attachment
-            ) for attachment in body.attachments]
+            ) for attachment in attachments]
         )
     return Response(status=201, data={"message": "email template has been created successfully"})
 
-@router.patch("email-templates/{template_uid}", auth=JWTAuth())
-def update_email_template(request, template_uid:UUID, data:PatchDict[MutateEmailTemplateSchema]):
+@router.post("email-templates/{template_uid}", auth=JWTAuth())
+@transaction.atomic
+def update_email_template(request, template_uid:UUID, body:UpdateEmailTemplateSchema=Form(), attachments:List[UploadedFile]=None):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     template = EmailTemplate.objects.filter(uid=template_uid).first()
     if not template:
         raise HttpError(404, "This email template does not exist")
+    data = body.__dict__.copy()
     personal = data.get("personal", template.personal)
     if "name" in data and EmailTemplate.objects.filter(created_by__business=business_user.business,
         personal=personal, name__iexact=data["name"]).exclude(uid=template_uid).exists():
@@ -51,25 +54,20 @@ def update_email_template(request, template_uid:UUID, data:PatchDict[MutateEmail
     if business_user.role not in [BusinessUserRoleType.OWNER.value, BusinessUserRoleType.ADMIN.value] and \
         template.created_by != business_user:
         raise HttpError(403, "You do not have permission to update this email template")
-    MutateEmailTemplateSchema.is_valid(data=data, instance=template)
+    UpdateEmailTemplateSchema.is_valid(data=data, instance=template)
     template.update(**data)
+    if attachments:
+        EmailTemplateAttachment.objects.bulk_create(
+            [EmailTemplateAttachment(
+                email_template=template,
+                file=attachment
+            ) for attachment in attachments]
+        )
     return Response(status=200, data={"message": "email template has been updated successfully"})
 
-@router.post("email-templates/{template_uid}/attachments", auth=JWTAuth())
-def add_attachments_to_email_template(request, template_uid:UUID, body:AddAttachmentsToEmailTemplateSchema=Form()):
-    IsBusinessUser.check(request)
-    template = EmailTemplate.objects.filter(uid=template_uid).first()
-    if not template:
-        raise HttpError(404, "This email template does not exist")
-    EmailTemplateAttachment.objects.bulk_create(
-        [EmailTemplateAttachment(
-            email_template=template,
-            file=attachment
-        ) for attachment in body.attachments]
-    )
-    return Response(status=201, data={"message": "attachments have been added successfully"})
 
 @router.delete("email-templates/{template_uid}/attachments", auth=JWTAuth())
+@transaction.atomic
 def remove_attachments_from_email_template(request, template_uid:UUID, data: List[UUID]):
     IsBusinessUser.check(request)
     template = EmailTemplate.objects.filter(uid=template_uid, created_by__business=request.user.businessuser.business).first()
@@ -117,6 +115,7 @@ def bulk_delete_workflow_stage(request, stage_uids:List[UUID]):
     return Response(status=204, data={"message": "workflow stage has been deleted successfully"})
 
 @router.post("workflows/stages/move-applications", auth=JWTAuth(), response=EmailTemplateDetailSchema)
+@transaction.atomic
 def move_applicants_across_stages(request, data: MoveApplicationToStageFromStageSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
@@ -131,6 +130,7 @@ def move_applicants_across_stages(request, data: MoveApplicationToStageFromStage
 
 
 @router.post("workflows/stages", auth=JWTAuth())
+@transaction.atomic
 def create_workflow_stage(request, data: MutateWorkFlowStageSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
@@ -144,6 +144,7 @@ def create_workflow_stage(request, data: MutateWorkFlowStageSchema):
     return Response(status=201, data={"message": "workflow stage has been created successfully"})
 
 @router.patch("workflows/stages/{stage_uid}", auth=JWTAuth())
+@transaction.atomic
 def update_workflow_stage(request, stage_uid:UUID, data:PatchDict[MutateWorkFlowStageSchema]):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
@@ -181,6 +182,7 @@ def retrieve_all_workflow_stages(request):
         ]
 
 @router.patch("workflows/re-arrange-stages", auth=JWTAuth())
+@transaction.atomic
 def re_arrange_workflows(request, data:List[RearrangeWorkflowStageSchema]):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser

@@ -14,8 +14,8 @@ from helpers.email.jobs import send_shared_job_email
 from helpers.utils import chunk_queryset
 
 
-def share_job_via_email(job_post_ids:List[UUID], emails: List[str]=None, language:str="en"):
-    job_posts = JobPost.objects.filter(uid__in=job_post_ids).select_related('job')
+def share_job_via_email(job_ids:List[UUID], emails: List[str]=None, language:str="en"):
+    job_posts = JobPost.objects.filter(job__uid__in=job_ids).select_related('job').distinct("job_id")
     for job_post in job_posts:
         send_shared_job_email(job_post, emails, language)
         job_post.update_email_share()
@@ -23,22 +23,25 @@ def share_job_via_email(job_post_ids:List[UUID], emails: List[str]=None, languag
 
 
 def send_shared_job_chat(
-    job_post_ids:List[UUID],
+    job_ids:List[UUID],
     sender_id:int,
     talent_ids:List[UUID],
 ):
-    user_ids = Talent.objects.filter(uid__in=talent_ids).only("user_id").values_list("user_id", flat=True)
-    job_post_ids = JobPost.objects.filter(uid__in=job_post_ids).only("id").values_list("id", flat=True)
-    for user_id in user_ids:
-        chat = Conversation.objects.filter(users__id=sender_id).filter(users__id=user_id).first()
+    talents = Talent.objects.filter(uid__in=talent_ids).only("user_id", "country_id")
+    country_ids = talents.values_list("country_id", flat=True).distinct("country_id")
+    job_posts = JobPost.objects.filter(job__uid__in=job_ids, country_id__in=country_ids).only("id", "country_id")
+    for talent in talents:
+        chat = Conversation.objects.filter(users__id=sender_id).filter(users__id=talent.user_id).first()
         if not chat:
             chat = Conversation.objects.create()
-            chat.users.add(user_id, sender_id)
+            chat.users.add(talent.user_id, sender_id)
             chat.save()
-        for job_post_id in job_post_ids:
-            if chat.message_set.filter(job_post_id=job_post_id).exists():
+        for job_post in job_posts:
+            if job_post.country_id != talent.country_id:
                 continue
-            Message.objects.create(conversation=chat, sender_id=sender_id, job_post_id=job_post_id)
+            if chat.message_set.filter(job_post_id=job_post.id).exists():
+                continue
+            Message.objects.create(conversation=chat, sender_id=sender_id, job_post_id=job_post.id)
 
 
 def job_application_notification_task():

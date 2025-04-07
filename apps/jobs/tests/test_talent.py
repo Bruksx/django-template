@@ -11,10 +11,10 @@ from accounts.models import (
 )
 from core.models import Currency
 from factories import TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory, \
-    JobApplicationFactory, RequiredAttributeFactory, CountryFactory, ScreeningQuestionFactory, fake, JobFilterFactory
+    JobApplicationFactory, CountryFactory, ScreeningQuestionFactory, fake
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusType, WithdrawalFeedbackType, \
     QuestionTypeEnum
-from jobs.models import JobPost, JobLevel, EmploymentType, Job, SavedJob, JobApplication, JobFilter
+from jobs.models import JobPost, JobLevel, EmploymentType, SavedJob, JobApplication, JobFilter
 from jobs.views import router
 
 
@@ -466,16 +466,15 @@ class ShareJobPostViaEmailTest(TestCase):
         self.job_post = JobPostFactory.create(
             job=self.job,)
 
-        self.url = f"job-posts/share-via-email"
+        self.url = f"share/via-email"
 
     def test_share_job_post_via_email(self):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        job_post_id = str(JobPost.objects.first().uid)
         data = {
          "emails": ["testuser3@example.com", "testuser4@example.com"],
-         "job_posts": [job_post_id]
+         "jobs": [str(self.job.uid)]
         }
         response = self.client.post(self.url,
                                     headers=headers, json=data)
@@ -566,9 +565,9 @@ class TestShareJobViaChat(TestCase):
     def setUp(self):
         self.client = TestClient(router)
         self.talent = TalentFactory.create()
-        TalentFactory.create_batch(3)
-        self.job_post = JobPostFactory.create()
-        self.url = f"job-posts/share-via-chat"
+        TalentFactory.create_batch(3, country=self.talent.country)
+        self.job_post = JobPostFactory.create(country=self.talent.country)
+        self.url = f"share/via-chat"
 
     def test_share_job_post_via_chat(self):
         header = {
@@ -576,9 +575,12 @@ class TestShareJobViaChat(TestCase):
         }
         data = {
             "talents" : list(Talent.objects.only("uid").exclude(uid=self.talent.uid).values_list("uid", flat=True)),
-            "job_posts": [self.job_post.uid]
+            "jobs": [self.job_post.job.uid]
         }
+        self.assertEqual(self.job_post.message_set.count(), 0)
         response = self.client.post(self.url, headers=header, json=data)
+        self.job_post.refresh_from_db()
+        self.assertEqual(self.job_post.message_set.count(), 3)
         self.assertEqual(response.status_code, 200)
 
     def test_request_by_business_user(self):
@@ -588,7 +590,7 @@ class TestShareJobViaChat(TestCase):
         }
         data = {
             "talents" : list(Talent.objects.only("uid").exclude(uid=self.talent.uid).values_list("uid", flat=True)),
-            "job_posts": [self.job_post.uid]
+            "jobs": [self.job_post.job.uid]
         }
         response = self.client.post(self.url, headers=header, json=data)
         self.assertEqual(response.status_code, 200)
@@ -600,7 +602,7 @@ class TestShareJobViaChat(TestCase):
         }
         data = {
             "talents" : [],
-            "job_posts": [self.job_post.uid]
+            "jobs": [self.job_post.job.uid]
         }
         response = self.client.post(self.url, headers=header, json=data)
         self.assertEqual(response.status_code, 400)
@@ -611,7 +613,7 @@ class TestShareJobViaChat(TestCase):
         }
         data = {
             "talents" : [uuid.uuid4(), uuid.uuid4(), uuid.uuid4()],
-            "job_posts": [self.job_post.uid]
+            "jobs": [self.job_post.job.uid]
         }
         response = self.client.post(self.url, headers=header, json=data)
         self.assertEqual(response.status_code, 200)

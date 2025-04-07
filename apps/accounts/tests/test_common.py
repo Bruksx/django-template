@@ -282,7 +282,7 @@ class TalentListTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 5)
 
-    def test_for_endpoint_by_business_user(self):
+    def test_endpoint_by_business_user(self):
         business_user = BusinessUserFactory.create()
         self.talent.update(visible=False)
         headers = {
@@ -291,6 +291,9 @@ class TalentListTest(TestCase):
         response = self.client.get(self.url, headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 5)
+
+    def test_endpoint_by_business_user_with_talent_filter(self):
+        """TODO"""
 
 class SendEmailToOTPTest(TestCase):
     def setUp(self):

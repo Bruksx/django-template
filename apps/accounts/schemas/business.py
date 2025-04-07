@@ -6,8 +6,9 @@ from ninja import ModelSchema, Schema
 from pydantic import EmailStr, Field
 
 from accounts.enums import BusinessUserRoleType
-from accounts.models import Business, BusinessUser
+from accounts.models import Business, BusinessUser, TalentFilter
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, GenericNameAndUidSchema
+from jobs.enums import WorkStructureEnum
 from jobs.models import EmploymentType
 
 
@@ -307,6 +308,37 @@ class SendEmailSchema(Schema):
     subject: str
     body : str
     from_email: str
+
+class MutateTalentFilterSchema(ModelSchema):
+    role: Optional[UUID] = None
+    industry: Optional[UUID] = None
+    languages: Optional[List[UUID]] = None
+    educational_level: Optional[UUID] = None
+    work_structure: Optional[WorkStructureEnum] = None
+    skills: Optional[List[UUID]] = None
+
+    class Meta:
+        model = TalentFilter
+        fields = ["location", "maximum_notice_period"]
+        optional_fields = fields
+
+
+class TalentFilterSchema(ModelSchema):
+    role: Optional[GenericNameAndUidSchema]
+    industry: Optional[GenericNameAndUidSchema]
+    languages: Optional[List[GenericNameAndUidSchema]]
+    educational_level: Optional[GenericNameAndUidSchema]
+    skills: Optional[List[GenericNameAndUidSchema]]
+
+    class Meta:
+        model = TalentFilter
+        fields = ["location", "maximum_notice_period", "work_structure"]
+        optional_fields = fields
+
+class TransferRoleSchema(Schema):
+    from_business_user: UUID
+    to_business_user: UUID
+
 
 
 class ReassignJobPostInputSchema(Schema):

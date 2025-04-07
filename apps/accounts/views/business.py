@@ -20,7 +20,7 @@ from ninja.errors import HttpError
 from monkeypatches.response import Response
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry
+from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter
 from core.schemas import GenericNameAndUidSchema
 from jobs.models import Job, JobPost
 from jobs.schemas import BusinessUserJobSchema
@@ -28,7 +28,7 @@ from notification import notifications
 from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
-from ..schemas.business import SendEmailSchema
+from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema
 
 router = Router(tags=["Business Account"])
 
@@ -240,6 +240,22 @@ def accept_business_user_invite(request, data: business_schema.AcceptBusinessUse
                user=user.fullname, email=user.email, business=business_user.business.name)
     return Response(status=200, data={"message": "You have successfully accepted the invite"})
 
+@router.post("users/transfer-role", auth=JWTAuth())
+@transaction.atomic
+def transfer_business_user_role(request, data: business_schema.TransferRoleSchema):
+    IsBusinessOwnerOrAdmin.check(request)
+    business = request.user.businessuser.business
+    previous_assignee = business.businessuser_set.filter(uid=data.from_business_user).first()
+    if not previous_assignee:
+        raise HttpError(404, "Previous Assignee not found")
+    new_assignee = business.businessuser_set.filter(uid=data.to_business_user).first()
+    if not new_assignee:
+        raise HttpError(404, "New Assignee not found")
+    if previous_assignee.role:
+        new_assignee.role = previous_assignee.role
+        new_assignee.save()
+    return Response(status=200, data={"message": "Role transferred successfully"})
+
 
 @router.get("users/{business_user_uid}/", auth=JWTAuth(), response=business_schema.BusinessUserListSchema)
 def get_business_user(request, business_user_uid):
@@ -398,3 +414,28 @@ def send_email_to_talents(request, data:SendEmailSchema=Form(), attachments: Lis
     async_task(send_email, subject=data.subject, emails=data.emails, plain_body=data.body, attachments=attachments,
                from_user=data.from_email)
     return Response(status=200, data={"message": "Email sent successfully"})
+
+
+@router.patch("talents-filter", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentFilterSchema)
+def update_talent_filter(request, data: PatchDict[MutateTalentFilterSchema]):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    if data.get("work_structure"):
+        data["work_structure"] = data["work_structure"].value
+    if not hasattr(business_user, "talentfilter"):
+        TalentFilter.objects.create(business_user=business_user, **data)
+    else:
+         business_user.talentfilter.update(**data)
+    business_user.refresh_from_db()
+    return business_user.talentfilter
+
+@router.get("talents-filter", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentFilterSchema)
+def get_talent_filter(request):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    if not hasattr(business_user, "talentfilter"):
+        raise HttpError(400, "You have not set a talent filter yet")
+    return business_user.talentfilter
+
+
+
