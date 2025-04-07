@@ -10,7 +10,7 @@ from accounts.models import User, VerificationCode, Business, BusinessUser, Busi
 from accounts.views.business import router
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
-    WorkflowStageFactory
+    WorkflowStageFactory, UserFactory
 from jobs.enums import PhaseType, JobStatusType
 from jobs.models import JobApplication
 
@@ -576,3 +576,261 @@ class UpdateTalentJobFilterTest(TestCase):
 
 class GetTalentJobFilterTest(TestCase):
     """TODO"""
+class UpdateBusinessUserTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business = self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.staff_user = UserFactory.create()
+        self.business_staff = BusinessUserFactory.create(
+            business = self.business,
+            user=self.staff_user,
+            role=BusinessUserRoleType.TEAM_MEMBER.value
+        )
+        self.user = self.business_user.user
+        self.url = f"users/{self.business_staff.uid}/"
+        self.existing_user = User.objects.create(email="existing@example.com")
+        self.deleted_user = User.objects.create(email="deleted@example.com")
+        self.deleted_user.delete()
+        self.auth_headers = {
+            "authorization": f"bearer {self.business.created_by.token}"
+        }
+
+    def test_update_business_user_success(self):
+        """Successful update of a business user."""
+        payload = {
+            "email": "newemail@example.com",
+            "first_name": "John",
+            "last_name": "Doe",
+            "role": BusinessUserRoleType.ADMIN.value
+        }
+        response = self.client.patch(self.url, json=payload, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.json()["message"], "User updated successfully")
+
+        # Ensure changes were applied
+        self.staff_user.refresh_from_db()
+        self.business_staff.refresh_from_db()
+        self.assertEqual(self.staff_user.email, "newemail@example.com")
+        self.assertEqual(self.staff_user.first_name, "John")
+        self.assertEqual(self.business_staff.role, BusinessUserRoleType.ADMIN.value)
+
+    def test_update_business_user_deleted_email(self):
+        """Fails if email belongs to a deleted user."""
+        payload = {
+            "email": "deleted@example.com",
+            "role": BusinessUserRoleType.ADMIN.value,
+        }
+        response = self.client.patch(self.url, json=payload, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "This email is not available")
+
+    def test_update_business_user_existing_email(self):
+        """Fails if email is already in use."""
+        payload = {
+            "email": "existing@example.com",
+            "role": BusinessUserRoleType.ADMIN.value,
+        }
+        response = self.client.patch(self.url, json=payload, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "This email is not available")
+
+    def test_update_business_user_invalid_uid(self):
+        """Fails when updating a non-existent user."""
+        payload = {
+            "email": "valid@example.com",
+            "role": BusinessUserRoleType.ADMIN.value,
+        }
+        response = self.client.patch(f"/users/{self.deleted_user.uid}/", json=payload, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 404)
+
+
+class DeleteBusinessUserTestCase(TestCase):
+    def setUp(self):
+        """Set up test data."""
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.owner = BusinessUserFactory.create(
+            business = self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.owner2_user = UserFactory.create()
+        self.owner2 = BusinessUserFactory.create(
+            business = self.business,
+            user=self.owner2_user,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.admin_user = UserFactory.create()
+        self.team_member_user = UserFactory.create()
+        self.admin = BusinessUserFactory.create(
+            business = self.business,
+            user=self.admin_user,
+            role=BusinessUserRoleType.ADMIN.value
+        )
+        self.team_member = BusinessUserFactory.create(
+            business = self.business,
+            user=self.team_member_user,
+            role=BusinessUserRoleType.TEAM_MEMBER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business.created_by.token}"
+        }
+
+    def test_owner_cannot_be_deleted(self):
+        """Ensure an owner cannot be deleted."""
+        response = self.client.delete(f"users/{self.owner2.uid}/", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["detail"], "Not allowed! you cannot delete owner account")
+
+    def test_user_cannot_delete_own_account(self):
+        """Ensure a user cannot delete their own account."""
+        response = self.client.delete(f"users/{self.owner.uid}/", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["detail"], "Not allowed! you cannot delete your account")
+
+    def test_admin_can_delete_team_member(self):
+        """Ensure an admin can delete a team member."""
+        response = self.client.delete(f"users/{self.team_member.uid}/", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 201)
+        self.assertFalse(BusinessUser.objects.filter(uid=self.team_member.uid).exists())
+        self.assertFalse(User.objects.filter(uid=self.team_member_user.uid).exists())
+
+    def test_unauthorized_user_cannot_delete(self):
+        """Ensure an unauthorized user cannot delete a business user."""
+        response = self.client.delete(f"users/{self.owner.uid}/")
+        self.assertEqual(response.status_code, 401)
+
+
+class GetBusinessUserTestCase(TestCase):
+    def setUp(self):
+        """Set up test data."""
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.another_business = BusinessFactory.create()
+        self.another_business_owner = BusinessUserFactory.create(
+            business = self.another_business,
+            user=self.another_business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.owner = BusinessUserFactory.create(
+            business = self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.admin_user = UserFactory.create()
+        self.admin = BusinessUserFactory.create(
+            business = self.business,
+            user=self.admin_user,
+            role=BusinessUserRoleType.ADMIN.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business.created_by.token}"
+        }
+
+    def test_owner_can_get_business_user(self):
+        """Ensure an admin can retrieve a staff user's details."""
+        response = self.client.get(f"users/{self.admin.uid}/", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+
+    def test_owner_cannot_get_other_business_staff_user(self):
+        """Ensure a staff user cannot retrieve another staff user's details."""
+        auth_headers = {
+            "authorization": f"bearer {self.another_business_owner.user.token}"
+        }
+        response = self.client.get(f"users/{self.admin.uid}/", headers=auth_headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_unauthorized_user_cannot_get_business_user(self):
+        """Ensure an unauthorized user cannot retrieve a business user's details."""
+        response = self.client.get(f"users/{self.admin.uid}/")
+        self.assertEqual(response.status_code, 401)
+
+
+class ReassignJobPostsTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)  # Use Django Ninja's TestClient
+        self.business = BusinessFactory.create()
+
+        # Create a business owner
+        self.business_owner = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+
+        # Create two recruiters
+        self.recruiter1 = UserFactory.create()
+        self.business_recruiter1 = BusinessUserFactory.create(
+            business = self.business,
+            user=self.recruiter1,
+            role=BusinessUserRoleType.TEAM_MEMBER.value
+        )
+
+        self.recruiter2 = UserFactory.create()
+        self.business_recruiter2 = BusinessUserFactory.create(
+            business = self.business,
+            user=self.recruiter2,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.job = JobFactory.create(
+            created_by=self.business_recruiter1
+        )
+        self.job_post1 = JobPostFactory.create(
+            job=self.job
+        )
+        self.job_post2 = JobPostFactory.create(
+            job=self.job
+        )
+        self.auth_headers = {"Authorization": f"Bearer {self.business_owner.user.token}"}
+        self.url = f"/users/{self.business_recruiter1.uid}/reassign-job-posts/"
+        self.external_user = UserFactory.create()
+        self.external_business = BusinessFactory.create()
+        self.external_business_user = BusinessUserFactory.create(
+            business = self.external_business,
+            user=self.external_user,
+            role=BusinessUserRoleType.OWNER.value
+        )
+
+    def test_successful_reassignment(self):
+        """Test that job posts are reassigned successfully to another recruiter."""
+        payload = {"nominee_uid": str(self.business_recruiter2.uid)}
+        response = self.client.post(self.url, json=payload, headers=self.auth_headers)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["message"], "Job posts reassigned successfully")
+
+        # Ensure all job posts are now assigned to recruiter2
+        self.job_post1.refresh_from_db()
+        self.assertTrue(self.job_post1.recruiter, self.recruiter2)
+
+    def test_unauthorized_user_cannot_reassign(self):
+        """Test that an unauthorized user cannot reassign job posts."""
+        unauthorized_headers = {"Authorization": f"Bearer {self.recruiter1.token}"}
+        payload = {"nominee_uid": str(self.business_recruiter2.uid)}
+        response = self.client.post(self.url, json=payload, headers=unauthorized_headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_invalid_nominee_uid(self):
+        """Test reassigning job posts with an invalid nominee UID."""
+        payload = {"nominee_uid": str(uuid4())}
+        response = self.client.post(self.url, json=payload, headers=self.auth_headers)
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_reassign_to_user_outside_business(self):
+        """Test that job posts cannot be reassigned to a user outside the business."""
+        payload = {"nominee_uid": str(self.external_business_user.uid)}
+        response = self.client.post(self.url, json=payload, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_missing_nominee_uid(self):
+        """Test reassigning job posts with missing nominee UID in request payload."""
+        response = self.client.post(self.url, json={}, headers=self.auth_headers)
+
+        self.assertEqual(response.status_code, 422)

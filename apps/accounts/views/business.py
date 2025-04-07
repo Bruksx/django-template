@@ -1,12 +1,15 @@
 from datetime import date
 from typing import List
 from uuid import UUID
+from enum import Enum
 
 from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Exists, OuterRef
 from django.shortcuts import get_object_or_404
 
+from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
+from paginations import CustomPaginatedResponseSchema as  PaginatedResponseSchema
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
 from helpers.email.auth import send_verification_code
 from helpers.email.utils import send_email
@@ -19,7 +22,8 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter
 from core.schemas import GenericNameAndUidSchema
-from jobs.models import Job
+from jobs.models import Job, JobPost
+from jobs.schemas import BusinessUserJobSchema
 from notification import notifications
 from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
@@ -121,18 +125,22 @@ def get_job_clients(request):
 
 @router.post("logo", auth=JWTAuth())
 @transaction.atomic()
-def upload_business_logo(request, file: UploadedFile):
+def upload_business_logo(request, file: UploadedFile=None):
     IsBusinessOwnerOrAdmin.check(request)
     """if not password:
         raise HttpError(400, "Password is required")
     if not request.user.check_password(password):
         raise HttpError(400, "Incorrect password")"""
-    extension = file.name.split(".")[-1]
-    if extension not in ["jpg", "jpeg", "png"]:
-        raise HttpError(400, "This file type is not supported. Only JPG/JPEG/PNG files")
-    business = request.user.businessuser.business
-    async_task(business.update, logo=file)
-    return Response(status=200, data={"message": "Logo uploaded successfully"})
+    business: Business = request.user.businessuser.business
+    if file:
+        extension = file.name.split(".")[-1]
+        if extension not in ["jpg", "jpeg", "png"]:
+            raise HttpError(400, "This file type is not supported. Only JPG/JPEG/PNG files")
+        async_task(business.update, logo=file)
+    else:
+        business.logo = None
+        business.save()
+    return Response(status=200, data={"message": "Logo updated successfully"})
 
 
 @router.patch("", auth=JWTAuth())
@@ -204,23 +212,6 @@ def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
     )
     return Response(status=201, data={"message": "User invited successfully"})
 
-@router.post("users/{business_user_uid}/resend-invite", auth=JWTAuth())
-@transaction.atomic
-def resend_business_user_invite(request, business_user_uid: UUID):
-    IsBusinessOwnerOrAdmin.check(request)
-    business = request.user.businessuser.business
-    business_user = BusinessUser.objects.filter(uid=business_user_uid, business=business).first()
-    if not business_user:
-        raise HttpError(404, "User not found")
-    if business_user.status == BusinessUserStatusType.ACTIVE.value:
-        raise HttpError(400, "User is already active")
-    async_task(send_business_user_invitation_email,
-        user=business_user.user.fullname,
-        email=business_user.user.email,
-        business=business_user.business.name,
-        user_uid=str(business_user.user.uid)
-    )
-    return Response(status=200, data={"message": "Invite resent successfully"})
 
 @router.post("users/accept-invite")
 @transaction.atomic
@@ -264,6 +255,139 @@ def transfer_business_user_role(request, data: business_schema.TransferRoleSchem
         new_assignee.role = previous_assignee.role
         new_assignee.save()
     return Response(status=200, data={"message": "Role transferred successfully"})
+
+
+@router.get("users/{business_user_uid}/", auth=JWTAuth(), response=business_schema.BusinessUserListSchema)
+def get_business_user(request, business_user_uid):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    business = business_user.business
+    staff_user = get_object_or_404(BusinessUser, uid=business_user_uid, business=business)
+    return staff_user
+
+
+@router.patch("users/{business_user_uid}/", auth=JWTAuth())
+@transaction.atomic
+def update_business_user(request, business_user_uid, data: PatchDict[business_schema.MutateBusinessUserSchema]):
+    IsBusinessOwnerOrAdmin.check(request)
+    business_user = request.user.businessuser
+    business = business_user.business
+    data_dict = data
+    email = data_dict.get("email")
+    staff_user = get_object_or_404(BusinessUser, uid=business_user_uid, business=business)
+    if email:
+        if email != staff_user.user.email:
+            if User.global_objects.filter(email=data["email"]).exists():
+                raise HttpError(400, "This email is not available")
+    user = staff_user.user
+    for key, value in data_dict.items():
+        if hasattr(user, key):
+            if isinstance(value, str):
+                value = value.strip()
+            if isinstance(value, Enum):
+                value = value.value
+            setattr(user, key, value)
+    user.save()
+
+    for key, value in data_dict.items():
+        if hasattr(staff_user, key):
+            if isinstance(value, str):
+                value = value.strip()
+            if isinstance(value, Enum):
+                value = value.value
+            setattr(staff_user, key, value)
+    staff_user.save()
+
+    return Response(status=201, data={"message": "User updated successfully"})
+
+
+@router.post("users/{business_user_uid}/reassign-job-posts/", auth=JWTAuth())
+def reassign_job_posts(request, business_user_uid, data:business_schema.ReassignJobPostInputSchema):
+    IsBusinessOwnerOrAdmin.check(request)
+    business_user: BusinessUser = request.user.businessuser
+    business = business_user.business
+    staff = get_object_or_404(BusinessUser, uid=business_user_uid, business=business)
+    nominee = get_object_or_404(BusinessUser, uid=data.nominee_uid, business=business)
+    JobPost.objects.filter(recruiter=staff).update(recruiter=nominee)
+    return Response(status=200, data={"message": "Job posts reassigned successfully"})
+
+
+@router.get("users/{business_user_uid}/jobs/", auth=JWTAuth(), response=list[BusinessUserJobSchema])
+def business_user_jobs(request, business_user_uid):
+    IsBusinessOwnerOrAdmin.check(request)
+    business_user = request.user.businessuser
+    business = business_user.business
+    staff_user = get_object_or_404(BusinessUser, uid=business_user_uid)
+    if staff_user.business != business:
+        raise HttpError(403, "Not allowed! This user is not in your organization")
+    jobs = Job.objects.annotate(
+            is_posted_by_business_user=Exists(
+                JobPost.objects.filter(
+                    job__pk=OuterRef("pk"), posted_by=business_user
+                )
+            ),
+            is_recruiter=Exists(
+                JobPost.objects.filter(
+                    job__pk=OuterRef("pk"), recruiter=business_user
+                )
+            )
+        ).filter(
+            Q(created_by=business_user) |
+            Q(is_posted_by_business_user=True) |
+            Q(is_recruiter=True)
+    ).order_by("-updated_at")
+    return jobs
+
+
+@router.delete("users/{business_user_uid}/", auth=JWTAuth())
+def delete_business_user(request, business_user_uid):
+    IsBusinessOwnerOrAdmin.check(request)
+    user: User = request.user
+    business_user = request.user.businessuser
+    business = business_user.business
+    staff_user = get_object_or_404(BusinessUser, uid=business_user_uid, business=business)
+    if staff_user.user == user:
+        raise HttpError(403, "Not allowed! you cannot delete your account")
+    if staff_user.role == BusinessUserRoleType.OWNER.value:
+        raise HttpError(403, "Not allowed! you cannot delete owner account")
+    has_jobs = Job.objects.annotate(
+            is_posted_by_business_user=Exists(
+                JobPost.objects.filter(
+                    job__pk=OuterRef("pk"), posted_by=staff_user
+                )
+            ),
+            is_recruiter=Exists(
+                JobPost.objects.filter(
+                    job__pk=OuterRef("pk"), recruiter=staff_user
+                )
+            )
+        ).filter(
+            is_recruiter=True
+    ).exists()
+    if has_jobs:
+        raise HttpError(403, "Not Allowed! Please reassign all jobs allocated to this user before proceeding with deletion")
+    staff_user.user.delete()
+    staff_user.delete()
+    return Response(status=201, data={"message": "User updated successfully"})
+
+
+@router.post("users/{business_user_uid}/resend-invite", auth=JWTAuth())
+@transaction.atomic
+def resend_business_user_invite(request, business_user_uid: UUID):
+    IsBusinessOwnerOrAdmin.check(request)
+    business = request.user.businessuser.business
+    business_user = BusinessUser.objects.filter(uid=business_user_uid, business=business).first()
+    if not business_user:
+        raise HttpError(404, "User not found")
+    if business_user.status == BusinessUserStatusType.ACTIVE.value:
+        raise HttpError(400, "User is already active")
+    async_task(send_business_user_invitation_email,
+        user=business_user.user.fullname,
+        email=business_user.user.email,
+        business=business_user.business.name,
+        user_uid=str(business_user.user.uid)
+    )
+    return Response(status=200, data={"message": "Invite resent successfully"})
 
 
 @router.delete("users", auth=JWTAuth())

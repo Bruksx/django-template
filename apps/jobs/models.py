@@ -187,7 +187,7 @@ class JobPost(BaseModel):
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     province = models.CharField(max_length=64, null=True)
     postal_code = models.CharField(max_length=20, null=True)
-    benefits = models.JSONField(default=list)
+    benefits = models.JSONField(default=list, blank=True)
     share_compensation = models.BooleanField(default=True)
     annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
@@ -215,7 +215,8 @@ class JobPost(BaseModel):
         "accounts.BusinessUser",
         null=True,
         on_delete=models.SET_NULL,
-        related_name="posted_by"
+        related_name="posted_by",
+        blank=True
     )
 
 

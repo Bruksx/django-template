@@ -274,6 +274,8 @@ class BusinessDetailSchema(ModelSchema):
 
 class BusinessUserListSchema(ModelSchema):
     fullname:str = Field(alias="user.fullname")
+    first_name: str = Field(alias="user.first_name")
+    last_name: str = Field(alias="user.last_name")
     email: EmailStr = Field(alias="user.email")
     user_uid: UUID = Field(alias="user.uid")
     added_by: Optional[str] = Field(alias="get_added_by")
@@ -288,6 +290,14 @@ class AddBusinessUserSchema(Schema):
     last_name: str
     email: EmailStr
     role: BusinessUserRoleType
+
+
+class MutateBusinessUserSchema(Schema):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    role: BusinessUserRoleType
+
 
 class AcceptBusinessUserInviteSchema(Schema):
     code: UUID
@@ -328,3 +338,8 @@ class TalentFilterSchema(ModelSchema):
 class TransferRoleSchema(Schema):
     from_business_user: UUID
     to_business_user: UUID
+
+
+
+class ReassignJobPostInputSchema(Schema):
+    nominee_uid: UUID
