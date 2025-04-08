@@ -240,6 +240,7 @@ class UpdateTalentJobFilterTest(TestCase):
         self.assertEqual(self.talent.jobfilter.remove_applied_jobs, True)
         self.assertEqual(self.talent.jobfilter.department, Department.objects.first())
 
+
 class GetTalentJobFilterTest(TestCase):
     def setUp(self):
         self.client = TestClient(router)
@@ -656,5 +657,3 @@ class TestJobRecommendationsEndpoint(TestCase):
         }
         response = self.client.get(self.url(uuid.uuid4()), headers=headers)
         self.assertEqual(response.status_code, 404)
-
-

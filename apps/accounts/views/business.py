@@ -1,26 +1,26 @@
 from datetime import date
+from enum import Enum
 from typing import List
 from uuid import UUID
-from enum import Enum
 
 from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef
 from django.shortcuts import get_object_or_404
-
-from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
-from paginations import CustomPaginatedResponseSchema as  PaginatedResponseSchema
+from django.templatetags.i18n import language
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
 from helpers.email.auth import send_verification_code
 from helpers.email.utils import send_email
 from helpers.utils import convert_base64_to_image_file
 from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
 from ninja import Router, UploadedFile, PatchDict, Form
 from ninja.errors import HttpError
-from monkeypatches.response import Response
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter
+from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
+    Skill
+from core.models import Language
 from core.schemas import GenericNameAndUidSchema
 from jobs.models import Job, JobPost
 from jobs.schemas import BusinessUserJobSchema
@@ -417,15 +417,32 @@ def send_email_to_talents(request, data:SendEmailSchema=Form(), attachments: Lis
 
 
 @router.patch("talents-filter", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentFilterSchema)
+@transaction.atomic
 def update_talent_filter(request, data: PatchDict[MutateTalentFilterSchema]):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     if data.get("work_structure"):
         data["work_structure"] = data["work_structure"].value
+    languages = data.pop("languages", list())
+    skills = data.pop("skills", list())
+    if languages:
+        languages = Language.objects.filter(uid__in=languages)
+    if skills:
+        skills = Skill.objects.filter(uid__in=skills)
+
     if not hasattr(business_user, "talentfilter"):
-        TalentFilter.objects.create(business_user=business_user, **data)
+        talent_filter = TalentFilter.objects.create(business_user=business_user, **data)
     else:
-         business_user.talentfilter.update(**data)
+         talent_filter = business_user.talentfilter.update(**data)
+    if languages:
+        talent_filter.languages.set(languages)
+    else:
+        talent_filter.languages.clear()
+    if skills:
+        talent_filter.skills.set(skills)
+    else:
+        talent_filter.skills.clear()
+    talent_filter.save()
     business_user.refresh_from_db()
     return business_user.talentfilter
 

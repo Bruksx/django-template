@@ -7,7 +7,7 @@ from pydantic import EmailStr, Field
 
 from accounts.enums import BusinessUserRoleType
 from accounts.models import Business, BusinessUser, TalentFilter
-from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, GenericNameAndUidSchema
+from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, GenericNameAndUidSchema, EducationLevelSchema
 from jobs.enums import WorkStructureEnum
 from jobs.models import EmploymentType
 
@@ -327,7 +327,7 @@ class TalentFilterSchema(ModelSchema):
     role: Optional[GenericNameAndUidSchema]
     industry: Optional[GenericNameAndUidSchema]
     languages: Optional[List[GenericNameAndUidSchema]]
-    educational_level: Optional[GenericNameAndUidSchema]
+    educational_level: Optional[EducationLevelSchema]
     skills: Optional[List[GenericNameAndUidSchema]]
 
     class Meta:
