@@ -1112,14 +1112,17 @@ class TalentFilter(BaseModel):
             queryset = queryset.filter(Q(country__name__icontains=self.location)|
                                        Q(state__icontains=self.location)|Q(city__icontains=self.location))
         if self.languages.count() > 0:
-            queryset = queryset.filter(languages__in=self.languages)
+            ids = self.languages.values_list("id", flat=True)
+            queryset = queryset.filter(Q(native_language_id__in=ids)|
+                                       Q(additional_languages__id__in=ids))
         if self.educational_level:
             ids = Education.objects.filter(level=self.educational_level).only("talent_id").distinct("talent_id").values_list("talent_id", flat=True)
             queryset = queryset.filter(id__in=ids)
         if self.work_structure:
             queryset = queryset.filter(work_model=self.work_structure)
         if self.skills.count() > 0:
-            queryset = queryset.filter(skills__in=self.skills)
+            ids = self.skills.values_list("id", flat=True)
+            queryset = queryset.filter(skills__id__in=ids)
         if self.maximum_notice_period:
-            queryset = queryset.filter(notice_period__gte=self.maximum_notice_period)
+            queryset = queryset.filter(notice_period__lte=self.maximum_notice_period)
         return queryset

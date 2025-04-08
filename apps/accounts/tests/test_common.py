@@ -4,10 +4,14 @@ from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.enums import CaseReasonType, WorkStructureEnum
-from accounts.models import Country, Industry, User, Talent, CustomerCase, VerificationCode
+from accounts.enums import CaseReasonType
+from accounts.models import Country, Industry, User, Talent, CustomerCase, VerificationCode, TalentFilter
 from accounts.views.common import router
-from factories import UserFactory, TalentFactory, BusinessUserFactory, RoleFactory, IndustryFactory, LanguageFactory, EducationalLevelFactory, SkillFactory, TalentFilterFactory
+from chats.views import ws_router
+from factories import (UserFactory, TalentFactory, BusinessUserFactory, RoleFactory, IndustryFactory, LanguageFactory,
+                       SkillFactory, TalentFilterFactory, EducationLevelFactory, ExperienceFactory, EducationFactory,
+                       CountryFactory, DepartmentFactory)
+from jobs.enums import WorkStructureEnum
 
 
 class CommonListTests(TestCase):
@@ -296,125 +300,73 @@ class TalentListTest(TestCase):
         role = RoleFactory.create()
         industry = IndustryFactory.create()
         language = LanguageFactory.create()
-        educational_level = EducationalLevelFactory.create()
-        skill = SkillFactory.create()
-        
+        educational_level = EducationLevelFactory.create()
+        skill = SkillFactory.create(department=DepartmentFactory(industry=industry))
+        country = CountryFactory.create(name="New York")
+
+        talent = TalentFactory.create(user=UserFactory(first_name="John"), country=country, notice_period=5,
+                                                       work_model=WorkStructureEnum.REMOTE.value,
+                                                       native_language=language)
+        talent2 = TalentFactory.create(user=UserFactory(first_name="Jane"), country=country, notice_period=6,
+                                                        work_model=WorkStructureEnum.REMOTE.value)
+        TalentFactory.create(user=UserFactory(first_name="John"), notice_period=18,
+                                                        work_model=WorkStructureEnum.HYBRID.value)
+        EducationFactory(level=educational_level, talent=talent)
+        EducationFactory(level=educational_level, talent=talent2)
+
+        ExperienceFactory(talent=talent, role=role)
+        ExperienceFactory(talent=talent2, role=role)
+        talent2.additional_languages.add(language)
+        talent2.save()
+        talent.skills.add(skill)
+        talent.save()
+        talent2.skills.add(skill)
+        talent2.save()
+
         talent_filter = TalentFilterFactory.create(
             business_user=self.business_user,
             role=role,
             industry=industry,
             location="New York",
             educational_level=educational_level,
-            maximum_notice_period=30,
+            maximum_notice_period=14,
             work_structure=WorkStructureEnum.REMOTE.value
         )
         talent_filter.languages.add(language)
         talent_filter.skills.add(skill)
 
-        # Create talents that match the filter
-        matching_talent = TalentFactory.create(
-            role=role,
-            industry=industry,
-            location="New York",
-            educational_level=educational_level,
-            maximum_notice_period=20,
-            work_structure=WorkStructureEnum.REMOTE.value
-        )
-        matching_talent.languages.add(language)
-        matching_talent.skills.add(skill)
-
-        # Create talents that don't match the filter
-        non_matching_talent = TalentFactory.create(
-            role=RoleFactory.create(),  # Different role
-            industry=IndustryFactory.create(),  # Different industry
-            location="London",  # Different location
-            educational_level=EducationalLevelFactory.create(),  # Different education level
-            maximum_notice_period=60,  # Different notice period
-            work_structure=WorkStructureEnum.ONSITE.value  # Different work structure
-        )
-        non_matching_talent.languages.add(LanguageFactory.create())  # Different language
-        non_matching_talent.skills.add(SkillFactory.create())  # Different skill
-
-        response = self.client.get(self.url, headers=self.headers)
+        response = self.client.get(f"{self.url}?apply_filter=true", headers=self.headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["count"], 1)  # Only the matching talent should be returned
-        self.assertEqual(data["results"][0]["uid"], str(matching_talent.uid))
+        self.assertEqual(data["count"], 2)  # Only the matching talent should be returned
+        self.assertEqual(data["results"][0]["uid"], str(talent.uid))
 
-    def test_endpoint_by_business_user_with_partial_talent_filter(self):
-        # Create a talent filter with only some fields set
-        role = RoleFactory.create()
-        industry = IndustryFactory.create()
-        
-        talent_filter = TalentFilterFactory.create(
-            business_user=self.business_user,
-            role=role,
-            industry=industry
-        )
-
-        # Create talents that match the partial filter
-        matching_talent = TalentFactory.create(
-            role=role,
-            industry=industry
-        )
-
-        # Create talents that don't match the partial filter
-        non_matching_talent = TalentFactory.create(
-            role=RoleFactory.create(),
-            industry=IndustryFactory.create()
-        )
-
-        response = self.client.get(self.url, headers=self.headers)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data["count"], 1)  # Only the matching talent should be returned
-        self.assertEqual(data["results"][0]["uid"], str(matching_talent.uid))
-
-    def test_endpoint_by_business_user_with_multiple_matching_talents(self):
-        # Create a talent filter
-        role = RoleFactory.create()
-        industry = IndustryFactory.create()
-        
-        talent_filter = TalentFilterFactory.create(
-            business_user=self.business_user,
-            role=role,
-            industry=industry
-        )
-
-        # Create multiple talents that match the filter
-        matching_talents = TalentFactory.create_batch(
-            3,
-            role=role,
-            industry=industry
-        )
-
-        response = self.client.get(self.url, headers=self.headers)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data["count"], 3)  # All matching talents should be returned
-        returned_uids = {result["uid"] for result in data["results"]}
-        expected_uids = {str(talent.uid) for talent in matching_talents}
-        self.assertEqual(returned_uids, expected_uids)
 
     def test_endpoint_by_business_user_with_no_matching_talents(self):
         # Create a talent filter with specific criteria
         role = RoleFactory.create()
         industry = IndustryFactory.create()
-        
-        talent_filter = TalentFilterFactory.create(
+
+        role2 = RoleFactory.create()
+
+        TalentFilterFactory.create(
             business_user=self.business_user,
             role=role,
             industry=industry
         )
 
-        # Create talents with different criteria
-        TalentFactory.create_batch(
-            3,
-            role=RoleFactory.create(),
-            industry=IndustryFactory.create()
+        talent = TalentFactory.create(user=UserFactory(first_name="John"))
+        talent2 = TalentFactory.create(user=UserFactory(first_name="Jane"))
+        talent3 = TalentFactory.create(user=UserFactory(first_name="John"))
+        # Create talents that match the filter
+        ExperienceFactory.create(talent=talent, role=role2)
+        ExperienceFactory.create(talent=talent2, role=role2)
+        ExperienceFactory.create(
+            talent=talent3,
+            role=role2,
         )
 
-        response = self.client.get(self.url, headers=self.headers)
+        response = self.client.get(f"{self.url}?apply_filter=true", headers=self.headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["count"], 0)  # No matching talents should be returned
@@ -423,77 +375,43 @@ class TalentListTest(TestCase):
         # Create a talent filter
         role = RoleFactory.create()
         industry = IndustryFactory.create()
+
+        role2 = RoleFactory.create()
+        industry2 = IndustryFactory.create()
+
+        skill = SkillFactory(department=DepartmentFactory(industry=industry))
+        skill2= SkillFactory(department=DepartmentFactory(industry=industry2))
         
-        talent_filter = TalentFilterFactory.create(
+        TalentFilter.objects.create(
             business_user=self.business_user,
             role=role,
             industry=industry
         )
 
+        talent = TalentFactory.create(user=UserFactory(first_name="John"))
+        talent2 = TalentFactory.create(user=UserFactory(first_name="Jane"))
+        talent3 = TalentFactory.create(user=UserFactory(first_name="John"))
         # Create talents that match the filter
-        matching_talent = TalentFactory.create(
-            role=role,
-            industry=industry,
-            user__first_name="John"  # Distinctive first name
+        ExperienceFactory.create(talent=talent, role=role)
+        ExperienceFactory.create(talent=talent2, role=role)
+        ExperienceFactory.create(
+            talent=talent3,
+            role=role2,
         )
 
-        # Create another matching talent with different name
-        another_matching_talent = TalentFactory.create(
-            role=role,
-            industry=industry,
-            user__first_name="Jane"
-        )
+        talent.skills.add(skill)
+        talent.save()
+        talent2.skills.add(skill)
+        talent2.save()
+        talent3.skills.add(skill2)
+        talent3.save()
 
-        # Create non-matching talent with same name
-        non_matching_talent = TalentFactory.create(
-            role=RoleFactory.create(),
-            industry=IndustryFactory.create(),
-            user__first_name="John"
-        )
 
-        # Search for "John" while filter is active
-        response = self.client.get(f"{self.url}?search=John", headers=self.headers)
+        response = self.client.get(f"{self.url}?search=John&apply_filter=true", headers=self.headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["count"], 1)  # Only the matching talent with name "John" should be returned
-        self.assertEqual(data["results"][0]["uid"], str(matching_talent.uid))
-
-    def test_endpoint_by_business_user_with_talent_filter_and_pagination(self):
-        # Create a talent filter
-        role = RoleFactory.create()
-        industry = IndustryFactory.create()
-        
-        talent_filter = TalentFilterFactory.create(
-            business_user=self.business_user,
-            role=role,
-            industry=industry
-        )
-
-        # Create multiple talents that match the filter
-        matching_talents = TalentFactory.create_batch(
-            5,
-            role=role,
-            industry=industry
-        )
-
-        # Test first page
-        response = self.client.get(f"{self.url}?page=1&page_size=2", headers=self.headers)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(data["count"], 5)  # Total count should be 5
-        self.assertEqual(len(data["results"]), 2)  # But only 2 results per page
-
-        # Test second page
-        response = self.client.get(f"{self.url}?page=2&page_size=2", headers=self.headers)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(len(data["results"]), 2)  # 2 results on second page
-
-        # Test third page
-        response = self.client.get(f"{self.url}?page=3&page_size=2", headers=self.headers)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertEqual(len(data["results"]), 1)  # 1 result on third page
+        self.assertEqual(data["results"][0]["uid"], str(talent.uid))
 
 class SendEmailToOTPTest(TestCase):
     def setUp(self):

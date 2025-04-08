@@ -4,10 +4,13 @@ from django.db.models import Q
 from django.utils import timezone
 from ninja.errors import HttpError
 from ninja_jwt.exceptions import AuthenticationFailed
+
+from helpers.email.auth import send_verification_code
+from monkeypatches.q_cluster import async_task
 from services.auth.schema import ProfileSchema
 
 from accounts.enums import UserType, AuthType, SocialType
-from accounts.models import BusinessUser
+from accounts.models import BusinessUser, VerificationCode
 from accounts.models import User, Talent
 from auth.enums import AuthActionEnum
 
@@ -17,7 +20,9 @@ def validate_login(user: User, raise_exception=True):
         if not user:
             raise HttpError(404, "You don't have an account with us")
         if not user.email_verified:
-            send_verification_email(user)
+            verification_code = VerificationCode(email=user.email)
+            raw_code = verification_code.save()
+            async_task(send_verification_code, email=user.email, code=raw_code, user=user.fullname, company=None)
             raise HttpError(401, "Your email is not verified")
         if not user.is_active:
             raise HttpError(401, "Your account is not active")
