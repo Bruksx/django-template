@@ -17,7 +17,7 @@ def validate_login(user: User, raise_exception=True):
         if not user:
             raise HttpError(404, "You don't have an account with us")
         if not user.email_verified:
-            # TODO: Send verification email to user
+            send_verification_email(user)
             raise HttpError(401, "Your email is not verified")
         if not user.is_active:
             raise HttpError(401, "Your account is not active")

@@ -8,7 +8,7 @@ from faker import Faker
 
 from accounts.enums import GenderType, PreferredCommunicationType, BusinessUserRoleType, Days
 from accounts.models import User, Talent, Business, BusinessUser, Education, Role, TalentAvailableDay, CustomerCase, \
-    EducationLevel, Industry, Country, Department, Experience, Skill, SkillCategory, BusinessIndustry
+    EducationLevel, Industry, Country, Department, Experience, Skill, SkillCategory, BusinessIndustry, TalentFilter
 from chats.models import Conversation, Message
 from notification.enums import EntityActionType, EntityType, NotificationType
 from notification.models import BusinessUserNotificationSettings, Notification
@@ -482,3 +482,35 @@ class NotificationFactory(DjangoModelFactory):
     entity_uid = fake.uuid4()
     entity_str = factory.lazy_attribute(lambda _: fake.sentence()[:20])
     notification_type = factory.Iterator(NotificationType.values())
+
+class TalentFilterFactory(DjangoModelFactory):
+    class Meta:
+        model = TalentFilter
+
+    business_user = factory.SubFactory(BusinessUserFactory)
+    role = factory.SubFactory(RoleFactory)
+    industry = factory.SubFactory(IndustryFactory)
+    location = factory.Faker('city')
+    languages = factory.SubFactory(LanguageFactory)
+    educational_level = factory.SubFactory(EducationLevelFactory)
+    maximum_notice_period = factory.Faker('random_int', min=1, max=90)
+    work_structure = factory.Faker('random_element', elements=[e.value for e in WorkStructureEnum])
+    skills = factory.SubFactory(SkillFactory)
+
+    @factory.post_generation
+    def languages(self, create, extracted, **kwargs):
+        if not create:
+            return
+
+        if extracted:
+            for language in extracted:
+                self.languages.add(language)
+
+    @factory.post_generation
+    def skills(self, create, extracted, **kwargs):
+        if not create:
+            return
+
+        if extracted:
+            for skill in extracted:
+                self.skills.add(skill)

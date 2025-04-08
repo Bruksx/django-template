@@ -54,7 +54,6 @@ def send_job_post_application_notification(job_post, start_date, end_date):
 
 def send_job_application_notification(job_post):
     """
-    TODO: Schedule notification
     Trigger Timing: Daily at 5am, 10am, 4pm
     Example Notification:
     "You have 15 new applications for [Job_Title].
@@ -145,7 +144,6 @@ def send_talents_job_matching_notification(talent_count, job_post):
 
 def send_job_sharing_notification(job_post):
     """
-    TODO: Schedule this task
     Trigger Timing: Batch Daily at 4pm
     Example Notification:
     "Your job post for [Job_Title] was shared x times today"
