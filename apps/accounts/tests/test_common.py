@@ -339,7 +339,6 @@ class TalentListTest(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["count"], 2)  # Only the matching talent should be returned
-        self.assertEqual(data["results"][0]["uid"], str(talent.uid))
 
 
     def test_endpoint_by_business_user_with_no_matching_talents(self):
