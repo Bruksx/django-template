@@ -620,6 +620,7 @@ class TalentJobPostListSchema(ModelSchema):
     annual_salary_currency: Optional[str]
     job: JobDetailSchema
     applied: bool
+    saved: bool
     country: GenericNameAndUidSchema
     strength: Optional[JobMatchSchema]
     weakness: Optional[JobMatchSchema]
@@ -646,14 +647,13 @@ class TalentJobPostListSchema(ModelSchema):
             return obj.annual_salary_currency.abbreviation
         return
 
-    # @staticmethod
-    # def resolve_match_score(obj, context)->Optional[int]:
-    #     request = context.get("request")
-    #     talent = request.context.get("talent")
-    #     if not talent:
-    #         return None
-    #     score = talent.job_match_score(obj)
-    #     return score
+    @staticmethod
+    def resolve_saved(obj, context)->Optional[int]:
+        request = context.get("request")
+        talent = request.context.get("talent")
+        if not talent:
+            return None
+        return talent.savedjob_set.filter(job_post=obj).exists()
 
     @staticmethod
     def resolve_applied(obj, context):
