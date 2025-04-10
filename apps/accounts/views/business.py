@@ -7,7 +7,6 @@ from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef
 from django.shortcuts import get_object_or_404
-from django.templatetags.i18n import language
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
 from helpers.email.auth import send_verification_code
 from helpers.email.utils import send_email
