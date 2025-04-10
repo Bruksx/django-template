@@ -291,7 +291,7 @@ class JobPostDetailSchema(ModelSchema):
     annual_salary_max: Optional[Decimal]
     annual_bonus_min: Optional[Decimal]
     annual_bonus_max: Optional[Decimal]
-    saved: bool
+    saved: Optional[bool]
 
 
     class Meta:
@@ -556,7 +556,7 @@ class JobPostFullDetailSchema(ModelSchema):
     country: GenericNameAndUidSchema
     recruiter: Optional[BusinessUserSchema]
     posted_by: Optional[BusinessUserSchema]
-    saved: bool
+    saved: Optional[bool]
 
 
     class Meta:
