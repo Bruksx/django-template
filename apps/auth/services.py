@@ -14,6 +14,8 @@ from accounts.models import BusinessUser, VerificationCode
 from accounts.models import User, Talent
 from auth.enums import AuthActionEnum
 
+from .client import LinkedInAPI
+
 
 def validate_login(user: User, raise_exception=True):
     try:
@@ -45,9 +47,16 @@ def handle_social_login(profile: ProfileSchema, user_type: UserType, social_type
         profile_dict["google_id"] = profile.id
 
     elif SocialType.LINKEDIN == social_type:
+        api = LinkedInAPI()
+        code = profile.id
+        access_token = api.get_access_token(code)
+        linkedin_profile = api.get_profile(access_token)
         auth_type = AuthType.LINKEDIN
-        social_query = Q(linkedin_id=profile.id)
+        social_query = Q(linkedin_id=linkedin_profile.id)
         profile_dict["linkedin_id"] = profile.id
+        profile_dict["first_name"] = linkedin_profile.firstName
+        profile_dict["last_name"] = linkedin_profile.lastName
+
     elif SocialType.FACEBOOK == social_type:
         auth_type = AuthType.FACEBOOK
         social_query = Q(facebook_id=profile.id)
