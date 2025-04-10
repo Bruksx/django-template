@@ -11,9 +11,11 @@ from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode, TalentFilter
+from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode, TalentFilter, \
+    Industry
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
+from core.schemas import GenericNameAndUidSchema
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 
 router = Router(tags=["Common Account APIs"])
@@ -132,3 +134,6 @@ def send_otp_to_email(request, data: common_schemas.SendEmailOtpSchema):
     async_task(send_verification_code, email=data.email, code=raw_code, user=user.fullname, company=None)
     return Response(data={"message": "please check your email address for otp code"})
 
+@router.get("industries", response=list[GenericNameAndUidSchema], tags=["Common"])
+def get_industries(request):
+    return Industry.objects.all()
