@@ -195,6 +195,8 @@ def get_job_post_detail(request, job_post_uid):
     query = dict(uid=job_post_uid)
     if hasattr(request.user, "businessuser"):
         query["job__created_by__business"] = request.user.businessuser.business
+    if hasattr(request.user, "talent"):
+        request.context = dict(talent=request.user.talent)
     job_post = JobPost.objects.filter(**query).first()
     if not job_post:
         raise HttpError(404, "Job Post not found")
