@@ -1,5 +1,8 @@
 from typing import Optional
 
+from dataclasses import dataclass
+from typing import Dict
+
 from ninja import Schema
 from pydantic import EmailStr
 
@@ -46,5 +49,20 @@ class ResetPasswordSchema(Schema):
     password: str
 
 
+@dataclass
+class Locale:
+    country: str
+    language: str
 
+@dataclass
+class Name:
+    localized: Dict[str, str]
+    preferredLocale: Locale
 
+@dataclass
+class LinkedInProfile:
+    localizedFirstName: str
+    localizedLastName: str
+    firstName: Name
+    lastName: Name
+    id: str
