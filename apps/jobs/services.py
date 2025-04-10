@@ -5,10 +5,12 @@ from helpers.utils import upload_to_s3, upload_to_server
 from ninja.errors import HttpError
 
 from jobs.enums import PhaseType
-from jobs.models import JobApplication, Answer
-from jobs.schemas import ApplyToJobSchema
+from jobs.models import JobApplication, Answer, RequiredAttribute
+from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema
 from notification.notifications import send_talents_job_matching_notification
 from settings.models import WorkFlowStage
+
+from monkeypatches.q_cluster import async_task
 
 
 def get_talent_job_recommendations(talent, search="", use_filter=False, **kwargs):
@@ -65,4 +67,14 @@ def notify_business_on_matched_talents(job):
     for post in posts:
         talent_count = post.get_talents().count()
         send_talents_job_matching_notification(talent_count, post)
+
+
+def set_job_required_attributes(data:dict, job):
+    MutateRequiredAttributeSchema.validate_required_attribute(data, job)
+    required_attributes, _ = RequiredAttribute.objects.get_or_create(job=job)
+    required_attributes.skills.set(data.pop("skills"))
+    required_attributes.business_models.set(data.pop("business_models"))
+    required_attributes.update(**data)
+    async_task(notify_business_on_matched_talents, job=job)
+    return required_attributes
 

@@ -150,6 +150,27 @@ class MutateAnswerSchema(Schema):
     text: Optional[str] = None
     files: Optional[List[str]] = None
 
+class MutateRequiredAttributeSchema(ModelSchema):
+    skills: Optional[list[UUID]]
+    business_models: Optional[list[UUID]]
+    class Meta:
+        model = RequiredAttribute
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid"]
+
+    @classmethod
+    def validate_required_attribute(cls, data, job):
+        count = 0
+        for key in job.required_attributes_keys:
+            value = data.get(key, None)
+            if not value:
+                continue
+            count += 1
+            if count > 5:
+                raise HttpError(400, "You can only add up to 5 required attributes")
+        return
+
+
+
 
 class CreateJobSchema(ModelSchema):
     employment_type: UUID
@@ -170,6 +191,7 @@ class CreateJobSchema(ModelSchema):
     minimum_education_level: UUID
     responsibilities: List[str]
     min_match_score: Optional[float] = None
+    required_attributes: Optional[MutateRequiredAttributeSchema] = None
 
 
     class Meta:
@@ -197,6 +219,7 @@ class OptionalCreateJobSchema(ModelSchema):
     minimum_education_level: Optional[UUID] = None
     responsibilities: Optional[List[str]] = None
     min_match_score: Optional[float] = None
+    required_attributes: Optional[MutateRequiredAttributeSchema] = None
 
     class Meta:
         model = Job
@@ -224,6 +247,7 @@ class UpdateJobSchema(ModelSchema):
     minimum_education_level: Optional[UUID] = None
     responsibilities: Optional[List[str]] = None
     min_match_score: Optional[float] = None
+    required_attributes: Optional[MutateRequiredAttributeSchema] = None
 
     class Meta:
         model = Job
@@ -583,24 +607,6 @@ class JobPostFullDetailSchema(ModelSchema):
         return talent.savedjob_set.filter(job_post=obj).exists()
 
 
-class MutateRequiredAttributeSchema(ModelSchema):
-    skills: Optional[list[UUID]]
-    business_models: Optional[list[UUID]]
-    class Meta:
-        model = RequiredAttribute
-        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid"]
-
-    @classmethod
-    def validate_required_attribute(cls, data, job):
-        count = 0
-        for key in job.required_attributes_keys:
-            value = data.get(key, None)
-            if not value:
-                continue
-            count += 1
-            if count > 5:
-                raise HttpError(400, "You can only add up to 5 required attributes")
-        return
 
 class JobListSchema(ModelSchema):
     business_logo: Optional[str]

@@ -1,4 +1,4 @@
-from typing import Optional, Literal, List
+from typing import Literal, Optional, List
 from uuid import UUID
 
 from config.permissions import IsBusinessUser
@@ -6,7 +6,6 @@ from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
 from helpers.utils import convert_base64_to_image_file
-from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
@@ -26,10 +25,10 @@ from .models import (
 )
 from .schemas import (
     EmploymentTypeSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
-    JobLevelSchema, TalentListJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
-    MutateRequiredAttributeSchema, BulkJobPostSchema
+    JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
+    TalentListJobPostSchema
 )
-from .services import notify_business_on_matched_talents
+from .services import set_job_required_attributes
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -103,20 +102,15 @@ def get_business_models(request, search=""):
     return queryset
 
 @router.patch("{job_uid}/required-attributes", response=job_schemas.RequiredAttributeSchema, auth=JWTAuth())
+@transaction.atomic
 def set_required_attributes(request, data:job_schemas.MutateRequiredAttributeSchema, job_uid:UUID):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    request_data = data.dict()
     job = Job.objects.filter(created_by__business=business_user.business, uid=job_uid).first()
     if not job:
         raise HttpError(404, "Job not found")
-    MutateRequiredAttributeSchema.validate_required_attribute(request_data, job)
-    required_attributes, _ = RequiredAttribute.objects.get_or_create(job=job)
-    required_attributes.skills.set(request_data.pop("skills"))
-    required_attributes.business_models.set(request_data.pop("business_models"))
-    required_attributes.update(**request_data)
-    async_task(notify_business_on_matched_talents, job=job)
-    return required_attributes
+    request_data = data.dict()
+    return set_job_required_attributes(request_data, job)
 
 @router.get("{job_uid}/required-attributes", response=job_schemas.RequiredAttributeSchema, auth=JWTAuth())
 def get_required_attributes(request, job_uid:UUID):
@@ -141,6 +135,7 @@ def delete_job_post(request, job_post_uid:UUID):
     return Response(status=204, data={"message": "Job post deleted"})
 
 @router.patch("job-post/{job_post_uid}", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
+@transaction.atomic
 def update_job_post(request, job_post_uid, data: PatchDict[job_schemas.MutateJobPostSchema]):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
@@ -157,6 +152,7 @@ def update_job_post(request, job_post_uid, data: PatchDict[job_schemas.MutateJob
     return job_post
 
 @router.patch("job-posts", response=ResponseSchema, auth=JWTAuth())
+@transaction.atomic
 def bulk_job_post_update(request, data: BulkJobPostSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
@@ -170,6 +166,7 @@ def bulk_job_post_update(request, data: BulkJobPostSchema):
     return Response({"message" : "actions have been applied successfully"}, status=200)
 
 @router.post("{job_uid}/job-post", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
+@transaction.atomic
 def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
@@ -191,6 +188,7 @@ def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
 
 
 @router.get("job-posts/{job_post_uid}", response=job_schemas.JobPostFullDetailSchema, auth=JWTAuth())
+@transaction.atomic
 def get_job_post_detail(request, job_post_uid):
     query = dict(uid=job_post_uid)
     if hasattr(request.user, "businessuser"):
@@ -229,6 +227,7 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
     data["created_by"] = business_user
     availability = data.pop("availability", list())
     screening_questions = data.pop("screening_questions", list())
+    required_attributes = data.pop("required_attributes", None)
     job_posts = data.pop("job_posts", list())
     additional_languages = data.pop("additional_languages", list())
     skills = data.pop("skills", list())
@@ -251,6 +250,9 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
     job.skills.set(skills)
     job.additional_languages.set(additional_languages)
     job.save()
+
+    if required_attributes:
+        set_job_required_attributes(required_attributes, job)
 
     for available_day in availability:
         available_day["day"] = available_day["day"].value
@@ -291,7 +293,7 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
     additional_languages = data.pop("additional_languages", list())
     skills = data.pop("skills", list())
     business_models = data.pop("business_models", list())
-
+    required_attributes = data.pop("required_attributes", None)
     if not data.get("hiring_company_name"):
         data["hiring_company_name"] = business.name
     if not data.get("hiring_company_description"):
@@ -327,6 +329,8 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
     if additional_languages:
         job.additional_languages.set(additional_languages)
     job.save()
+    if required_attributes:
+        set_job_required_attributes(required_attributes, job)
 
     return job
 
@@ -406,6 +410,7 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
     )
 
 @router.patch("job-posts/applications/{application_uid}", response=job_schemas.JobApplicationListSchema, auth=JWTAuth())
+@transaction.atomic
 def update_application(request, application_uid:UUID, data:job_schemas.UpdateApplicationSchema):
     IsBusinessUser.check(request)
     application = JobApplication.objects.filter(uid=application_uid, recruiter__business=request.user.businessuser.business).first()
