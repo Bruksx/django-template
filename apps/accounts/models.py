@@ -1102,7 +1102,9 @@ class TalentFilter(BaseModel):
     work_structure = models.CharField(max_length=100, choices=WorkStructureEnum.choices(), null=True)
     skills = models.ManyToManyField("accounts.Skill")
 
-    def get_queryset(self, queryset):
+    def get_queryset(self, queryset=None):
+        if not queryset:
+            queryset = Talent.objects.all()
         if self.role:
             ids = Experience.objects.filter(role=self.role).only("talent_id").distinct("talent_id").values_list("talent_id", flat=True)
             queryset = queryset.filter(id__in=ids)
@@ -1126,3 +1128,6 @@ class TalentFilter(BaseModel):
         if self.maximum_notice_period:
             queryset = queryset.filter(notice_period__lte=self.maximum_notice_period)
         return queryset
+
+    def results(self):
+        return self.get_queryset().count()

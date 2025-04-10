@@ -291,6 +291,7 @@ class JobPostDetailSchema(ModelSchema):
     annual_salary_max: Optional[Decimal]
     annual_bonus_min: Optional[Decimal]
     annual_bonus_max: Optional[Decimal]
+    saved: Optional[bool]
 
 
     class Meta:
@@ -302,6 +303,20 @@ class JobPostDetailSchema(ModelSchema):
         if obj.annual_bonus_currency:
             return obj.annual_bonus_currency.abbreviation
         return
+
+
+
+    @staticmethod
+    def resolve_saved(obj, context) -> Optional[int]:
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return
+        return talent.savedjob_set.filter(job_post=obj).exists()
 
     @staticmethod
     def resolve_annual_salary_currency(obj):
@@ -547,12 +562,25 @@ class JobPostFullDetailSchema(ModelSchema):
     country: GenericNameAndUidSchema
     recruiter: Optional[BusinessUserSchema]
     posted_by: Optional[BusinessUserSchema]
+    saved: Optional[bool]
 
 
     class Meta:
         model = JobPost
         fields = ["uid", "status", "created_at",
                   "province", "postal_code"]
+
+    @staticmethod
+    def resolve_saved(obj, context) -> Optional[int]:
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return
+        return talent.savedjob_set.filter(job_post=obj).exists()
 
 
 class MutateRequiredAttributeSchema(ModelSchema):
