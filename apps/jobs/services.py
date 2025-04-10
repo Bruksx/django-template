@@ -1,18 +1,16 @@
-from uuid import UUID
-
 from config import settings
 from django.conf import settings
 from django.db import transaction
-from django_q.tasks import async_task
 from helpers.utils import upload_to_s3, upload_to_server
 from ninja.errors import HttpError
-from typing_extensions import Optional
 
 from jobs.enums import PhaseType
 from jobs.models import JobApplication, Answer, RequiredAttribute
 from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema
 from notification.notifications import send_talents_job_matching_notification
 from settings.models import WorkFlowStage
+
+from monkeypatches.q_cluster import async_task
 
 
 def get_talent_job_recommendations(talent, search="", use_filter=False, **kwargs):
