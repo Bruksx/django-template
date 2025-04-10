@@ -304,12 +304,18 @@ class JobPostDetailSchema(ModelSchema):
             return obj.annual_bonus_currency.abbreviation
         return
 
+
+
     @staticmethod
     def resolve_saved(obj, context) -> Optional[int]:
         request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
         talent = request.context.get("talent")
         if not talent:
-            return None
+            return
         return talent.savedjob_set.filter(job_post=obj).exists()
 
     @staticmethod
@@ -567,9 +573,13 @@ class JobPostFullDetailSchema(ModelSchema):
     @staticmethod
     def resolve_saved(obj, context) -> Optional[int]:
         request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
         talent = request.context.get("talent")
         if not talent:
-            return None
+            return
         return talent.savedjob_set.filter(job_post=obj).exists()
 
 
