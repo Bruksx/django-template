@@ -135,5 +135,7 @@ def send_otp_to_email(request, data: common_schemas.SendEmailOtpSchema):
     return Response(data={"message": "please check your email address for otp code"})
 
 @router.get("industries", response=list[GenericNameAndUidSchema], tags=["Common"])
-def get_industries(request):
+def get_industries(request, search=""):
+    if search:
+        return Industry.objects.filter(name__icontains=search)
     return Industry.objects.all()
