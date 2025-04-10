@@ -329,6 +329,7 @@ class TalentFilterSchema(ModelSchema):
     languages: Optional[List[GenericNameAndUidSchema]]
     educational_level: Optional[EducationLevelSchema]
     skills: Optional[List[GenericNameAndUidSchema]]
+    results: int
 
     class Meta:
         model = TalentFilter
