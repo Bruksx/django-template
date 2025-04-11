@@ -7,13 +7,11 @@ from channels.db import database_sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Conversation, Message, MessageAttachment
-from chats.schemas import CreateMessageSchema, ChatMessageErrorSchema, ChatMessageSchema
+from chats.schemas import CreateMessageSchema, ChatMessageErrorSchema, ChatMessageSchema, ChatUserSchema
 from django.db import transaction
 from jobs.models import JobPost
-from notification.notifications import send_new_chat_notification
 
 from helpers.utils import convert_base64_to_image_file
-from monkeypatches.q_cluster import async_task
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
@@ -120,17 +118,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 )
 
                 return
-        logging.critical("past validation")
         message, data = await self.create_chat_message(body.get("body"),job_post, body.get("attachments"))
         await sync_to_async(message.handle_post_save)(notify=False)
         await sync_to_async(self.chat.refresh_from_db)()
+        recipient = await sync_to_async(ChatUserSchema.from_orm)(self.recipient)
         data = dict(
             sender_id=str(self.user.uid),
             sender=self.user.fullname,
+            recipient=recipient.model_dump_json(),
             chat_id=str(self.chat.uid),
             action="new_message",
             data=data)
-        logging.critical("about to send")
         await self.channel_layer.group_send(
             self.group_name, {"type": "notify", "data": json.dumps(data)}
         )
