@@ -14,6 +14,7 @@ ws/chats/<uuid:conversation_uid>/?token={user.token}
 class ChatWebsocketSchema:
     sender_id: Optional[str]
     sender: Optional[str]
+    recipient: Optional[Any]
     chat_id: Optional[str]
     action: Literal["new_message", "is_typing", "stopped_typing", "read_message"]
     data: Optional[Any] = None

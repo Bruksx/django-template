@@ -1,26 +1,25 @@
 import base64
 import os
 import random
+import re
 import string
 import uuid
+from datetime import timezone
 from io import BytesIO
+from sys import getsizeof
 from typing import Optional
-import re
+
 import boto3
 import pdfkit
+import psutil
 from botocore.exceptions import NoCredentialsError
 from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.db.models import QuerySet
 from ninja.errors import HttpError
-from monkeypatches.response import Response
-from helpers.loggers import Logger
-import psutil
-from sys import getsizeof
-from django.utils.translation import gettext_lazy as _
-from io import BytesIO
 
+from helpers.loggers import Logger
+from monkeypatches.response import Response
 
 
 def success_response(message="successful", data=None, status=200):
@@ -255,3 +254,14 @@ def prepare_for_json(data):
         else:
             new_data[key] = value
     return new_data
+
+
+def datetime_to_epoch_milliseconds(dt)->int:
+  if dt.tzinfo is None:
+    # If the datetime object has no timezone information, assume it's in local time.
+    dt = dt.replace(tzinfo=timezone.utc)
+  else:
+    # Convert the datetime object to UTC.
+    dt = dt.astimezone(timezone.utc)
+
+  return int(dt.timestamp() * 1000)

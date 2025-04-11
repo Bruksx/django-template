@@ -1,6 +1,7 @@
 from config import settings
-from helpers.email.utils import render_text_template
+from helpers.email.utils import render_text_email
 from helpers.utils import datetime_to_epoch_milliseconds
+
 from services.job_posting.enums.linkedIn import EmploymentStatusEnum, WorkPlaceTypeEnum, ExperienceLevelEnum
 from services.job_posting.schema.linkedIn import JobSchema, CompensationSchema, CompensationsSchema, RangeValueSchema, \
 	ValueSchema
@@ -92,7 +93,7 @@ def experience_level_mapper(experience_level):
 
 
 def job_post_to_job_schema(job_post)->JobSchema:
-	description = render_text_template("jobs/job_description.txt", {
+	description = render_text_email("jobs/job_description.txt", {
 		"responsibilities": job_post.job.responsibilities,
 		"benefits": job_post.benefits
 	})
