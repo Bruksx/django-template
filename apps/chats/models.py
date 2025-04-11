@@ -2,7 +2,6 @@ import json
 from typing import List
 
 from django.db import models
-from django.db.models import Q
 from helpers.websocket.utils import send_ws
 
 from accounts.models import User
@@ -37,7 +36,7 @@ class Conversation(BaseModel):
         return self.message_set.exclude(sender_id=user_id).exclude(readers__id=user_id)
 
     def read_messages(self, message_ids:List[int], user_id:int):
-        from .schemas import ChatMessageListSchema
+        from .schemas import ChatMessageListSchema, ChatUserSchema
         user = User.objects.filter(id=user_id).first()
         if not user:
             return
@@ -47,6 +46,7 @@ class Conversation(BaseModel):
             message.save()
             send_ws(channel=self.get_recipient(user).unique_chat_id, data=dict(
                 sender_id=str(user.uid),
+                recipient=ChatUserSchema.from_orm(self.get_recipient(user)).model_dump_json(),
                 chat_id = str(self.uid),
                 sender=user.get_full_name(),
                 action="read_message",
@@ -69,8 +69,10 @@ class Message(BaseModel):
         return f"{self.sender}"
 
     def notify_chat(self):
-        from .schemas import ChatMessageSchema
+        from .schemas import ChatMessageSchema, ChatUserSchema
+        recipient = self.conversation.get_recipient(self.sender)
         send_ws(channel=self.conversation.chat_group_name, data=dict(
+            recipient=ChatUserSchema.from_orm(recipient).model_dump_json(),
             sender_id=str(self.sender.uid),
             sender=self.sender.fullname,
             chat_id = str(self.conversation.uid),

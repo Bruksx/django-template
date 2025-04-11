@@ -181,6 +181,7 @@ class ChatMessageErrorSchema(Schema):
 class ChatMessageResponseSchema(Schema):
     sender_id: UUID
     sender: str
+    recipient: ChatUserSchema
     chat_id: UUID
     action: Literal["new_message", "is_typing", "stopped_typing", "read_message"]
     data: Optional[ChatMessageSchema|Any]
