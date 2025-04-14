@@ -29,11 +29,7 @@ def login(request, data:LoginSchema):
 @transaction.atomic
 def social_auth(request, data: SocialAuthSchema):
     profile = ProfileSchema(id=data.social_id, email=data.email, first_name=data.first_name, last_name=data.last_name)
-    if data.email is None or data.first_name is None or data.last_name is None:
-        action = AuthActionEnum.LOGIN
-    else:
-        action = AuthActionEnum.SIGNUP
-    user = handle_social_login(profile, data.user_type, data.social_type, action)
+    user = handle_social_login(profile, data)
     validate_login(user)
     return user
 
