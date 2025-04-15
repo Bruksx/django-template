@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 from decimal import Decimal
 from typing import List
 from typing import Optional
@@ -218,6 +218,8 @@ class OptionalCreateJobSchema(ModelSchema):
     responsibilities: Optional[List[str]] = None
     min_match_score: Optional[float] = None
     required_attributes: Optional[MutateRequiredAttributeSchema] = None
+    additional_hours_start: Optional[time] = Field(None, description="format is HH:MM:SS do not attach Z")
+    additional_hours_end: Optional[time] = Field(None, description="format is HH:MM:SS  do not attach Z")
 
     class Meta:
         model = Job
@@ -245,6 +247,8 @@ class UpdateJobSchema(ModelSchema):
     responsibilities: Optional[List[str]] = None
     min_match_score: Optional[float] = None
     required_attributes: Optional[MutateRequiredAttributeSchema] = None
+    additional_hours_start: Optional[time] = Field(None, description="format is HH:MM:SS do not attach Z")
+    additional_hours_end: Optional[time] = Field(None, description="format is HH:MM:SS  do not attach Z")
 
     class Meta:
         model = Job

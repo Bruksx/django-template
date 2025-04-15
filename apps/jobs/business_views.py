@@ -1,6 +1,8 @@
+from datetime import datetime, time
 from typing import Literal, Optional, List
 from uuid import UUID
 
+import pytz
 from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
@@ -263,6 +265,7 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
     if data.get("logo"):
         data["logo"] = convert_base64_to_image_file(data["logo"])
 
+
     for job_post in job_posts:
         job_post["status"] = job_post["status"].value if job_post.get("status") else JobStatusType.DRAFT.value
         JobPost.objects.create(job=job, **job_post)
@@ -343,7 +346,7 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
 
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(
-        queryset=queryset,
+        queryset=queryset.order_by("-created_at"),
         request=request,
         pagination=pagination,
         roles=queryset.count(),
