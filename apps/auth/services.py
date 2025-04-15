@@ -2,17 +2,24 @@ from copy import deepcopy
 
 from django.db.models import Q
 from django.utils import timezone
+from google.oauth2 import id_token
+from google.auth.transport import requests as grequests
 from ninja.errors import HttpError
 from ninja_jwt.exceptions import AuthenticationFailed
 
+from config.settings import GOOGLE_CLIENT_ID
 from helpers.email.auth import send_verification_code
 from monkeypatches.q_cluster import async_task
 from services.auth.schema import ProfileSchema
+from services.auth.facebook import facebook_client
 
 from accounts.enums import UserType, AuthType, SocialType
 from accounts.models import BusinessUser, VerificationCode
 from accounts.models import User, Talent
 from auth.enums import AuthActionEnum
+
+from .client import LinkedInAPI
+from .schema import SocialAuthSchema
 
 
 def validate_login(user: User, raise_exception=True):
@@ -35,24 +42,46 @@ def validate_login(user: User, raise_exception=True):
         return False
 
 
-def handle_social_login(profile: ProfileSchema, user_type: UserType, social_type: SocialType, action: AuthActionEnum)->User:
+def handle_social_login(profile: ProfileSchema, data: SocialAuthSchema)->User:
     profile_dict = deepcopy(profile.__dict__)
     profile_dict.pop("id", None)
 
-    if SocialType.GOOGLE == social_type:
+    if SocialType.GOOGLE.value == data.social_type:
         auth_type = AuthType.GOOGLE
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                data.access_token,
+                grequests.Request(),
+                GOOGLE_CLIENT_ID
+            )
+        except ValueError:
+            raise HttpError(401, "Invalid Google token")
+        
         social_query = Q(google_id=profile.id)
-        profile_dict["google_id"] = profile.id
+        profile_dict["google_id"] = idinfo["sub"]
+        profile_dict["first_name"] = idinfo["given_name"]
+        profile_dict["last_name"] = idinfo["family_name"]
 
-    elif SocialType.LINKEDIN == social_type:
+    elif SocialType.LINKEDIN.value == data.social_type:
+        api = LinkedInAPI()
+        code = data.access_token
+        access_token = api.get_access_token(code)
+        linkedin_profile = api.get_profile(access_token)
         auth_type = AuthType.LINKEDIN
-        social_query = Q(linkedin_id=profile.id)
+        social_query = Q(linkedin_id=linkedin_profile.id)
         profile_dict["linkedin_id"] = profile.id
-    elif SocialType.FACEBOOK == social_type:
+        profile_dict["first_name"] = linkedin_profile.firstName
+        profile_dict["last_name"] = linkedin_profile.lastName
+
+    elif SocialType.FACEBOOK.value == data.social_type:
         auth_type = AuthType.FACEBOOK
-        social_query = Q(facebook_id=profile.id)
         profile_dict["facebook_id"] = profile.id
-    elif SocialType.APPLE == social_type:
+        user = facebook_client.get_user()
+        profile_dict["first_name"] = user.first_name
+        profile_dict["last_name"] = user.last_name
+        social_query = Q(facebook_id=profile.id)
+
+    elif SocialType.APPLE.value == data.social_type:
         auth_type = AuthType.APPLE
         social_query = Q(apple_id=profile.id)
         profile_dict["apple_id"] = profile.id
@@ -65,32 +94,14 @@ def handle_social_login(profile: ProfileSchema, user_type: UserType, social_type
         if user.auth_mode != auth_type.value:
             raise AuthenticationFailed(detail=f"Kindly login through {user.auth_mode} ")
         return user
-    if action == AuthActionEnum.LOGIN:
-        raise AuthenticationFailed(detail="User was not found with this social account")
-    if not profile.first_name  or not profile.email:
-        raise HttpError(400, "First name and email are required")
-    password = User.objects.make_random_password()
+
+    
     user = User.objects.create_user(**profile_dict,
-                                    password=password,
-                                    type=user_type.value,
+                                    type=data.user_type.value,
                                     email_verified=True, is_active=True,
                                     auth_mode=auth_type.value)
-    if user_type == UserType.TALENT:
+    if data.user_type == UserType.TALENT:
         Talent.objects.create(user=user)
-    elif user_type == UserType.BUSINESS:
+    elif data.user_type == UserType.BUSINESS:
         BusinessUser.objects.create(user=user)
     return user
-
-"""
-def linkedin_auth(request, data: LinkedInAuthSchema):
-    tokens = linkedin.get_tokens(code=data.code)
-    if not tokens:
-        return failure_response(message= "Tokens not found", status=404)
-    profile = linkedin.get_profile_details(tokens.access_token)
-    if not profile:
-        return failure_response(message="Profile not found", status=404)
-    user = handle_social_login(profile, data.user_type, SocialType.LINKEDIN, data.action)
-    validate_login(user)
-    return user
-    
-"""
