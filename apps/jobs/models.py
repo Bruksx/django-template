@@ -590,19 +590,19 @@ class JobDraft(BaseModel):
 class JobFilter(BaseModel):
     talent = models.OneToOneField("accounts.Talent", on_delete=models.CASCADE, null=True)
     role = models.CharField(max_length=100, default="", blank=True)
-    years_of_experience = models.PositiveSmallIntegerField(default=1)
+    years_of_experience = models.PositiveSmallIntegerField(default=1, null=True)
     office_location = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     department = models.ForeignKey("accounts.Department", on_delete=models.SET_NULL, null=True)
     minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
     job_level = models.ForeignKey(JobLevel, on_delete=models.SET_NULL, null=True)
-    location_type = models.CharField(choices=WorkStructureEnum.choices(), default=WorkStructureEnum.IN_OFFICE.value)
+    location_type = models.CharField(choices=WorkStructureEnum.choices(), default=WorkStructureEnum.IN_OFFICE.value, null=True)
     remove_applied_jobs = models.BooleanField(default=False)
 
 
     def get_queryset(self, queryset):
         # queryset for job posts
-        if self.years_of_experience > 0:
+        if self.years_of_experience and self.years_of_experience > 0:
             queryset = queryset.filter(job__years_of_experience=self.years_of_experience)
         if self.office_location:
             queryset = queryset.filter(country=self.office_location)
