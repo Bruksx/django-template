@@ -105,7 +105,7 @@ def talent_applied_jobs(request, filters: JobPostFilterSchema = Query(...)):
 def update_talent_job_filter(request, data: PatchDict[MutateTalentJobFilterSchema]):
     IsTalentUser.check(request)
     talent = request.user.talent
-    if "location_type" in data:
+    if "location_type" in data and data.get("location_type"):
         data["location_type"] = data["location_type"].value
     if not hasattr(talent, "jobfilter"):
         JobFilter.objects.create(talent=talent, **data)

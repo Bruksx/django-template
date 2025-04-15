@@ -760,7 +760,7 @@ class TalentJobPostSchema(JobPostListSchema):
         return obj.weakness(talent)
 
 class MutateTalentJobFilterSchema(ModelSchema):
-    location_type:WorkStructureEnum
+    location_type:Optional[WorkStructureEnum]
     office_location: Optional[UUID]
     employment_type: Optional[UUID]
     department: Optional[UUID]
