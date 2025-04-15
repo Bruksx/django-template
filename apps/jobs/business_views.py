@@ -21,7 +21,7 @@ from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication, AvailableDay,
-    ScreeningQuestion, QuestionOption, Answer, Qualification
+    ScreeningQuestion, QuestionOption, Answer
 )
 from .schemas import (
     EmploymentTypeSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
@@ -62,13 +62,6 @@ def get_roles(request, search=""):
 @router.get("job-levels", response=list[JobLevelSchema], tags=["Common"])
 def get_job_levels(request, search=""):
     queryset = JobLevel.objects.all()
-    if search:
-        queryset = queryset.filter(name__icontains=search)
-    return queryset
-
-@router.get("qualifications", response=list[JobLevelSchema], tags=["Common"])
-def get_qualififcations(request, search=""):
-    queryset = Qualification.objects.all()
     if search:
         queryset = queryset.filter(name__icontains=search)
     return queryset

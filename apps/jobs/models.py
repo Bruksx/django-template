@@ -26,14 +26,6 @@ class JobLevel(BaseModel):
 
     def __str__(self) -> str:
         return self.name
-    
-
-class Qualification(BaseModel):
-    name = models.CharField(max_length=64)
-
-    def __str__(self) -> str:
-        return self.name
-
 
 class AvailableDay(BaseModel):
     job = models.ForeignKey("Job", on_delete=models.CASCADE)
@@ -60,7 +52,7 @@ class Job(BaseModel):
     minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
     business_models = models.ManyToManyField("BusinessModel", blank=True)
     job_level = models.ForeignKey(JobLevel, on_delete=models.SET_NULL, null=True)
-    qualification = models.ForeignKey(Qualification, on_delete=models.SET_NULL, null=True, blank=True)
+    qualification = models.TextField(null=True, blank=True)
     work_structure = models.CharField(choices=WorkStructureEnum.choices(), null=True, blank=True)
     first_language = models.ForeignKey(Language, on_delete=models.SET_NULL, null=True)
     additional_languages = models.ManyToManyField(Language, related_name="jobs")
@@ -603,6 +595,7 @@ class JobFilter(BaseModel):
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     department = models.ForeignKey("accounts.Department", on_delete=models.SET_NULL, null=True)
     minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
+    job_level = models.ForeignKey(JobLevel, on_delete=models.SET_NULL, null=True)
     location_type = models.CharField(choices=WorkStructureEnum.choices(), default=WorkStructureEnum.IN_OFFICE.value)
     remove_applied_jobs = models.BooleanField(default=False)
 
@@ -619,6 +612,8 @@ class JobFilter(BaseModel):
             queryset = queryset.filter(job__department=self.department)
         if self.minimum_education_level:
             queryset = queryset.filter(job__minimum_education_level=self.minimum_education_level)
+        if self.job_level:
+            queryset = queryset.filter(job__job_level=self.job_level)
         if self.location_type:
             queryset = queryset.filter(job__work_structure=self.location_type)
         if self.remove_applied_jobs:

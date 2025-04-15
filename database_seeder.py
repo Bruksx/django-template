@@ -15,7 +15,7 @@ from core.models import Currency
 from django.db import transaction
 from faker import Faker
 from jobs.enums import PhaseType
-from jobs.models import JobPost, EmploymentType, JobApplication, Job, JobLevel, Qualification, JobApplicationWithdrawal, SavedJob
+from jobs.models import JobPost, EmploymentType, JobApplication, Job, JobLevel, JobApplicationWithdrawal, SavedJob
 from settings.models import WorkFlowStage
 from apps.jobs.enums import JobStatusType
 
@@ -56,7 +56,7 @@ def generate_data(password, email_recipients, talent_amount=50,
     job_level = JobLevel.objects.all()
     roles = Role.objects.all()
     skills = Skill.objects.all()
-    qualifications = Qualification.objects.all()
+    qualifications = ["Bachelor's Degree", "Master's Degree"]
     currencies = Currency.objects.all()
 
     user_ids = []
@@ -127,7 +127,7 @@ def generate_data(password, email_recipients, talent_amount=50,
                     job_amount-job_count_per_staff, created_by=staff,
                     minimum_education_level=get_random_data(educational_levels),
                     job_level=get_random_data(job_level),
-                    qualification=get_random_data(qualifications),
+                    qualification=choice(qualifications),
                     role=get_random_data(roles),
                     employment_type=get_random_data(employment_type)
                 )

@@ -4,7 +4,7 @@ from typing import List
 from typing import Optional
 from uuid import UUID
 
-from ninja import ModelSchema
+from ninja import ModelSchema, Query
 from ninja.errors import HttpError
 from ninja.schema import Schema
 from pydantic import Field, EmailStr
@@ -184,7 +184,6 @@ class CreateJobSchema(ModelSchema):
     screening_questions: List[CreateQuestionSchema]
     #department: UUID
     role: UUID
-    #qualification: Optional[UUID]
     skills: list[UUID]
     job_level: Optional[UUID]
     business_models: List[UUID]
@@ -212,7 +211,6 @@ class OptionalCreateJobSchema(ModelSchema):
     lunch_break: Optional[LunchBreakEnum] = None
     department: Optional[UUID] = None
     role: Optional[UUID] = None
-    qualification: Optional[UUID] = None
     skills: Optional[List[UUID]] = None
     job_level: Optional[UUID] = None
     business_models: Optional[List[UUID]] = None
@@ -225,7 +223,7 @@ class OptionalCreateJobSchema(ModelSchema):
         model = Job
         exclude = [
             *MUTATE_EXCLUDE_FIELDS, "role", "first_language", "job_level", "department",
-            "qualification", "business_models", "created_by", "employment_type", "minimum_education_level",
+             "business_models", "created_by", "employment_type", "minimum_education_level",
             "uid"
         ]
         fields_optional = "__all__"
@@ -240,7 +238,6 @@ class UpdateJobSchema(ModelSchema):
     lunch_break: Optional[LunchBreakEnum] = None
     department: Optional[UUID] = None
     role: Optional[UUID] = None
-    qualification: Optional[UUID] = None
     skills: List[Optional[UUID]] = None
     job_level: Optional[UUID] = None
     business_models: Optional[List[UUID]] = None
@@ -253,7 +250,7 @@ class UpdateJobSchema(ModelSchema):
         model = Job
         exclude = [
             *MUTATE_EXCLUDE_FIELDS, "role", "first_language", "job_level", "department",
-            "qualification", "business_models", "created_by", "employment_type", "minimum_education_level",
+             "business_models", "created_by", "employment_type", "minimum_education_level",
             "uid"
         ]
         fields_optional = "__all__"
@@ -372,7 +369,6 @@ class JobDetailSchema(ModelSchema):
     business_models: List[GenericNameAndUidSchema]
     minimum_education_level: Optional[EducationLevelSchema]
     availability: List[JobAvailabilitySchema]
-    qualification: Optional[GenericNameAndUidSchema]
     first_language: Optional[GenericNameAndUidSchema]
     required_attribute: Optional[RequiredAttributeSchema]
 
@@ -382,7 +378,7 @@ class JobDetailSchema(ModelSchema):
         fields = [
             "title", "hiring_company_name", "hiring_company_description", "about", "years_of_experience",
             "technological_requirement", "work_structure", "office_address","lunch_break", "lunch_break_time",
-            "additional_hours_start", "additional_hours_end", "flexible_availability"
+            "additional_hours_start", "additional_hours_end", "flexible_availability", "qualification"
         ]
     
     @staticmethod
@@ -768,6 +764,7 @@ class MutateTalentJobFilterSchema(ModelSchema):
     office_location: Optional[UUID]
     employment_type: Optional[UUID]
     department: Optional[UUID]
+    job_level: Optional[UUID]
     minimum_education_level: Optional[UUID]
 
     class Meta:
@@ -780,6 +777,7 @@ class TalentJobFilterSchema(ModelSchema):
     office_location: Optional[CountrySchema]
     employment_type: Optional[EmploymentTypeSchema]
     department: Optional[DepartmentSchema]
+    job_level: Optional[JobLevelSchema]
     minimum_education_level: Optional[EducationLevelSchema]
 
     class Meta:
@@ -843,3 +841,8 @@ class BusinessUserJobSchema(ModelSchema):
         model = Job
         fields = ["uid", "title"]
 
+class JobPostFilterSchema(Schema):
+    search: Optional[str] = None
+    sort_by: Optional[str] = Query(None, title="sort_by",
+                                   example="date-posted",
+            description="it can take comma separated values. e.g sort_by=date-posted,job_level. use append - for desc order. e.g sort_by=-date-posted,job_level etc.")

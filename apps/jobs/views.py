@@ -7,6 +7,7 @@ from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from ninja import Router, PatchDict, UploadedFile
 from ninja.errors import HttpError
+from ninja.params import Query
 from ninja_extra.pagination import paginate
 from ninja_jwt.authentication import JWTAuth
 
@@ -16,8 +17,9 @@ from jobs.enums import JobStatusType
 from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
     TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, AppliedTalentJobPostListSchema, ApplyToJobSchema, \
-    ShareJobViaEmailSchema, ShareJobViaChatSchema
-from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service
+    ShareJobViaEmailSchema, ShareJobViaChatSchema, JobPostFilterSchema
+from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service, \
+    order_job_posts
 from notification import notifications
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
@@ -26,65 +28,76 @@ router = Router()
 
 @router.get("talent/job-recommendations", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def logged_in_talent_job_recommendations(request, search="", use_filter=False, **kwargs):
+def logged_in_talent_job_recommendations(request, filters:JobPostFilterSchema = Query(...)):
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = {"talent": talent}
-    return get_talent_job_recommendations(talent, search, use_filter, **kwargs)
+    queryset = get_talent_job_recommendations(talent, filters.search)
+    if filters.sort_by:
+        sorts = filters.sort_by.split(",")
+        return order_job_posts(sorts, queryset)
+    return queryset
 
 @router.get("talents/{talent_uid}/job-recommendations", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def talent_job_recommendations(request, talent_uid:UUID, search="", use_filter=False, **kwargs):
+def talent_job_recommendations(request, talent_uid:UUID, filters:JobPostFilterSchema = Query(...)):
     IsBusinessUser.check(request)
     talent = Talent.objects.filter(uid=talent_uid).first()
     if not talent:
         raise HttpError(404, "Talent not found")
     request.context = {"talent": talent}
-    return get_talent_job_recommendations(talent, search, use_filter, **kwargs)
+    queryset = get_talent_job_recommendations(talent, filters.search)
+    if filters.sort_by:
+        sorts = filters.sort_by.split(",")
+        return order_job_posts(sorts, queryset)
+    return queryset
 
 @router.get("talent/saved-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def talent_saved_jobs(request, search="", use_filter=False, **kwargs):
+def talent_saved_jobs(request, filters:JobPostFilterSchema = Query(...)):
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = {"talent": talent}
     queryset = talent.saved_jobs()
-    if search:
-        if not hasattr(talent, "jobfilter"):
-            raise HttpError(400, "You have not set a job filter yet")
-        queryset = queryset.filter(job__title__icontains=search)
-    if use_filter:
-        queryset = talent.jobfilter.get_queryset(queryset)
+    if filters.search:
+        queryset = queryset.filter(job__title__icontains=filters.search)
+    if hasattr(talent, "jobfilter"):
+           queryset = talent.jobfilter.get_queryset(queryset)
+    if filters.sort_by:
+        sorts = filters.sort_by.split(",")
+        return order_job_posts(sorts, queryset)
     return queryset.order_by("-savedjob__created_at")
 
 @router.get("talent/job-posts", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def job_posts_by_talent_country(request, search="", use_filter=False, **kwargs):
+def job_posts_by_talent_country(request, filters:JobPostFilterSchema = Query(...)):
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = {"talent": talent}
     queryset = JobPost.objects.filter(country=talent.country, status=JobStatusType.POSTED.value)
-    if search:
-        queryset = queryset.filter(job__title__icontains=search)
-    if use_filter:
-        if not hasattr(talent, "jobfilter"):
-            raise HttpError(400, "You have not set a job filter yet")
+    if filters.search:
+        queryset = queryset.filter(job__title__icontains=filters.search)
+    if hasattr(talent, "jobfilter"):
         queryset = talent.jobfilter.get_queryset(queryset)
+    if filters.sort_by:
+        sorts = filters.sort_by.split(",")
+        return order_job_posts(sorts, queryset)
     return queryset.order_by("-created_at")
 
 @router.get("talent/applied-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[AppliedTalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def talent_applied_jobs(request, search="", use_filter=False, **kwargs):
+def talent_applied_jobs(request, filters: JobPostFilterSchema = Query(...)):
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = {"talent": talent}
     queryset = talent.applied_jobs()
-    if search:
-        queryset = queryset.filter(job__title__icontains=search)
-    if use_filter:
-        if not hasattr(talent, "jobfilter"):
-            raise HttpError(400, "You have not set a job filter yet")
+    if filters.search:
+        queryset = queryset.filter(job__title__icontains=filters.search)
+    if hasattr(talent, "jobfilter"):
         queryset = talent.jobfilter.get_queryset(queryset)
+    if filters.sort_by:
+        sorts = filters.sort_by.split(",")
+        return order_job_posts(sorts, queryset)
     return queryset.order_by("-jobapplication__created_at")
 
 
@@ -106,7 +119,7 @@ def get_talent_job_filter(request):
     IsTalentUser.check(request)
     talent = request.user.talent
     if not hasattr(talent, "jobfilter"):
-        raise HttpError(400, "You have not set a job filter yet")
+        JobFilter.objects.create(talent=talent)
     return talent.jobfilter
 
 
