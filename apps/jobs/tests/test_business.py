@@ -16,7 +16,7 @@ from jobs.business_views import router
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
-    Qualification, BusinessModel
+    BusinessModel
 )
 
 
@@ -431,7 +431,7 @@ class JobCreationTest(TestCase):
             email="testuser@example.com",
             password="securepassword",
         )
-        self.qualification = Qualification.objects.create(name="Bachelor's degree")
+        self.qualification = "Bachelor's degree"
         self.recruiter_business_user = BusinessUser.objects.create(
             user=self.recruiter,
             business=self.business,
@@ -445,10 +445,10 @@ class JobCreationTest(TestCase):
         self.country2 = Country.objects.order_by("?").first()  # random ordering
         self.currency1 = Currency.objects.order_by("?").first()
         self.currency2 = Currency.objects.order_by("?").first()
-        self.test_data = data = {
+        self.test_data = {
             "title": "EcoTech Manager",
             "employment_type": str(self.employment_type.uid),
-            "qualification": str(self.qualification.uid),
+            "qualification": self.qualification,
             "availability": [
                 {
                     "day": "Monday",

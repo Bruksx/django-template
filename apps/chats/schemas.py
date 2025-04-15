@@ -178,6 +178,7 @@ class ChatMessageErrorSchema(Schema):
     data: Optional[Any]=None
     status: int
 
+
 class ChatMessageResponseSchema(Schema):
     sender_id: UUID
     sender: str

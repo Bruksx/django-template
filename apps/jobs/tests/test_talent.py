@@ -109,7 +109,7 @@ class TalentJobListTests(TestCase):
         response = self.client.get("talent/job-recommendations", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
-        response = self.client.get("talent/job-recommendations?use_filter=false&page_size=100&page=1", headers=headers)
+        response = self.client.get("talent/job-recommendations?page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
 
@@ -121,7 +121,7 @@ class TalentJobListTests(TestCase):
         response = self.client.get("talent/job-recommendations", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
-        response = self.client.get("talent/job-recommendations?use_filter=false&page_size=100&page=1", headers=headers)
+        response = self.client.get("talent/job-recommendations?page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
 
@@ -136,7 +136,7 @@ class TalentJobListTests(TestCase):
         response = self.client.get("talent/saved-jobs", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
-        response = self.client.get("talent/saved-jobs?use_filter=false&page_size=100&page=1", headers=headers)
+        response = self.client.get("talent/saved-jobs?page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
 
@@ -157,7 +157,7 @@ class TalentJobListTests(TestCase):
         self.assertEqual(response.json()["results"][0]["application_uid"], str(application.uid))
         self.assertEqual(response.json()["results"][0]["stage"]["uid"], str(stage.uid))
 
-        response = self.client.get("talent/applied-jobs?use_filter=false&page_size=100&page=1", headers=headers)
+        response = self.client.get("talent/applied-jobs?page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
 
@@ -167,7 +167,7 @@ class TalentJobListTests(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.get("talent/job-posts", headers=headers)
+        response = self.client.get("talent/job-posts?sort_by=date-posted&page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
         self.assertIn("weakness", response.json()["results"][0])
@@ -178,10 +178,10 @@ class TalentJobListTests(TestCase):
         self.assertGreaterEqual(strength["match_score"], 0)
 
         # when talent has no job filter
-        response = self.client.get("talent/job-posts?use_filter=true&page_size=100&page=1", headers=headers)
-        self.assertEqual(response.status_code, 400)
+        response = self.client.get("talent/job-posts?page_size=100&page=1", headers=headers)
+        self.assertEqual(response.status_code, 200)
 
-        response = self.client.get("talent/job-posts?search=test", headers=headers)
+        response = self.client.get("talent/job-posts?search=test&page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 0)
 
@@ -189,7 +189,7 @@ class TalentJobListTests(TestCase):
         JobFilter.objects.create(
             talent=self.talent,
         )
-        response = self.client.get("talent/job-posts?use_filter=true&page_size=100&page=1", headers=headers)
+        response = self.client.get("talent/job-posts?page_size=100&page=1&sort_by=date-posted", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 0)
 
@@ -218,6 +218,7 @@ class UpdateTalentJobFilterTest(TestCase):
           "location_type": WorkStructureEnum.IN_OFFICE.value,
           "role": "",
           "years_of_experience": 0,
+          "job_level": str(JobLevel.objects.first().uid),
           "office_location": str(Country.objects.first().uid),
           "employment_type": str(EmploymentType.objects.first().uid),
           "department": None,
@@ -260,7 +261,7 @@ class GetTalentJobFilterTest(TestCase):
             "authorization": f"bearer {self.user.token}"
         }
         response = self.client.get("talent/job-filter", headers=headers)
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
 
     def test_get_job_filter_endpoint_with_job_filter(self):
         headers = {

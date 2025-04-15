@@ -17,7 +17,7 @@ from settings.models import WorkFlowStage, EmailTemplate
 fake = Faker()
 from core.models import Currency, Language
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, WithdrawalFeedbackType, PhaseType, QuestionTypeEnum
-from jobs.models import JobLevel, EmploymentType, JobPost, Job, JobApplication, Qualification, JobApplicationWithdrawal, \
+from jobs.models import JobLevel, EmploymentType, JobPost, Job, JobApplication, JobApplicationWithdrawal, \
     RequiredAttribute, JobFilter, BusinessModel, ScreeningQuestion, Answer, QuestionOption, JobPostMetrics, SavedJob
 
 
@@ -212,12 +212,6 @@ class CustomerCaseFactory(DjangoModelFactory):
     description = factory.Faker('sentence', nb_words=100)
     user = factory.SubFactory(UserFactory)
 
-class QualificationFactory(DjangoModelFactory):
-    class Meta:
-        model = Qualification
-
-    name = factory.LazyAttribute(lambda _: fake.name())
-
 
 class JobFactory(DjangoModelFactory):
     class Meta:
@@ -230,7 +224,7 @@ class JobFactory(DjangoModelFactory):
     years_of_experience = factory.Faker('pyint', min_value=1, max_value=10)
     minimum_education_level = factory.SubFactory(EducationLevelFactory)
     job_level = factory.SubFactory(JobLevelFactory)
-    qualification = factory.SubFactory(QualificationFactory)
+    qualification = factory.Faker("sentence")
     role = factory.SubFactory(RoleFactory)
     work_structure = factory.Iterator(WorkStructureEnum.values())
     office_address = factory.Faker('address')
@@ -379,6 +373,7 @@ class JobFilterFactory(DjangoModelFactory):
     role = factory.lazy_attribute(lambda _: fake.job()[:20])
     years_of_experience = factory.Iterator([1,2,3,4,5,6,7])
     office_location = factory.SubFactory(CountryFactory)
+    job_level = factory.SubFactory(JobLevelFactory)
     employment_type = factory.SubFactory(EmploymentTypeFactory)
     department = factory.SubFactory(DepartmentFactory)
     minimum_education_level = factory.SubFactory(EducationLevelFactory)

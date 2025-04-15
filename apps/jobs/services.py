@@ -1,8 +1,11 @@
+from typing import List
+
 from config import settings
 from django.conf import settings
 from django.db import transaction
+from django.db.models import QuerySet
 from helpers.utils import upload_to_s3, upload_to_server
-from ninja.errors import HttpError
+from helpers.utils import sort_params_function
 
 from jobs.enums import PhaseType
 from jobs.models import JobApplication, Answer, RequiredAttribute
@@ -13,13 +16,12 @@ from settings.models import WorkFlowStage
 from monkeypatches.q_cluster import async_task
 
 
-def get_talent_job_recommendations(talent, search="", use_filter=False, **kwargs):
+def get_talent_job_recommendations(talent, search=""):
     queryset = talent.job_post_matches()
     if search:
         queryset = queryset.filter(job__title__icontains=search)
-    if use_filter:
-        if not hasattr(talent, "jobfilter"):
-            raise HttpError(400, "You have not set a job filter yet")
+
+    if hasattr(talent, "jobfilter"):
         queryset = talent.jobfilter.get_queryset(queryset)
 
     return queryset.order_by("-created_at")
@@ -78,3 +80,9 @@ def set_job_required_attributes(data:dict, job):
     async_task(notify_business_on_matched_talents, job=job)
     return required_attributes
 
+def order_job_posts(sorts:List[str], queryset)->QuerySet:
+    mapper = {"date-posted": "date_posted", "job-level": "job__job_level"}
+    sort_values = sort_params_function(sorts, mapper)
+    if not sort_values:
+        sort_values = ["-created_at"]
+    return queryset.order_by(*sort_values)
