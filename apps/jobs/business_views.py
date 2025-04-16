@@ -211,7 +211,7 @@ def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
         )
     talents = job_post.get_talents()
     send_talents_job_matching_notification(talents.count(), job_post)
-    return talents.filter(query)
+    return talents.filter(query).order_by("-user__last_login")
 
 @router.post("", response=JobDetailSchema, auth=JWTAuth())
 @transaction.atomic

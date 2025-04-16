@@ -37,7 +37,7 @@ def talent_lists(request, search="", apply_filter=False):
             talent_filter = request.user.businessuser.talentfilter
         talents = talent_filter.get_queryset(talents)
 
-    return talents
+    return talents.order_by("-user__last_login")
 
 
 @router.get("countries", response=List[talent_schemas.CountrySchema], tags=["Common"])
