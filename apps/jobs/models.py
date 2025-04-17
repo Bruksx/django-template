@@ -329,7 +329,7 @@ class JobPost(BaseModel):
                     score -= 1
                     skills = attributes.skills.all()
                 if (skill_count == 0 and weak is True) or (skill_count > 0 and weak is False):
-                    data["skills"]= skills  if skills.count() > 0 else None
+                    data["skills"]= RequiredAttribute.format_skills_under_category(skills)  if skills.count() > 0 else None
             elif attribute == "business_models":
                 business_models = attributes.business_models.intersection(talent.business_models.all())
                 bm_count = business_models.count()
@@ -685,7 +685,8 @@ class RequiredAttribute(BaseModel):
             score += 1
         return score
 
-    def get_skills(self):
+    @staticmethod
+    def format_skills_under_category(skills):
         from jobs.schemas import SkillSchema, JobSkillSchema
         from accounts.models import SkillCategory
         categories = SkillCategory.objects.only("id", "name")
@@ -693,9 +694,12 @@ class RequiredAttribute(BaseModel):
         for category in categories:
             data.append(JobSkillSchema(
                 category=category.name,
-                skills=[SkillSchema.from_orm(skill) for skill in self.skills.filter(category_id=category.id)]
+                skills=[SkillSchema.from_orm(skill) for skill in skills.filter(category_id=category.id)]
             ))
         return data
+
+    def get_skills(self):
+        return self.format_skills_under_category(self.skills)
 
 
 class JobApplicationWithdrawal(BaseModel):
