@@ -99,8 +99,12 @@ class Job(BaseModel):
         data = []
         for attribute in self.required_attributes_keys:
             value = getattr(attributes, attribute)
-            if value:
-                data.append(attribute)
+            if attribute in ("skills", "business_models"):
+                if value.count() > 0:
+                    data.append(attribute)
+            else:
+                if value is True:
+                    data.append(attribute)
         return data
 
     @property
