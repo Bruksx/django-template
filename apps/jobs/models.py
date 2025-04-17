@@ -115,8 +115,12 @@ class Job(BaseModel):
         data = []
         for attribute in self.required_attributes_keys:
             value = getattr(attributes, attribute)
-            if not value:
-                data.append(attribute)
+            if attribute in ("skills", "business_models"):
+                if value.count() == 0:
+                    data.append(attribute)
+            else:
+                if value is False:
+                    data.append(attribute)
         return data
 
 
@@ -448,7 +452,7 @@ class JobPost(BaseModel):
         for attribute in non_negotiables:
             if attribute == "skills":
                 if attributes.skills.count() > 0:
-                    data["skills"] = attributes.skills.all()
+                    data["skills"] = RequiredAttribute.format_skills_under_category(attributes.skills.all())
             elif attribute == "business_models":
                 if attributes.business_models.count() > 0:
                     data["business_models"] = attributes.business_models.all() if attributes.business_models.count() > 0 else None
