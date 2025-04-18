@@ -257,10 +257,10 @@ def set_job_alert(request, job_post_id:UUID, action: Literal["on", "off"]):
     else:
         alert = talent.jobalert
     if action == "on" and not alert.jobs.filter(id=job_post.job_id).exists():
-        alert.add(job_post.job)
+        alert.jobs.add(job_post.job)
         alert.save()
     elif alert == "off" and alert.jobs.filter(id=job_post.job_id).exists():
-        alert.remove(job_post.job)
+        alert.jobs.remove(job_post.job)
         alert.save()
     message = "set" if action == "on" else "unset"
     return Response(status=200, data={"message": f"Job alert has been {message} for this job successfully"})
