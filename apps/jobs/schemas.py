@@ -348,7 +348,7 @@ class JobPostDetailSchema(ModelSchema):
 
 
     @staticmethod
-    def resolve_saved(obj, context) -> Optional[int]:
+    def resolve_saved(obj, context):
         request = context.get("request")
         if not request:
             return
@@ -626,7 +626,7 @@ class JobPostFullDetailSchema(ModelSchema):
                   "province", "postal_code"]
 
     @staticmethod
-    def resolve_saved(obj, context) -> Optional[int]:
+    def resolve_saved(obj, context):
         request = context.get("request")
         if not request:
             return
@@ -685,7 +685,7 @@ class TalentJobPostListSchema(ModelSchema):
     annual_salary_currency: Optional[str]
     job: JobDetailSchema
     applied: bool
-    saved: bool
+    saved: Optional[bool]
     alert: Optional[bool]
     country: GenericNameAndUidSchema
     strength: Optional[JobMatchSchema]
@@ -728,7 +728,7 @@ class TalentJobPostListSchema(ModelSchema):
         return
 
     @staticmethod
-    def resolve_saved(obj, context)->Optional[int]:
+    def resolve_saved(obj, context):
         request = context.get("request")
         talent = request.context.get("talent")
         if not talent:
@@ -789,7 +789,7 @@ class AppliedTalentJobPostListSchema(TalentJobPostListSchema):
 
 class TalentJobPostSchema(JobPostListSchema):
     job: JobDetailSchema
-    saved: bool
+    saved: Optional[bool]
     strength: Optional[JobMatchSchema] = None
     weakness: Optional[JobMatchSchema] = None
     non_negotiable: JobMatchSchema
@@ -804,7 +804,7 @@ class TalentJobPostSchema(JobPostListSchema):
 
 
     @staticmethod
-    def resolve_saved(obj, context) -> Optional[int]:
+    def resolve_saved(obj, context):
         request = context.get("request")
         talent = request.context.get("talent")
         if not talent:
