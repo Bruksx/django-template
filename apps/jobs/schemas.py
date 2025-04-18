@@ -317,6 +317,8 @@ class JobPostDetailSchema(ModelSchema):
     annual_bonus_min: Optional[Decimal]
     annual_bonus_max: Optional[Decimal]
     saved: Optional[bool]
+    alert: Optional[bool]
+
 
 
     class Meta:
@@ -328,6 +330,20 @@ class JobPostDetailSchema(ModelSchema):
         if obj.annual_bonus_currency:
             return obj.annual_bonus_currency.abbreviation
         return
+
+    @staticmethod
+    def resolve_alert(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return
+        if not hasattr(talent, "jobalert"):
+            return False
+        return talent.jobalert.jobs.filter(id=obj.job_id).exists()
 
 
 
@@ -429,6 +445,7 @@ class JobPostListSchema(ModelSchema):
     annual_salary_max: Optional[float] = None
     annual_bonus_min: Optional[float] = None
     annual_bonus_max: Optional[float] = None
+    alert: Optional[bool] = None
 
 
     class Meta:
@@ -441,6 +458,20 @@ class JobPostListSchema(ModelSchema):
         if not obj.job.role:
             return None
         return obj.job.role.name
+
+    @staticmethod
+    def resolve_alert(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return
+        if not hasattr(talent, "jobalert"):
+            return False
+        return talent.jobalert.jobs.filter(id=obj.job_id).exists()
 
     @staticmethod
     def resolve_applicants(obj):
@@ -655,6 +686,7 @@ class TalentJobPostListSchema(ModelSchema):
     job: JobDetailSchema
     applied: bool
     saved: bool
+    alert: Optional[bool]
     country: GenericNameAndUidSchema
     strength: Optional[JobMatchSchema]
     weakness: Optional[JobMatchSchema]
@@ -674,6 +706,20 @@ class TalentJobPostListSchema(ModelSchema):
         if obj.annual_bonus_currency:
             return obj.annual_bonus_currency.abbreviation
         return
+
+    @staticmethod
+    def resolve_alert(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return
+        if not hasattr(talent, "jobalert"):
+            return False
+        return talent.jobalert.jobs.filter(id=obj.job_id).exists()
 
     @staticmethod
     def resolve_annual_salary_currency(obj):
@@ -743,6 +789,7 @@ class AppliedTalentJobPostListSchema(TalentJobPostListSchema):
 
 class TalentJobPostSchema(JobPostListSchema):
     job: JobDetailSchema
+    saved: bool
     strength: Optional[JobMatchSchema] = None
     weakness: Optional[JobMatchSchema] = None
     non_negotiable: JobMatchSchema
@@ -754,6 +801,15 @@ class TalentJobPostSchema(JobPostListSchema):
         if not talent:
             return None
         return obj.strength(talent)
+
+
+    @staticmethod
+    def resolve_saved(obj, context) -> Optional[int]:
+        request = context.get("request")
+        talent = request.context.get("talent")
+        if not talent:
+            return None
+        return talent.savedjob_set.filter(job_post=obj).exists()
 
     @staticmethod
     def resolve_weakness(obj, context):

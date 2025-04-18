@@ -65,9 +65,6 @@ class Message(BaseModel):
     body = models.TextField()
     readers = models.ManyToManyField(User, blank=True, related_name="readers")
 
-    def __str__(self) -> str:
-        return f"{self.sender}"
-
     def notify_chat(self):
         from .schemas import ChatMessageSchema, ChatUserSchema
         recipient = self.conversation.get_recipient(self.sender)
@@ -81,13 +78,22 @@ class Message(BaseModel):
         )
 
     def handle_post_save(self, notify=False):
-        from notification.notifications import send_new_chat_notification
+        from notification.notifications import send_new_chat_notification, send_new_chat_message_notification
         self.conversation.last_message_time = self.created_at
         self.conversation.save()
         if notify is True:
             self.notify_chat()
         if self.conversation.message_set.count() == 1:
             send_new_chat_notification(self.conversation)
+        send_new_chat_message_notification(self)
+
+    def __str__(self):
+        if self.body:
+            return self.body[:100]
+        attachment = self.messageattachment.last()
+        if not attachment:
+            return ""
+        return attachment.file_type
 
 class MessageAttachment(BaseModel):
     message = models.ForeignKey("Message", on_delete=models.CASCADE)
