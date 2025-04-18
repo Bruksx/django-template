@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Literal
 from uuid import UUID
 
 from config.permissions import IsTalentUser, IsBusinessUser
@@ -14,7 +14,7 @@ from ninja_jwt.authentication import JWTAuth
 from accounts.models import Talent
 from jobs import tasks
 from jobs.enums import JobStatusType
-from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob
+from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
     TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, AppliedTalentJobPostListSchema, ApplyToJobSchema, \
     ShareJobViaEmailSchema, ShareJobViaChatSchema, JobPostFilterSchema
@@ -160,6 +160,21 @@ def view_job_post(request, job_post_id:UUID):
     return job_post
 
 
+@router.get("talent/job/{job_id}", auth=JWTAuth(),
+             description="view job posts from job alert",
+             response=TalentJobPostSchema, tags=["Talent Jobs"])
+def view_job_from_alert(request, job_id:UUID):
+    IsTalentUser.check(request)
+    talent = request.user.talent
+    job_post:JobPost = JobPost.objects.filter(job__uid=job_id, country=talent.country).last()
+    if not job_post:
+        raise HttpError(404, "This job is not available in your country")
+    job_post.view()
+    notifications.send_talent_job_matching_notification(talent, job_post)
+    return job_post
+
+
+
 @router.post("talent/job-posts/applications/{application_id}/withdraw", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 def withdraw_job_applications(request, application_id:UUID, data: TalentJobApplicationWithdrawalSchema):
     user = request.user
@@ -227,5 +242,26 @@ def discard_saved_job(request, job_post_id:UUID):
         raise HttpError(404, "This job post is not saved")
     saved_job.delete()
     return Response(status=200, data={"message": "Discarded successfully"})
+
+
+@router.post("talent/job-posts/{job_post_id}/alert", auth=JWTAuth(), tags=["Talent Jobs"])
+def set_job_alert(request, job_post_id:UUID, action: Literal["on", "off"]):
+    IsTalentUser.check(request)
+    talent = request.user.talent
+    job_post = JobPost.objects.filter(uid=job_post_id).first()
+    if not job_post:
+        raise HttpError(404, "Job post not found")
+    if not hasattr(talent, "jobalert"):
+        alert = JobAlert.objects.create(talent=talent)
+    else:
+        alert = talent.jobalert
+    if action == "on" and not alert.jobs.filter(id=job_post.job_id).exists():
+        alert.add(job_post.job)
+        alert.save()
+    elif alert == "off" and alert.jobs.filter(id=job_post.job_id).exists():
+        alert.remove(job_post.job)
+        alert.save()
+    message = "set" if action == "on" else "unset"
+    return Response(status=200, data={"message": f"Job alert has been {message} for this job successfully"})
 
 

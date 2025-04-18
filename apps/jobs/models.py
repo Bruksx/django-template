@@ -7,6 +7,8 @@ from accounts.models import Talent, TalentAvailableDay
 from core.models import BaseModel, Language
 from jobs.managers import JobManager
 from settings.enums import PlaceHolderType
+
+from monkeypatches.q_cluster import async_task
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
     JobStatusType
 
@@ -91,6 +93,11 @@ class Job(BaseModel):
             })
         return data
 
+    def send_alerts(self):
+        async_task(JobAlert.send_alerts,self)
+        return
+
+
     @property
     def required_keys(self):
         if not hasattr(self, "requiredattribute"):
@@ -106,6 +113,7 @@ class Job(BaseModel):
                 if value is True:
                     data.append(attribute)
         return data
+
 
     @property
     def non_required_keys(self):
@@ -218,6 +226,7 @@ class JobPost(BaseModel):
         related_name="posted_by",
         blank=True
     )
+
 
 
     def __str__(self) -> str:
@@ -746,3 +755,31 @@ class BusinessModel(BaseModel):
 
     def __str__(self) -> str:
         return self.name
+
+
+class JobAlert(BaseModel):
+    talent = models.OneToOneField(Talent, on_delete=models.CASCADE)
+    jobs = models.ManyToManyField(Job)
+
+
+
+    @classmethod
+    def send_alerts(cls, job):
+        from notification.notifications import send_job_alert_notification
+        user_ids = (cls.objects.filter(
+            Q(jobs__employment_type=job.employment_type)|
+            Q(jobs__years_of_experience=job.years_of_experience)|
+            Q(jobs__minimum_education_level=job.minimum_education_level)|
+            Q(jobs__job_level=job.job_level)|
+            Q(jobs__first_language=job.first_language)|
+            Q(jobs__flexible_availability=job.flexible_availability)|
+            Q(jobs__department=job.department)|
+            Q(jobs__role=job.role)|
+            Q(jobs__min_match_score = job.min_match_score)|
+            Q(jobs__skills__id__in=job.skills.all().values_list("id", flat=True))|
+            Q(jobs__business_models__id__in=job.business_models.all().values_list("id", flat=True)))
+         .distinct("talent__user_id").values_list("talent__user_id", flat=True))
+        send_job_alert_notification(job, user_ids)
+        return
+
+
