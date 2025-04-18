@@ -87,8 +87,6 @@ def handle_social_login(data: SocialAuthSchema)->User:
         """auth_type = AuthType.APPLE
         social_query = Q(apple_id=profile.id)
         profile_dict["apple_id"] = profile.id"""
-    else:
-        raise HttpError(400, "Invalid social type")
     
     user = User.objects.filter(social_query).first()
     if user:
