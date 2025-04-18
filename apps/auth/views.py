@@ -37,7 +37,7 @@ def social_auth(request, data: SocialAuthSchema):
 @transaction.atomic
 def reset_password(request, data: ResetPasswordSchema):
     validate_password(data.password)
-    code = VerificationCode.objects.filter(email=data.email, code=data.otp).first()
+    code = VerificationCode.objects.filter(email__iexact=data.email, code=data.otp).last()
     if not code:
         raise HttpError(400, "Invalid otp")
     if code.expires_at < timezone.now():
