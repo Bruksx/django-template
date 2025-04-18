@@ -613,8 +613,8 @@ class JobPostFullDetailSchema(ModelSchema):
     country: GenericNameAndUidSchema
     recruiter: Optional[BusinessUserSchema]
     posted_by: Optional[BusinessUserSchema]
-    saved: Optional[bool]
-    alert: Optional[bool]
+    saved: Optional[bool] = None
+    alert: Optional[bool] = None
 
 
     class Meta:
