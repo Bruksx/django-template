@@ -47,7 +47,7 @@ def handle_social_login(data: SocialAuthSchema)->User:
     #profile_dict.pop("id", None)
     profile_dict = {}
 
-    if SocialType.GOOGLE.value == data.social_type:
+    if data.social_type == SocialType.GOOGLE:
         auth_type = AuthType.GOOGLE
         try:
             idinfo = id_token.verify_oauth2_token(
@@ -63,7 +63,7 @@ def handle_social_login(data: SocialAuthSchema)->User:
         profile_dict["last_name"] = idinfo["family_name"]
         social_query = Q(google_id=idinfo["sub"])
 
-    elif SocialType.LINKEDIN.value == data.social_type:
+    elif data.social_type == SocialType.LINKEDIN:
         api = LinkedInAPI()
         code = data.access_token
         access_token = api.get_access_token(code)
@@ -74,7 +74,7 @@ def handle_social_login(data: SocialAuthSchema)->User:
         profile_dict["first_name"] = linkedin_profile.firstName
         profile_dict["last_name"] = linkedin_profile.lastName
 
-    elif SocialType.FACEBOOK.value == data.social_type:
+    elif data.social_type == SocialType.FACEBOOK:
         auth_type = AuthType.FACEBOOK
         user = facebook_client.get_user()
         profile_dict["first_name"] = user.first_name
