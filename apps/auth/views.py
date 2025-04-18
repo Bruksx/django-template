@@ -47,5 +47,5 @@ def reset_password(request, data: ResetPasswordSchema):
         raise HttpError(404, "No user was found")
     user.set_password(data.password)
     user.save()
-    code.delete()
+    code.hard_delete()
     return Response(data={"message": "password reset successfully"})

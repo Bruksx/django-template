@@ -129,7 +129,7 @@ def send_otp_to_email(request, data: common_schemas.SendEmailOtpSchema):
     user = User.objects.filter(email__iexact=data.email).first()
     if not user:
         raise HttpError(404, "An account with this email does not exist")
-    VerificationCode.objects.filter(email__iexact=data.email).delete()
+    VerificationCode.objects.filter(email__iexact=data.email).hard_delete()
     verification = VerificationCode.objects.create(email=data.email)
     raw_code = verification.save()
     async_task(send_verification_code, email=data.email, code=raw_code, user=user.fullname, company=None)
