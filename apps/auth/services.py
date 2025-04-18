@@ -42,9 +42,10 @@ def validate_login(user: User, raise_exception=True):
         return False
 
 
-def handle_social_login(profile: ProfileSchema, data: SocialAuthSchema)->User:
-    profile_dict = deepcopy(profile.__dict__)
-    profile_dict.pop("id", None)
+def handle_social_login(data: SocialAuthSchema)->User:
+    #profile_dict = deepcopy(profile.__dict__)
+    #profile_dict.pop("id", None)
+    profile_dict = {}
 
     if SocialType.GOOGLE.value == data.social_type:
         auth_type = AuthType.GOOGLE
@@ -57,10 +58,10 @@ def handle_social_login(profile: ProfileSchema, data: SocialAuthSchema)->User:
         except ValueError:
             raise HttpError(401, "Invalid Google token")
         
-        social_query = Q(google_id=profile.id)
         profile_dict["google_id"] = idinfo["sub"]
         profile_dict["first_name"] = idinfo["given_name"]
         profile_dict["last_name"] = idinfo["family_name"]
+        social_query = Q(google_id=idinfo["sub"])
 
     elif SocialType.LINKEDIN.value == data.social_type:
         api = LinkedInAPI()
@@ -69,24 +70,26 @@ def handle_social_login(profile: ProfileSchema, data: SocialAuthSchema)->User:
         linkedin_profile = api.get_profile(access_token)
         auth_type = AuthType.LINKEDIN
         social_query = Q(linkedin_id=linkedin_profile.id)
-        profile_dict["linkedin_id"] = profile.id
+        profile_dict["linkedin_id"] = linkedin_profile.id
         profile_dict["first_name"] = linkedin_profile.firstName
         profile_dict["last_name"] = linkedin_profile.lastName
 
     elif SocialType.FACEBOOK.value == data.social_type:
         auth_type = AuthType.FACEBOOK
-        profile_dict["facebook_id"] = profile.id
         user = facebook_client.get_user()
         profile_dict["first_name"] = user.first_name
         profile_dict["last_name"] = user.last_name
-        social_query = Q(facebook_id=profile.id)
+        profile_dict["facebook_id"] = user.id
+        social_query = Q(facebook_id=user.id)
 
     elif SocialType.APPLE.value == data.social_type:
-        auth_type = AuthType.APPLE
+        pass
+        """auth_type = AuthType.APPLE
         social_query = Q(apple_id=profile.id)
-        profile_dict["apple_id"] = profile.id
+        profile_dict["apple_id"] = profile.id"""
     else:
         raise HttpError(400, "Invalid social type")
+    
     user = User.objects.filter(social_query).first()
     if user:
         if user.auth_mode == AuthType.EMAIL.value:
