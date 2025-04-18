@@ -28,8 +28,7 @@ def login(request, data:LoginSchema):
 @router.post("social-login", response=common_schema.UserSchema)
 @transaction.atomic
 def social_auth(request, data: SocialAuthSchema):
-    profile = ProfileSchema(id=data.social_id, email=data.email, first_name=data.first_name, last_name=data.last_name)
-    user = handle_social_login(profile, data)
+    user = handle_social_login(data)
     validate_login(user)
     return user
 

@@ -19,7 +19,7 @@ class LoginSchema(BaseModel):
 
 class SocialAuthSchema(BaseModel):
     access_token: str
-    social_id: Optional[str]
+    social_id: Optional[str] = None
     user_type: Optional[UserType] = None
     social_type: SocialType
 
