@@ -319,8 +319,6 @@ class JobPostDetailSchema(ModelSchema):
     saved: Optional[bool]
     alert: Optional[bool]
 
-
-
     class Meta:
         model = JobPost
         fields = ["uid", "province", "postal_code", "status", "share_compensation"]
@@ -344,8 +342,6 @@ class JobPostDetailSchema(ModelSchema):
         if not hasattr(talent, "jobalert"):
             return False
         return talent.jobalert.jobs.filter(id=obj.job_id).exists()
-
-
 
     @staticmethod
     def resolve_saved(obj, context):
@@ -618,6 +614,7 @@ class JobPostFullDetailSchema(ModelSchema):
     recruiter: Optional[BusinessUserSchema]
     posted_by: Optional[BusinessUserSchema]
     saved: Optional[bool]
+    alert: Optional[bool]
 
 
     class Meta:
@@ -636,6 +633,20 @@ class JobPostFullDetailSchema(ModelSchema):
         if not talent:
             return
         return talent.savedjob_set.filter(job_post=obj).exists()
+
+    @staticmethod
+    def resolve_alert(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return
+        if not hasattr(talent, "jobalert"):
+            return False
+        return talent.jobalert.jobs.filter(id=obj.job_id).exists()
 
 
 
