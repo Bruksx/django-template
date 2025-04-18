@@ -1,8 +1,6 @@
 from datetime import date, timedelta
-from typing import List
+from typing import Optional
 from uuid import UUID
-
-from django.utils import timezone
 
 from accounts.enums import UserType, AuthType
 from accounts.models import Talent, TalentAvailableDay
@@ -10,16 +8,18 @@ from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
 from django.db import transaction
-from ninja import Router, PatchDict, UploadedFile
+from django.utils import timezone
+from ninja import Router, PatchDict, UploadedFile, File
 from ninja.errors import HttpError
-from monkeypatches.response import Response
 from ninja_jwt.authentication import JWTAuth
-from apps.accounts.enums import MeetingType
+
+from accounts.enums import MeetingType
 from config.permissions import IsBusinessUser
 from config.permissions import IsTalentUser
 from helpers.email.auth import send_verification_code
-from helpers.utils import convert_base64_to_image_file, validate_password
+from helpers.utils import convert_base64_to_image_file, validate_password, delete_s3_item
 from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
 from services import meeting
 
 router = Router(tags=["Account"])
@@ -225,9 +225,14 @@ def upload_talent_cv(request, file: UploadedFile):
     return Response(status=200, data={"message": "CV uploaded successfully"})
 
 @router.post("profile-pic", auth=JWTAuth())
-def upload_talent_profile_picture(request, file: UploadedFile):
+def upload_talent_profile_picture(request, file: Optional[UploadedFile] = File(None)):
     IsTalentUser.check(request)
     talent_user = request.user.talent
+    if not file:
+        if talent_user.photo_url:
+            delete_s3_item(talent_user.photo_url)
+        talent_user.update(photo=None)
+        return Response(status=200, data={"message": "Profile picture cleared successfully"})
     extension = file.name.split(".")[-1]
     if extension not in ["jpg", "jpeg", "png"]:
         raise HttpError(400, "This file type is not supported. Only JPG/JPEG/PNG files")
