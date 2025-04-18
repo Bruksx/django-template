@@ -21,7 +21,6 @@ from helpers.utils import convert_base64_to_image_file, validate_password, delet
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from services import meeting
-from ws_tester import talent
 
 router = Router(tags=["Account"])
 
@@ -230,8 +229,8 @@ def upload_talent_profile_picture(request, file: Optional[UploadedFile] = File(N
     IsTalentUser.check(request)
     talent_user = request.user.talent
     if not file:
-        if talent.photo_url:
-            delete_s3_item(talent.photo_url)
+        if talent_user.photo_url:
+            delete_s3_item(talent_user.photo_url)
         talent_user.update(photo=None)
         return Response(status=200, data={"message": "Profile picture cleared successfully"})
     extension = file.name.split(".")[-1]
