@@ -316,6 +316,8 @@ class JobPostDetailSchema(ModelSchema):
     annual_salary_max: Optional[Decimal]
     annual_bonus_min: Optional[Decimal]
     annual_bonus_max: Optional[Decimal]
+    annual_salary_currency: Optional[str]
+    annual_bonus_currency: Optional[str]
     saved: Optional[bool]
     alert: Optional[bool]
 
