@@ -233,7 +233,7 @@ def upload_talent_profile_picture(request, file: Optional[UploadedFile] = File(N
             delete_s3_item(talent_user.photo_url)
         talent_user.update(photo=None)
         return Response(status=200, data={"message": "Profile picture cleared successfully"})
-    extension = file.name.split(".")[-1]
+    extension = str(file.name.split(".")[-1]).lower()
     if extension not in ["jpg", "jpeg", "png"]:
         raise HttpError(400, "This file type is not supported. Only JPG/JPEG/PNG files")
     talent_user.update(photo=file)
