@@ -126,8 +126,22 @@ def delete_job_post(request, job_post_uid:UUID):
     job_post =  JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business_user.business).first()
     if not job_post:
         raise HttpError(404, "This job post does not exist")
+    if job_post.jobapplication_set.count() > 0:
+        raise HttpError(400, "Some job applications are tied to this job post")
     job_post.delete()
     return Response(status=204, data={"message": "Job post deleted"})
+
+@router.delete("job/{job_uid}", auth=JWTAuth())
+def delete_job(request, job_uid:UUID):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    job =  Job.objects.filter(uid=job_uid, created_by__business=business_user.business).first()
+    if not job:
+        raise HttpError(404, "This job does not exist")
+    if JobApplication.objects.filter(job_post__job=job).exists():
+        raise HttpError(400, "Some job applications are tied to this job")
+    job.delete()
+    return Response(status=204, data={"message": "Job deleted"})
 
 @router.patch("job-post/{job_post_uid}", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
 @transaction.atomic
