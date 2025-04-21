@@ -1602,6 +1602,7 @@ class JobPostBulkUpdateTest(TestCase):
         }
         self.test_data["action"] = ActionType.CLOSED.value
         response = self.client.patch(self.url, json=self.test_data, headers=headers)
+        print("response: ", response.json())
         self.assertEqual(response.status_code, 200)
         self.assertEqual(JobPost.objects.filter(status=ActionType.CLOSED.value).count(), 5)
 
@@ -1623,9 +1624,7 @@ class JobPostBulkUpdateTest(TestCase):
         self.test_data["action"] = ActionType.DELETE.value
         response = self.client.patch(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 200)
-        # It didn't delete any of the jobs above because  it doesn't belong to the business user
         self.assertEqual(JobPost.objects.count(), 5)
-
 
     def test_by_talent(self):
         talent = TalentFactory()
@@ -1635,4 +1634,3 @@ class JobPostBulkUpdateTest(TestCase):
         self.test_data["action"] = ActionType.DELETE.value
         response = self.client.patch(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 403)
-

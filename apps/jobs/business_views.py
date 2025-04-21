@@ -131,7 +131,7 @@ def delete_job_post(request, job_post_uid:UUID):
     job_post.delete()
     return Response(status=204, data={"message": "Job post deleted"})
 
-@router.delete("{job_uid}", auth=JWTAuth())
+@router.delete("job/{job_uid}", auth=JWTAuth())
 def delete_job(request, job_uid:UUID):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
