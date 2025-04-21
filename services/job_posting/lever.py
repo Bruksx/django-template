@@ -1,4 +1,4 @@
-from services.job_posting.services.lever import API_KEY, BASE_URL, TriggerType, deploy_jobs
+from services.job_posting.services.lever import TriggerType, deploy_jobs
 
 
 class LeverJobPostingService:
