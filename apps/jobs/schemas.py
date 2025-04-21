@@ -320,6 +320,7 @@ class JobPostDetailSchema(ModelSchema):
     annual_bonus_currency: Optional[str]
     saved: Optional[bool]
     alert: Optional[bool]
+    applied: Optional[bool]
 
     class Meta:
         model = JobPost
@@ -330,6 +331,18 @@ class JobPostDetailSchema(ModelSchema):
         if obj.annual_bonus_currency:
             return obj.annual_bonus_currency.abbreviation
         return
+
+    @staticmethod
+    def resolve_applied(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return None
+        return JobApplication.objects.filter(job_post=obj, applicant=talent).exists()
 
     @staticmethod
     def resolve_alert(obj, context):
