@@ -65,7 +65,7 @@ def handle_social_login(data: SocialAuthSchema)->User:
     elif data.social_type == SocialType.LINKEDIN:
         api = LinkedInAPI()
         code = data.access_token
-        access_token = api.get_access_token(code)
+        access_token = api.get_access_token(code, data.redirected_uri)
         linkedin_profile = api.get_profile(access_token)
         auth_type = AuthType.LINKEDIN
         social_query = Q(linkedin_id=linkedin_profile.sub)
