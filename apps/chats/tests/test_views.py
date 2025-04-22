@@ -165,8 +165,7 @@ class StartConversationTest(TestCase):
             "authorization": f"bearer {self.user2.token}"
         }
         response = self.client.post(f"users/{self.user.uid}/start-conversation",
-                                    headers=headers,
-                                    json=data)
+                                    headers=headers)
         self.assertEqual(response.status_code, 200)
         conversation = Conversation.objects.create()
         conversation.users.set([self.user, self.user2])
