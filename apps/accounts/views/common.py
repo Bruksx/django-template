@@ -37,7 +37,7 @@ def talent_lists(request, search="", apply_filter=False):
             talent_filter = request.user.businessuser.talentfilter
         talents = talent_filter.get_queryset(talents)
 
-    return talents
+    return talents.order_by("-user__last_login")
 
 
 @router.get("countries", response=List[talent_schemas.CountrySchema], tags=["Common"])
@@ -126,12 +126,13 @@ def phone_number_change(request, data: common_schemas.ChangePhoneSchema):
 @transaction.atomic
 def send_otp_to_email(request, data: common_schemas.SendEmailOtpSchema):
     VerificationCode.objects.filter(expires_at__lt=timezone.now(), email=data.email).delete()
-    user = User.objects.filter(email=data.email).first()
+    user = User.objects.filter(email__iexact=data.email).first()
     if not user:
         raise HttpError(404, "An account with this email does not exist")
-    verification_code = VerificationCode(email=data.email)
-    raw_code = verification_code.save()
-    async_task(send_verification_code, email=data.email, code=raw_code, user=user.fullname, company=None)
+    VerificationCode.objects.filter(email__iexact=data.email).hard_delete()
+    verification = VerificationCode.objects.create(email=data.email)
+    verification = verification.update(code=VerificationCode.default_code())
+    async_task(send_verification_code, email=data.email, code=verification.code, user=user.fullname, company=None)
     return Response(data={"message": "please check your email address for otp code"})
 
 @router.get("industries", response=list[GenericNameAndUidSchema], tags=["Common"])

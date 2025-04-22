@@ -1,10 +1,9 @@
-from datetime import datetime
-from decimal import Decimal
+from datetime import datetime, time
 from typing import List
 from typing import Optional
 from uuid import UUID
 
-from ninja import ModelSchema
+from ninja import ModelSchema, Query
 from ninja.errors import HttpError
 from ninja.schema import Schema
 from pydantic import Field, EmailStr
@@ -12,7 +11,7 @@ from pydantic import Field, EmailStr
 from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from accounts.schemas.business import BusinessUserListSchema
-from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySchema, EducationLevelSchema, UserMiniSchema
+from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySchema, EducationLevelSchema
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, PhaseType, JobStatusType, ActionType
@@ -79,6 +78,23 @@ class MutateJobPostSchema(ModelSchema):
     class Meta:
         model = JobPost
         exclude = [*MUTATE_EXCLUDE_FIELDS, "uid", "job", "created_at", "posted_by"]
+        fields_optional = "__all__"
+
+class MutateJobPostListSchema(ModelSchema):
+    country: Optional[GenericNameAndUidSchema]
+    recruiter: Optional[BusinessUserListSchema]
+    benefits: List[str]
+    status: Optional[str]
+    annual_bonus_currency: Optional[GenericNameAndUidSchema]
+    annual_salary_currency: Optional[GenericNameAndUidSchema]
+    annual_salary_min: Optional[float]
+    annual_salary_max: Optional[float]
+    annual_bonus_min: Optional[float]
+    annual_bonus_max: Optional[float]
+
+    class Meta:
+        model = JobPost
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "created_at", "posted_by"]
         fields_optional = "__all__"
 
 class BusinessUserSchema(ModelSchema):
@@ -184,7 +200,6 @@ class CreateJobSchema(ModelSchema):
     screening_questions: List[CreateQuestionSchema]
     #department: UUID
     role: UUID
-    #qualification: Optional[UUID]
     skills: list[UUID]
     job_level: Optional[UUID]
     business_models: List[UUID]
@@ -212,7 +227,6 @@ class OptionalCreateJobSchema(ModelSchema):
     lunch_break: Optional[LunchBreakEnum] = None
     department: Optional[UUID] = None
     role: Optional[UUID] = None
-    qualification: Optional[UUID] = None
     skills: Optional[List[UUID]] = None
     job_level: Optional[UUID] = None
     business_models: Optional[List[UUID]] = None
@@ -220,12 +234,14 @@ class OptionalCreateJobSchema(ModelSchema):
     responsibilities: Optional[List[str]] = None
     min_match_score: Optional[float] = None
     required_attributes: Optional[MutateRequiredAttributeSchema] = None
+    additional_hours_start: Optional[time] = Field(None, description="format is HH:MM:SS do not attach Z")
+    additional_hours_end: Optional[time] = Field(None, description="format is HH:MM:SS  do not attach Z")
 
     class Meta:
         model = Job
         exclude = [
             *MUTATE_EXCLUDE_FIELDS, "role", "first_language", "job_level", "department",
-            "qualification", "business_models", "created_by", "employment_type", "minimum_education_level",
+             "business_models", "created_by", "employment_type", "minimum_education_level",
             "uid"
         ]
         fields_optional = "__all__"
@@ -240,7 +256,6 @@ class UpdateJobSchema(ModelSchema):
     lunch_break: Optional[LunchBreakEnum] = None
     department: Optional[UUID] = None
     role: Optional[UUID] = None
-    qualification: Optional[UUID] = None
     skills: List[Optional[UUID]] = None
     job_level: Optional[UUID] = None
     business_models: Optional[List[UUID]] = None
@@ -248,12 +263,14 @@ class UpdateJobSchema(ModelSchema):
     responsibilities: Optional[List[str]] = None
     min_match_score: Optional[float] = None
     required_attributes: Optional[MutateRequiredAttributeSchema] = None
+    additional_hours_start: Optional[time] = Field(None, description="format is HH:MM:SS do not attach Z")
+    additional_hours_end: Optional[time] = Field(None, description="format is HH:MM:SS  do not attach Z")
 
     class Meta:
         model = Job
         exclude = [
             *MUTATE_EXCLUDE_FIELDS, "role", "first_language", "job_level", "department",
-            "qualification", "business_models", "created_by", "employment_type", "minimum_education_level",
+             "business_models", "created_by", "employment_type", "minimum_education_level",
             "uid"
         ]
         fields_optional = "__all__"
@@ -311,12 +328,15 @@ class JobPostDetailSchema(ModelSchema):
     country: GenericNameAndUidSchema | None
     recruiter: Optional[BusinessUserSchema]
     benefits: List[str]
-    annual_salary_min: Optional[Decimal]
-    annual_salary_max: Optional[Decimal]
-    annual_bonus_min: Optional[Decimal]
-    annual_bonus_max: Optional[Decimal]
+    annual_salary_min: Optional[float]
+    annual_salary_max: Optional[float]
+    annual_bonus_min: Optional[float]
+    annual_bonus_max: Optional[float]
+    annual_salary_currency: Optional[str]
+    annual_bonus_currency: Optional[str]
     saved: Optional[bool]
-
+    alert: Optional[bool]
+    applied: Optional[bool]
 
     class Meta:
         model = JobPost
@@ -328,10 +348,34 @@ class JobPostDetailSchema(ModelSchema):
             return obj.annual_bonus_currency.abbreviation
         return
 
-
+    @staticmethod
+    def resolve_applied(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return None
+        return JobApplication.objects.filter(job_post=obj, applicant=talent).exists()
 
     @staticmethod
-    def resolve_saved(obj, context) -> Optional[int]:
+    def resolve_alert(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return
+        if not hasattr(talent, "jobalert"):
+            return False
+        return talent.jobalert.jobs.filter(id=obj.job_id).exists()
+
+    @staticmethod
+    def resolve_saved(obj, context):
         request = context.get("request")
         if not request:
             return
@@ -372,8 +416,8 @@ class JobDetailSchema(ModelSchema):
     business_models: List[GenericNameAndUidSchema]
     minimum_education_level: Optional[EducationLevelSchema]
     availability: List[JobAvailabilitySchema]
-    qualification: Optional[GenericNameAndUidSchema]
     first_language: Optional[GenericNameAndUidSchema]
+    additional_languages: List[GenericNameAndUidSchema]
     required_attribute: Optional[RequiredAttributeSchema]
 
 
@@ -382,7 +426,8 @@ class JobDetailSchema(ModelSchema):
         fields = [
             "title", "hiring_company_name", "hiring_company_description", "about", "years_of_experience",
             "technological_requirement", "work_structure", "office_address","lunch_break", "lunch_break_time",
-            "additional_hours_start", "additional_hours_end", "flexible_availability"
+            "additional_hours_start", "additional_hours_end", "flexible_availability", "qualification",
+            "availability_timezone", "additional_hours_description"
         ]
     
     @staticmethod
@@ -402,6 +447,7 @@ class JobDetailSchema(ModelSchema):
         if not hasattr(obj, "requiredattribute"):
             return None
         return obj.requiredattribute
+
 
 
 class JobMatchSchema(Schema):
@@ -429,6 +475,9 @@ class JobPostListSchema(ModelSchema):
     annual_salary_max: Optional[float] = None
     annual_bonus_min: Optional[float] = None
     annual_bonus_max: Optional[float] = None
+    alert: Optional[bool] = None
+    applied: Optional[bool]= None
+    saved: Optional[bool] = None
 
 
     class Meta:
@@ -441,6 +490,44 @@ class JobPostListSchema(ModelSchema):
         if not obj.job.role:
             return None
         return obj.job.role.name
+
+    @staticmethod
+    def resolve_applied(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return None
+        return JobApplication.objects.filter(job_post=obj, applicant=talent).exists()
+
+    @staticmethod
+    def resolve_saved(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return None
+        return talent.savedjob_set.filter(job_post=obj).exists()
+
+    @staticmethod
+    def resolve_alert(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return
+        if not hasattr(talent, "jobalert"):
+            return False
+        return talent.jobalert.jobs.filter(id=obj.job_id).exists()
 
     @staticmethod
     def resolve_applicants(obj):
@@ -506,6 +593,14 @@ class JobFullListSchema(ModelSchema):
             return obj.created_by.user.fullname
         return None
 
+
+class FullJobDetailSchema(JobDetailSchema, JobFullListSchema):
+    job_posts: List[MutateJobPostListSchema]
+    @staticmethod
+    def resolve_role(obj):
+        if not obj.role:
+            return None
+        return obj.role
 
 class JobListPaginatedSchema(PaginatedResponseSchema[JobFullListSchema]):
     roles: int
@@ -586,7 +681,8 @@ class JobPostFullDetailSchema(ModelSchema):
     country: GenericNameAndUidSchema
     recruiter: Optional[BusinessUserSchema]
     posted_by: Optional[BusinessUserSchema]
-    saved: Optional[bool]
+    saved: Optional[bool] = None
+    alert: Optional[bool] = None
 
 
     class Meta:
@@ -595,7 +691,7 @@ class JobPostFullDetailSchema(ModelSchema):
                   "province", "postal_code"]
 
     @staticmethod
-    def resolve_saved(obj, context) -> Optional[int]:
+    def resolve_saved(obj, context):
         request = context.get("request")
         if not request:
             return
@@ -605,6 +701,20 @@ class JobPostFullDetailSchema(ModelSchema):
         if not talent:
             return
         return talent.savedjob_set.filter(job_post=obj).exists()
+
+    @staticmethod
+    def resolve_alert(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return
+        if not hasattr(talent, "jobalert"):
+            return False
+        return talent.jobalert.jobs.filter(id=obj.job_id).exists()
 
 
 
@@ -654,7 +764,8 @@ class TalentJobPostListSchema(ModelSchema):
     annual_salary_currency: Optional[str]
     job: JobDetailSchema
     applied: bool
-    saved: bool
+    saved: Optional[bool]
+    alert: Optional[bool]
     country: GenericNameAndUidSchema
     strength: Optional[JobMatchSchema]
     weakness: Optional[JobMatchSchema]
@@ -676,13 +787,27 @@ class TalentJobPostListSchema(ModelSchema):
         return
 
     @staticmethod
+    def resolve_alert(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return
+        if not hasattr(talent, "jobalert"):
+            return False
+        return talent.jobalert.jobs.filter(id=obj.job_id).exists()
+
+    @staticmethod
     def resolve_annual_salary_currency(obj):
         if obj.annual_salary_currency:
             return obj.annual_salary_currency.abbreviation
         return
 
     @staticmethod
-    def resolve_saved(obj, context)->Optional[int]:
+    def resolve_saved(obj, context):
         request = context.get("request")
         talent = request.context.get("talent")
         if not talent:
@@ -746,6 +871,26 @@ class TalentJobPostSchema(JobPostListSchema):
     strength: Optional[JobMatchSchema] = None
     weakness: Optional[JobMatchSchema] = None
     non_negotiable: JobMatchSchema
+    application_uid: Optional[UUID]
+    stage: Optional[StageSchema]
+
+    @staticmethod
+    def resolve_application_uid(obj, context):
+        request = context.get("request")
+        talent = request.context.get("talent")
+        if not talent:
+            return None
+        application = JobApplication.objects.filter(job_post=obj, applicant=talent).only("uid").first()
+        return application.uid if application else None
+
+    @staticmethod
+    def resolve_stage(obj, context):
+        request = context.get("request")
+        talent = request.context.get("talent")
+        if not talent:
+            return None
+        application = JobApplication.objects.filter(job_post=obj, applicant=talent).only("stage").first()
+        return application.stage if application else None
 
     @staticmethod
     def resolve_strength(obj, context):
@@ -754,6 +899,7 @@ class TalentJobPostSchema(JobPostListSchema):
         if not talent:
             return None
         return obj.strength(talent)
+
 
     @staticmethod
     def resolve_weakness(obj, context):
@@ -764,10 +910,11 @@ class TalentJobPostSchema(JobPostListSchema):
         return obj.weakness(talent)
 
 class MutateTalentJobFilterSchema(ModelSchema):
-    location_type:WorkStructureEnum
+    location_type:Optional[WorkStructureEnum]
     office_location: Optional[UUID]
     employment_type: Optional[UUID]
     department: Optional[UUID]
+    job_level: Optional[UUID]
     minimum_education_level: Optional[UUID]
 
     class Meta:
@@ -780,6 +927,7 @@ class TalentJobFilterSchema(ModelSchema):
     office_location: Optional[CountrySchema]
     employment_type: Optional[EmploymentTypeSchema]
     department: Optional[DepartmentSchema]
+    job_level: Optional[JobLevelSchema]
     minimum_education_level: Optional[EducationLevelSchema]
 
     class Meta:
@@ -843,3 +991,10 @@ class BusinessUserJobSchema(ModelSchema):
         model = Job
         fields = ["uid", "title"]
 
+class JobPostFilterSchema(Schema):
+    search: Optional[str] = None
+    sort_by: Optional[str] = Query(None, title="sort_by",
+                                   example="date-posted",
+            description="it can take comma separated values. "
+                        "e.g sort_by=date-posted,job_level. use append - for desc order. "
+                        "e.g sort_by=-date-posted,job_level etc.")

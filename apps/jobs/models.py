@@ -7,6 +7,8 @@ from accounts.models import Talent, TalentAvailableDay
 from core.models import BaseModel, Language
 from jobs.managers import JobManager
 from settings.enums import PlaceHolderType
+
+from monkeypatches.q_cluster import async_task
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
     JobStatusType
 
@@ -26,14 +28,6 @@ class JobLevel(BaseModel):
 
     def __str__(self) -> str:
         return self.name
-    
-
-class Qualification(BaseModel):
-    name = models.CharField(max_length=64)
-
-    def __str__(self) -> str:
-        return self.name
-
 
 class AvailableDay(BaseModel):
     job = models.ForeignKey("Job", on_delete=models.CASCADE)
@@ -60,7 +54,7 @@ class Job(BaseModel):
     minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
     business_models = models.ManyToManyField("BusinessModel", blank=True)
     job_level = models.ForeignKey(JobLevel, on_delete=models.SET_NULL, null=True)
-    qualification = models.ForeignKey(Qualification, on_delete=models.SET_NULL, null=True, blank=True)
+    qualification = models.TextField(null=True, blank=True)
     work_structure = models.CharField(choices=WorkStructureEnum.choices(), null=True, blank=True)
     first_language = models.ForeignKey(Language, on_delete=models.SET_NULL, null=True)
     additional_languages = models.ManyToManyField(Language, related_name="jobs")
@@ -99,6 +93,11 @@ class Job(BaseModel):
             })
         return data
 
+    def send_alerts(self):
+        async_task(JobAlert.send_alerts,self)
+        return
+
+
     @property
     def required_keys(self):
         if not hasattr(self, "requiredattribute"):
@@ -107,9 +106,14 @@ class Job(BaseModel):
         data = []
         for attribute in self.required_attributes_keys:
             value = getattr(attributes, attribute)
-            if value:
-                data.append(attribute)
+            if attribute in ("skills", "business_models"):
+                if value.count() > 0:
+                    data.append(attribute)
+            else:
+                if value is True:
+                    data.append(attribute)
         return data
+
 
     @property
     def non_required_keys(self):
@@ -119,8 +123,12 @@ class Job(BaseModel):
         data = []
         for attribute in self.required_attributes_keys:
             value = getattr(attributes, attribute)
-            if not value:
-                data.append(attribute)
+            if attribute in ("skills", "business_models"):
+                if value.count() == 0:
+                    data.append(attribute)
+            else:
+                if value is False:
+                    data.append(attribute)
         return data
 
 
@@ -218,6 +226,7 @@ class JobPost(BaseModel):
         related_name="posted_by",
         blank=True
     )
+
 
 
     def __str__(self) -> str:
@@ -337,7 +346,7 @@ class JobPost(BaseModel):
                     score -= 1
                     skills = attributes.skills.all()
                 if (skill_count == 0 and weak is True) or (skill_count > 0 and weak is False):
-                    data["skills"]= skills  if skills.count() > 0 else None
+                    data["skills"]= RequiredAttribute.format_skills_under_category(skills)  if skills.count() > 0 else None
             elif attribute == "business_models":
                 business_models = attributes.business_models.intersection(talent.business_models.all())
                 bm_count = business_models.count()
@@ -452,7 +461,7 @@ class JobPost(BaseModel):
         for attribute in non_negotiables:
             if attribute == "skills":
                 if attributes.skills.count() > 0:
-                    data["skills"] = attributes.skills.all()
+                    data["skills"] = RequiredAttribute.format_skills_under_category(attributes.skills.all())
             elif attribute == "business_models":
                 if attributes.business_models.count() > 0:
                     data["business_models"] = attributes.business_models.all() if attributes.business_models.count() > 0 else None
@@ -598,18 +607,19 @@ class JobDraft(BaseModel):
 class JobFilter(BaseModel):
     talent = models.OneToOneField("accounts.Talent", on_delete=models.CASCADE, null=True)
     role = models.CharField(max_length=100, default="", blank=True)
-    years_of_experience = models.PositiveSmallIntegerField(default=1)
+    years_of_experience = models.PositiveSmallIntegerField(default=1, null=True)
     office_location = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     department = models.ForeignKey("accounts.Department", on_delete=models.SET_NULL, null=True)
     minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
-    location_type = models.CharField(choices=WorkStructureEnum.choices(), default=WorkStructureEnum.IN_OFFICE.value)
+    job_level = models.ForeignKey(JobLevel, on_delete=models.SET_NULL, null=True)
+    location_type = models.CharField(choices=WorkStructureEnum.choices(), default=WorkStructureEnum.IN_OFFICE.value, null=True)
     remove_applied_jobs = models.BooleanField(default=False)
 
 
     def get_queryset(self, queryset):
         # queryset for job posts
-        if self.years_of_experience > 0:
+        if self.years_of_experience and self.years_of_experience > 0:
             queryset = queryset.filter(job__years_of_experience=self.years_of_experience)
         if self.office_location:
             queryset = queryset.filter(country=self.office_location)
@@ -619,6 +629,8 @@ class JobFilter(BaseModel):
             queryset = queryset.filter(job__department=self.department)
         if self.minimum_education_level:
             queryset = queryset.filter(job__minimum_education_level=self.minimum_education_level)
+        if self.job_level:
+            queryset = queryset.filter(job__job_level=self.job_level)
         if self.location_type:
             queryset = queryset.filter(job__work_structure=self.location_type)
         if self.remove_applied_jobs:
@@ -690,7 +702,8 @@ class RequiredAttribute(BaseModel):
             score += 1
         return score
 
-    def get_skills(self):
+    @staticmethod
+    def format_skills_under_category(skills):
         from jobs.schemas import SkillSchema, JobSkillSchema
         from accounts.models import SkillCategory
         categories = SkillCategory.objects.only("id", "name")
@@ -698,9 +711,12 @@ class RequiredAttribute(BaseModel):
         for category in categories:
             data.append(JobSkillSchema(
                 category=category.name,
-                skills=[SkillSchema.from_orm(skill) for skill in self.skills.filter(category_id=category.id)]
+                skills=[SkillSchema.from_orm(skill) for skill in skills.filter(category_id=category.id)]
             ))
         return data
+
+    def get_skills(self):
+        return self.format_skills_under_category(self.skills)
 
 
 class JobApplicationWithdrawal(BaseModel):
@@ -739,3 +755,31 @@ class BusinessModel(BaseModel):
 
     def __str__(self) -> str:
         return self.name
+
+
+class JobAlert(BaseModel):
+    talent = models.OneToOneField(Talent, on_delete=models.CASCADE)
+    jobs = models.ManyToManyField(Job)
+
+
+
+    @classmethod
+    def send_alerts(cls, job):
+        from notification.notifications import send_job_alert_notification
+        user_ids = (cls.objects.filter(
+            Q(jobs__employment_type=job.employment_type)|
+            Q(jobs__years_of_experience=job.years_of_experience)|
+            Q(jobs__minimum_education_level=job.minimum_education_level)|
+            Q(jobs__job_level=job.job_level)|
+            Q(jobs__first_language=job.first_language)|
+            Q(jobs__flexible_availability=job.flexible_availability)|
+            Q(jobs__department=job.department)|
+            Q(jobs__role=job.role)|
+            Q(jobs__min_match_score = job.min_match_score)|
+            Q(jobs__skills__id__in=job.skills.all().values_list("id", flat=True))|
+            Q(jobs__business_models__id__in=job.business_models.all().values_list("id", flat=True)))
+         .distinct("talent__user_id").values_list("talent__user_id", flat=True))
+        send_job_alert_notification(job, user_ids)
+        return
+
+

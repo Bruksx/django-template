@@ -16,7 +16,7 @@ from jobs.business_views import router
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
-    Qualification, BusinessModel
+    BusinessModel
 )
 
 
@@ -431,7 +431,7 @@ class JobCreationTest(TestCase):
             email="testuser@example.com",
             password="securepassword",
         )
-        self.qualification = Qualification.objects.create(name="Bachelor's degree")
+        self.qualification = "Bachelor's degree"
         self.recruiter_business_user = BusinessUser.objects.create(
             user=self.recruiter,
             business=self.business,
@@ -445,10 +445,10 @@ class JobCreationTest(TestCase):
         self.country2 = Country.objects.order_by("?").first()  # random ordering
         self.currency1 = Currency.objects.order_by("?").first()
         self.currency2 = Currency.objects.order_by("?").first()
-        self.test_data = data = {
+        self.test_data = {
             "title": "EcoTech Manager",
             "employment_type": str(self.employment_type.uid),
-            "qualification": str(self.qualification.uid),
+            "qualification": self.qualification,
             "availability": [
                 {
                     "day": "Monday",
@@ -1602,6 +1602,7 @@ class JobPostBulkUpdateTest(TestCase):
         }
         self.test_data["action"] = ActionType.CLOSED.value
         response = self.client.patch(self.url, json=self.test_data, headers=headers)
+        print("response: ", response.json())
         self.assertEqual(response.status_code, 200)
         self.assertEqual(JobPost.objects.filter(status=ActionType.CLOSED.value).count(), 5)
 
@@ -1623,9 +1624,7 @@ class JobPostBulkUpdateTest(TestCase):
         self.test_data["action"] = ActionType.DELETE.value
         response = self.client.patch(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 200)
-        # It didn't delete any of the jobs above because  it doesn't belong to the business user
         self.assertEqual(JobPost.objects.count(), 5)
-
 
     def test_by_talent(self):
         talent = TalentFactory()
@@ -1635,4 +1634,3 @@ class JobPostBulkUpdateTest(TestCase):
         self.test_data["action"] = ActionType.DELETE.value
         response = self.client.patch(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 403)
-

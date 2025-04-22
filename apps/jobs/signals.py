@@ -6,6 +6,8 @@ from jobs.enums import PhaseType, JobStatusType
 from jobs.models import JobApplication, JobPost, JobPostMetrics, RequiredAttribute, Job
 from notification import notifications
 
+from monkeypatches.q_cluster import async_task
+
 
 @receiver(pre_save, sender=JobApplication)
 def handle_phase_timeline_update(sender, instance,  **kwargs):
@@ -163,9 +165,14 @@ def handle_stage_timeline_update(sender, instance,  **kwargs):
 
 
 @receiver(post_save, sender=JobPost)
-def handle_job_post_metric(sender, instance, created, **kwargs):
+def handle_new_job_post(sender, instance, created, **kwargs):
     if created:
         JobPostMetrics.objects.create(job_post=instance)
+
+@receiver(post_save, sender=Job)
+def handle_new_job(sender, instance, created, **kwargs):
+    if created:
+        async_task(instance.send_alerts)
 
 @receiver(pre_save, sender=JobPost)
 def handle_job_post_date(sender, instance, **kwargs):

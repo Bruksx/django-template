@@ -7,7 +7,7 @@ import uuid
 from datetime import timezone
 from io import BytesIO
 from sys import getsizeof
-from typing import Optional
+from typing import Optional, List
 
 import boto3
 import pdfkit
@@ -265,3 +265,14 @@ def datetime_to_epoch_milliseconds(dt)->int:
     dt = dt.astimezone(timezone.utc)
 
   return int(dt.timestamp() * 1000)
+
+
+def sort_params_function(sorts:List[str], mapper:dict[str, str])->List[str]:
+    sort_values = list()
+    for sort in sorts:
+        sort_sign = "-" if sort.startswith("-") else ""
+        sort = sort[1:] if sort.startswith("-") else sort
+        sort_value = mapper.get(sort)
+        if sort_value:
+            sort_values.append(f"{sort_sign}{sort_value}")
+    return sort_values

@@ -1,6 +1,8 @@
+from datetime import datetime, time
 from typing import Literal, Optional, List
 from uuid import UUID
 
+import pytz
 from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
@@ -21,7 +23,7 @@ from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication, AvailableDay,
-    ScreeningQuestion, QuestionOption, Answer, Qualification
+    ScreeningQuestion, QuestionOption, Answer
 )
 from .schemas import (
     EmploymentTypeSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
@@ -62,13 +64,6 @@ def get_roles(request, search=""):
 @router.get("job-levels", response=list[JobLevelSchema], tags=["Common"])
 def get_job_levels(request, search=""):
     queryset = JobLevel.objects.all()
-    if search:
-        queryset = queryset.filter(name__icontains=search)
-    return queryset
-
-@router.get("qualifications", response=list[JobLevelSchema], tags=["Common"])
-def get_qualififcations(request, search=""):
-    queryset = Qualification.objects.all()
     if search:
         queryset = queryset.filter(name__icontains=search)
     return queryset
@@ -131,8 +126,22 @@ def delete_job_post(request, job_post_uid:UUID):
     job_post =  JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business_user.business).first()
     if not job_post:
         raise HttpError(404, "This job post does not exist")
+    if job_post.jobapplication_set.count() > 0:
+        raise HttpError(400, "Some job applications are tied to this job post")
     job_post.delete()
     return Response(status=204, data={"message": "Job post deleted"})
+
+@router.delete("job/{job_uid}", auth=JWTAuth())
+def delete_job(request, job_uid:UUID):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    job =  Job.objects.filter(uid=job_uid, created_by__business=business_user.business).first()
+    if not job:
+        raise HttpError(404, "This job does not exist")
+    if JobApplication.objects.filter(job_post__job=job).exists():
+        raise HttpError(400, "Some job applications are tied to this job")
+    job.delete()
+    return Response(status=204, data={"message": "Job deleted"})
 
 @router.patch("job-post/{job_post_uid}", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
 @transaction.atomic
@@ -216,7 +225,7 @@ def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
         )
     talents = job_post.get_talents()
     send_talents_job_matching_notification(talents.count(), job_post)
-    return talents.filter(query)
+    return talents.filter(query).order_by("-user__last_login")
 
 @router.post("", response=JobDetailSchema, auth=JWTAuth())
 @transaction.atomic
@@ -269,6 +278,7 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
             AvailableDay.objects.create(**available_day, job=job)
     if data.get("logo"):
         data["logo"] = convert_base64_to_image_file(data["logo"])
+
 
     for job_post in job_posts:
         job_post["status"] = job_post["status"].value if job_post.get("status") else JobStatusType.DRAFT.value
@@ -350,18 +360,18 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
 
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(
-        queryset=queryset,
+        queryset=queryset.order_by("-created_at"),
         request=request,
         pagination=pagination,
         roles=queryset.count(),
         posts=business_user.business.job_posts().filter(job__in=queryset).count()
     )
 
-@router.get("{job_uid}", response=job_schemas.JobDetailSchema, auth=JWTAuth())
+@router.get("{job_uid}", response=job_schemas.FullJobDetailSchema, auth=JWTAuth())
 def job_detail(request, job_uid:UUID):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    job = Job.objects.filter(created_by__business=business_user.business, uid=job_uid).first()
+    job = Job.objects.prefetch_related("jobpost_set").filter(created_by__business=business_user.business, uid=job_uid).first()
     if not job:
         raise HttpError(404, "This job does not exist")
     return job

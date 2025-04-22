@@ -2,9 +2,9 @@ from enum import Enum
 
 import requests
 
-from apps.accounts.models import Business
-from apps.jobs.enums import JobStatusType, WorkStructureEnum
-from apps.jobs.models import JobPost, Job
+from accounts.models import Business
+from jobs.enums import JobStatusType, WorkStructureEnum
+from jobs.models import JobPost, Job
 from helpers.loggers import Logger, LogSchema
 
 BASE_URL = "https://api.lever.co/v1"

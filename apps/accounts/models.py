@@ -218,7 +218,7 @@ class Talent(BaseModel):
     facebook = models.URLField(null=True)
     twitter_x = models.URLField(null=True)
     cv = models.FileField(upload_to="cvs")
-    photo = models.ImageField(upload_to="talents")
+    photo = models.ImageField(upload_to="talents", null=True)
     notice_period_type = models.CharField(max_length=50, choices=NoticePeriodType.choices(),
                                           default=NoticePeriodType.MONTH.value)
     native_language = models.ForeignKey("core.Language", on_delete=models.SET_NULL, null=True,
