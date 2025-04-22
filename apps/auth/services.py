@@ -13,9 +13,8 @@ from monkeypatches.q_cluster import async_task
 from services.auth.schema import ProfileSchema
 from services.auth.facebook import facebook_client
 
-from accounts.enums import UserType, AuthType, SocialType
-from accounts.models import BusinessUser, VerificationCode
-from accounts.models import User, Talent
+from accounts.enums import UserType, AuthType, SocialType, BusinessUserRoleType
+from accounts.models import BusinessUser, VerificationCode, User, Talent, Business
 from auth.enums import AuthActionEnum
 
 from .client import LinkedInAPI
@@ -69,10 +68,11 @@ def handle_social_login(data: SocialAuthSchema)->User:
         access_token = api.get_access_token(code)
         linkedin_profile = api.get_profile(access_token)
         auth_type = AuthType.LINKEDIN
-        social_query = Q(linkedin_id=linkedin_profile.id)
-        profile_dict["linkedin_id"] = linkedin_profile.id
-        profile_dict["first_name"] = linkedin_profile.firstName
-        profile_dict["last_name"] = linkedin_profile.lastName
+        social_query = Q(linkedin_id=linkedin_profile.sub)
+        profile_dict["linkedin_id"] = linkedin_profile.sub
+        profile_dict["first_name"] = linkedin_profile.given_name
+        profile_dict["last_name"] = linkedin_profile.family_name
+        profile_dict["email"] = linkedin_profile.email
 
     elif data.social_type == SocialType.FACEBOOK:
         auth_type = AuthType.FACEBOOK
@@ -104,5 +104,6 @@ def handle_social_login(data: SocialAuthSchema)->User:
     if data.user_type == UserType.TALENT:
         Talent.objects.create(user=user)
     elif data.user_type == UserType.BUSINESS:
-        BusinessUser.objects.create(user=user)
+        business = Business.objects.create(created_by=user)
+        BusinessUser.objects.create(user=user, role=BusinessUserRoleType.OWNER.value, business=business)
     return user

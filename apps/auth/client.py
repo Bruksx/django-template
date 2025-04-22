@@ -1,12 +1,12 @@
 import requests
 from config.settings import LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, LINKEDIN_REDIRECT_URI
-from .schema import LinkedInProfile
+from .schema import LinkedInProfile, LinkedinOAuthTokenResponse
 from dacite import from_dict
 
 
 class LinkedInAPI:
     AUTH_URL = "https://www.linkedin.com/oauth/v2/accessToken"
-    PROFILE_URL = "https://api.linkedin.com/v2/me"
+    PROFILE_URL = "https://api.linkedin.com/v2/userinfo"
     EMAIL_URL = "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))"
 
     def __init__(self):
@@ -24,6 +24,7 @@ class LinkedInAPI:
             "client_secret": self.client_secret,
         }
         response = requests.post(self.AUTH_URL, data=data)
+        print(response.json())
         response.raise_for_status()
         return response.json().get("access_token")
 
@@ -31,6 +32,7 @@ class LinkedInAPI:
         """Fetch basic profile data"""
         headers = {"Authorization": f"Bearer {access_token}"}
         response = requests.get(self.PROFILE_URL, headers=headers)
+        print(response.json())
         response.raise_for_status()
         return from_dict(LinkedInProfile, response.json())
 
