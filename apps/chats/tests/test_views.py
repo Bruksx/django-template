@@ -98,34 +98,25 @@ class StartConversationTest(TestCase):
         headers = {
             "authorization": f"bearer {self.user2.token}"
         }
-        data = {
-            "body": "Test Body"
-        }
         conversation = Conversation.objects.filter(users__id=self.user2.id).filter(users__id=self.user2.id).first()
         self.assertIsNone(conversation)
 
         response = self.client.post(f"users/{self.user.uid}/start-conversation",
-                                    headers=headers,
-                                    json=data)
+                                    headers=headers)
         self.assertEqual(response.status_code, 200)
 
         conversation = Conversation.objects.filter(users__id=self.user2.id).filter(users__id=self.user2.id).first()
         self.assertIsNotNone(conversation)
-        self.assertEqual(conversation.message_set.count(), 1)
 
     def test_start_conversation_with_self(self):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        data = {
-            "body": "Test Body"
-        }
         conversation = Conversation.objects.filter(users__id=self.user.id).filter(users__id=self.user.id).first()
         self.assertIsNone(conversation)
 
         response = self.client.post(f"users/{self.user.uid}/start-conversation",
-                                    headers=headers,
-                                    json=data)
+                                    headers=headers)
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.data["detail"], "Not allowed")
 
@@ -133,15 +124,11 @@ class StartConversationTest(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        data = {
-            "body": "Test Body"
-        }
         conversation = Conversation.objects.filter(users__id=self.user.id).filter(users__id=self.user2.id).first()
         self.assertIsNone(conversation)
 
         response = self.client.post(f"users/{UUID('00000000-0000-0000-0000-000000000000')}/start-conversation",
-                                    headers=headers,
-                                    json=data)
+                                    headers=headers)
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.data["detail"], "User not found")
 
@@ -149,17 +136,13 @@ class StartConversationTest(TestCase):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        data = {
-            "body": "Test Body"
-        }
         user = User.objects.create_user(email='testuser3@mail.com', password='testpass',
                                              is_active=True, email_verified=True)
 
         Talent.objects.create(user=user)
 
         response = self.client.post(f"users/{user.uid}/start-conversation",
-                                    headers=headers,
-                                    json=data)
+                                    headers=headers)
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.data["detail"], "Not allowed")
 
@@ -167,26 +150,19 @@ class StartConversationTest(TestCase):
         headers = {
             "authorization": f"bearer {self.user2.token}"
         }
-        data = {
-            "body": "Test Body"
-        }
         user = User.objects.create_user(email='testuser4@mail.com', password='testpass',
                                              is_active=True, email_verified=True)
 
         BusinessUser.objects.create(user=user, business=self.business)
 
         response = self.client.post(f"users/{user.uid}/start-conversation",
-                                    headers=headers,
-                                    json=data)
+                                    headers=headers)
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.data["detail"], "Not allowed")
 
     def test_existing_conversation(self):
         headers = {
             "authorization": f"bearer {self.user2.token}"
-        }
-        data = {
-            "body": "Test Body"
         }
         response = self.client.post(f"users/{self.user.uid}/start-conversation",
                                     headers=headers,
@@ -196,8 +172,7 @@ class StartConversationTest(TestCase):
         conversation.users.set([self.user, self.user2])
         conversation.save()
         response = self.client.post(f"users/{self.user.uid}/start-conversation",
-                                    headers=headers,
-                                    json=data)
+                                    headers=headers)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["detail"], "Conversation already exists")
 

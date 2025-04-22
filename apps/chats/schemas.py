@@ -145,7 +145,7 @@ class MutateChatAttachmentSchema(Schema):
 
 class MutateChatMessageSchema(Schema):
     job_post: Optional[UUID] = None
-    body: str
+    body: Optional[str] = None
 
 
 class ResponseSchema(Schema):
