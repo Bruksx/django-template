@@ -1,29 +1,25 @@
 from typing import List
 from uuid import UUID
 
+from config.permissions import IsBusinessUser
+from django.db import transaction
+from django.db.models import Q, F
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
+from ninja import Router, UploadedFile, Form
+from ninja.errors import HttpError
+from ninja_extra.pagination import paginate
+from ninja_jwt.authentication import JWTAuth
+
 from accounts.enums import UserType
 from accounts.models import User
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, Conversation, MessageAttachment
-from chats.schemas import ChatListSchema, ChatMessageSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema, \
+from chats.schemas import ChatListSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema, \
     ChatMessagePaginatedSchema, ChatMessageRequestSchema, ChatMessageResponseSchema, ChatMessageErrorSchema
-from django.db import transaction
-from django.db.models import Q, F
-from ninja import Router, PatchDict, UploadedFile, Form
-from ninja.errors import HttpError
-
-from notification.notifications import send_new_chat_notification
-
-from config.permissions import IsBusinessUser
-from monkeypatches.response import Response
-from ninja_extra.pagination import paginate
-from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
-from paginations import CustomPaginatedResponseSchema as  PaginatedResponseSchema
-from ninja_jwt.authentication import JWTAuth
-
-from monkeypatches.q_cluster import async_task
-
 from jobs.business_views import pagination_class
+from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
 # Create your views here.
 router = Router(tags=["Chats"])
