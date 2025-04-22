@@ -87,7 +87,7 @@ def html_to_pdf3(source_html):
 
 def delete_s3_item(key):
     from boto3.session import Session
-    if settings.USE_AWS_S3 == False:
+    if not settings.USE_AWS_S3:
         return
     try:
         session = Session(
@@ -100,12 +100,12 @@ def delete_s3_item(key):
         Logger.error(msg=dict(sender="Helper Utils", title="AWS DELETE Error", description=str(e)), exc_info=True)
 
 def upload_to_s3(files, folder_name):
-    if settings.USE_AWS_S3 == False:
+    if not settings.USE_AWS_S3:
         return
     if not isinstance(files, list):
         files = [files]
     bucket_name = settings.AWS_STORAGE_BUCKET_NAME
-    region = settings.AWS_REGION
+    region = settings.AWS_S3_REGION_NAME
     s3_client = boto3.client(
         "s3",
         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
