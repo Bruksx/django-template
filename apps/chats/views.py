@@ -1,27 +1,25 @@
 from typing import List
 from uuid import UUID
 
+from config.permissions import IsBusinessUser
+from django.db import transaction
+from django.db.models import Q, F
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
+from ninja import Router, UploadedFile, Form
+from ninja.errors import HttpError
+from ninja_extra.pagination import paginate
+from ninja_jwt.authentication import JWTAuth
+
 from accounts.enums import UserType
 from accounts.models import User
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, Conversation, MessageAttachment
-from chats.schemas import ChatListSchema, ChatMessageSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema, \
+from chats.schemas import ChatListSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema, \
     ChatMessagePaginatedSchema, ChatMessageRequestSchema, ChatMessageResponseSchema, ChatMessageErrorSchema
-from django.db import transaction
-from django.db.models import Q, F
-from ninja import Router, PatchDict, UploadedFile, Form
-from ninja.errors import HttpError
-
-from notification.notifications import send_new_chat_notification
-from monkeypatches.response import Response
-from ninja_extra.pagination import paginate
-from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
-from paginations import CustomPaginatedResponseSchema as  PaginatedResponseSchema
-from ninja_jwt.authentication import JWTAuth
-
-from monkeypatches.q_cluster import async_task
-
 from jobs.business_views import pagination_class
+from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
 # Create your views here.
 router = Router(tags=["Chats"])
@@ -103,9 +101,26 @@ def create_chat_message(request, conversation_uid:UUID,
         MessageAttachment.objects.bulk_create(message_attachments)
     return Response(status=200, data={"message": "Message sent successfully"})
 
-@router.post("users/{user_id}/start-conversation", auth=JWTAuth(), response={200: ResponseSchema})
+
+@router.post("{conversation_uid}/lock", auth=JWTAuth(), response={200: ChatListSchema})
 @transaction.atomic
-def start_conversation(request, user_id:UUID, data: PatchDict[MutateChatMessageSchema]):
+def lock_conversation(request, conversation_uid:UUID, lock:bool=True):
+    IsBusinessUser.check(request)
+    conversation = Conversation.objects.filter(uid=conversation_uid).first()
+    if not conversation:
+        raise HttpError(404, "This conversation does not exist")
+    if not conversation.users.filter(id=request.user.id).exists():
+        raise HttpError(403, "You are not a member of this conversation")
+    conversation.locked = lock
+    conversation.save()
+    return conversation
+
+
+
+@router.post("users/{user_id}/start-conversation", auth=JWTAuth(), response={200: ChatListSchema})
+@transaction.atomic
+def start_conversation(request, user_id:UUID):
+    from notification.notifications import send_new_chat_notification
     user = request.user
     if user.id == user_id:
         raise HttpError(403, "Not allowed")
@@ -127,14 +142,8 @@ def start_conversation(request, user_id:UUID, data: PatchDict[MutateChatMessageS
     conversation = Conversation.objects.create()
     conversation.users.add(user, recipient)
     conversation.save()
-    attachments = data.pop("attachments", [])
-    message = Message.objects.create(conversation=conversation, sender=user, **data)
-    MessageAttachment.objects.bulk_create([
-        MessageAttachment(message=message, file=attachment["file"], file_type=attachment["file_type"].value) for
-        attachment in attachments
-    ])
-    async_task(message.handle_post_save, notify=True)
-    return Response(status=200, data={"message": "conversation started successfully"})
+    async_task(send_new_chat_notification,conversation)
+    return conversation
 
 
 @ws_router.post('ws/chats/{conversation_uid}/', response={200: ChatMessageResponseSchema, 400: ChatMessageErrorSchema,
