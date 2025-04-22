@@ -3,6 +3,7 @@ from uuid import UUID
 
 from config.permissions import IsTalentUser, IsBusinessUser
 from django.db import transaction
+from django.db.models import Q
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from ninja import Router, PatchDict, UploadedFile
@@ -76,7 +77,7 @@ def job_posts_by_talent_country(request, filters:JobPostFilterSchema = Query(...
     request.context = {"talent": talent}
     queryset = JobPost.objects.filter(country=talent.country, status=JobStatusType.POSTED.value)
     if filters.search:
-        queryset = queryset.filter(job__title__icontains=filters.search)
+        queryset = queryset.filter(Q(job__title__icontains=filters.search)|Q(job__role__name__icontains=filters.search))
     if hasattr(talent, "jobfilter"):
         queryset = talent.jobfilter.get_queryset(queryset)
     if filters.sort_by:
