@@ -367,11 +367,11 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
         posts=business_user.business.job_posts().filter(job__in=queryset).count()
     )
 
-@router.get("{job_uid}", response=job_schemas.JobDetailSchema, auth=JWTAuth())
+@router.get("{job_uid}", response=job_schemas.FullJobDetailSchema, auth=JWTAuth())
 def job_detail(request, job_uid:UUID):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    job = Job.objects.filter(created_by__business=business_user.business, uid=job_uid).first()
+    job = Job.objects.prefetch_related("jobpost_set").filter(created_by__business=business_user.business, uid=job_uid).first()
     if not job:
         raise HttpError(404, "This job does not exist")
     return job
