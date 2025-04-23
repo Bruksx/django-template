@@ -1,5 +1,6 @@
 from django.conf import settings
 
+from accounts.models import BusinessUser
 from jobs.enums import WorkStructureEnum
 from jobs.models import JobPost, Job
 
@@ -41,6 +42,7 @@ def get_job_type(job_post: JobPost):
 
 def convert_job_object_to_job(job_post:JobPost):
     job:Job = job_post.job
+    business_user: BusinessUser = job_post.job.created_by
     return {
         "sourcePostingId": job_post.indeed_id,
         "body": {
@@ -56,7 +58,8 @@ def convert_job_object_to_job(job_post:JobPost):
               "maximumMinor": job_post.annual_salary_max,
               "minimumMinor": job_post.annual_salary_min,
               "period": "MONTH"
-            }
+            },
+            "hasProbationaryPeriod": "UNKNOWN"
         },
         "metadata": {
             "jobSource": {
@@ -72,7 +75,17 @@ def convert_job_object_to_job(job_post:JobPost):
               "remoteType": get_remote_type(job.work_structure),
               "education": get_education(job_post.job),
               "experience": get_experience(job_post.job)
-            }
+            },
+            "contacts":[
+                {
+                    "contactType": ["recruiter"],
+                    "contactInfo": {
+                        "contactEmail": business_user.user.email,
+                        "contactName": business_user.business.name,
+                        "contactPhone": business_user.user.phone_number
+                    }
+                }
+            ]
 
         },
         "applyMethod": {
