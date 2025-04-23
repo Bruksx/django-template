@@ -44,6 +44,9 @@ def validate_login(user: User, raise_exception=True):
 def handle_social_login(data: SocialAuthSchema)->User:
     #profile_dict = deepcopy(profile.__dict__)
     #profile_dict.pop("id", None)
+    auth_mode = "login"
+    if data.user_type:
+        auth_mode = "register"
     profile_dict = {}
 
     if data.social_type == SocialType.GOOGLE:
@@ -96,6 +99,8 @@ def handle_social_login(data: SocialAuthSchema)->User:
             raise AuthenticationFailed(detail=f"Kindly login through {user.auth_mode} ")
         return user
 
+    if auth_mode == "register" and not data.user_type:
+        raise AuthenticationFailed(detail="Account not found! please create an account")
     
     user = User.objects.create_user(**profile_dict,
                                     type=data.user_type.value,
