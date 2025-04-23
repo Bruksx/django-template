@@ -4,9 +4,18 @@ from accounts.models import BusinessUser
 from jobs.enums import WorkStructureEnum
 from jobs.models import JobPost, Job
 
+from jobs.enums import QuestionTypeEnum
+from jobs.models import ScreeningQuestion
+from services.job_posting.indeed import CLIENT_ID
+from services.job_posting.schema.indeed import WidgetScreenerSchema, ScreenerQuestions, ScreenerQuestion, \
+    TextareaQuestion, FileQuestion, MultiselectQuestion, SelectQuestion, Option
+
 BASE_FRONTEND_URL = settings.FRONTEND_URL
+BASE_BACKEND_URL = settings.BACKEND_URL
 
 JOB_POST_URL = lambda job_post_uid: f"{BASE_FRONTEND_URL}/{job_post_uid}"
+
+SCREENING_QUESTIONS_URL = lambda job_uid: f"{BASE_BACKEND_URL}/business/jobs/{job_uid}/indeed/screener-questions"
 
 
 def get_remote_type(work_structure: WorkStructureEnum):
@@ -89,13 +98,72 @@ def convert_job_object_to_job(job_post:JobPost):
 
         },
         "applyMethod": {
-          "postUrl": JOB_POST_URL(job_post.uid),
-          "phoneRequired": "NO",
-          "coverLetterRequired": "NO",
-          "resumeRequired": "NO",
-          "nameFormat": "FIRST_LAST_NAME"
+            "indeedApply": {
+                  "postUrl": JOB_POST_URL(job_post.uid),
+                  "phoneRequired": "NO",
+                  "coverLetterRequired": "NO",
+                  "resumeRequired": "NO",
+                  "nameFormat": "FIRST_LAST_NAME",
+                  "applyQuestions": SCREENING_QUESTIONS_URL(job.uid),
+                  "apiToken": CLIENT_ID
+                }
         }
     }
 
 def convert_job_object_to_indeed_id(job_post:JobPost):
     return {"sourcedPostingId": job_post.indeed_id}
+
+
+def question_to_indeed_question(question: ScreeningQuestion):
+    question_type = question.type
+    if question_type == QuestionTypeEnum.TEXT.value:
+        return TextareaQuestion(
+            id=str(question.uid),
+            question=question.text,
+            required=True
+        )
+    elif question_type == QuestionTypeEnum.FILE.value:
+        return FileQuestion(
+            id=str(question.uid),
+            question=question.text,
+            required=True
+        )
+    elif question_type == QuestionTypeEnum.MULTI_SELECT.value:
+        return MultiselectQuestion(
+            id=str(question.uid),
+            question=question.text,
+            required=True,
+            options=[
+                Option(
+                    label=str(option.text),
+                    value=str(option.uid)
+                )
+                for option in question.questionoption_set.all()
+            ]
+        )
+    elif question_type == QuestionTypeEnum.SINGLE_SELECT.value:
+        return SelectQuestion(
+            id=str(question.uid),
+            question=question.text,
+            required=True,
+            options=[
+                Option(
+                    label=str(option.text),
+                    value=str(option.uid)
+                )
+                for option in question.questionoption_set.all()
+            ]
+        )
+
+def screening_question_to_indeed_screener_questions(job:Job):
+    screening_questions = ScreeningQuestion.objects.filter(job=job)
+    screener_question = WidgetScreenerSchema(
+        screenerQuestions=ScreenerQuestions(
+            questions=[
+                question_to_indeed_question(question.type)
+                for question in screening_questions
+            ]
+        )
+
+    )
+    return screener_question.model_dump_json(indent=2)
