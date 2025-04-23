@@ -122,7 +122,6 @@ def upload_to_s3(files, folder_name):
                 file,  # File object
                 bucket_name,  # Bucket name
                 file_key,  # Key in S3
-                ExtraArgs={"ACL": "public-read"},  # Optional: Public read permissions
             )
 
             file_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{file_key}"
