@@ -87,7 +87,7 @@ def html_to_pdf3(source_html):
 
 def delete_s3_item(key):
     from boto3.session import Session
-    if not settings.USE_AWS_S3:
+    if snot settings.USE_AWS_S3:
         return
     try:
         session = Session(
