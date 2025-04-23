@@ -19,6 +19,7 @@ from chats.schemas import ResponseSchema
 from notification.notifications import send_talents_job_matching_notification
 from paginations import CustomPageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
@@ -564,6 +565,15 @@ def get_screening_questions(request, job_uid: UUID):
     if hasattr(request.user, "businessuser"):
         screening_questions = screening_questions.filter(job__created_by__business=request.user.businessuser.business)
     return screening_questions
+
+@router.get("{job_uid}/indeed/screener-questions",tags=["Screening Test"])
+def get_indeed_screening_questions(request, job_uid: UUID):
+    from services.job_posting.services.indeed import screening_question_to_indeed_screener_questions
+    job = Job.objects.filter(uid=job_uid).first()
+    if not job:
+        raise HttpError(404, "This job does not exist")
+    return screening_question_to_indeed_screener_questions(job)
+
 
 
 @router.get("applications/{application_uid}/screening-answers", response=List[job_schemas.ScreeningAnswerSchema], auth=JWTAuth(),

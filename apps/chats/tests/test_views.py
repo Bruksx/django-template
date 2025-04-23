@@ -172,8 +172,7 @@ class StartConversationTest(TestCase):
         conversation.save()
         response = self.client.post(f"users/{self.user.uid}/start-conversation",
                                     headers=headers)
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.data["detail"], "Conversation already exists")
+        self.assertEqual(response.status_code, 200)
 
 class CreateMessageTest(TestCase):
     def setUp(self):

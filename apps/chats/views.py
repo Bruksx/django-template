@@ -104,7 +104,7 @@ def create_chat_message(request, conversation_uid:UUID,
 
 @router.post("{conversation_uid}/lock", auth=JWTAuth(), response={200: ChatListSchema})
 @transaction.atomic
-def lock_conversation(request, conversation_uid:UUID, lock:bool=True):
+def lock_conversation(request, conversation_uid:UUID, lock:bool):
     IsBusinessUser.check(request)
     conversation = Conversation.objects.filter(uid=conversation_uid).first()
     if not conversation:
@@ -138,7 +138,7 @@ def start_conversation(request, user_id:UUID):
         raise HttpError(403, "Not allowed")
     conversation = Conversation.objects.filter(users__id=user.id).filter(users__id=recipient.id).first()
     if conversation:
-        raise HttpError(400, "Conversation already exists")
+        return conversation
     conversation = Conversation.objects.create()
     conversation.users.add(user, recipient)
     conversation.save()
