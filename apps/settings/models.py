@@ -12,6 +12,7 @@ from django_q.models import Schedule
 from jobs.enums import PhaseType
 
 from helpers.email.utils import send_template_email
+from helpers.loggers import Logger, LogSchema
 from monkeypatches.q_cluster import async_task
 
 
@@ -38,7 +39,16 @@ class EmailTemplate(BaseModel):
 
     def send_email(self, context: dict, to:List[str]):
         keys = map(self.convert_key_to_placeholder, context.keys())
-        self.validate_placeholders(placeholders=self.placeholders, members=list(keys))
+        is_valid_placeholders = self.validate_placeholders(placeholders=self.placeholders, members=list(keys), raise_exception=False)
+        if not is_valid_placeholders:
+            Logger.error(LogSchema(
+                sender="Email Template Model",
+                title="Unable to send template email due to invalid placeholders",
+                description=json.dumps(dict(
+                    template_uid=str(self.uid),
+                    placeholders=self.placeholders
+                ))).__dict__)
+            return
         subject = self.convert_to_template(str(self.subject)).render(Context(context))
         message = self.convert_to_template(str(self.template)).render(Context(context))
         attachments = [attachment.file.url for attachment in self.emailtemplateattachment_set.all()]
