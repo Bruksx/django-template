@@ -2,6 +2,7 @@ import requests
 from config.settings import LINKEDIN_CLIENT_ID, LINKEDIN_CLIENT_SECRET, LINKEDIN_REDIRECT_URI
 from .schema import LinkedInProfile, LinkedinOAuthTokenResponse
 from dacite import from_dict
+from ninja.errors import HttpError
 
 
 class LinkedInAPI:
@@ -24,7 +25,8 @@ class LinkedInAPI:
             "client_secret": self.client_secret,
         }
         response = requests.post(self.AUTH_URL, data=data)
-        #print(response.json())
+        if response.status_code != 200:
+            raise HttpError(response.status_code, response.json()["error_description"])
         response.raise_for_status()
         return response.json().get("access_token")
 
