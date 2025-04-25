@@ -46,11 +46,11 @@ class Conversation(BaseModel):
             message.save()
             send_ws(channel=self.get_recipient(user).unique_chat_id, data=dict(
                 sender_id=str(user.uid),
-                recipient=ChatUserSchema.from_orm(self.get_recipient(user)).m,
+                recipient=json.loads(ChatUserSchema.from_orm(self.get_recipient(user)).model_dump_json()),
                 chat_id = str(self.uid),
                 sender=user.get_full_name(),
                 action="read_message",
-                data=ChatMessageListSchema.from_orm(message).__dict__)
+                data=json.loads(ChatMessageListSchema.from_orm(message).model_dump_json()))
              )
         return
 
