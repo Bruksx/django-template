@@ -179,5 +179,6 @@ class ChatMessageResponseSchema(Schema):
     recipient: ChatUserSchema
     chat_id: UUID
     action: Literal["new_message", "is_typing", "stopped_typing", "read_message"]
-    data: Optional[ChatMessageSchema|Any]
+    data: Optional[ChatMessageSchema|AnyObject]
+    data: Optional[ChatMessageSchema|AnyObject]
 
