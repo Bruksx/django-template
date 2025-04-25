@@ -46,7 +46,7 @@ class Conversation(BaseModel):
             message.save()
             send_ws(channel=self.get_recipient(user).unique_chat_id, data=dict(
                 sender_id=str(user.uid),
-                recipient=ChatUserSchema.from_orm(self.get_recipient(user)).model_dump_json(),
+                recipient=json.loads(ChatUserSchema.from_orm(self.get_recipient(user)).model_dump_json()),
                 chat_id = str(self.uid),
                 sender=user.get_full_name(),
                 action="read_message",
@@ -69,7 +69,7 @@ class Message(BaseModel):
         from .schemas import ChatMessageSchema, ChatUserSchema
         recipient = self.conversation.get_recipient(self.sender)
         send_ws(channel=self.conversation.chat_group_name, data=dict(
-            recipient=ChatUserSchema.from_orm(recipient).model_dump_json(),
+            recipient=json.loads(ChatUserSchema.from_orm(recipient).model_dump_json()),
             sender_id=str(self.sender.uid),
             sender=self.sender.fullname,
             chat_id = str(self.conversation.uid),

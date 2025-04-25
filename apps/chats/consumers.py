@@ -122,10 +122,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await sync_to_async(message.handle_post_save)(notify=False)
         await sync_to_async(self.chat.refresh_from_db)()
         recipient = await sync_to_async(ChatUserSchema.from_orm)(self.recipient)
+        recipient = json.loads(recipient.model_dump_json())
         data = dict(
             sender_id=str(self.user.uid),
             sender=self.user.fullname,
-            recipient=recipient.model_dump_json(),
+            recipient=recipient,
             chat_id=str(self.chat.uid),
             action="new_message",
             data=data)
@@ -152,7 +153,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         file_type = ChatMessageAttachmentType.DOCUMENT.value
                     message_attachments.append(MessageAttachment(message=message, file=attachment_obj, file_type=file_type))
                 MessageAttachment.objects.bulk_create(message_attachments)
-            return message, ChatMessageSchema.from_orm(message).json()
+            return message, json.loads(ChatMessageSchema.from_orm(message).model_dump_json())
 
 
 
