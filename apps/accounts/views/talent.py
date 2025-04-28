@@ -131,6 +131,10 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
         data["preferred_communication"] = data["preferred_communication"].value if type(data["preferred_communication"]) is not str else data["preferred_communication"]
     if "notice_period_type" in data:
         data["notice_period_type"] = data["notice_period_type"].value if type(data["notice_period_type"]) is not str else data["notice_period_type"]
+    if "notice_period" in data:
+        data["notice_period"] = data["notice_period"] if type(data["notice_period"]) is not str else int(data["notice_period"]) if str(data["notice_period"]).isdigit() else None
+
+
     user = request.user
     user_data = dict()
     if "first_name" in data:
@@ -216,9 +220,14 @@ def change_talent_password(request, data: talent_schemas.TalentChangePasswordSch
     return Response(status=200, data={"message": "Password changed successfully"})
 
 @router.post("cv", auth=JWTAuth())
-def upload_talent_cv(request, file: UploadedFile):
+def upload_talent_cv(request, file: Optional[UploadedFile] = File(None)):
     IsTalentUser.check(request)
     talent_user = request.user.talent
+    if not file:
+        if talent_user.cv:
+            delete_s3_item(talent_user.cv)
+        talent_user.update(cv=None)
+        return Response(status=200, data={"message": "CV cleared successfully"})
     if file.name.split(".")[-1] != "pdf":
         raise HttpError(400, "This file type is not supported. Only PDF files")
     talent_user.update(cv=file)

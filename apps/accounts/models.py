@@ -216,7 +216,7 @@ class Talent(BaseModel):
     linkedin = models.URLField(null=True)
     facebook = models.URLField(null=True)
     twitter_x = models.URLField(null=True)
-    cv = models.FileField(upload_to="cvs")
+    cv = models.FileField(upload_to="cvs", null=True)
     photo = models.ImageField(upload_to="talents", null=True)
     notice_period_type = models.CharField(max_length=50, choices=NoticePeriodType.choices(),
                                           default=NoticePeriodType.MONTH.value)
