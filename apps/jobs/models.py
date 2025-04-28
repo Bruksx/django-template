@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models import F, Q
+from pyfacebook.models.application import Application
 from timezone_field import TimeZoneField
 
 from accounts.enums import Days
@@ -533,6 +534,9 @@ class JobApplication(BaseModel):
         db_persist=True,
     )
     stage_date_updated = models.DateTimeField(null=True)
+
+    def other_application(self):
+        return JobApplication.objects.filter(job_post=self.job_post, applicant=self.applicant).exclude(id=self.id).last()
 
 
     def placeholders_mapper(self, placeholder:str):

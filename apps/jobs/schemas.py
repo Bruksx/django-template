@@ -726,17 +726,44 @@ class JobListSchema(ModelSchema):
         model = Job
         fields = ["uid","title", "work_structure"]
 
+class OtherApplicationSchema(ModelSchema):
+    role: Optional[GenericNameAndUidSchema] = Field(alias="job_post.job.role")
+    location: Optional[GenericNameAndUidSchema] = Field(alias="job_post.country")
+    job_stage: Optional[str]
+    job_status: str
+    applied_date: datetime = Field(alias="created_at")
+    recruiter: Optional[BusinessUserSchema] = Field(alias="job_post.recruiter")
+
+    class Meta:
+        model = JobApplication
+        fields = ("uid",)
+
+    @staticmethod
+    def resolve_job_stage(obj):
+        if not obj.stage:
+            return
+        return obj.stage.name
+
+    @staticmethod
+    def resolve_job_status(obj):
+        return "Active" if obj.job_post.status == JobStatusType.POSTED.value else "Closed"
 
 class JobApplicationListSchema(ModelSchema):
-    applicant_uid:UUID = Field(alias="applicant.uid")
-    applicant:str = Field(alias="applicant.user.fullname")
-    location:str = Field(alias="applicant.country.name")
+    location:str = Field(alias="job_post.country.name")
     role:Optional[GenericNameAndUidSchema] = Field(alias="applicant.role")
     experience:int
     match:int
     phase:str
     stage:Optional[str] = None
+    applicant_uid: UUID = Field(alias="applicant.uid")
+    applicant: str = Field(alias="applicant.user.fullname")
+    applicant_location: str = Field(alias="applicant.country.name")
     applicant_photo:Optional[str] = Field(alias="applicant.photo_url")
+    applicant_email: str = Field(alias="applicant.user.email")
+    applicant_phone: Optional[str] = Field(alias="applicant.user.phone_number")
+    applicant_country: Optional[GenericNameAndUidSchema] = Field(alias="applicant.country")
+    other_application: Optional[OtherApplicationSchema]
+
     class Meta:
         model = JobApplication
         fields = ("uid",  "created_at", "available_for_schedule")
@@ -756,7 +783,6 @@ class JobApplicationListSchema(ModelSchema):
     @staticmethod
     def resolve_experience(obj):
         return int(obj.applicant.years_of_experience)
-
 
 
 class TalentJobPostListSchema(ModelSchema):
