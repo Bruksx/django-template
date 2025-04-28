@@ -111,7 +111,7 @@ class UpdateTalentProfileSchema2(Schema):
     gender: Optional[GenderType] = None
     visible: Optional[bool] = None
     bio: Optional[str] = None
-    notice_period: Optional[int] = None
+    notice_period: Optional[int|str] = None
     notice_period_type: Optional[NoticePeriodType|str] = None
     instagram: Optional[str] = None
     linkedin: Optional[str] = None
