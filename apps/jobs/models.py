@@ -1,6 +1,6 @@
 from django.db import models
 from django.db.models import F, Q
-from pyfacebook.models.application import Application
+from monkeypatches.q_cluster import async_task
 from timezone_field import TimeZoneField
 
 from accounts.enums import Days
@@ -8,8 +8,6 @@ from accounts.models import Talent, TalentAvailableDay
 from core.models import BaseModel, Language
 from jobs.managers import JobManager
 from settings.enums import PlaceHolderType
-
-from monkeypatches.q_cluster import async_task
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
     JobStatusType
 
