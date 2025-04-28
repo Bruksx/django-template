@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models import F, Q
+from monkeypatches.q_cluster import async_task
 from timezone_field import TimeZoneField
 
 from accounts.enums import Days
@@ -7,8 +8,6 @@ from accounts.models import Talent, TalentAvailableDay
 from core.models import BaseModel, Language
 from jobs.managers import JobManager
 from settings.enums import PlaceHolderType
-
-from monkeypatches.q_cluster import async_task
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
     JobStatusType
 
@@ -533,6 +532,9 @@ class JobApplication(BaseModel):
         db_persist=True,
     )
     stage_date_updated = models.DateTimeField(null=True)
+
+    def other_application(self):
+        return JobApplication.objects.filter(job_post=self.job_post, applicant=self.applicant).exclude(id=self.id).last()
 
 
     def placeholders_mapper(self, placeholder:str):
