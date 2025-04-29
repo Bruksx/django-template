@@ -4,7 +4,7 @@ from config.settings import STATICFILES_LOCATION
 
 class MediaStorage(S3Boto3Storage):
     location = 'media'
-    file_overwrite = False
+    file_overwrite = True
 
 class StaticStorage(S3Boto3Storage):
     location = STATICFILES_LOCATION
