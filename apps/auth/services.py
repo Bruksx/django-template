@@ -94,7 +94,7 @@ def handle_social_login(data: SocialAuthSchema)->User:
         if user.auth_mode == AuthType.EMAIL.value:
             raise AuthenticationFailed(detail="Kindly login through email and password")
         if user.auth_mode != auth_type.value:
-            raise AuthenticationFailed(detail=f"Kindly login through {user.auth_mode} ")
+            raise AuthenticationFailed(detail=f"Kindly login through {user.auth_mode}")
         return user
 
     if auth_mode == "register" and not data.user_type:
