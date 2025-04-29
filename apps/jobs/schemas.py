@@ -797,6 +797,7 @@ class TalentJobPostListSchema(ModelSchema):
     weakness: Optional[JobMatchSchema]
     non_negotiable: JobMatchSchema
     annual_salary_min: Optional[float] = None
+    benefits:List[str]
     annual_salary_max: Optional[float] = None
     annual_bonus_min: Optional[float] = None
     annual_bonus_max: Optional[float] = None
