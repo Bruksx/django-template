@@ -267,7 +267,7 @@ class BusinessDetailSchema(ModelSchema):
     logo: Optional[str] = Field(alias="get_logo")
     location: str = Field(alias="location")
     country: Optional[GenericNameAndUidSchema] = None
-    industry: GenericNameAndUidSchema
+    industry: Optional[GenericNameAndUidSchema] = None
     class Meta:
         model = Business
         exclude = (*READ_EXCLUDE_FIELDS, "created_by")

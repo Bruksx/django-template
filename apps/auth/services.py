@@ -42,8 +42,6 @@ def validate_login(user: User, raise_exception=True):
 
 
 def handle_social_login(data: SocialAuthSchema)->User:
-    #profile_dict = deepcopy(profile.__dict__)
-    #profile_dict.pop("id", None)
     auth_mode = "login"
     if data.user_type:
         auth_mode = "register"
