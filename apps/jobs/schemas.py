@@ -762,11 +762,17 @@ class JobApplicationListSchema(ModelSchema):
     applicant_email: str = Field(alias="applicant.user.email")
     applicant_phone: Optional[str] = Field(alias="applicant.user.phone_number")
     applicant_country: Optional[GenericNameAndUidSchema] = Field(alias="applicant.country")
+    applicant_cv_url: Optional[str]
+    applicant_linkedin_url: Optional[str] = Field(alias="applicant.linkedin")
     other_application: Optional[OtherApplicationSchema]
 
     class Meta:
         model = JobApplication
         fields = ("uid",  "created_at", "available_for_schedule")
+
+    @staticmethod
+    def resolve_applicant_cv_url(obj):
+        return obj.applicant.cv_url
 
     @staticmethod
     def resolve_stage(obj):
