@@ -11,10 +11,15 @@ from core.schemas import READ_EXCLUDE_FIELDS
 class UserSchema(ModelSchema):
     token: str
     email: EmailStr | None
+    has_set_password: bool
 
     class Meta:
         model = User
         fields = ['uid', 'email', 'first_name', 'last_name', 'type', 'phone_number']
+    
+    @staticmethod
+    def resolve_has_set_password(obj):
+        return bool(obj.password)
 
 class UserListSchema(UserSchema):
     photo_url: Optional[str]

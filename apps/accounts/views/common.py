@@ -105,7 +105,9 @@ def change_email(request, data: common_schemas.ChangeEmailSchema):
 @router.post("change-password", auth=JWTAuth())
 @transaction.atomic
 def password_change(request, data: common_schemas.ChangePasswordSchema):
-    user = request.user
+    user: User = request.user
+    if not user.password:
+        raise HttpError(403, "Not Allowed! This account has no password")
     if not user.check_password(data.old_password):
         raise HttpError(400, "Incorrect password")
     user.set_password(data.new_password)

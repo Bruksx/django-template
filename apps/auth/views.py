@@ -53,4 +53,4 @@ def reset_password(request, data: ResetPasswordSchema):
 
 @router.get("social-login/redirect")
 def social_auth_redirect(request):
-    pass
+    return render(request, "auth/linkedIn_redirect.html")

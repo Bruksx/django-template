@@ -10,7 +10,7 @@
 
     if (code) {
       // Redirect to your app via custom scheme
-      window.location.href = "1840gtc:"//linkedin-auth?code=${code}&state=${state};
+      window.location.replace("1840gtc://linkedin-auth?code=${code}&state=${state}");
     } else {
       document.body.innerText = "Authorization failed or code not found.";
     }
