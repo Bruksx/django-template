@@ -92,17 +92,17 @@ def handle_social_login(data: SocialAuthSchema)->User:
     user = User.objects.filter(social_query).first()
     if user:
         if user.auth_mode == AuthType.EMAIL.value:
-            raise AuthenticationFailed(detail="Kindly login through email and password")
+            raise HttpError(401, "Kindly login through email and password")
         if user.auth_mode != auth_type.value:
-            raise AuthenticationFailed(detail=f"Kindly login through {user.auth_mode}")
+            raise HttpError(401, f"Kindly login through {user.auth_mode}")
         return user
 
     if auth_mode == "login" and not data.user_type:
-        raise AuthenticationFailed(detail="Account not found! please create an account")
+        raise HttpError(401, "Account not found! please create an account")
     
     existing_user = User.objects.filter(email=profile_dict["email"]).exists()
     if existing_user:
-        raise AuthenticationFailed(detail="An account already exists with this email")
+        raise HttpError(401, "An account already exists with this email")
     user = User(**profile_dict,
                 type=data.user_type.value,
                 email_verified=True, is_active=True,
