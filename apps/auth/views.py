@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.utils import timezone
+from django.shortcuts import render
 from monkeypatches.response import Response
 from accounts.models import User, VerificationCode
 from accounts.schemas import common as common_schema
@@ -48,3 +49,8 @@ def reset_password(request, data: ResetPasswordSchema):
     user.save()
     code.hard_delete()
     return Response(data={"message": "password reset successfully"})
+
+
+@router.get("social-login/redirect")
+def social_auth_redirect(request):
+    pass

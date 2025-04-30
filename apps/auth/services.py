@@ -57,7 +57,7 @@ def handle_social_login(data: SocialAuthSchema)->User:
             )
         except ValueError:
             raise HttpError(401, "Invalid Google token")
-        
+        profile_dict["email"] = idinfo["email"]
         profile_dict["google_id"] = idinfo["sub"]
         profile_dict["first_name"] = idinfo["given_name"]
         profile_dict["last_name"] = idinfo["family_name"]
@@ -99,11 +99,16 @@ def handle_social_login(data: SocialAuthSchema)->User:
 
     if auth_mode == "register" and not data.user_type:
         raise AuthenticationFailed(detail="Account not found! please create an account")
-    
-    user = User.objects.create_user(**profile_dict,
-                                    type=data.user_type.value,
-                                    email_verified=True, is_active=True,
-                                    auth_mode=auth_type.value)
+    existing_user = User.objects.filter(email=profile_dict["email"]).exists()
+    if existing_user:
+        raise AuthenticationFailed(detail="An account already exists with this email")
+    user = User(**profile_dict,
+                type=data.user_type.value,
+                email_verified=True, is_active=True,
+                auth_mode=auth_type.value
+            )
+    user.save()
+
     if data.user_type == UserType.TALENT:
         Talent.objects.create(user=user)
     elif data.user_type == UserType.BUSINESS:
