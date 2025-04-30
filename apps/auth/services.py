@@ -97,8 +97,9 @@ def handle_social_login(data: SocialAuthSchema)->User:
             raise AuthenticationFailed(detail=f"Kindly login through {user.auth_mode}")
         return user
 
-    if auth_mode == "register" and not data.user_type:
+    if auth_mode == "login" and not data.user_type:
         raise AuthenticationFailed(detail="Account not found! please create an account")
+    
     existing_user = User.objects.filter(email=profile_dict["email"]).exists()
     if existing_user:
         raise AuthenticationFailed(detail="An account already exists with this email")
