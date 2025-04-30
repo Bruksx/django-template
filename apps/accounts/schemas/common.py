@@ -12,6 +12,7 @@ class UserSchema(ModelSchema):
     token: str
     email: EmailStr | None
     has_set_password: bool
+    is_social_account: bool
 
     class Meta:
         model = User
@@ -20,6 +21,10 @@ class UserSchema(ModelSchema):
     @staticmethod
     def resolve_has_set_password(obj):
         return bool(obj.password)
+    
+    @staticmethod
+    def resolve_is_social_account(obj):
+        return bool(obj.google_id or obj.facebook_id or obj.linkedin_id)
 
 class UserListSchema(UserSchema):
     photo_url: Optional[str]
