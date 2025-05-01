@@ -561,10 +561,11 @@ def delete_screening_question(request, question_uid:UUID):
 @router.get("{job_uid}/screening-questions", response=List[job_schemas.QuestionSchema], auth=JWTAuth(),
             tags=["Screening Test"])
 def get_screening_questions(request, job_uid: UUID):
+    IsBusinessUser.check(request)
+    if not Job.objects.filter(uid=job_uid, created_by__business=request.user.businessuser.business).exists():
+        raise HttpError(404, "This job does not exist")
     screening_questions = ScreeningQuestion.objects.filter(job__uid=job_uid)
-    if hasattr(request.user, "businessuser"):
-        screening_questions = screening_questions.filter(job__created_by__business=request.user.businessuser.business)
-    return screening_questions
+    return screening_questions.filter(job__created_by__business=request.user.businessuser.business)
 
 @router.get("{job_uid}/indeed/screener-questions",tags=["Screening Test"])
 def get_indeed_screening_questions(request, job_uid: UUID):
