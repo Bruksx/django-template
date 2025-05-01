@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from django.db import models
 from django.db.models import F, Q
 from monkeypatches.q_cluster import async_task
@@ -494,6 +496,15 @@ class JobPost(BaseModel):
             elif attribute == "working_hours":
                 data["working_hours"] = job.get_availability(JobAvailableDaySchema, job.availableday_set.all()) if job.availableday_set.count() > 0 else None
         return data
+
+    def screening_questions(self):
+        return self.job.screeningquestion_set.all()
+
+    def match_score(self, talent):
+        return self.strength(talent).get("match_score", 0)
+
+
+
 
 
 class JobPostMetrics(BaseModel):

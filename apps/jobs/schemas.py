@@ -126,7 +126,10 @@ class QuestionOptionSchema(ModelSchema):
         model = QuestionOption
         fields = ["uid", "is_accepted", "text"]
 
-
+class TalentQuestionOptionSchema(ModelSchema):
+    class Meta:
+        model = QuestionOption
+        fields = ["uid", "text"]
 
 class QuestionSchema(ModelSchema):
     type: QuestionTypeEnum
@@ -136,6 +139,13 @@ class QuestionSchema(ModelSchema):
         model = ScreeningQuestion
         fields = ["uid", "type", "text", "is_knockout"]
 
+class TalentQuestionSchema(ModelSchema):
+    type: QuestionTypeEnum
+    options: List[TalentQuestionOptionSchema]
+
+    class Meta:
+        model = ScreeningQuestion
+        fields = ["uid", "type", "text", "is_knockout"]
 
 class UpdateQuestionSchema(ModelSchema):
     type: Optional[QuestionTypeEnum] = None
@@ -404,6 +414,17 @@ class RequiredAttributeSchema(ModelSchema):
     def resolve_skills(obj):
         return obj.get_skills()
 
+class JobListSchema2(ModelSchema):
+    uid: UUID
+    logo_url: Optional[str]
+    skills: List[JobSkillSchema]
+    role: Optional[GenericNameAndUidSchema]
+    class Meta:
+        model = Job
+        fields = [
+            "title", "hiring_company_name", "work_structure", "office_address"]
+
+
 class JobDetailSchema(ModelSchema):
     uid: UUID
     logo_url: Optional[str]
@@ -419,7 +440,6 @@ class JobDetailSchema(ModelSchema):
     first_language: Optional[GenericNameAndUidSchema]
     additional_languages: List[GenericNameAndUidSchema]
     required_attribute: Optional[RequiredAttributeSchema]
-
 
     class Meta:
         model = Job
@@ -721,10 +741,11 @@ class JobPostFullDetailSchema(ModelSchema):
 class JobListSchema(ModelSchema):
     business_logo: Optional[str]
     business_name: str
+    role: Optional[GenericNameAndUidSchema]
 
     class Meta:
         model = Job
-        fields = ["uid","title", "work_structure"]
+        fields = ["uid","title", "work_structure", "role"]
 
 class OtherApplicationSchema(ModelSchema):
     role: Optional[GenericNameAndUidSchema] = Field(alias="job_post.job.role")
@@ -792,32 +813,16 @@ class JobApplicationListSchema(ModelSchema):
 
 
 class TalentJobPostListSchema(ModelSchema):
-    annual_bonus_currency: Optional[str]
-    annual_salary_currency: Optional[str]
-    job: JobDetailSchema
+    job: JobListSchema2
     applied: bool
     saved: Optional[bool]
     alert: Optional[bool]
     country: GenericNameAndUidSchema
-    strength: Optional[JobMatchSchema]
-    weakness: Optional[JobMatchSchema]
-    non_negotiable: JobMatchSchema
-    annual_salary_min: Optional[float] = None
-    benefits:List[str]
-    annual_salary_max: Optional[float] = None
-    annual_bonus_min: Optional[float] = None
-    annual_bonus_max: Optional[float] = None
+    match_score: int|float
 
     class Meta:
         model = JobPost
         fields = ("uid", "job", "country", "province","postal_code", "status")
-        custom_fields = ("strength", "weakness")
-
-    @staticmethod
-    def resolve_annual_bonus_currency(obj):
-        if obj.annual_bonus_currency:
-            return obj.annual_bonus_currency.abbreviation
-        return
 
     @staticmethod
     def resolve_alert(obj, context):
@@ -833,11 +838,6 @@ class TalentJobPostListSchema(ModelSchema):
             return False
         return talent.jobalert.jobs.filter(id=obj.job_id).exists()
 
-    @staticmethod
-    def resolve_annual_salary_currency(obj):
-        if obj.annual_salary_currency:
-            return obj.annual_salary_currency.abbreviation
-        return
 
     @staticmethod
     def resolve_saved(obj, context):
@@ -857,21 +857,12 @@ class TalentJobPostListSchema(ModelSchema):
 
 
     @staticmethod
-    def resolve_strength(obj, context):
+    def resolve_match_score(obj, context):
         request = context.get("request")
         talent = request.context.get("talent")
         if not talent:
             return None
-        return obj.strength(talent)
-
-
-    @staticmethod
-    def resolve_weakness(obj, context):
-        request = context.get("request")
-        talent = request.context.get("talent")
-        if not talent:
-            return None
-        return obj.weakness(talent)
+        return obj.match_score(talent)
 
 
 class StageSchema(GenericNameAndUidSchema):
@@ -906,6 +897,14 @@ class TalentJobPostSchema(JobPostListSchema):
     non_negotiable: JobMatchSchema
     application_uid: Optional[UUID]
     stage: Optional[StageSchema]
+    screening_questions: List[TalentQuestionSchema]
+    annual_bonus_currency: Optional[str]
+    annual_salary_currency: Optional[str]
+    country: GenericNameAndUidSchema
+    strength: Optional[JobMatchSchema]
+    weakness: Optional[JobMatchSchema]
+    non_negotiable: JobMatchSchema
+    benefits: List[str]
 
     @staticmethod
     def resolve_application_uid(obj, context):
@@ -941,6 +940,23 @@ class TalentJobPostSchema(JobPostListSchema):
         if not talent:
             return None
         return obj.weakness(talent)
+
+    @staticmethod
+    def resolve_annual_bonus_currency(obj):
+        if obj.annual_bonus_currency:
+            return obj.annual_bonus_currency.abbreviation
+        return
+
+
+    @staticmethod
+    def resolve_annual_salary_currency(obj):
+        if obj.annual_salary_currency:
+            return obj.annual_salary_currency.abbreviation
+        return
+
+
+
+
 
 class MutateTalentJobFilterSchema(ModelSchema):
     location_type:Optional[WorkStructureEnum]
