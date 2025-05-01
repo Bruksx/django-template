@@ -18,9 +18,9 @@ from jobs.enums import JobStatusType, PhaseType
 from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
     TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, AppliedTalentJobPostListSchema, ApplyToJobSchema, \
-    ShareJobViaEmailSchema, ShareJobViaChatSchema, JobPostFilterSchema
+    ShareJobViaEmailSchema, ShareJobViaChatSchema, JobPostFilterSchema, TalentQuestionSchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service, \
-    order_job_posts
+    order_job_posts, get_screening_questions_service
 from notification import notifications
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
@@ -267,3 +267,8 @@ def set_job_alert(request, job_post_id:UUID, action: Literal["on", "off"]):
     return Response(status=200, data={"message": f"Job alert has been {message} for this job successfully"})
 
 
+@router.get("talent/jobs/{job_uid}/screening-questions", response=List[TalentQuestionSchema], auth=JWTAuth(),
+            tags=["Screening Test"])
+def get_screening_questions(request, job_uid: UUID):
+    IsTalentUser.check(request)
+    return get_screening_questions_service(request, job_uid)

@@ -1,5 +1,6 @@
 from datetime import time, datetime, timezone, tzinfo
 from typing import List, Optional, Any
+from uuid import UUID
 
 import pytz
 from config import settings
@@ -9,9 +10,10 @@ from django.db.models import QuerySet
 from django.utils.timezone import is_aware
 from helpers.utils import upload_to_s3, upload_to_server
 from helpers.utils import sort_params_function
+from ninja.errors import HttpError
 
 from jobs.enums import PhaseType
-from jobs.models import JobApplication, Answer, RequiredAttribute
+from jobs.models import JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job
 from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema
 from notification.notifications import send_talents_job_matching_notification
 from settings.models import WorkFlowStage
@@ -89,3 +91,9 @@ def order_job_posts(sorts:List[str], queryset)->QuerySet:
     if not sort_values:
         sort_values = ["-created_at"]
     return queryset.order_by(*sort_values)
+
+def get_screening_questions_service(request, job_uid:UUID):
+    if not Job.objects.filter(uid=job_uid, created_by__business=request.user.businessuser.business).exists():
+        raise HttpError(404, "This job does not exist")
+    screening_questions = ScreeningQuestion.objects.filter(job__uid=job_uid)
+    return screening_questions.filter(job__created_by__business=request.user.businessuser.business)
