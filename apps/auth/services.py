@@ -77,7 +77,7 @@ def handle_social_login(data: SocialAuthSchema)->User:
 
     elif data.social_type == SocialType.FACEBOOK:
         auth_type = AuthType.FACEBOOK
-        user = facebook_client.get_user()
+        user = facebook_client.get_user(data.social_id, data.access_token)
         profile_dict["first_name"] = user.first_name
         profile_dict["last_name"] = user.last_name
         profile_dict["facebook_id"] = user.id
