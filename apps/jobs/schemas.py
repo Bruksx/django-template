@@ -417,7 +417,6 @@ class RequiredAttributeSchema(ModelSchema):
 class JobListSchema2(ModelSchema):
     uid: UUID
     logo_url: Optional[str]
-    skills: List[JobSkillSchema]
     role: Optional[GenericNameAndUidSchema]
     class Meta:
         model = Job
