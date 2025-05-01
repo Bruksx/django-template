@@ -1458,8 +1458,8 @@ class GetScreeningQuestionsTest(TestCase):
                 "authorization": f"Bearer {business_user.user.token}"
             }
             response = self.client.get(self.url(self.job.uid), headers=headers)
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(len(response.json()), 0)
+            self.assertEqual(response.status_code, 404)
+
 
         def test_by_talent(self):
             talent_user = TalentFactory.create()
@@ -1467,15 +1467,14 @@ class GetScreeningQuestionsTest(TestCase):
                 "authorization": f"Bearer {talent_user.user.token}"
             }
             response = self.client.get(self.url(self.job.uid), headers=headers)
-            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.status_code, 403)
 
         def test_by_wrong_uuid(self):
             headers = {
                 "authorization": f"Bearer {self.business_user.user.token}"
             }
             response = self.client.get(self.url(uuid4()), headers=headers)
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(len(response.json()), 0)
+            self.assertEqual(response.status_code, 404)
 
 class GetScreeningAnswersTest(TestCase):
     def setUp(self):

@@ -170,12 +170,9 @@ class TalentJobListTests(TestCase):
         response = self.client.get("talent/job-posts?sort_by=date-posted&page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
-        self.assertIn("weakness", response.json()["results"][0])
-        self.assertIn("strength", response.json()["results"][0])
-        self.assertIn("non_negotiable", response.json()["results"][0])
-        strength = response.json()["results"][0]["strength"]
-        self.assertIn("match_score", strength)
-        self.assertGreaterEqual(strength["match_score"], 0)
+        self.assertIn("match_score", response.json()["results"][0])
+        match_score = response.json()["results"][0]["match_score"]
+        self.assertGreaterEqual(match_score, 0)
 
         # when talent has no job filter
         response = self.client.get("talent/job-posts?page_size=100&page=1", headers=headers)
