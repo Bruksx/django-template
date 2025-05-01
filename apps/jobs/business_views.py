@@ -31,7 +31,7 @@ from .schemas import (
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema
 )
-from .services import set_job_required_attributes
+from .services import set_job_required_attributes, get_screening_questions_service
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -562,10 +562,7 @@ def delete_screening_question(request, question_uid:UUID):
             tags=["Screening Test"])
 def get_screening_questions(request, job_uid: UUID):
     IsBusinessUser.check(request)
-    if not Job.objects.filter(uid=job_uid, created_by__business=request.user.businessuser.business).exists():
-        raise HttpError(404, "This job does not exist")
-    screening_questions = ScreeningQuestion.objects.filter(job__uid=job_uid)
-    return screening_questions.filter(job__created_by__business=request.user.businessuser.business)
+    return get_screening_questions_service(request, job_uid)
 
 @router.get("{job_uid}/indeed/screener-questions",tags=["Screening Test"])
 def get_indeed_screening_questions(request, job_uid: UUID):
