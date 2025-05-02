@@ -906,9 +906,17 @@ class TalentJobPostSchema(JobPostListSchema):
     benefits: List[str]
 
     @staticmethod
-    def resolve_application_uid(obj, context):
+    def get_talent(context):
         request = context.get("request")
-        talent = request.context.get("talent")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        return request.context.get("talent")
+
+    @staticmethod
+    def resolve_application_uid(obj, context):
+        talent = TalentJobPostSchema.get_talent(context)
         if not talent:
             return None
         application = JobApplication.objects.filter(job_post=obj, applicant=talent).only("uid").first()
@@ -916,8 +924,7 @@ class TalentJobPostSchema(JobPostListSchema):
 
     @staticmethod
     def resolve_stage(obj, context):
-        request = context.get("request")
-        talent = request.context.get("talent")
+        talent = TalentJobPostSchema.get_talent(context)
         if not talent:
             return None
         application = JobApplication.objects.filter(job_post=obj, applicant=talent).only("stage").first()
@@ -925,19 +932,17 @@ class TalentJobPostSchema(JobPostListSchema):
 
     @staticmethod
     def resolve_strength(obj, context):
-        request = context.get("request")
-        talent = request.context.get("talent")
+        talent = TalentJobPostSchema.get_talent(context)
         if not talent:
-            return None
+            return
         return obj.strength(talent)
 
 
     @staticmethod
     def resolve_weakness(obj, context):
-        request = context.get("request")
-        talent = request.context.get("talent")
+        talent = TalentJobPostSchema.get_talent(context)
         if not talent:
-            return None
+            return
         return obj.weakness(talent)
 
     @staticmethod
@@ -952,8 +957,6 @@ class TalentJobPostSchema(JobPostListSchema):
         if obj.annual_salary_currency:
             return obj.annual_salary_currency.abbreviation
         return
-
-
 
 
 
