@@ -161,6 +161,13 @@ def view_job_post(request, job_post_id:UUID):
     notifications.send_talent_job_matching_notification(talent, job_post)
     return job_post
 
+@router.get("job-posts/{job_post_id}", response=TalentJobPostSchema, tags=["Talent Jobs"])
+def view_job_post_as_visitor(request, job_post_id:UUID):
+    job_post:JobPost = JobPost.objects.filter(uid=job_post_id).first()
+    if not job_post:
+        raise HttpError(404, "Job post not found")
+    return job_post
+
 
 @router.get("talent/job/{job_id}", auth=JWTAuth(),
              description="view job posts from job alert",
