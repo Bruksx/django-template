@@ -13,7 +13,7 @@ from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
 
 class ChatUserSchema(ModelSchema):
-    photo_url : Optional[str]
+    photo_url:Optional[str] = None
 
     class Meta:
         model = User
