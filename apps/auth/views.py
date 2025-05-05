@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.utils import timezone
+from django.shortcuts import render
 from monkeypatches.response import Response
 from accounts.models import User, VerificationCode
 from accounts.schemas import common as common_schema
@@ -28,8 +29,7 @@ def login(request, data:LoginSchema):
 @router.post("social-login", response=common_schema.UserSchema)
 @transaction.atomic
 def social_auth(request, data: SocialAuthSchema):
-    profile = ProfileSchema(id=data.social_id, email=data.email, first_name=data.first_name, last_name=data.last_name)
-    user = handle_social_login(profile, data)
+    user = handle_social_login(data)
     validate_login(user)
     return user
 
@@ -49,3 +49,8 @@ def reset_password(request, data: ResetPasswordSchema):
     user.save()
     code.hard_delete()
     return Response(data={"message": "password reset successfully"})
+
+
+@router.get("social-login/redirect")
+def social_auth_redirect(request):
+    return render(request, "auth/linkedIn_redirect.html")

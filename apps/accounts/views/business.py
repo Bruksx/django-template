@@ -135,7 +135,9 @@ def upload_business_logo(request, file: UploadedFile=None):
         extension = file.name.split(".")[-1]
         if extension not in ["jpg", "jpeg", "png"]:
             raise HttpError(400, "This file type is not supported. Only JPG/JPEG/PNG files")
-        async_task(business.update, logo=file)
+        business.logo = file
+        #async_task(business.save)
+        business.update(logo=file)
     else:
         business.logo = None
         business.save()

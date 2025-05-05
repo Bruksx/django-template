@@ -13,9 +13,8 @@ from monkeypatches.q_cluster import async_task
 from services.auth.schema import ProfileSchema
 from services.auth.facebook import facebook_client
 
-from accounts.enums import UserType, AuthType, SocialType
-from accounts.models import BusinessUser, VerificationCode
-from accounts.models import User, Talent
+from accounts.enums import UserType, AuthType, SocialType, BusinessUserRoleType
+from accounts.models import BusinessUser, VerificationCode, User, Talent, Business
 from auth.enums import AuthActionEnum
 
 from .client import LinkedInAPI
@@ -42,11 +41,13 @@ def validate_login(user: User, raise_exception=True):
         return False
 
 
-def handle_social_login(profile: ProfileSchema, data: SocialAuthSchema)->User:
-    profile_dict = deepcopy(profile.__dict__)
-    profile_dict.pop("id", None)
+def handle_social_login(data: SocialAuthSchema)->User:
+    auth_mode = "login"
+    if data.user_type:
+        auth_mode = "register"
+    profile_dict = {}
 
-    if SocialType.GOOGLE.value == data.social_type:
+    if data.social_type == SocialType.GOOGLE:
         auth_type = AuthType.GOOGLE
         try:
             idinfo = id_token.verify_oauth2_token(
@@ -56,52 +57,62 @@ def handle_social_login(profile: ProfileSchema, data: SocialAuthSchema)->User:
             )
         except ValueError:
             raise HttpError(401, "Invalid Google token")
-        
-        social_query = Q(google_id=profile.id)
+        profile_dict["email"] = idinfo["email"]
         profile_dict["google_id"] = idinfo["sub"]
         profile_dict["first_name"] = idinfo["given_name"]
         profile_dict["last_name"] = idinfo["family_name"]
+        social_query = Q(google_id=idinfo["sub"])
 
-    elif SocialType.LINKEDIN.value == data.social_type:
+    elif data.social_type == SocialType.LINKEDIN:
         api = LinkedInAPI()
         code = data.access_token
-        access_token = api.get_access_token(code)
+        access_token = api.get_access_token(code, data.redirect_uri)
         linkedin_profile = api.get_profile(access_token)
         auth_type = AuthType.LINKEDIN
-        social_query = Q(linkedin_id=linkedin_profile.id)
-        profile_dict["linkedin_id"] = profile.id
-        profile_dict["first_name"] = linkedin_profile.firstName
-        profile_dict["last_name"] = linkedin_profile.lastName
+        social_query = Q(linkedin_id=linkedin_profile.sub)
+        profile_dict["linkedin_id"] = linkedin_profile.sub
+        profile_dict["first_name"] = linkedin_profile.given_name
+        profile_dict["last_name"] = linkedin_profile.family_name
+        profile_dict["email"] = linkedin_profile.email
 
-    elif SocialType.FACEBOOK.value == data.social_type:
+    elif data.social_type == SocialType.FACEBOOK:
         auth_type = AuthType.FACEBOOK
-        profile_dict["facebook_id"] = profile.id
-        user = facebook_client.get_user()
+        user = facebook_client.get_user(data.social_id, data.access_token)
         profile_dict["first_name"] = user.first_name
         profile_dict["last_name"] = user.last_name
-        social_query = Q(facebook_id=profile.id)
+        profile_dict["facebook_id"] = user.id
+        social_query = Q(facebook_id=user.id)
 
     elif SocialType.APPLE.value == data.social_type:
-        auth_type = AuthType.APPLE
+        pass
+        """auth_type = AuthType.APPLE
         social_query = Q(apple_id=profile.id)
-        profile_dict["apple_id"] = profile.id
-    else:
-        raise HttpError(400, "Invalid social type")
+        profile_dict["apple_id"] = profile.id"""
+    
     user = User.objects.filter(social_query).first()
     if user:
         if user.auth_mode == AuthType.EMAIL.value:
-            raise AuthenticationFailed(detail="Kindly login through email and password")
+            raise HttpError(401, "Kindly login through email and password")
         if user.auth_mode != auth_type.value:
-            raise AuthenticationFailed(detail=f"Kindly login through {user.auth_mode} ")
+            raise HttpError(401, f"Kindly login through {user.auth_mode}")
         return user
 
+    if auth_mode == "login" and not data.user_type:
+        raise HttpError(401, "Account not found! please create an account")
     
-    user = User.objects.create_user(**profile_dict,
-                                    type=data.user_type.value,
-                                    email_verified=True, is_active=True,
-                                    auth_mode=auth_type.value)
+    existing_user = User.objects.filter(email=profile_dict["email"]).exists()
+    if existing_user:
+        raise HttpError(401, "An account already exists with this email")
+    user = User(**profile_dict,
+                type=data.user_type.value,
+                email_verified=True, is_active=True,
+                auth_mode=auth_type.value
+            )
+    user.save()
+
     if data.user_type == UserType.TALENT:
         Talent.objects.create(user=user)
     elif data.user_type == UserType.BUSINESS:
-        BusinessUser.objects.create(user=user)
+        business = Business.objects.create(created_by=user)
+        BusinessUser.objects.create(user=user, role=BusinessUserRoleType.OWNER.value, business=business)
     return user

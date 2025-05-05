@@ -518,7 +518,7 @@ class BusinessIndustry(BaseModel):
 
 class Business(BaseModel):
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    name = models.CharField(max_length=128)
+    name = models.CharField(max_length=128, null=True)
     size = models.CharField(null=True, choices=BusinessSize.choices())
     description = models.TextField(null=True)
     website = models.URLField(null=True)

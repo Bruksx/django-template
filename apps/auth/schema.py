@@ -19,9 +19,10 @@ class LoginSchema(BaseModel):
 
 class SocialAuthSchema(BaseModel):
     access_token: str
-    social_id: Optional[str]
+    social_id: Optional[str] = None
     user_type: Optional[UserType] = None
     social_type: SocialType
+    redirect_uri: Optional[str] = None
 
 
 class GoogleAuthSchema(BaseModel):
@@ -53,14 +54,20 @@ class Locale:
     language: str
 
 @dataclass
-class Name:
-    localized: Dict[str, str]
-    preferredLocale: Locale
+class LinkedInProfile:
+    sub: str
+    email_verified: bool
+    name: str
+    locale: Locale
+    given_name: str
+    family_name: str
+    email: str
+    picture: str
 
 @dataclass
-class LinkedInProfile:
-    localizedFirstName: str
-    localizedLastName: str
-    firstName: Name
-    lastName: Name
-    id: str
+class LinkedinOAuthTokenResponse:
+    access_token: str
+    expires_in: int
+    scope: str
+    token_type: str
+    id_token: str
