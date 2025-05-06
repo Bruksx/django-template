@@ -13,7 +13,7 @@ from services.job_posting.schema.indeed import WidgetScreenerSchema, ScreenerQue
 BASE_FRONTEND_URL = settings.FRONTEND_URL
 BASE_BACKEND_URL = settings.BACKEND_URL
 
-JOB_POST_URL = lambda job_post_uid: f"{BASE_FRONTEND_URL}/{job_post_uid}"
+JOB_POST_URL = lambda job_post_uid: f"{BASE_FRONTEND_URL}/job-details/{job_post_uid}"
 
 SCREENING_QUESTIONS_URL = lambda job_uid: f"{BASE_BACKEND_URL}/business/jobs/{job_uid}/indeed/screener-questions"
 
