@@ -35,6 +35,7 @@ def validate_login(user: User, raise_exception=True):
         user.last_login = timezone.now()
         user.save(update_fields=["last_login"])
         return True
+    
     except HttpError as e:
         if raise_exception:
             raise e
