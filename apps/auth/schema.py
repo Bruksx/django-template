@@ -23,6 +23,7 @@ class SocialAuthSchema(BaseModel):
     user_type: Optional[UserType] = None
     social_type: SocialType
     redirect_uri: Optional[str] = None
+    app_id: Optional[str] = None
 
 
 class GoogleAuthSchema(BaseModel):

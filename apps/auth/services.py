@@ -11,7 +11,7 @@ from config.settings import GOOGLE_CLIENT_ID
 from helpers.email.auth import send_verification_code
 from monkeypatches.q_cluster import async_task
 from services.auth.schema import ProfileSchema
-from services.auth.facebook import facebook_client
+from services.auth.facebook import Facebook
 
 from accounts.enums import UserType, AuthType, SocialType, BusinessUserRoleType
 from accounts.models import BusinessUser, VerificationCode, User, Talent, Business
@@ -53,7 +53,7 @@ def handle_social_login(data: SocialAuthSchema)->User:
             idinfo = id_token.verify_oauth2_token(
                 data.access_token,
                 grequests.Request(),
-                GOOGLE_CLIENT_ID
+                data.app_id
             )
         except ValueError:
             raise HttpError(401, "Invalid Google token")
@@ -77,6 +77,7 @@ def handle_social_login(data: SocialAuthSchema)->User:
 
     elif data.social_type == SocialType.FACEBOOK:
         auth_type = AuthType.FACEBOOK
+        facebook_client = Facebook(data.app_id)
         user = facebook_client.get_user(data.social_id, data.access_token)
         profile_dict["first_name"] = user.first_name
         profile_dict["last_name"] = user.last_name
