@@ -12,6 +12,7 @@ from django_q.models import Schedule
 from jobs.enums import PhaseType
 
 from helpers.email.utils import send_template_email
+from helpers.loggers import Logger, LogSchema
 from monkeypatches.q_cluster import async_task
 
 
@@ -38,7 +39,16 @@ class EmailTemplate(BaseModel):
 
     def send_email(self, context: dict, to:List[str]):
         keys = map(self.convert_key_to_placeholder, context.keys())
-        self.validate_placeholders(placeholders=self.placeholders, members=list(keys))
+        is_valid_placeholders = self.validate_placeholders(placeholders=self.placeholders, members=list(keys), raise_exception=False)
+        if not is_valid_placeholders:
+            Logger.error(LogSchema(
+                sender="Email Template Model",
+                title="Unable to send template email due to invalid placeholders",
+                description=json.dumps(dict(
+                    template_uid=str(self.uid),
+                    placeholders=self.placeholders
+                ))).__dict__)
+            return
         subject = self.convert_to_template(str(self.subject)).render(Context(context))
         message = self.convert_to_template(str(self.template)).render(Context(context))
         attachments = [attachment.file.url for attachment in self.emailtemplateattachment_set.all()]
@@ -49,7 +59,7 @@ class EmailTemplate(BaseModel):
                     bcc=self.bcc,
                     cc=self.cc,
                     from_user=self.sender,
-                    attachments=attachments
+                    attachment_urls=attachments
                 )
         if self.delays == 0:
             async_task(send_template_email,
@@ -109,6 +119,11 @@ class EmailTemplateAttachment(BaseModel):
             return
         return self.file.url
 
+    def file_name(self):
+        if not self.file:
+            return
+        return self.file.name.split("/")[-1]
+
 class WorkFlowStage(BaseModel):
     phase = models.CharField(max_length=100, choices=PhaseType.choices())
     name = models.CharField(max_length=125)
@@ -121,7 +136,6 @@ class WorkFlowStage(BaseModel):
 
     def applicants(self):
         return self.jobapplication_set
-
 
     def average_timeline_by_talent(self):
         return self.talentapplicationstagetimeline_set.aggregate(

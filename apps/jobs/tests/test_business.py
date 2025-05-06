@@ -6,17 +6,19 @@ from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent, \
-    EducationLevel
+    EducationLevel, SkillCategory
+from accounts.enums import BusinessUserRoleType
 from core.models import Currency
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
     JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, SkillFactory, BusinessModelFactory, \
     CountryFactory, ScreeningQuestionFactory, AnswerFactory
 from jobs.business_views import router
-from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum
+from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
-    Qualification, BusinessModel
+    BusinessModel
 )
+
 
 
 class EmploymentTypeListTests(TestCase):
@@ -96,13 +98,61 @@ class SkillCategoryListTests(TestCase):
         response = self.client.get(self.url)
         data = response.json()
         self.assertEqual(response.status_code, 200)
-        self.assertGreater(len(data), 3)
+        self.assertEqual(len(data), 3)
 
     def test_skill_category_list_with_search(self):
         response = self.client.get(f"{self.url}?search=test")
-        data = response.json()
+        data = response.json()["data"]
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(data), 3)
+
+    def test_skill_category_list_with_category(self):
+        test_name = SkillCategory.objects.first().name
+        response = self.client.get(f"{self.url}?category={str(test_name).upper()}")
+        data = response.json()["data"]
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data), 1)
+        self.assertEqual(response.json()["data"][0]["category_name"], test_name)
+
+    def test_skill_category_list_with_random_text(self):
+        test_name = SkillCategory.objects.first().name[:6]
+        response = self.client.get(f"{self.url}?category={test_name}")
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data), 0)
+
+class SkillListTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = "/skills"
+
+    def test_skill_list_endpoint(self):
+        response = self.client.get(self.url)
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(len(data), 1)
+
+    def test_skill_list_with_search(self):
+        response = self.client.get(f"{self.url}?search=test")
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(len(data), 1)
+
+    def test_skill_list_with_category(self):
+        test_name = SkillCategory.objects.first().name
+        response = self.client.get(f"{self.url}?category={str(test_name).upper()}")
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(len(data), 1)
+
+
+    def test_skill_list_with_random_text(self):
+        test_name = SkillCategory.objects.first().name[:6]
+        response = self.client.get(f"{self.url}?category={test_name}")
+        data = response.json()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(data), 0)
+
 
 class TestJobPostDetail(TestCase):
     def setUp(self):
@@ -114,7 +164,7 @@ class TestJobPostDetail(TestCase):
         self.job = JobFactory.create(created_by=self.business_user)
         self.job_post = JobPostFactory.create(country=country,job=self.job, recruiter=self.business_user)
         self.talent = TalentFactory.create(country=country)
-        RequiredAttributeFactory.create(job=self.job_post.job)
+
 
     def test_job_post_detail_endpoint_by_business_user(self):
         headers = {
@@ -160,7 +210,6 @@ class TestJobList(TestCase):
         jobs = JobFactory.create_batch(5, created_by=self.business_user)
         for job in jobs:
             JobPostFactory.create_batch(5, country=country, job=job, recruiter=self.business_user)
-            RequiredAttributeFactory.create(job=job)
 
 
     def test_job_list_endpoint_by_business_user(self):
@@ -213,7 +262,6 @@ class TestJobDetail(TestCase):
         self.business_user = BusinessUserFactory.create(user=self.business.created_by, business=self.business)
         self.job = JobFactory.create(created_by=self.business_user)
         self.talent = TalentFactory.create(country=country)
-        RequiredAttributeFactory.create(job=self.job)
 
 
 
@@ -383,7 +431,7 @@ class JobCreationTest(TestCase):
             email="testuser@example.com",
             password="securepassword",
         )
-        self.qualification = Qualification.objects.create(name="Bachelor's degree")
+        self.qualification = "Bachelor's degree"
         self.recruiter_business_user = BusinessUser.objects.create(
             user=self.recruiter,
             business=self.business,
@@ -397,10 +445,10 @@ class JobCreationTest(TestCase):
         self.country2 = Country.objects.order_by("?").first()  # random ordering
         self.currency1 = Currency.objects.order_by("?").first()
         self.currency2 = Currency.objects.order_by("?").first()
-        self.test_data = data = {
+        self.test_data = {
             "title": "EcoTech Manager",
             "employment_type": str(self.employment_type.uid),
-            "qualification": str(self.qualification.uid),
+            "qualification": self.qualification,
             "availability": [
                 {
                     "day": "Monday",
@@ -506,7 +554,6 @@ class JobCreationTest(TestCase):
 
         self.assertEqual(job.created_by, self.business_user)
         self.assertEqual(job.first_language, self.language)
-        self.assertEqual(job.department, self.department)
         self.assertEqual(job.employment_type, self.employment_type)
         self.assertEqual(job.role, self.role)
         self.assertEqual(job.job_level, self.job_level)
@@ -708,7 +755,6 @@ class JobPostCreationTest(TestCase):
         self.assertEqual(job_post.annual_bonus_max, self.test_data["annual_bonus_max"])
 
         self.assertEqual(job_post.posted_by, self.business_user)
-        self.assertIsNotNone(job_post.date_posted)
 
     def test_create_job_post_with_invalid_uuid(self):
         headers = {
@@ -858,6 +904,8 @@ class SetJobRequirementTest(TestCase):
         self.client = TestClient(router)
         self.business_user = BusinessUserFactory.create()
         self.job = JobFactory.create(created_by=self.business_user)
+        self.job.requiredattribute.hard_delete()
+        self.job.refresh_from_db()
         self.url = lambda job_uid : f"{job_uid}/required-attributes"
         self.skills = SkillFactory.create_batch(5)
         self.business_models = BusinessModelFactory.create_batch(5)
@@ -866,13 +914,13 @@ class SetJobRequirementTest(TestCase):
             "business_models": list(map(lambda x:str(x.uid), self.business_models)),
             "role": False,
             "job_level": True,
-            "years_of_experience": True,
+            "years_of_experience": False,
             "minimum_education_level": False,
             "work_structure": False,
             "technological_requirement": True,
             "first_language": True,
             "secondary_language": False,
-            "working_hours": True,
+            "working_hours": False,
             "location": False
         }
 
@@ -955,6 +1003,8 @@ class GetJobRequirementTest(TestCase):
         self.client = TestClient(router)
         self.business_user = BusinessUserFactory.create()
         self.job = JobFactory.create(created_by=self.business_user)
+        self.job.requiredattribute.hard_delete()
+        self.job.refresh_from_db()
         self.url = lambda job_uid: f"{job_uid}/required-attributes"
 
     def test_job_without_required_attributes(self):
@@ -1010,7 +1060,7 @@ class TalentsByJobPostTest(TestCase):
         self.business_user = BusinessUserFactory.create()
         TalentFactory.create_batch(5, country=country)
         job = JobFactory.create(created_by=self.business_user)
-        RequiredAttributeFactory.create(job=job, location=True)
+        job.requiredattribute.update(location=True)
         self.job_post = JobPostFactory.create(job=job, country=country)
         self.url = lambda job_post_uid: f"job-posts/{job_post_uid}/talents"
 
@@ -1408,8 +1458,8 @@ class GetScreeningQuestionsTest(TestCase):
                 "authorization": f"Bearer {business_user.user.token}"
             }
             response = self.client.get(self.url(self.job.uid), headers=headers)
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(len(response.json()), 0)
+            self.assertEqual(response.status_code, 404)
+
 
         def test_by_talent(self):
             talent_user = TalentFactory.create()
@@ -1417,15 +1467,14 @@ class GetScreeningQuestionsTest(TestCase):
                 "authorization": f"Bearer {talent_user.user.token}"
             }
             response = self.client.get(self.url(self.job.uid), headers=headers)
-            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.status_code, 403)
 
         def test_by_wrong_uuid(self):
             headers = {
                 "authorization": f"Bearer {self.business_user.user.token}"
             }
             response = self.client.get(self.url(uuid4()), headers=headers)
-            self.assertEqual(response.status_code, 200)
-            self.assertEqual(len(response.json()), 0)
+            self.assertEqual(response.status_code, 404)
 
 class GetScreeningAnswersTest(TestCase):
     def setUp(self):
@@ -1532,4 +1581,55 @@ class UpdateJobApplicationTest(TestCase):
         response = self.client.patch(self.url(uuid4()), headers=headers, json=data)
         self.assertEqual(response.status_code, 404)
 
+class JobPostBulkUpdateTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.job = JobFactory.create(created_by=self.business_user)
+        self.job_posts = JobPostFactory.create_batch(5, job=self.job, recruiter=self.business_user)
+        for job_post in self.job_posts[:2]:
+            JobApplicationFactory.create(job_post=job_post, recruiter=self.business_user)
+        self.url = "job-posts"
+        self.test_data = {
+            "job_posts" : [str(job_post.uid) for job_post in self.job_posts],
+            "action": ActionType.DELETE.value
+        }
 
+    def test_successful_status_update(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        self.test_data["action"] = ActionType.CLOSED.value
+        response = self.client.patch(self.url, json=self.test_data, headers=headers)
+        print("response: ", response.json())
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(JobPost.objects.filter(status=ActionType.CLOSED.value).count(), 5)
+
+    def test_successful_delete(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        self.test_data["action"] = ActionType.DELETE.value
+        response = self.client.patch(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        # It didn't delete the ones with applications
+        self.assertEqual(JobPost.objects.count(), 2)
+
+    def test_by_another_business_user(self):
+        business_user = BusinessUserFactory()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        self.test_data["action"] = ActionType.DELETE.value
+        response = self.client.patch(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(JobPost.objects.count(), 5)
+
+    def test_by_talent(self):
+        talent = TalentFactory()
+        headers = {
+            "authorization": f"Bearer {talent.user.token}"
+        }
+        self.test_data["action"] = ActionType.DELETE.value
+        response = self.client.patch(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 403)

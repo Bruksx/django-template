@@ -14,7 +14,7 @@ from notification.enums import EntityType, EntityActionType, NotificationType, N
 
 
 class Notification(BaseModel):
-    title = models.CharField(max_length=200)
+    title = models.CharField(max_length=255)
     description = models.TextField()
     action = models.CharField(max_length=150, choices=EntityActionType.choices, null=True)
     entity = models.CharField(max_length=150, choices=EntityType.choices, null=True)
@@ -28,7 +28,7 @@ class Notification(BaseModel):
     role = models.CharField(max_length=150, choices=BusinessUserRoleType.choices, null=True)
 
     def notify(self):
-        from notification.schemas import NotificationSchema #noqa
+        from .schemas import NotificationSchema #noqa
         notification = json.loads(NotificationSchema.from_orm(self).model_dump_json())
         # sends to selected users
         if self.recipient_users.count() > 0:

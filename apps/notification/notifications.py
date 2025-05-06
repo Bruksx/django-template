@@ -30,6 +30,43 @@ def send_new_chat_notification(chat):
     notification.save()
     notification.notify()
 
+def send_new_chat_message_notification(message):
+    """
+    args:
+        chat: Chat
+    send this notification when a new chat is created
+    """
+    if not message:
+        return
+
+    notification = Notification.objects.create(
+        title=f"New chat message from {message.sender.fullname}",
+        description=str(message),
+        action=EntityActionType.NEW.value,
+        notification_type=NotificationType.USER.value,
+        entity=EntityType.CHAT.value,
+        entity_uid=message.conversation.uid,
+        entity_str=str(message.conversation),
+    )
+    recipient = message.conversation.get_recipient(message.sender)
+    notification.recipient_users.add(recipient)
+    notification.save()
+    notification.notify()
+
+def send_job_alert_notification(job, user_ids):
+    from accounts.models import User
+    notification = Notification.objects.create(
+        title=job.title,
+        description=job.about or "",
+        action=EntityActionType.NEW.value,
+        notification_type=NotificationType.USER.value,
+        entity=EntityType.JOB.value,
+        entity_uid=job.uid,
+        entity_str=str(job),
+    )
+    notification.recipient_users.add(*User.objects.filter(id__in=user_ids))
+    notification.save()
+    notification.notify()
 
 
 def send_job_post_application_notification(job_post, start_date, end_date):
@@ -37,7 +74,7 @@ def send_job_post_application_notification(job_post, start_date, end_date):
     application_count = job_post.jobapplication_set.filter(created_at__range=(start_date, end_date)).count()
     if application_count == 0:
         return
-    notification = Notification.objects.create(
+    notification = Notification(
         title="New Job Applications",
         description=f"You have {application_count} new applications for {job_title}",
         action=EntityActionType.NEW.value,
@@ -54,7 +91,6 @@ def send_job_post_application_notification(job_post, start_date, end_date):
 
 def send_job_application_notification(job_post):
     """
-    TODO: Schedule notification
     Trigger Timing: Daily at 5am, 10am, 4pm
     Example Notification:
     "You have 15 new applications for [Job_Title].
@@ -145,7 +181,6 @@ def send_talents_job_matching_notification(talent_count, job_post):
 
 def send_job_sharing_notification(job_post):
     """
-    TODO: Schedule this task
     Trigger Timing: Batch Daily at 4pm
     Example Notification:
     "Your job post for [Job_Title] was shared x times today"
@@ -236,7 +271,7 @@ def send_business_user_notification(business_user, action: EntityActionType, act
         EntityActionType.UPDATE: f"{business_user.user.fullname} {action_str}",
         EntityActionType.DELETE: f"{business_user.user.fullname} has deleted their account",
     }
-    notification = Notification.objects.create(
+    notification = Notification(
         title="New Business User",
         description=description_mapping[action],
         action=action,

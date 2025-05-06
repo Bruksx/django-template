@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Redirecting to app...</title>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+
+    if (code) {
+      // Redirect to your app via custom scheme
+      window.location.replace("1840gtc://linkedin-auth?code=${code}&state=${state}");
+    } else {
+      document.body.innerText = "Authorization failed or code not found.";
+    }
+  </script>
+</head>
+<body>
+  Redirecting...
+</body>
+</html>

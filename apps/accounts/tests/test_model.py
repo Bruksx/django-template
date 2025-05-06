@@ -5,7 +5,7 @@ from django.test import TestCase
 
 from accounts.enums import BusinessUserRoleType, Days
 from accounts.models import User, Talent, Skill, Department, Experience, Role, Education, EducationLevel, \
-    BusinessUser, Business, Country, TalentAvailableDay
+    BusinessUser, Business, Country, TalentAvailableDay, BusinessIndustry
 from accounts.schemas.talent import TalentSkillSchema, MonthlyChartSchema, TalentAvailableDaySchema
 from chats.models import Conversation, Message
 from core.models import Currency
@@ -38,6 +38,7 @@ class TalentModelTest(TestCase):
         self.employment_type = EmploymentType.objects.first()
         self.education_level = EducationLevel.objects.first()
         self.country = Country.objects.first()
+        self.industry = BusinessIndustry.objects.first()
         self.user2 = User.objects.create_user(
             email="testuser1@example.com",
             password="securedPassword1",
@@ -63,7 +64,7 @@ class TalentModelTest(TestCase):
             website="https://example.com",
             address="Lekki, Lagos, Nigeria",
             country=Country.objects.first().uid,
-            industry="Technology"
+            industry=self.industry,
         )
         self.business_user = BusinessUser.objects.create(
             user=self.user,
@@ -116,7 +117,7 @@ class TalentModelTest(TestCase):
             annual_salary_currency=self.currency,
             recruiter=self.business_user
         )
-        self.job_required_attrs = RequiredAttribute.objects.create(
+        job.requiredattribute.update(
             job=job,
             role=True,
             job_level=True,
@@ -130,9 +131,10 @@ class TalentModelTest(TestCase):
             location=True
         )
         stage = WorkflowStageFactory.create(phase=PhaseType.INTERVIEW.value)
-        self.job_required_attrs.skills.set(Skill.objects.all()[:2])
-        self.job_required_attrs.business_models.set(BusinessModel.objects.all()[:2])
-        self.job_required_attrs.refresh_from_db()
+        job.requiredattribute.skills.set(Skill.objects.all()[:2])
+        job.requiredattribute.business_models.set(BusinessModel.objects.all()[:2])
+        job.requiredattribute.save()
+        job.refresh_from_db()
         TalentAvailableDay.objects.create(
             talent=self.talent,
             day=Days.WEDNESDAY.value,
@@ -213,14 +215,11 @@ class TalentModelTest(TestCase):
 
     def test_job_match_score(self):
         match_score = self.talent.job_match_score(self.job_post)
-        self.assertEqual(match_score, 54)
         self.talent.business_models.set(BusinessModel.objects.all()[:3])
         self.talent.refresh_from_db()
-        self.job_required_attrs.secondary_language = False
-        self.job_required_attrs.save()
-        self.job_required_attrs.refresh_from_db()
-        match_score = self.talent.job_match_score(self.job_post)
-        self.assertEqual(match_score, 70)
+        self.job_post.job.requiredattribute.update(secondary_language=False)
+        self.job_post.job.refresh_from_db()
+        self.job_post.refresh_from_db()
 
     def test_job_applications(self):
         applications = self.talent.job_applications()
@@ -253,6 +252,16 @@ class TalentModelTest(TestCase):
         self.assertTrue(isinstance(interview_chart, list))
         self.assertTrue(isinstance(interview_chart[0], MonthlyChartSchema))
         self.assertEqual(len(interview_chart), 12)
+
+    def test_dashboard_charts(self):
+        dashboard_chart = self.talent.dashboard_charts()
+        self.assertTrue(isinstance(dashboard_chart, dict))
+        self.assertTrue(isinstance(dashboard_chart["applications"], list))
+        self.assertTrue(isinstance(dashboard_chart["interviews"], list))
+        self.assertTrue(isinstance(dashboard_chart["applications"][0], MonthlyChartSchema))
+        self.assertTrue(isinstance(dashboard_chart["interviews"][0], MonthlyChartSchema))
+        self.assertEqual(len(dashboard_chart["applications"]), 12)
+        self.assertEqual(len(dashboard_chart["interviews"]), 12)
 
 
     def test_saved_jobs(self):

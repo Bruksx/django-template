@@ -11,6 +11,8 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+
+from django.conf.global_settings import EMAIL_BACKEND
 from dotenv import load_dotenv
 import os
 import sys
@@ -36,7 +38,10 @@ SECRET_KEY = os.environ['SECRET_KEY']
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True if os.environ['DEBUG'].lower() == "true" else False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    "gtc-staging.1840andco.com",
+    "127.0.0.1",
+]
 
 
 # Application definition
@@ -59,12 +64,16 @@ INSTALLED_APPS = [
     "core",
     "notification",
     "settings",
-    "config"
+    "config",
+
+    #3rd party
+    "corsheaders",
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -93,7 +102,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 ASGI_APPLICATION = 'config.asgi.application'
 
-
+CORS_ALLOW_ALL_ORIGINS = True
 
 
 # Database
@@ -147,7 +156,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = "static"
 STATIC_DIR = (os.path.join(BASE_DIR.parent, "static"),)
-STATICFILES_DIRS = (os.path.join(BASE_DIR, "templates\\assets"),)
+STATICFILES_DIRS = (os.path.join(BASE_DIR, "templates/assets"),)
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
@@ -173,13 +182,19 @@ AWS_ACCESS_KEY_ID = os.environ['AWS_ACCESS_KEY_ID']
 AWS_SECRET_ACCESS_KEY = os.environ['AWS_SECRET_ACCESS_KEY']
 AWS_S3_REGION_NAME = 'us-east-1' 
 AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
-AWS_S3_FILE_OVERWRITE = False
+AWS_S3_FILE_OVERWRITE = True
+STATICFILES_LOCATION = "static"
+STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{STATICFILES_LOCATION}/" if USE_AWS_S3 else STATIC_URL
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 AUTH_USER_MODEL = "accounts.User"
 
-EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+if "test" in sys.argv:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+else:
+    EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 EMAIL_HOST = "smtp.office365.com"
 EMAIL_PORT = 587
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER")
@@ -204,6 +219,12 @@ LINKEDIN_CLIENT_SECRET =  os.environ["LINKEDIN_CLIENT_SECRET"]
 LINKEDIN_REDIRECT_URI = os.environ["LINKEDIN_REDIRECT_URI"]
 FACEBOOK_APP_ID= os.environ["FACEBOOK_APP_ID"]
 FACEBOOK_APP_SECRET = os.environ["FACEBOOK_APP_SECRET"]
+FACEBOOK_APP_ID_ANDROID = os.environ["FACEBOOK_APP_ID_ANDROID"]
+FACEBOOK_APP_SECRET_ANDROID = os.environ["FACEBOOK_APP_SECRET_ANDROID"]
+FACEBOOK_APP_ID_WEB = os.environ["FACEBOOK_APP_ID_WEB"]
+FACEBOOK_APP_SECRET_WEB = os.environ["FACEBOOK_APP_SECRET_WEB"]
+FACEBOOK_APP_ID_IOS = os.environ["FACEBOOK_APP_ID_IOS"]
+FACEBOOK_APP_SECRET_IOS = os.environ["FACEBOOK_APP_SECRET_IOS"]
 
 Q_CLUSTER = {
     'name': 'DjangoQCluster',
@@ -246,7 +267,7 @@ ZOOM_CLIENT_SECRET = os.environ.get("ZOOM_CLIENT_SECRET")
 
 TEAMS_CLIENT_ID = os.environ.get("TEAMS_CLIENT_ID")
 TEAMS_CLIENT_SECRET = os.environ.get("TEAMS_CLIENT_SECRET")
-USE_SENTRY = True if os.environ.get('USE_SENTRY').lower() == "true" else False
+USE_SENTRY = True if os.environ.get('USE_SENTRY', "false").lower() == "true" else False
 
 if USE_SENTRY:
     sentry_sdk.init(

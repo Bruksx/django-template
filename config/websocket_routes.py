@@ -1,4 +1,5 @@
 from django.urls import path
+from ninja import Router
 
 from apps.chats.consumers import ChatConsumer
 from apps.notification.consumers import NotificationConsumer

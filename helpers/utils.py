@@ -1,26 +1,25 @@
 import base64
 import os
 import random
+import re
 import string
 import uuid
+from datetime import timezone
 from io import BytesIO
-from typing import Optional
-import re
+from sys import getsizeof
+from typing import Optional, List
+
 import boto3
 import pdfkit
+import psutil
 from botocore.exceptions import NoCredentialsError
 from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
 from django.db.models import QuerySet
 from ninja.errors import HttpError
-from ninja.responses import Response
-from helpers.loggers import Logger
-import psutil
-from sys import getsizeof
-from django.utils.translation import gettext_lazy as _
-from io import BytesIO
 
+from helpers.loggers import Logger
+from monkeypatches.response import Response
 
 
 def success_response(message="successful", data=None, status=200):
@@ -88,7 +87,7 @@ def html_to_pdf3(source_html):
 
 def delete_s3_item(key):
     from boto3.session import Session
-    if settings.USE_AWS_S3 == False:
+    if not settings.USE_AWS_S3:
         return
     try:
         session = Session(
@@ -101,12 +100,12 @@ def delete_s3_item(key):
         Logger.error(msg=dict(sender="Helper Utils", title="AWS DELETE Error", description=str(e)), exc_info=True)
 
 def upload_to_s3(files, folder_name):
-    if settings.USE_AWS_S3 == False:
+    if not settings.USE_AWS_S3:
         return
     if not isinstance(files, list):
         files = [files]
     bucket_name = settings.AWS_STORAGE_BUCKET_NAME
-    region = settings.AWS_REGION
+    region = settings.AWS_S3_REGION_NAME
     s3_client = boto3.client(
         "s3",
         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
@@ -123,7 +122,6 @@ def upload_to_s3(files, folder_name):
                 file,  # File object
                 bucket_name,  # Bucket name
                 file_key,  # Key in S3
-                ExtraArgs={"ACL": "public-read"},  # Optional: Public read permissions
             )
 
             file_url = f"https://{bucket_name}.s3.{region}.amazonaws.com/{file_key}"
@@ -233,3 +231,47 @@ def validate_password(password):
 
     if not any(char in '!@#$%^&*()_+=-[]{}|;:,.<>?' for char in password):
         raise HttpError(400, 'Password must contain at least one special character.')
+
+
+def prepare_for_json(data):
+    new_data = {}
+    for key, value in data.items():
+        if isinstance(value, uuid.UUID):
+            new_data[key] = str(value)
+        elif isinstance(value, dict):
+            new_data[key] = prepare_for_json(value)
+        elif isinstance(value, list):
+            new_list = []
+            for item in value:
+                if isinstance(item, uuid.UUID):
+                    new_list.append(str(item))
+                elif isinstance(item, dict):
+                    new_list.append(prepare_for_json(item))
+                else:
+                    new_list.append(item)
+            new_data[key] = new_list
+        else:
+            new_data[key] = value
+    return new_data
+
+
+def datetime_to_epoch_milliseconds(dt)->int:
+  if dt.tzinfo is None:
+    # If the datetime object has no timezone information, assume it's in local time.
+    dt = dt.replace(tzinfo=timezone.utc)
+  else:
+    # Convert the datetime object to UTC.
+    dt = dt.astimezone(timezone.utc)
+
+  return int(dt.timestamp() * 1000)
+
+
+def sort_params_function(sorts:List[str], mapper:dict[str, str])->List[str]:
+    sort_values = list()
+    for sort in sorts:
+        sort_sign = "-" if sort.startswith("-") else ""
+        sort = sort[1:] if sort.startswith("-") else sort
+        sort_value = mapper.get(sort)
+        if sort_value:
+            sort_values.append(f"{sort_sign}{sort_value}")
+    return sort_values

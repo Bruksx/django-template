@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from ninja import Schema, ModelSchema
 from pydantic import condecimal
 from core.models import Currency, Language
@@ -56,5 +58,17 @@ class EducationLevelSchema(ModelSchema):
         return obj.industry.name
 
 
+class GenericNameAndUidSchema(Schema):
+    uid: UUID
+    name: str
+
+
 
 DecimalType = condecimal(max_digits=12, decimal_places=2)
+
+
+class UserMiniSchema(Schema):
+    uid: UUID
+    first_name: str
+    last_name: str
+    email: str

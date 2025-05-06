@@ -1,5 +1,8 @@
 from typing import Optional
 
+from dataclasses import dataclass
+from typing import Dict
+
 from ninja import Schema
 from pydantic import EmailStr
 
@@ -15,13 +18,12 @@ class LoginSchema(BaseModel):
 
 
 class SocialAuthSchema(BaseModel):
-    social_id: str
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    email: Optional[str] = None
-    user_type: UserType
+    access_token: str
+    social_id: Optional[str] = None
+    user_type: Optional[UserType] = None
     social_type: SocialType
-    action: AuthActionEnum
+    redirect_uri: Optional[str] = None
+    app_id: Optional[str] = None
 
 
 class GoogleAuthSchema(BaseModel):
@@ -47,5 +49,26 @@ class ResetPasswordSchema(Schema):
     password: str
 
 
+@dataclass
+class Locale:
+    country: str
+    language: str
 
+@dataclass
+class LinkedInProfile:
+    sub: str
+    email_verified: bool
+    name: str
+    locale: Locale
+    given_name: str
+    family_name: str
+    email: str
+    picture: str
 
+@dataclass
+class LinkedinOAuthTokenResponse:
+    access_token: str
+    expires_in: int
+    scope: str
+    token_type: str
+    id_token: str

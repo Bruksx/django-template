@@ -1,12 +1,11 @@
 import json
+import sys
 
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from .schemas import ChatWebsocketSchema, NotificationWebsocketSchema
-from ..decorators import test_env_decorator
 from ..loggers import Logger
-
 
 
 def validate_data(data:dict):
@@ -24,8 +23,10 @@ def validate_data(data:dict):
             pass
     return False
 
-@test_env_decorator()
+
 def send_ws(channel:str, data:dict):
+    if "test" in sys.argv:
+        return
     is_valid = validate_data(data)
     if not is_valid:
         Logger.error(dict(

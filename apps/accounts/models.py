@@ -1,9 +1,8 @@
 import random
-import random
 import secrets
 import string
 from datetime import timedelta, date, datetime
-from typing import List, Tuple, Optional
+from typing import Tuple, Optional
 from uuid import UUID
 
 from django.contrib.auth.hashers import check_password, make_password
@@ -13,12 +12,13 @@ from django.db.models import Q, Count, F, Value, Avg, IntegerField
 from django.db.models.functions import Concat, Cast
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
+from helpers.utils import delete_s3_item
 from ninja_jwt.tokens import RefreshToken
 
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessUserStatusType
+    BusinessSize, BusinessUserStatusType, CaseReasonType
 from core.models import BaseModel
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
 from notification.enums import NotificationGroup
 
 
@@ -63,18 +63,18 @@ class User(AbstractUser, BaseModel):
     objects = CustomUserManager()
     REQUIRED_FIELDS = []
 
-    gender = models.CharField(max_length=32, choices=GenderType.choices(), default=GenderType.OTHERS.value)
-    phone_number = models.CharField(max_length=16, null=True)
+    gender = models.CharField(max_length=100, choices=GenderType.choices(), default=GenderType.OTHERS.value)
+    phone_number = models.CharField(max_length=50, null=True)
     email = models.EmailField(unique=True, null=True)
     email_verified = models.BooleanField(default=False)
-    type = models.CharField(max_length=16, null=True, choices=UserType.choices())
-    username = models.CharField(max_length=32, null=True)
-    auth_mode = models.CharField(max_length=20, choices=AuthType.choices(),
+    type = models.CharField(max_length=50, null=True, choices=UserType.choices())
+    username = models.CharField(max_length=50, null=True)
+    auth_mode = models.CharField(max_length=50, choices=AuthType.choices(),
                                  default=AuthType.EMAIL.value)
-    facebook_id = models.CharField(max_length=32, null=True, unique=True)
-    linkedin_id = models.CharField(max_length=32, null=True)
-    google_id = models.CharField(max_length=32, null=True)
-    apple_id = models.CharField(max_length=32, null=True)
+    facebook_id = models.CharField(max_length=50, null=True, unique=True)
+    linkedin_id = models.CharField(max_length=50, null=True)
+    google_id = models.CharField(max_length=50, null=True)
+    apple_id = models.CharField(max_length=50, null=True)
     fullname = models.GeneratedField(
         expression=Concat(F("first_name"), Value(" "),
                           F("last_name")),
@@ -113,6 +113,10 @@ class User(AbstractUser, BaseModel):
         refresh = RefreshToken.for_user(self)
         return str(refresh.access_token)
 
+    @property
+    def unique_chat_id(self):
+        return str(self.uid).replace("-", "")
+
 
     def photo_url(self):
         if hasattr(self, "talent"):
@@ -122,15 +126,22 @@ class User(AbstractUser, BaseModel):
         return None
 
     def delete_account(self):
-        self.delete()
-        self.is_active = False
-        self.save(update_fields=["is_active"])
         if hasattr(self, "talent"):
-            self.talent.delete()
+            self.talent.delete_account()
         elif hasattr(self, "businessuser"):
-            self.businessuser.delete()
-            self.businessuser.status = BusinessUserStatusType.DELETED.value
-            self.businessuser.save(update_fields=["status"])
+            self.businessuser.delete_account()
+        self.first_name = "deleted"
+        self.last_name = "user"
+        self.email = f"deleted_user_{self.id}@example.com"
+        self.phone_number = None
+        self.facebook_id = None
+        self.linkedin_id = None
+        self.google_id = None
+        self.apple_id = None
+        self.username = f"user-{self.id}"
+        self.is_active = False
+        self.save()
+        self.delete()
         return
 
 
@@ -188,25 +199,26 @@ class Skill(BaseModel):
 
 class Talent(BaseModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    whatsapp_number = models.CharField(max_length=16, null=True)
-    viber_number = models.CharField(max_length=16, null=True)
+    whatsapp_number = models.CharField(max_length=50, null=True)
+    viber_number = models.CharField(max_length=50, null=True)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
     state = models.CharField(max_length=64, null=True)
     city = models.CharField(max_length=64, null=True)
     address = models.CharField(max_length=128, null=True)
-    postal_code = models.CharField(max_length=8, null=True)
-    employment_type = models.CharField(max_length=32, null=True)
+    postal_code = models.CharField(max_length=20, null=True)
+    employment_type = models.ForeignKey("jobs.EmploymentType", on_delete=models.SET_NULL, null=True)
     visible = models.BooleanField(default=True)
     preferred_communication = models.CharField(max_length=64, null=True)
+    work_model = models.CharField(max_length=64, null=True, choices=WorkStructureEnum.choices())
     bio = models.TextField(null=True)
     notice_period = models.IntegerField(null=True)
     instagram = models.URLField(null=True)
     linkedin = models.URLField(null=True)
     facebook = models.URLField(null=True)
     twitter_x = models.URLField(null=True)
-    cv = models.FileField(upload_to="cvs")
-    photo = models.ImageField(upload_to="talents")
-    notice_period_type = models.CharField(max_length=32, choices=NoticePeriodType.choices(),
+    cv = models.FileField(upload_to="cvs", null=True)
+    photo = models.ImageField(upload_to="talents", null=True)
+    notice_period_type = models.CharField(max_length=50, choices=NoticePeriodType.choices(),
                                           default=NoticePeriodType.MONTH.value)
     native_language = models.ForeignKey("core.Language", on_delete=models.SET_NULL, null=True,
                                         related_name="native_language")
@@ -216,6 +228,7 @@ class Talent(BaseModel):
     business_models = models.ManyToManyField("jobs.BusinessModel")
     years_of_experience = models.FloatField(default=0)
     months_of_experience = models.FloatField(default=0)
+    viewers = models.ManyToManyField("accounts.User", blank=True, related_name="talent_viewers")
 
     @property
     def photo_url(self):
@@ -270,6 +283,8 @@ class Talent(BaseModel):
             return 0,0
         start_date: date = experiences.order_by("start_date").first().start_date
         end_date: date = experiences.order_by("end_date").last().end_date
+        if not end_date:
+            end_date = timezone.now().date()
         months = (end_date - start_date).days/30
         return int(months//12), int(months)
 
@@ -293,6 +308,7 @@ class Talent(BaseModel):
             Q(requiredattribute__minimum_education_level=True, minimum_education_level_id__in=education_level_ids)|
             Q(requiredattribute__business_models__id__in=business_model_ids)|
             Q(requiredattribute__role=True, role_id__in=role_ids)|
+            Q(requiredattribute__work_structure=True, work_structure=self.work_model)|
             Q(requiredattribute__years_of_experience=True, years_of_experience=years_of_experience)|
             Q(requiredattribute__first_language=True, first_language=self.native_language)|
             Q(requiredattribute__secondary_language=True, additional_languages__id__in=additional_language_ids)|
@@ -324,7 +340,7 @@ class Talent(BaseModel):
             score -=1
         if  required_attribute.job_level and not self.experience_set.filter(level=job.job_level).exists():
             score -=1
-        if  required_attribute.years_of_experience and required_attribute.years_of_experience > job.years_of_experience:
+        if  required_attribute.years_of_experience and self.years_of_experience > (job.years_of_experience or 0):
             score -=1
         if required_attribute.business_models.count() > 0 and required_attribute.business_models.intersection(self.business_models.all()).count() == 0:
             score -= 1
@@ -334,6 +350,8 @@ class Talent(BaseModel):
         if required_attribute.first_language and self.native_language != job.first_language:
             score -= 1
         if required_attribute.secondary_language and job.additional_languages.intersection(self.additional_languages.all()).count() == 0:
+            score -= 1
+        if required_attribute.work_structure and self.work_model != job.work_structure:
             score -= 1
         if required_attribute.working_hours:
             working_hours_query = self.availability_query()
@@ -348,6 +366,8 @@ class Talent(BaseModel):
         working_hours_query = Q()
 
         for availability in self.talentavailableday_set.all():
+            if not(availability.end_time and availability.start_time):
+                continue
             day_query = Q(
                 day=availability.day,
                 start_time__lte=availability.end_time,
@@ -418,6 +438,13 @@ class Talent(BaseModel):
             )
         return data
 
+
+    def dashboard_charts(self):
+        return {
+            "applications": self.applications_made_chart(),
+            "interviews": self.interviews_chart()
+        }
+
     def role(self):
         from jobs.models import JobFilter
         job_filter = JobFilter.objects.filter(talent=self).first()
@@ -448,12 +475,51 @@ class Talent(BaseModel):
             )
         return notifications.order_by("-id")
 
+    def delete_account(self):
+        self.savedjob_set.all().hard_delete()
+        if hasattr(self, "jobfilter"):
+            self.jobfilter.hard_delete()
+        self.education_set.all().hard_delete()
+        self.experience_set.all().hard_delete()
+        self.whatsapp_number = None
+        self.viber_number = None
+        self.country = None
+        self.state = None
+        self.city = None
+        self.address = None
+        self.postal_code = None
+        self.bio = None
+        self.instagram = None
+        self.linkedin = None
+        self.twitter_x = None
+        self.notice_period = None
+        self.additional_skills = list()
+        self.skills.clear()
+        self.business_models.clear()
+        self.save()
+        if self.photo:
+            delete_s3_item(self.photo.url)
+            self.photo.delete()
+        self.photo = None
+        if self.cv:
+            delete_s3_item(self.cv.url)
+            self.cv.delete()
+        self.cv = None
+        self.save()
+        self.delete()
+
+
+class BusinessIndustry(BaseModel):
+    name = models.CharField(max_length=128)
+
+    def __str__(self):
+        return self.name
 
 
 class Business(BaseModel):
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    name = models.CharField(max_length=128)
-    size = models.IntegerField(null=True)
+    name = models.CharField(max_length=128, null=True)
+    size = models.CharField(null=True, choices=BusinessSize.choices())
     description = models.TextField(null=True)
     website = models.URLField(null=True)
     address = models.CharField(max_length=128, null=True)
@@ -463,7 +529,7 @@ class Business(BaseModel):
     linkedin = models.URLField(null=True)
     facebook = models.URLField(null=True)
     twitter_x = models.URLField(null=True)
-    industry = models.CharField(max_length=64, null=True)
+    industry = models.ForeignKey(BusinessIndustry, null=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return self.name
@@ -939,9 +1005,9 @@ class EducationLevel(BaseModel):
 class BusinessUser(BaseModel):
     business = models.ForeignKey(Business, on_delete=models.CASCADE)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    added_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True)
-    role = models.CharField(max_length=32, choices=BusinessUserRoleType.choices())
-    status = models.CharField(max_length=32, choices=BusinessUserStatusType.choices(),
+    added_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True, blank=True)
+    role = models.CharField(max_length=100, choices=BusinessUserRoleType.choices(), blank=True)
+    status = models.CharField(max_length=100, choices=BusinessUserStatusType.choices(),
                               default=BusinessUserStatusType.ACTIVE.value)
 
     def __str__(self) -> str:
@@ -963,6 +1029,14 @@ class BusinessUser(BaseModel):
             return self.businessusernotificationsettings.notifications(viewed)
         return Notification.objects.none()
 
+    def delete_account(self):
+        self.status = BusinessUserStatusType.DELETED.value
+        self.save(update_fields=["status"])
+        self.delete()
+        if hasattr(self, "businessusernotificationsettings"):
+            self.businessusernotificationsettings.hard_delete()
+        return
+
 
 
 
@@ -979,23 +1053,24 @@ class Experience(BaseModel):
     talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE, null=True)
     role = models.ForeignKey("accounts.Role", on_delete=models.SET_NULL, null=True)
     company = models.CharField(max_length=100, null=True)
-    annual_salary = models.FloatField(default=0)
+    annual_salary = models.FloatField(default=0, null=True)
     annual_salary_currency = models.ForeignKey("core.Currency", on_delete=models.SET_NULL,
                                                null=True,
                                                related_name="annual_salary_currency")
-    annual_salary_bonus = models.FloatField(default=0)
+    annual_salary_bonus = models.FloatField(default=0, null=True)
     annual_salary_bonus_currency = models.ForeignKey("core.Currency",
                                                      on_delete=models.SET_NULL,
                                                      null=True,
                                                      related_name="annual_salary_bonus_currency")
     level = models.ForeignKey("jobs.JobLevel", on_delete=models.SET_NULL, null=True)
     employment_type = models.ForeignKey("jobs.EmploymentType", on_delete=models.SET_NULL, null=True)
-    start_date = models.DateField()
-    end_date = models.DateField()
+    start_date = models.DateField(null=True)
+    end_date = models.DateField(null=True, default=None)
     currently_works_here = models.BooleanField()
 
     def duration(self):
-        days = (self.end_date - self.start_date).days
+        end_date = self.end_date if self.end_date else timezone.now().date()
+        days = (end_date - self.start_date).days
         months = days // 30
         years = months // 12
         return f"{years} years, {months % 12} months"
@@ -1003,16 +1078,55 @@ class Experience(BaseModel):
 
 class TalentAvailableDay(BaseModel):
     talent = models.ForeignKey("Talent", on_delete=models.CASCADE)
-    day = models.CharField(max_length=32, choices=Days.choices())
+    day = models.CharField(max_length=50, choices=Days.choices())
     end_time = models.TimeField(null=True)
     start_time = models.TimeField(null=True)
 
 
 class CustomerCase(BaseModel):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    reason = models.CharField(max_length=200)
-    subject = models.CharField(max_length=200)
+    reason = models.CharField(max_length=255, choices=CaseReasonType.choices())
+    subject = models.CharField(max_length=255)
     description = models.TextField()
 
 
+class TalentFilter(BaseModel):
+    business_user = models.OneToOneField("accounts.BusinessUser", on_delete=models.CASCADE)
+    role = models.ForeignKey("accounts.Role", on_delete=models.SET_NULL, null=True)
+    industry = models.ForeignKey("accounts.Industry", on_delete=models.SET_NULL, null=True)
+    location = models.CharField(max_length=128, null=True)
+    languages = models.ManyToManyField("core.Language")
+    educational_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
+    maximum_notice_period = models.PositiveSmallIntegerField(null=True)
+    work_structure = models.CharField(max_length=100, choices=WorkStructureEnum.choices(), null=True)
+    skills = models.ManyToManyField("accounts.Skill")
 
+    def get_queryset(self, queryset=None):
+        if not queryset:
+            queryset = Talent.objects.all()
+        if self.role:
+            ids = Experience.objects.filter(role=self.role).only("talent_id").distinct("talent_id").values_list("talent_id", flat=True)
+            queryset = queryset.filter(id__in=ids)
+        if self.industry:
+            queryset = queryset.filter(skills__department__industry=self.industry)
+        if self.location:
+            queryset = queryset.filter(Q(country__name__icontains=self.location)|
+                                       Q(state__icontains=self.location)|Q(city__icontains=self.location))
+        if self.languages.count() > 0:
+            ids = self.languages.values_list("id", flat=True)
+            queryset = queryset.filter(Q(native_language_id__in=ids)|
+                                       Q(additional_languages__id__in=ids))
+        if self.educational_level:
+            ids = Education.objects.filter(level=self.educational_level).only("talent_id").distinct("talent_id").values_list("talent_id", flat=True)
+            queryset = queryset.filter(id__in=ids)
+        if self.work_structure:
+            queryset = queryset.filter(work_model=self.work_structure)
+        if self.skills.count() > 0:
+            ids = self.skills.values_list("id", flat=True)
+            queryset = queryset.filter(skills__id__in=ids)
+        if self.maximum_notice_period:
+            queryset = queryset.filter(notice_period__lte=self.maximum_notice_period)
+        return queryset
+
+    def results(self):
+        return self.get_queryset().count()

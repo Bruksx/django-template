@@ -1,47 +1,31 @@
-LANGUAGES = [
-    "Pashto", "Dari (Persian)", "English", "Russian", "Persian", "Albanian",
-    "Italian", "Arabic", "Berber", "Spanish", "Catalan", "French", "Portuguese",
-    "Armenian", "Mandarin Chinese", "German", "Turkish", "Serbian", "Croatian",
-    "Bosnian", "Azerbaijani (Azeri)", "Dzongkha", "Bulgarian", "Kirundi", "Khmer",
-    "Comorian", "Setswana (Tswana)", "Swazi (siSwati)", "Amharic", "Finnish",
-    "Swedish", "Sámi", "Georgian", "Gaeilge", "Hebrew", "Japanese", "Korean",
-    "Kazakh", "Swahili", "Lao", "Latvian", "Lithuanian", "Macedonian", "Maltese",
-    "Mongolian", "Nepali", "Dutch", "Polish", "Romanian", "Kinyarwanda", "Samoan",
-    "Slovak", "Slovene", "Somali", "Thai", "Tongan", "Turkish", "Tajik", "Ukrainian",
-    "Uzbek", "Bislama", "Vietnamese", "Hokkien", "Hakka", "Japanese", "Javanese",
-    "Sundanese", "Balinese", "Hindi", "Bengali", "Tamil", "Telugu", "Marathi",
-    "Quechua", "Aymara", "Filipino (Tagalog)", "Hungarian", "Norwegian", "Greek",
-    "Serbian", "Montenegrin", "Afrikaans", "Zulu", "Xhosa", "Tigrinya", "Tigre",
-    "Saho", "Bilen", "Luxembourgish", "Italian", "Igbo", "Yoruba", "Hausa",
-    "Kanuri", "Sinhala", "Tigrinya", "Tigre", "Saho", "Bilen", "Tagalog",
-    "Armenian", "Udmurt", "Uzbek", "Balochi", "Romanian", "Macedonian",
-    "Hebrew", "Wolof", "Guarani", "Nepali", "Twi", "Maori", "Tigrinya", "Tigre",
-    "Saho", "Bilen", "Tshivenda", "Shona", "Ndebele", "IsiNdebele", "IsiXhosa",
-    "IsiZulu", "Swati", "Tsonga", "Tswana", "Venda", "Sepedi", "Sesotho",
-    "Oshiwambo", "Otjiherero", "Fula", "Mandinka", "Kringa", "Sotho", "Pedi",
-    "Setswana", "Sesotho sa Leboa", "Shangaan", "Tshivenda", "Bamum", "Bayang",
-    "Bete", "Duala", "Fang", "Gbaya", "Boulou", "Ngumbete", "Shomp", "Ambo",
-    "Awak", "Mwani", "Rundi", "Tsonga", "Dhivehi (Maldivian)", "Bhojpuri",
-    "Kirundi", "Tsonga", "Mauritian Creole", "Thai", "Tamil", "Chichewa",
-    "Twi", "Ga", "Ewe", "Akan", "Yoruba", "Krio", "Jamaican Patois",
-    "Cape Verdean Creole (Kriolu)", "Malagasy", "Samali", "Bengali (Bangla)",
-    "Kiribati", "Marshallese", "Inari Sámi", "Northern Sámi", "Swahili",
-    "Malagasy", "Swazi", "Creole", "Danish", "Romansh", "Fijian", "Amharic",
-    "Haitian Creole (Kreyòl Ayisyen)", "Fula", "Luganda", "Hindi", "Dzongkha",
-    "Ukrainian", "Chichewa", "Mandinka", "Wolof", "Mauritian Creole", "Aymara",
-    "Quechua", "Creole", "Macedonian", "Swati", "Bemba", "Shona", "Tswana",
-    "Zulu", "Xhosa", "Venda", "Swazi", "Otjiherero", "Maldivian", "French",
-    "German", "Italian", "Latin", "Malagasy", "Wolof", "Turkish", "Greek",
-    "Armenian", "Comorian", "Azerbaijani", "Finnish", "Norwegian", "Swedish",
-    "Sámi", "Estonian", "Russian", "Finnish", "Arabic", "Chinese", "Hindi",
-    "Malay", "Maithili", "Fula", "Punjabi", "Sindhi", "Tamil", "Pashto",
-    "Bengali", "Arabic", "Persian", "Swahili", "Swedish", "Turkish", "Greek",
-    "Serbian", "Montenegrin", "Filipino", "Bengali", "Portuguese", "Italian",
-    "Creole", "Turkish", "Macedonian", "Burmese", "Mandarin", "Sranan",
-    "Wolof", "Fula", "Mandinka", "Shona", "Swazi", "Zulu", "Urdu", "Kurdish",
-    "Romanian", "Albanian", "Persian (Farsi)", "Indonesian", "Javanese",
-    "Shona", "Uzbek", "Maltese", "Kiribati", "Amharic", "Sinhala", "Icelandic"
-]
+
+LANGUAGES = ['Afrikaans', 'Akan', 'Albanian', 'Ambo', 'Amharic', 'Arabic', 'Armenian', 'Awak', 'Aymara', 'Azerbaijani',
+             'Balinese', 'Balochi', 'Bamum', 'Bayang', 'Bemba', 'Bengali', 'Berber', 'Bete', 'Bilen', 'Bislama',
+             'Bhojpuri', 'Bosnian', 'Boulou', 'Bulgarian', 'Burmese', 'Cape Verdean Creole (Kriolu)', 'Catalan',
+             'Chichewa', 'Chinese', 'Comorian', 'Creole', 'Croatian', 'Danish', 'Dari (Persian)',
+             'Dhivehi (Maldivian)', 'Duala', 'Dutch', 'Dzongkha', 'English', 'Estonian', 'Ewe', 'Fang', 'Fijian',
+             'Filipino (Tagalog)', 'Finnish', 'French', 'Fula', 'Ga', 'Gbaya', 'Georgian', 'German', 'Greek', 'Guarani',
+             'Haitian Creole (Kreyòl Ayisyen)', 'Hakka', 'Hausa', 'Hebrew', 'Hindi', 'Hokkien', 'Hungarian', 'Icelandic',
+             'Igbo', 'Inari Sámi', 'Indonesian', 'IsiNdebele', 'IsiXhosa', 'IsiZulu', 'Italian', 'Jamaican Patois',
+             'Japanese', 'Javanese', 'Kanuri', 'Kazakh', 'Khmer', 'Kinyarwanda', 'Kiribati', 'Krio', 'Kringa', 'Korean',
+             'Kurdish', 'Lao', 'Latin', 'Latvian', 'Lithuanian', 'Luganda', 'Luxembourgish', 'Macedonian', 'Maithili',
+             'Malagasy', 'Malay', 'Maldivian', 'Maltese', 'Mandarin Chinese', 'Mandinka', 'Maori', 'Marathi',
+             'Marshallese', 'Mauritian Creole', 'Mongolian', 'Montenegrin', 'Mwani', 'Ndebele', 'Nepali', 'Ngumbete',
+             'Northern Sámi', 'Norwegian', 'Oshiwambo', 'Otjiherero', 'Pashto', 'Pedi', 'Persian', 'Persian (Farsi)',
+             'Polish', 'Portuguese', 'Punjabi', 'Quechua', 'Romanian', 'Romansh', 'Rundi', 'Russian', 'Saho', 'Sámi',
+             'Samali', 'Samoan', 'Sepedi', 'Serbian', 'Sesotho', 'Sesotho sa Leboa', 'Setswana', 'Shangaan', 'Shona',
+             'Shomp', 'Sindhi', 'Sinhala', 'Slovak', 'Slovene', 'Somali', 'Sotho', 'Spanish', 'Sranan', 'Sundanese',
+             'Swahili', 'Swazi', 'Swedish', 'Tagalog', 'Tajik', 'Tamil', 'Telugu', 'Thai', 'Tigre', 'Tigrinya',
+             'Tongan', 'Tsonga', 'Tswana', 'Turkish', 'Tshivenda', 'Twi', 'Udmurt', 'Ukrainian', 'Urdu', 'Uzbek',
+             'Venda', 'Vietnamese', 'Wolof', 'Xhosa', 'Yoruba', 'Zulu']
+
+
+
+
+
+
+
+
 
 CURRENCY = [
     {"name": "United States Dollar", "abbreviation": "USD", "symbol": "$"},

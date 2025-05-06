@@ -1,0 +1,33 @@
+from enum import Enum
+
+
+class EmploymentStatusEnum(Enum):
+	FULL_TIME = "FULL_TIME"
+	PART_TIME = "PART_TIME"
+	CONTRACT = "CONTRACT"
+	INTERNSHIP = "INTERNSHIP"
+	VOLUNTEER = "VOLUNTEER"
+	TEMPORARY = "TEMPORARY"
+	PERMANENT = "PERMANENT"
+
+
+class ExperienceLevelEnum(Enum):
+	NOT_APPLICABLE = "NOT_APPLICABLE"
+	ENTRY_LEVEL = "ENTRY_LEVEL"
+	MID_SENIOR_LEVEL = "MID_SENIOR_LEVEL"
+	DIRECTOR = "DIRECTOR"
+	EXECUTIVE = "EXECUTIVE"
+	ASSOCIATE = "ASSOCIATE"
+	INTERNSHIP = "INTERNSHIP"
+
+class WorkPlaceTypeEnum(Enum):
+	ONSITE = "On-site"
+	REMOTE = "Remote"
+	HYBRID = "Hybrid"
+
+
+class OperationTypeEnum(Enum):
+	CREATE = "CREATE"
+	UPDATE = "UPDATE"
+	RENEW = "RENEW"
+	CLOSE = "CLOSE"

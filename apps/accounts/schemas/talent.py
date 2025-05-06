@@ -11,6 +11,7 @@ from accounts.models import (Talent, User, TalentAvailableDay, Education,
                              Experience, Skill, Role)
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema, \
     EducationLevelSchema, CountrySchema
+from jobs.enums import WorkStructureEnum
 from jobs.schemas import JobLevelSchema, EmploymentTypeSchema, BusinessModelSchema
 
 
@@ -57,11 +58,11 @@ class MutateExperienceSchema(ModelSchema):
         exclude = [*MUTATE_EXCLUDE_FIELDS, "talent"]
 
 class ExperienceSchema(ModelSchema):
-    role: RoleSchema
+    role: Optional[RoleSchema]
     level: Optional[JobLevelSchema]
     employment_type: EmploymentTypeSchema
-    annual_salary_currency: CurrencySchema
-    annual_salary_bonus_currency: CurrencySchema
+    annual_salary_currency: Optional[CurrencySchema]
+    annual_salary_bonus_currency: Optional[CurrencySchema]
     duration: str
     class Meta:
         model = Experience
@@ -96,20 +97,22 @@ class UpdateTalentProfileSchema(Schema):
 class UpdateTalentProfileSchema2(Schema):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
-    preferred_communication: Optional[PreferredCommunicationType] = None
+    preferred_communication: Optional[PreferredCommunicationType|str] = None
     phone_number: Optional[str] = None
     country: Optional[UUID] = None
     state: Optional[str] = None
     city: Optional[str] = None
+    employment_type: Optional[UUID] = None
     postal_code: Optional[str] = None
     whatsapp_number: Optional[str] = None
+    work_model: Optional[WorkStructureEnum|str] = None
     viber_number: Optional[str] = None
     address: Optional[str] = None
     gender: Optional[GenderType] = None
     visible: Optional[bool] = None
     bio: Optional[str] = None
-    notice_period: Optional[int] = None
-    notice_period_type: Optional[NoticePeriodType] = None
+    notice_period: Optional[int|str] = None
+    notice_period_type: Optional[NoticePeriodType|str] = None
     instagram: Optional[str] = None
     linkedin: Optional[str] = None
     facebook: Optional[str] = None
@@ -153,6 +156,7 @@ class TalentUserSchema(ModelSchema):
     user: UserSchema
     role: Optional[RoleSchema]
     country: Optional[CountrySchema]
+    employment_type: Optional[EmploymentTypeSchema]
     skills: List[TalentSkillSchema]
     business_models: List[BusinessModelSchema]
     experience_history: List[ExperienceSchema]
@@ -233,21 +237,19 @@ class TalentResumeSchema(ModelSchema):
 
 
 
-
-
-
-
 class TalentUserListSchema(ModelSchema):
     first_name: str =  Field(alias="user.first_name")
     last_name: str = Field(alias="user.last_name")
     email: EmailStr = Field(alias="user.email")
     user_uid: UUID = Field(alias="user.uid")
     role: Optional[RoleSchema]
+    country: Optional[CountrySchema]
     phone_number: Optional[str] = Field(alias="user.phone_number")
     photo_url:Optional[str]
+    cv_url:Optional[str]
     class Meta:
         model = Talent
-        fields = ("uid", )
+        fields = ("uid", "years_of_experience",  )
 
 
 class CompleteTalentProfileSchema(ModelSchema):
@@ -288,6 +290,7 @@ class TalentDashboardReport(Schema):
     jobs_applied: int
     invitations_to_apply: int
     interviews: int
+    profile_views: int
 
     # class Meta:
     #     model = Talent
@@ -317,10 +320,18 @@ class TalentDashboardReport(Schema):
             context = dict()
         return obj.invitations_to_apply(**context)
 
+    @staticmethod
+    def resolve_profile_views(obj):
+        return obj.viewers.count()
+
 
 class MonthlyChartSchema(Schema):
     month: Months
     count: int
+
+class TalentDashboardChartsSchema(Schema):
+    applications: List[MonthlyChartSchema]
+    interviews: List[MonthlyChartSchema]
 
 class TalentChangePasswordSchema(Schema):
     old_password: str

@@ -1,29 +1,23 @@
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Literal
 from uuid import UUID
+
+from ninja import ModelSchema, Schema
+from ninja.orm.fields import AnyObject
+from pydantic import Field
 
 from accounts.models import User
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, MessageAttachment, Conversation
 from jobs.models import JobPost
-from ninja import ModelSchema, Schema
-from ninja.orm.fields import AnyObject
-from ninja.types import DictStrAny
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
 
 class ChatUserSchema(ModelSchema):
-    photo_url : Optional[str] = None
+    photo_url:Optional[str] = None
 
     class Meta:
         model = User
         fields = ("uid", "email", "first_name", "last_name", "type")
-
-    @staticmethod
-    def resolve_photo_url(obj):
-        if hasattr(obj, "talent"):
-            return obj.talent.photo_url
-        elif hasattr(obj, "businessuser"):
-            return obj.businessuser.business.get_logo()
-        return None
 
 class ChatJobSchema(ModelSchema):
     country: str
@@ -89,7 +83,7 @@ class ChatListSchema(ModelSchema):
 
     class Meta:
         model = Conversation
-        fields = ("uid",)
+        fields = ("uid", "locked")
 
     @staticmethod
     def resolve_unread_messages_count(obj, context):
@@ -145,10 +139,45 @@ class MutateChatAttachmentSchema(Schema):
 
 class MutateChatMessageSchema(Schema):
     job_post: Optional[UUID] = None
-    body: str
+    body: Optional[str] = None
 
 
 class ResponseSchema(Schema):
     message: str
     data: Optional[AnyObject]
+
+class ChatMessagePaginatedSchema(PaginatedResponseSchema[ChatMessageSchema]):
+    locked: bool
+    recipient: ChatUserSchema
+
+class AttachmentSchema(Schema):
+    content_type: str
+    data: str
+    name: str
+
+class CreateMessageSchema(Schema):
+    job_post: Optional[UUID] = None
+    attachments: Optional[List[AttachmentSchema]]
+    body: str
+
+
+class ChatMessageRequestSchema(Schema):
+    data: CreateMessageSchema|Any
+    action: Literal["new_message", "is_typing", "stopped_typing", "read_message"]
+
+
+
+class ChatMessageErrorSchema(Schema):
+    message: Optional[str]=None
+    data: Optional[Any]=None
+    status: int
+
+
+class ChatMessageResponseSchema(Schema):
+    sender_id: UUID
+    sender: str
+    recipient: ChatUserSchema
+    chat_id: UUID
+    action: Literal["new_message", "is_typing", "stopped_typing", "read_message"]
+    data: Optional[ChatMessageSchema|AnyObject]
 

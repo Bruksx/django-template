@@ -9,7 +9,7 @@ def send_shared_job_email(job_post, emails: List[str]=None, lang="en"):
         return
     html = f'jobs/{lang}/share_job.html'
     #TODO: add frontend job url
-    frontend_job_url = "https://www.frontendjob.com/jobs/"
+    frontend_job_url = f"{settings.FRONTEND_URL}/jobs/"
     context = {
         'talent': "User",
         'company_logo': job_post.job.logo_url(),

@@ -1,7 +1,7 @@
 from typing import List, Optional
 from uuid import UUID
 
-from ninja import Field
+from ninja import Field, UploadedFile, Form
 from ninja import ModelSchema, Schema
 from ninja.errors import HttpError
 from pydantic import EmailStr, validate_email
@@ -12,15 +12,17 @@ from settings.enums import PlaceHolderType
 from settings.models import EmailTemplate, EmailTemplateAttachment, WorkFlowStage
 
 
-class MutateEmailTemplateSchema(ModelSchema):
+class CreateEmailTemplateSchema(ModelSchema):
     sender: EmailStr
     placeholders: str = Field(examples=PlaceHolderType.values(),
                               description="placeholders separated by comma without spacing")
-    bcc: str = Field(examples=["bob@examples.com"], description="emails separated by commas without spacing")
-    cc: str = Field(examples=["bob@examples.com"], description="emails separated by commas without spacing")
+    bcc: Optional[str] = Field(examples=["bob@examples.com"], description="emails separated by commas without spacing",
+                               default=None)
+    cc: Optional[str] = Field(examples=["bob@examples.com"], description="emails separated by commas without spacing",
+                              default=None)
     class Meta:
         model = EmailTemplate
-        exclude = [*MUTATE_EXCLUDE_FIELDS, "created_by"]
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "created_by", "uid"]
 
     @staticmethod
     def validate_placeholders(placeholders:str):
@@ -31,6 +33,8 @@ class MutateEmailTemplateSchema(ModelSchema):
 
     @staticmethod
     def validate_email_string_list(emails:str):
+        if not emails:
+            return list()
         emails = emails.split(",")
         for email in emails:
             try:
@@ -39,15 +43,15 @@ class MutateEmailTemplateSchema(ModelSchema):
                 raise ValueError(f"Invalid email address: {email}")
         return emails
 
-    @staticmethod
-    def is_valid(data:dict, instance=None, raise_exception=True):
+    @classmethod
+    def is_valid(cls, data:dict, instance=None, raise_exception=True):
         try:
             if "bcc" in data:
-                data["bcc"] = MutateEmailTemplateSchema.validate_email_string_list(data["bcc"])
+                data["bcc"] = cls.validate_email_string_list(data["bcc"])
             if "cc" in data:
-                data["cc"] = MutateEmailTemplateSchema.validate_email_string_list(data["cc"])
+                data["cc"] = cls.validate_email_string_list(data["cc"])
             if "placeholders" in data:
-                data["placeholders"] = MutateEmailTemplateSchema.validate_placeholders(data["placeholders"])
+                data["placeholders"] = cls.validate_placeholders(data["placeholders"])
             if "subject" in data:
                 EmailTemplate.convert_to_template(data["subject"])
             if "template" in data:
@@ -69,10 +73,17 @@ class MutateEmailTemplateSchema(ModelSchema):
             return False
 
 
+class UpdateEmailTemplateSchema(CreateEmailTemplateSchema):
+    subject: Optional[str]
+    template: Optional[str]
+    personal: Optional[bool]
+    delays : Optional[int]
 
 
 
 
+class AddAttachmentsToEmailTemplateSchema(Schema):
+    attachments: List[UploadedFile]
 
 
 class EmailTemplateListSchema(ModelSchema):
@@ -81,11 +92,15 @@ class EmailTemplateListSchema(ModelSchema):
         fields = ("uid", "name", "personal","created_at")
 
 class EmailTemplateAttachmentSchema(ModelSchema):
-    url: Optional[str] = None
+    url: Optional[str] = Field(alias="file_url")
+    name: Optional[str] = Field(alias="file_name")
     class Meta:
         model = EmailTemplateAttachment
         fields = ("uid", "created_at")
 
+class MoveApplicationToStageFromStageSchema(Schema):
+    previous_stage_uid: UUID
+    next_stage_uid: UUID
 
 class EmailTemplateDetailSchema(ModelSchema):
     sender: EmailStr
@@ -104,7 +119,7 @@ class MutateWorkFlowStageSchema(ModelSchema):
     email_template: Optional[UUID] = None
     class Meta:
         model = WorkFlowStage
-        exclude = [*MUTATE_EXCLUDE_FIELDS, "created_by"]
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "created_by", "phase_order", "order", "uid"]
 
 class WorkFlowStageSchema(ModelSchema):
     email_template: EmailTemplateListSchema
@@ -117,3 +132,8 @@ class WorkFlowStageSchema(ModelSchema):
 class PhaseWorkFlowStageSchema(Schema):
     phase: str
     stages: List[WorkFlowStageSchema]
+
+
+class RearrangeWorkflowStageSchema(Schema):
+    stage_uids: List[UUID]
+    phase: PhaseType

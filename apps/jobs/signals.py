@@ -3,8 +3,10 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 from jobs.enums import PhaseType, JobStatusType
-from jobs.models import JobApplication, JobPost, JobPostMetrics
+from jobs.models import JobApplication, JobPost, JobPostMetrics, RequiredAttribute, Job
 from notification import notifications
+
+from monkeypatches.q_cluster import async_task
 
 
 @receiver(pre_save, sender=JobApplication)
@@ -14,22 +16,32 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
     attributes = ["posted_timeline", "screening_timeline", "interview_timeline", "onboarding_timeline"]
     today = timezone.now()
     if instance.id:
-        application = JobApplication.objects.get(id=instance.id)
-        if instance.stage and application.stage != instance.stage and instance.stage.phase != PhaseType.REJECTED.value:
-            index = phases.index(instance.stage.phase)
-            if application.stage is None:
+        application = JobApplication.objects.filter(id=instance.id).first()
+        if not application:
+            return
+        stage = instance.stage
+        application_stage = application.stage
+        if stage and stage.phase == PhaseType.NEW.value:
+            stage = None
+        if application_stage and application_stage.phase == PhaseType.NEW.value:
+            application_stage = None
+        if stage and application_stage != stage and stage.phase != PhaseType.REJECTED.value:
+            index = phases.index(stage.phase)
+            if application_stage is None:
                 # if application is new and is being moved to next stage
                 # bypass to current stage
                 for i in range(index):
                     current_attribute = attributes[i]
                     setattr(instance, current_attribute, 0) # setting jumped timelines to 0
                 current_attribute = attributes[index]
-                setattr(instance, current_attribute, (today - instance.job_post.date_posted).days)
+                setattr(instance, current_attribute, (today - instance.job_post.created_at).days)
                 setattr(instance, "stage_date_updated", today)
 
             else:
+                if application_stage.phase not in phases:
+                    return
                 # if an application is moved from a stage to another in a forward movement
-                prev_index = phases.index(application.stage.phase)
+                prev_index = phases.index(application_stage.phase)
                 if prev_index < index:
                     for i in range(prev_index+1, index):
                         current_attribute = attributes[i]
@@ -62,9 +74,9 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
                     current_timeline += subtracted_days
                     setattr(instance, current_attribute, current_timeline)
 
-        elif application.stage and not instance.stage:
+        elif application_stage and not stage:
             subtracted_days = 0
-            index = phases.index(application.stage.phase)
+            index = phases.index(application_stage.phase)
             for i in (index, -1, -1):
                 current_attribute = attributes[i]
                 timeline = getattr(instance, current_attribute)
@@ -76,7 +88,9 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
 @receiver(pre_save, sender=JobApplication)
 def handle_stage_update(sender, instance,  **kwargs):
     if instance.id:
-        application = JobApplication.objects.get(id=instance.id)
+        application = JobApplication.objects.filter(id=instance.id).first()
+        if not application:
+            return
         if instance.stage and application.stage != instance.stage:
             if instance.stage.email_template:
                 context = instance.get_email_context()
@@ -87,9 +101,17 @@ def handle_stage_update(sender, instance,  **kwargs):
 def handle_stage_timeline_update(sender, instance,  **kwargs):
     today = timezone.now()
     if instance.id:
-        application = JobApplication.objects.get(id=instance.id)
-        if instance.stage and application.stage != instance.stage:
-            if application.stage is None:
+        application = JobApplication.objects.filter(id=instance.id).first()
+        if not application:
+            return
+        stage = instance.stage
+        application_stage = application.stage
+        if stage and stage.phase == PhaseType.NEW.value:
+            stage = None
+        if application_stage and application_stage.phase == PhaseType.NEW.value:
+            application_stage = None
+        if stage and application_stage != stage:
+            if application_stage is None:
                 # if application is new and is being moved to next stage
                 # bypass to current stage
                 instance.stage.update_talent_stage_timeline(instance)
@@ -131,7 +153,7 @@ def handle_stage_timeline_update(sender, instance,  **kwargs):
                         """
                         instance.stage.update_talent_stage_timeline(instance, accumulated_days)
 
-        elif application.stage and not instance.stage:
+        elif application_stage and not stage:
             past_stages = application.stage.previous_stages()
             if past_stages:
                 accumulated_days = 0
@@ -143,14 +165,21 @@ def handle_stage_timeline_update(sender, instance,  **kwargs):
 
 
 @receiver(post_save, sender=JobPost)
-def handle_job_post_metric(sender, instance, created, **kwargs):
+def handle_new_job_post(sender, instance, created, **kwargs):
     if created:
         JobPostMetrics.objects.create(job_post=instance)
+
+@receiver(post_save, sender=Job)
+def handle_new_job(sender, instance, created, **kwargs):
+    if created:
+        async_task(instance.send_alerts)
 
 @receiver(pre_save, sender=JobPost)
 def handle_job_post_date(sender, instance, **kwargs):
     if instance.id:
-        existing_instance = JobPost.objects.get(id=instance.id)
+        existing_instance = JobPost.objects.filter(id=instance.id).first()
+        if not existing_instance:
+            return
         if instance.status == JobStatusType.POSTED.value and existing_instance.status != JobStatusType.POSTED.value:
             instance.date_posted = timezone.now()
     else:
@@ -174,4 +203,10 @@ def handle_job_post_recruiter(sender, instance, **kwargs):
         if job_post.recruiter != instance.recruiter:
             notifications.send_job_post_assignment_notification(
                 job_post=instance, previous_recruiter=job_post.recruiter)
+
+@receiver(post_save, sender=Job)
+def handle_job_required_attributes(sender,  instance, created, **kwargs):
+    if created:
+        RequiredAttribute.objects.create(job=instance)
+
 

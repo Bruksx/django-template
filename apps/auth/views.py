@@ -1,12 +1,13 @@
 from django.db import transaction
 from django.utils import timezone
-from ninja.responses import Response
-
+from django.shortcuts import render
+from monkeypatches.response import Response
 from accounts.models import User, VerificationCode
 from accounts.schemas import common as common_schema
 from ninja import Router
 from ninja.errors import HttpError
 
+from auth.enums import AuthActionEnum
 from helpers.utils import validate_password
 from services.auth.schema import ProfileSchema
 from auth.schema import LoginSchema, SocialAuthSchema, ResetPasswordSchema
@@ -28,8 +29,7 @@ def login(request, data:LoginSchema):
 @router.post("social-login", response=common_schema.UserSchema)
 @transaction.atomic
 def social_auth(request, data: SocialAuthSchema):
-    profile = ProfileSchema(id=data.social_id, email=data.email, first_name=data.first_name, last_name=data.last_name)
-    user = handle_social_login(profile, data.user_type, data.social_type, data.action)
+    user = handle_social_login(data)
     validate_login(user)
     return user
 
@@ -37,7 +37,7 @@ def social_auth(request, data: SocialAuthSchema):
 @transaction.atomic
 def reset_password(request, data: ResetPasswordSchema):
     validate_password(data.password)
-    code = VerificationCode.objects.filter(email=data.email, code=data.otp).first()
+    code = VerificationCode.objects.filter(email__iexact=data.email, code=data.otp).last()
     if not code:
         raise HttpError(400, "Invalid otp")
     if code.expires_at < timezone.now():
@@ -47,5 +47,10 @@ def reset_password(request, data: ResetPasswordSchema):
         raise HttpError(404, "No user was found")
     user.set_password(data.password)
     user.save()
-    code.delete()
+    code.hard_delete()
     return Response(data={"message": "password reset successfully"})
+
+
+@router.get("social-login/redirect")
+def social_auth_redirect(request):
+    return render(request, "auth/linkedIn_redirect.html")

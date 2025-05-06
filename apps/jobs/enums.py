@@ -26,10 +26,11 @@ class QuestionTypeEnum(BaseEnum):
     
 
 class PhaseType(BaseEnum):
+    NEW = "new"
     SCREENING = "screening"
     INTERVIEW = "interview"
-    HIRED = "hired"
     ONBOARDING = "onboarding"
+    HIRED = "hired"
     REJECTED = "rejected"
 
 class WithdrawalFeedbackType(BaseEnum):
@@ -44,3 +45,10 @@ class JobStatusType(BaseEnum):
     PAUSED = "paused"
     POSTED = "posted"
     CLOSED = "closed"
+
+class ActionType(BaseEnum):
+    DRAFT = "draft"
+    PAUSED = "paused"
+    POSTED = "posted"
+    CLOSED = "closed"
+    DELETE = "delete"

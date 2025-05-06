@@ -1,4 +1,5 @@
-from typing import List, Any
+import sys
+from typing import List
 
 import requests
 from django.conf import settings
@@ -8,25 +9,40 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from pydantic import EmailStr
 
-from helpers.decorators import test_env_decorator
 from helpers.loggers import Logger
 from helpers.utils import is_valid_email
 
 
-@test_env_decorator(None)
-def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_body:str=None):
+def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_body:str=None,
+               attachments:list=None, from_user:str=None):
+    if "test" in sys.argv:
+        return
     retries = 3
+    emails = [email for email in emails if email.split("@")[1].split(".")[0].lower() not in ("example", "localhost", "test")]
+    if not emails:
+        return
+    if from_user:
+        if is_valid_email(from_user):
+            user = from_user.split("@")[0].title()
+            company = from_user.split("@")[1].split(".")[0].title()
+            if company.lower() in ("gmail", "outlook", "hotmail", "yahoo"):
+                from_user = user
+            else:
+                from_user = f"{user} from {company}"
     for retry in range(retries):
         try:
             body = plain_body or strip_tags(html_body)
             email =EmailMultiAlternatives(
                     subject=subject,
                     body=body,
-                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    from_email=settings.DEFAULT_FROM_EMAIL if not from_user else f"{from_user} <{settings.EMAIL_HOST_USER}>",
                     bcc=emails,
                 )
             if html_body:
                 email.attach_alternative(html_body, "text/html")
+            if attachments:
+                for attachment in attachments:
+                    email.attach(attachment.name, attachment.read(), attachment.content_type)
             email.send(fail_silently=False)
             return
         except Exception as e:
@@ -36,11 +52,21 @@ def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_b
                 description=str(e)
             ), exc_info=True)
 
-@test_env_decorator(None)
+
 def send_template_email(subject:str, body:str, emails:List[EmailStr], from_user:str, attachment_urls:List[str]=None,
                         bcc:List[EmailStr]=None, cc:List[EmailStr]=None):
     html_content = render_html_email("email_template.html", dict(body=body))
+    if "test" in sys.argv:
+        return
     retries = 3
+    emails = [email for email in emails if
+              email.split("@")[1].split(".")[0].lower() not in ("example", "localhost", "test")]
+    bcc = [email for email in bcc if
+              email.split("@")[1].split(".")[0].lower() not in ("example", "localhost", "test")]
+    cc = [email for email in cc if
+              email.split("@")[1].split(".")[0].lower() not in ("example", "localhost", "test")]
+    if not emails or not bcc or not cc:
+        return
 
     if is_valid_email(from_user):
         user = from_user.split("@")[0].title()

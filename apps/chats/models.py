@@ -2,7 +2,6 @@ import json
 from typing import List
 
 from django.db import models
-from django.db.models import Q
 from helpers.websocket.utils import send_ws
 
 from accounts.models import User
@@ -37,7 +36,7 @@ class Conversation(BaseModel):
         return self.message_set.exclude(sender_id=user_id).exclude(readers__id=user_id)
 
     def read_messages(self, message_ids:List[int], user_id:int):
-        from .schemas import ChatMessageListSchema
+        from .schemas import ChatMessageListSchema, ChatUserSchema
         user = User.objects.filter(id=user_id).first()
         if not user:
             return
@@ -45,13 +44,13 @@ class Conversation(BaseModel):
         for message in messages:
             message.readers.add(user)
             message.save()
-            send_ws(channel=self.chat_group_name, data=dict(
+            send_ws(channel=self.get_recipient(user).unique_chat_id, data=dict(
                 sender_id=str(user.uid),
+                recipient=json.loads(ChatUserSchema.from_orm(self.get_recipient(user)).model_dump_json()),
                 chat_id = str(self.uid),
                 sender=user.get_full_name(),
                 action="read_message",
-                data=json.loads(ChatMessageListSchema.from_orm(message).model_dump_json()),
-                data_type="message")
+                data=json.loads(ChatMessageListSchema.from_orm(message).model_dump_json()))
              )
         return
 
@@ -66,19 +65,35 @@ class Message(BaseModel):
     body = models.TextField()
     readers = models.ManyToManyField(User, blank=True, related_name="readers")
 
-    def __str__(self) -> str:
-        return f"{self.sender}"
-
     def notify_chat(self):
-        from .schemas import ChatMessageListSchema
+        from .schemas import ChatMessageSchema, ChatUserSchema
+        recipient = self.conversation.get_recipient(self.sender)
         send_ws(channel=self.conversation.chat_group_name, data=dict(
+            recipient=json.loads(ChatUserSchema.from_orm(recipient).model_dump_json()),
             sender_id=str(self.sender.uid),
             sender=self.sender.fullname,
             chat_id = str(self.conversation.uid),
             action="new_message",
-            data=json.loads(ChatMessageListSchema.from_orm(self).model_dump_json()),
-            data_type="message")
+            data=json.loads(ChatMessageSchema.from_orm(self).model_dump_json()))
         )
+
+    def handle_post_save(self, notify=False):
+        from notification.notifications import send_new_chat_notification, send_new_chat_message_notification
+        self.conversation.last_message_time = self.created_at
+        self.conversation.save()
+        if notify is True:
+            self.notify_chat()
+        if self.conversation.message_set.count() == 1:
+            send_new_chat_notification(self.conversation)
+        send_new_chat_message_notification(self)
+
+    def __str__(self):
+        if self.body:
+            return self.body[:100]
+        attachment = self.messageattachment.last()
+        if not attachment:
+            return ""
+        return attachment.file_type
 
 class MessageAttachment(BaseModel):
     message = models.ForeignKey("Message", on_delete=models.CASCADE)

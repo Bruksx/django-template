@@ -3,8 +3,10 @@ from django.test import TestCase
 from ninja.testing import TestClient
 
 from accounts.enums import BusinessUserRoleType
-from factories import BusinessUserFactory, EmailTemplateFactory, WorkflowStageFactory, JobApplicationFactory
+from factories import BusinessUserFactory, EmailTemplateFactory, WorkflowStageFactory, JobApplicationFactory, \
+    TalentFactory
 from jobs.enums import PhaseType
+from jobs.models import JobApplication
 from settings.enums import PlaceHolderType
 from settings.models import EmailTemplate, WorkFlowStage, EmailTemplateAttachment
 from settings.views import router
@@ -16,7 +18,11 @@ class TestCreateEmailTemplate(TestCase):
         self.client = TestClient(router)
         self.url = "email-templates"
         self.business_user = BusinessUserFactory.create()
-        self.test_data = data = {
+        file_data = SimpleUploadedFile(
+            "test_file.txt", b"This is a test file", content_type="text/plain"
+        )
+
+        self.test_data = {
             "name": "Test Template",
             "sender": "info@example.com",
             "subject": f"Welcome <{PlaceHolderType.CANDIDATE_FULLNAME.value}>!",
@@ -25,13 +31,33 @@ class TestCreateEmailTemplate(TestCase):
             "delays": 2,
             "bcc": ",".join(["bob@example.com", "joe@example.com"]),
             "cc": ",".join(["pitt@example.com"]),
-            "personal": True
+            "personal": True,
+            "attachments": [file_data],
         }
 
 
     def test_create_email_template(self):
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
         data = self.test_data
+
+        template = EmailTemplate.objects.first()
+        self.assertIsNone(template)
+        response = self.client.post(self.url, data=data,
+                                    headers=headers,
+                                    content_type="multipart/form-data")
+        self.assertEqual(response.status_code, 201)
+        template = EmailTemplate.objects.first()
+        self.assertEqual(template.name, data["name"])
+        self.assertEqual(template.sender, data["sender"])
+        self.assertEqual(template.delays, data["delays"])
+        self.assertEqual(template.personal, data["personal"])
+        self.assertEqual(template.created_by, self.business_user)
+
+    def test_create_email_template_without_bcc_and_cc(self):
+        headers = {"authorization": f"bearer {self.business_user.user.token}"}
+        data = self.test_data
+        del data["bcc"]
+        del data["cc"]
 
         template = EmailTemplate.objects.first()
         self.assertIsNone(template)
@@ -67,7 +93,7 @@ class TestCreateEmailTemplate(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_create_template_with_same_name(self):
-        EmailTemplateFactory.create(name="Test Template", created_by=self.business_user)
+        EmailTemplateFactory.create(name="Test Template", created_by=self.business_user, personal=self.test_data["personal"])
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
         data = self.test_data
         response = self.client.post(self.url, data=data,
@@ -83,6 +109,24 @@ class TestUpdateEmailTemplate(TestCase):
         self.client = TestClient(router)
         self.url = lambda uid : f"email-templates/{uid}"
         self.business_user = BusinessUserFactory.create()
+
+        file_data = SimpleUploadedFile(
+            "test_file.txt", b"This is a test file", content_type="text/plain"
+        )
+
+        self.test_data = {
+            "name": "Test Template II",
+            "sender": "info@example.com",
+            "subject": f"Welcome <{PlaceHolderType.CANDIDATE_FIRST_NAME.value}>!",
+            "template": f"Hi <{PlaceHolderType.CANDIDATE_FIRST_NAME.value}>, welcome to our company. Please contact us at <{PlaceHolderType.YOUR_COMPANY_NAME.value}>.",
+            "placeholders": ",".join(
+                [PlaceHolderType.CANDIDATE_FIRST_NAME.value, PlaceHolderType.YOUR_COMPANY_NAME.value]),
+            "delays": 7,
+            "bcc": ",".join(["bob@example.com", "joe@example.com"]),
+            "cc": ",".join(["pitt@example.com"]),
+            "personal": True,
+            "attachments": [file_data],
+        }
         self.email_template = EmailTemplate.objects.create(
             name="Test Template",
             sender="info@example.com",
@@ -95,30 +139,28 @@ class TestUpdateEmailTemplate(TestCase):
             personal=True,
             created_by=self.business_user
         )
-        self.test_data  = {
-            "subject": f"Welcome <{PlaceHolderType.CANDIDATE_FIRST_NAME.value}>!",
-            "template": f"Hi <{PlaceHolderType.CANDIDATE_FIRST_NAME.value}>, welcome to our company. Please contact us at <{PlaceHolderType.YOUR_COMPANY_NAME.value}>.",
-            "placeholders": ",".join([PlaceHolderType.CANDIDATE_FIRST_NAME.value, PlaceHolderType.YOUR_COMPANY_NAME.value]),
-            "delays": 7
-        }
 
     def test_update_email_template(self):
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
         data = self.test_data
-        response = self.client.patch(self.url(self.email_template.uid), json=data,
-                                   headers=headers,
+        response = self.client.post(self.url(self.email_template.uid), data=data,
+                                   headers=headers, format="multipart/form-data"
                                    )
         self.assertEqual(response.status_code, 200)
         template = EmailTemplate.objects.first()
         self.assertEqual(template.delays, data["delays"])
+        self.assertEqual(template.personal, data["personal"])
+        self.assertEqual(template.sender, data["sender"])
+        self.assertEqual(template.subject, data["subject"])
+        self.assertEqual(template.template, data["template"])
+        self.assertEqual(template.name, data["name"])
+
 
     def test_for_invalid_subject_placeholder(self):
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
-        data = {
-            "subject": "hello <candidate_name>!",
-        }
-        response = self.client.patch(self.url(self.email_template.uid), json=data,
-                                   headers=headers)
+        self.test_data["subject"] = "hello <candidate_name>!"
+        response = self.client.post(self.url(self.email_template.uid), self.test_data,
+                                   headers=headers, format="multipart/form-data")
 
         self.assertEqual(response.status_code, 400)
 
@@ -126,23 +168,23 @@ class TestUpdateEmailTemplate(TestCase):
 
     def test_for_invalid_subject_placeholder_format(self):
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
-        data = {
-            "subject": f"hello <<{PlaceHolderType.CANDIDATE_FULLNAME.value}>>!",
-        }
-        response = self.client.patch(self.url(self.email_template.uid), json=data,
-                                   headers=headers)
+        self.test_data["subject"] = f"hello <<{PlaceHolderType.CANDIDATE_FULLNAME.value}>>!"
+        response = self.client.post(self.url(self.email_template.uid), self.test_data,
+                                   headers=headers, format="multipart/form-data")
 
         self.assertEqual(response.status_code, 400)
 
 
     def test_update_template_with_same_name(self):
-        EmailTemplateFactory.create(name="Test Template 2", created_by=self.business_user)
+        EmailTemplateFactory.create(name="Test Template 2", created_by=self.business_user, personal=True)
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
         data = {
-            "name": "Test Template 2"
+            "name": "Test Template 2",
+            "personal": True
         }
-        response = self.client.patch(self.url(self.email_template.uid), json=data,
-                                    headers=headers)
+        self.test_data.update(data)
+        response = self.client.post(self.url(self.email_template.uid), self.test_data,
+                                    headers=headers, format="multipart/form-data")
 
         self.assertEqual(response.status_code, 400)
 
@@ -152,8 +194,9 @@ class TestUpdateEmailTemplate(TestCase):
         data = {
             "name": "Test Template 3"
         }
-        response = self.client.patch(self.url(self.email_template.uid), json=data,
-                                    headers=headers)
+        self.test_data.update(data)
+        response = self.client.post(self.url(self.email_template.uid), self.test_data,
+                                    headers=headers, format="multipart/form-data")
 
         self.assertEqual(response.status_code, 403)
 
@@ -163,8 +206,9 @@ class TestUpdateEmailTemplate(TestCase):
         data = {
             "name": "Test Template 3"
         }
-        response = self.client.patch(self.url(self.email_template.uid), json=data,
-                                    headers=headers)
+        self.test_data.update(data)
+        response = self.client.post(self.url(self.email_template.uid), self.test_data,
+                                    headers=headers, format="multipart/form-data")
 
         self.assertEqual(response.status_code, 200)
 
@@ -175,7 +219,13 @@ class RetrieveEmailTemplateTest(TestCase):
         self.client = TestClient(router)
         self.url = lambda uid : f"email-templates/{uid}"
         self.business_user = BusinessUserFactory.create()
-        EmailTemplateFactory.create_batch(5, created_by=self.business_user)
+        templates = EmailTemplateFactory.create_batch(5, created_by=self.business_user)
+        for template in templates:
+            EmailTemplateAttachment.objects.create(email_template=template,
+                                                   file=SimpleUploadedFile(
+                                                       "test_file.txt", b"This is a test file", content_type="text/plain"
+                                                   ))
+
 
     def test_retrieve_email_template(self):
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
@@ -183,6 +233,9 @@ class RetrieveEmailTemplateTest(TestCase):
         response = self.client.get(self.url(uid), headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["uid"], str(uid))
+        self.assertEqual(len(response.json()["attachments"]), 1)
+        self.assertIn("name", response.json()["attachments"][0])
+        print(response.json()["attachments"])
 
     def test_retrieve_email_template_by_another_business(self):
         template = EmailTemplateFactory.create()
@@ -225,7 +278,17 @@ class CreateWorkflowTest(TestCase):
         response = self.client.post(self.url, json=data,
                                     headers=headers)
         self.assertEqual(response.status_code, 201)
-        workflow = WorkFlowStage.objects.first()
+        data = {
+            "name": "Test Workflow2",
+            "phase": PhaseType.HIRED.value,
+            "email_template": email_template.uid,
+            "is_active": True
+        }
+        response = self.client.post(self.url, json=data,
+                                    headers=headers)
+        self.assertEqual(response.status_code, 201)
+        workflow = WorkFlowStage.objects.last()
+        self.assertEqual(WorkFlowStage.objects.count(), 2)
         self.assertEqual(workflow.name, data["name"])
 
     def test_create_workflow_stage_with_same_name(self):
@@ -333,35 +396,8 @@ class RetrieveWorkflowStagesTest(TestCase):
         self.assertIn("stages", first_data)
         self.assertGreaterEqual(len(first_data["stages"]), 1)
 
-# class AddAttachmentToEmailTemplateTest(TestCase):
-#     def setUp(self):
-#         self.client = self.client
-#         self.client = TestClient(router)
-#         self.url = lambda uid : f"email-templates/{uid}/attachments"
-#         self.business_user = BusinessUserFactory.create()
-#         self.email_template = EmailTemplateFactory.create(created_by=self.business_user)
-#
-#     def test_add_attachment_to_email_template(self):
-#         headers = {"authorization": f"bearer {self.business_user.user.token}"}
-#         file_data = SimpleUploadedFile(
-#             "test_file.txt", b"This is a test file", content_type="text/plain"
-#         )
-#         data = {
-#             "attachments": [file_data]
-#         }
-#         response = self.client.post(self.url(self.email_template.uid),
-#                                     data=data,
-#                                     headers=headers,
-#                                     content_type="multipart/form-data")
-#         logging.critical(response.content)
-#         self.assertEqual(response.status_code, 201)
-#         self.assertIn("attachment", response.json())
-
-
-
 class DeleteAttachmentFromEmailTemplateTest(TestCase):
     def setUp(self):
-        self.client = self.client
         self.client = TestClient(router)
         self.url = lambda uid : f"email-templates/{uid}/attachments"
         self.business_user = BusinessUserFactory.create()
@@ -390,3 +426,183 @@ class DeleteAttachmentFromEmailTemplateTest(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
+class ReArrangeWorkflowTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = "workflows/re-arrange-stages"
+        self.business_user = BusinessUserFactory.create()
+        self.stage1 = WorkflowStageFactory.create(created_by=self.business_user, phase=PhaseType.HIRED.value, order=1)
+        self.stage2 = WorkflowStageFactory.create(created_by=self.business_user, phase=PhaseType.HIRED.value, order=2)
+
+    def test_successful_rearrangement(self):
+        headers = {"authorization": f"bearer {self.business_user.user.token}"}
+        data = [{"stage_uids": [str(self.stage2.uid), str(self.stage1.uid)], "phase": PhaseType.HIRED.value}]
+        response = self.client.patch(self.url, json=data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["message"], "workflow stages have been updated successfully")
+
+        self.stage1.refresh_from_db()
+        self.stage2.refresh_from_db()
+        self.assertEqual(self.stage1.order, 1)
+        self.assertEqual(self.stage2.order, 0)
+
+    def test_unauthorized_access(self):
+        """Test access without authentication"""
+        data = [{"stage_uids": [str(self.stage1.uid)], "phase": PhaseType.HIRED.value}]
+        response = self.client.patch(self.url, json=data)
+        self.assertEqual(response.status_code, 401)
+
+
+
+
+class BulkDeleteEmailTemplatesTest(TestCase):
+    def setUp(self):
+        self.url = "email-templates"
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        templates = EmailTemplateFactory.create_batch(5, created_by=self.business_user)
+        self.test_data = [
+            str(template.uid) for template in templates
+        ]
+
+    def test_bulk_delete_templates(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 204)
+
+        self.assertEqual(EmailTemplate.objects.filter(created_by=self.business_user).count(), 0)
+
+    def test_by_another_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 204)
+
+        self.assertEqual(EmailTemplate.objects.filter(created_by=self.business_user).count(), 5)
+
+    def test_bulk_delete_without_authorization(self):
+        response = self.client.delete(self.url, json=self.test_data)
+        self.assertEqual(response.status_code, 401)
+
+    def test_bulk_delete_by_talent(self):
+        talent_user = TalentFactory.create()
+        headers = {
+            "authorization": f"Bearer {talent_user.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+
+class BulkDeleteWorkflowStageTest(TestCase):
+    def setUp(self):
+        self.url = "workflows/stages"
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        stages = WorkflowStageFactory.create_batch(5, created_by=self.business_user, is_active=False)
+        self.test_data = [
+            str(stage.uid) for stage in stages
+        ]
+
+    def test_bulk_delete_by_business_user(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 0)
+
+    def test_when_one_stage_is_active(self):
+        w = WorkFlowStage.objects.last()
+        w.update(is_active=True)
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+
+    def test_when_one_stage_has_job_applications(self):
+        w = WorkFlowStage.objects.last()
+        JobApplicationFactory.create(stage=w)
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+
+
+    def test_by_another_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+
+    def test_by_talent(self):
+        talent = TalentFactory.create()
+        headers = {
+            "authorization": f"Bearer {talent.user.token}"
+        }
+        response = self.client.delete(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+
+
+
+
+class MoveApplicantsAcrossStagesTest(TestCase):
+    def setUp(self):
+        self.url = "workflows/stages/move-applications"
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.previous_stage = WorkflowStageFactory.create(created_by=self.business_user, is_active=False)
+        self.next_stage = WorkflowStageFactory.create(created_by=self.business_user, is_active=False)
+        self.test_data = {
+            "previous_stage_uid": str(self.previous_stage.uid),
+            "next_stage_uid": str(self.next_stage.uid)
+        }
+        JobApplicationFactory.create_batch(5, stage=self.previous_stage)
+
+
+
+    def test_by_business_user(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        self.assertEqual(JobApplication.objects.filter(stage=self.previous_stage).count(), 5)
+        self.assertEqual(JobApplication.objects.filter(stage=self.next_stage).count(), 0)
+        response = self.client.post(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(JobApplication.objects.filter(stage=self.previous_stage).count(), 0)
+        self.assertEqual(JobApplication.objects.filter(stage=self.next_stage).count(), 5)
+
+    def test_by_another_business_user_in_another_company(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"Bearer {business_user.user.token}"
+        }
+        self.assertEqual(JobApplication.objects.filter(stage=self.previous_stage).count(), 5)
+        self.assertEqual(JobApplication.objects.filter(stage=self.next_stage).count(), 0)
+        response = self.client.post(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(JobApplication.objects.filter(stage=self.previous_stage).count(), 5)
+        self.assertEqual(JobApplication.objects.filter(stage=self.next_stage).count(), 0)
+
+    def test_by_talent(self):
+        talent = TalentFactory.create()
+        headers = {
+            "authorization": f"Bearer {talent.user.token}"
+        }
+        self.assertEqual(JobApplication.objects.filter(stage=self.previous_stage).count(), 5)
+        self.assertEqual(JobApplication.objects.filter(stage=self.next_stage).count(), 0)
+        response = self.client.post(self.url, json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(JobApplication.objects.filter(stage=self.previous_stage).count(), 5)
+        self.assertEqual(JobApplication.objects.filter(stage=self.next_stage).count(), 0)

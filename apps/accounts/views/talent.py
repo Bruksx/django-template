@@ -1,5 +1,5 @@
 from datetime import date, timedelta
-from typing import List
+from typing import Optional
 from uuid import UUID
 
 from accounts.enums import UserType, AuthType
@@ -8,17 +8,18 @@ from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
 from django.db import transaction
-from ninja import Router, PatchDict, UploadedFile
+from django.utils import timezone
+from ninja import Router, PatchDict, UploadedFile, File
 from ninja.errors import HttpError
-from ninja.responses import Response
 from ninja_jwt.authentication import JWTAuth
 
-from apps.accounts.enums import MeetingType
+from accounts.enums import MeetingType
 from config.permissions import IsBusinessUser
 from config.permissions import IsTalentUser
 from helpers.email.auth import send_verification_code
-from helpers.utils import convert_base64_to_image_file, validate_password
+from helpers.utils import convert_base64_to_image_file, validate_password, delete_s3_item
 from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
 from services import meeting
 
 router = Router(tags=["Account"])
@@ -79,7 +80,7 @@ def delete_talent_education(request, education_uid:UUID):
     education = talent_user.education_set.filter(uid=education_uid).first()
     if not education:
         raise HttpError(404, "This education does not exist")
-    education.delete()
+    education.hard_delete()
     return Response(status=204, data=None)
 
 
@@ -91,7 +92,7 @@ def delete_talent_experience(request, experience_uid:UUID):
     experience = talent_user.experience_set.filter(uid=experience_uid).first()
     if not experience:
         raise HttpError(404, "This experience does not exist")
-    experience.delete()
+    experience.hard_delete()
     return Response(status=204, data=None)
 
 
@@ -109,19 +110,11 @@ def talent_dashboard_report(request, start_date: date=None, end_date: date=None)
 
     return Response(data=talent_schemas.TalentDashboardReport.from_orm(request.user.talent))
 
-@router.get("applications-chart", response=List[talent_schemas.MonthlyChartSchema], auth=JWTAuth(),
+@router.get("dashboard-charts", response=talent_schemas.TalentDashboardChartsSchema, auth=JWTAuth(),
             tags=["Talent Dashboard"])
-def talent_applications_chart(request):
+def talent_dashboard_chart(request):
     IsTalentUser.check(request)
-    return request.user.talent.applications_made_chart()
-
-
-@router.get("interviews-chart", response=List[talent_schemas.MonthlyChartSchema],
-            tags=["Talent Dashboard"], auth=JWTAuth())
-def talent_interview_chart(request):
-    IsTalentUser.check(request)
-    return request.user.talent.interviews_chart()
-
+    return request.user.talent.dashboard_charts()
 
 @router.patch("profile", auth=JWTAuth())
 @transaction.atomic
@@ -129,11 +122,19 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
     IsTalentUser.check(request)
     talent_user = request.user.talent
     if "gender" in data:
-        data["gender"] = data["gender"].value
+        data["gender"] = data["gender"].value if type(data["gender"]) is not str else data["gender"]
+
+    if "work_model" in data:
+        data["work_model"] = data["work_model"].value if type(data["work_model"]) is not str else data["work_model"]
+
     if "preferred_communication" in data:
-        data["preferred_communication"] = data["preferred_communication"].value
+        data["preferred_communication"] = data["preferred_communication"].value if type(data["preferred_communication"]) is not str else data["preferred_communication"]
     if "notice_period_type" in data:
-        data["notice_period_type"] = data["notice_period_type"].value
+        data["notice_period_type"] = data["notice_period_type"].value if type(data["notice_period_type"]) is not str else data["notice_period_type"]
+    if "notice_period" in data:
+        data["notice_period"] = data["notice_period"] if type(data["notice_period"]) is not str else int(data["notice_period"]) if str(data["notice_period"]).isdigit() else None
+
+
     user = request.user
     user_data = dict()
     if "first_name" in data:
@@ -151,23 +152,42 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
     if "business_models" in data and data["business_models"]:
         talent_user.business_models.set(data.pop("business_models"))
     if "experience_history" in data and data["experience_history"]:
+        uids = list()
         for experience in data.pop("experience_history"):
             experience_uid = experience.pop("uid", None)
-            if experience_uid:
-                if not talent_user.experience_set.filter(uid=experience_uid).exists():
-                    continue
-                talent_user.experience_set.filter(uid=experience_uid).update(**experience)
+            currently_works = experience.get("currently_works_here", False)
+            start_date = experience.get("start_date", None)
+            end_date = experience.get("end_date", None)
+            if not start_date:
+                raise HttpError(400, "Experience start date is required")
+            if currently_works is True:
+                experience["end_date"] = None
             else:
-                Experience(**experience, talent=talent_user).save()
+                if not end_date:
+                    raise HttpError(400, "Experience end date is required if not currently working here")
+                if end_date < start_date:
+                    raise HttpError(400, "Experience end date cannot be before start date")
+                if end_date > timezone.now().date():
+                    raise HttpError(400, "Experience end date cannot be in the future")
+
+            if experience_uid:
+                talent_user.experience_set.filter(uid=experience_uid).update(**experience)
+                uids.append(experience_uid)
+            else:
+                experience = Experience.objects.create(**experience, talent=talent_user)
+                uids.append(experience.uid)
+        talent_user.experience_set.exclude(uid__in=uids).hard_delete()
     if "education_history" in data and data["education_history"]:
+        uids = list()
         for education in data.pop("education_history"):
             edu_uid = education.pop("uid", None)
             if edu_uid:
-                if not talent_user.education_set.filter(uid=edu_uid).exists():
-                    continue
                 talent_user.education_set.filter(uid=edu_uid).update(**education)
+                uids.append(edu_uid)
             else:
-                Education(**education, talent=talent_user).save()
+                education  = Education.objects.create(**education, talent=talent_user)
+                uids.append(education.uid)
+        talent_user.education_set.exclude(uid__in=uids).hard_delete()
     if "additional_languages" in data and data["additional_languages"]:
         additional_languages = data.pop("additional_languages")
         talent_user.additional_languages.set(additional_languages)
@@ -200,19 +220,29 @@ def change_talent_password(request, data: talent_schemas.TalentChangePasswordSch
     return Response(status=200, data={"message": "Password changed successfully"})
 
 @router.post("cv", auth=JWTAuth())
-def upload_talent_cv(request, file: UploadedFile):
+def upload_talent_cv(request, file: Optional[UploadedFile] = File(None)):
     IsTalentUser.check(request)
     talent_user = request.user.talent
+    if not file:
+        if talent_user.cv:
+            delete_s3_item(talent_user.cv)
+        talent_user.update(cv=None)
+        return Response(status=200, data={"message": "CV cleared successfully"})
     if file.name.split(".")[-1] != "pdf":
         raise HttpError(400, "This file type is not supported. Only PDF files")
     talent_user.update(cv=file)
     return Response(status=200, data={"message": "CV uploaded successfully"})
 
 @router.post("profile-pic", auth=JWTAuth())
-def upload_talent_profile_picture(request, file: UploadedFile):
+def upload_talent_profile_picture(request, file: Optional[UploadedFile] = File(None)):
     IsTalentUser.check(request)
     talent_user = request.user.talent
-    extension = file.name.split(".")[-1]
+    if not file:
+        if talent_user.photo_url:
+            delete_s3_item(talent_user.photo_url)
+        talent_user.update(photo=None)
+        return Response(status=200, data={"message": "Profile picture cleared successfully"})
+    extension = str(file.name.split(".")[-1]).lower()
     if extension not in ["jpg", "jpeg", "png"]:
         raise HttpError(400, "This file type is not supported. Only JPG/JPEG/PNG files")
     talent_user.update(photo=file)
@@ -227,6 +257,9 @@ def talent_details(request, talent_uid:UUID):
     talent = Talent.objects.filter(uid=talent_uid).first()
     if not talent:
         raise HttpError(404, "This talent does not exist")
+    if not talent.viewers.filter(id=request.user.id).exists():
+        talent.viewers.add(request.user)
+        talent.save()
     return talent
 
 
@@ -244,3 +277,10 @@ def schedule_meeting(request, data: talent_schemas.ScheduleMeetingSchema):
         raise HttpError(400, "Meeting could not be scheduled")
 
     return meeting_response
+
+@router.delete("", auth=JWTAuth(), response={204: None})
+@transaction.atomic
+def delete_account(request):
+    IsTalentUser.check(request)
+    request.user.delete_account()
+    return Response(status=204, data={"message": "Account deleted successfully"})

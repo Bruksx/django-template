@@ -1,14 +1,17 @@
-from django.db import models, transaction
+from functools import cached_property
+
+from django.db import models
 from django.db.models import F, Q
+from monkeypatches.q_cluster import async_task
 from timezone_field import TimeZoneField
 
 from accounts.enums import Days
 from accounts.models import Talent, TalentAvailableDay
 from core.models import BaseModel, Language
+from jobs.managers import JobManager
 from settings.enums import PlaceHolderType
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
     JobStatusType
-from .managers import JobManager
 
 
 # Create your models here.
@@ -26,14 +29,6 @@ class JobLevel(BaseModel):
 
     def __str__(self) -> str:
         return self.name
-    
-
-class Qualification(BaseModel):
-    name = models.CharField(max_length=64)
-
-    def __str__(self) -> str:
-        return self.name
-
 
 class AvailableDay(BaseModel):
     job = models.ForeignKey("Job", on_delete=models.CASCADE)
@@ -50,28 +45,28 @@ class Job(BaseModel):
         (UNPAID, UNPAID)
     )
     logo = models.ImageField(upload_to="jobs/logos", null=True, blank=True)
-    created_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True)
+    created_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True) #TODO take care during delete account
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     hiring_company_name = models.CharField(max_length=64, null=True)
     hiring_company_description = models.TextField(null=True)
-    title = models.CharField(max_length=32, null=True)
+    title = models.CharField(max_length=100, null=True)
     about = models.TextField(null=True)
     years_of_experience = models.IntegerField(null=True)
     minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
-    business_models = models.ManyToManyField("BusinessModel")
+    business_models = models.ManyToManyField("BusinessModel", blank=True)
     job_level = models.ForeignKey(JobLevel, on_delete=models.SET_NULL, null=True)
-    qualification = models.ForeignKey(Qualification, on_delete=models.SET_NULL, null=True)
-    work_structure = models.CharField(choices=WorkStructureEnum.choices(), null=True)
+    qualification = models.TextField(null=True, blank=True)
+    work_structure = models.CharField(choices=WorkStructureEnum.choices(), null=True, blank=True)
     first_language = models.ForeignKey(Language, on_delete=models.SET_NULL, null=True)
     additional_languages = models.ManyToManyField(Language, related_name="jobs")
     office_address = models.CharField(max_length=128)
-    lunch_break = models.CharField(max_length=16, choices=LunchBreakEnum.choices())
+    lunch_break = models.CharField(max_length=50, choices=LunchBreakEnum.choices())
     lunch_break_time = models.PositiveSmallIntegerField(default=0)
-    responsibilities = models.JSONField(default=list)
+    responsibilities = models.JSONField(default=list, blank=True)
     additional_hours_description = models.TextField(null=True)
     additional_hours_start = models.TimeField(null=True)
     additional_hours_end = models.TimeField(null=True)
-    technological_requirement = models.CharField(max_length=16, null=True)
+    technological_requirement = models.CharField(max_length=100, null=True, blank=True)
     availability_timezone = TimeZoneField(default="America/Vancouver")
     flexible_availability = models.BooleanField(default=False)
     department = models.ForeignKey("accounts.Department", null=True, on_delete=models.SET_NULL)
@@ -80,6 +75,63 @@ class Job(BaseModel):
     min_match_score = models.FloatField(null=True)
 
     objects = JobManager()
+
+    required_attributes_keys = (
+            "skills", "role", "job_level", "years_of_experience",
+            "business_models", "minimum_education_level",
+            "work_structure", "technological_requirement",
+            "first_language", "secondary_language", "working_hours",
+            "location"
+        )
+
+    def get_availability(self, schema, query=None):
+        data = list()
+        for value in Days.values():
+            availability = query.filter(day=value).first()
+            data.append({
+                "day": value,
+                "availability": schema.from_orm(availability) if availability else None
+            })
+        return data
+
+    def send_alerts(self):
+        async_task(JobAlert.send_alerts,self)
+        return
+
+
+    @property
+    def required_keys(self):
+        if not hasattr(self, "requiredattribute"):
+           return []
+        attributes = self.requiredattribute
+        data = []
+        for attribute in self.required_attributes_keys:
+            value = getattr(attributes, attribute)
+            if attribute in ("skills", "business_models"):
+                if value.count() > 0:
+                    data.append(attribute)
+            else:
+                if value is True:
+                    data.append(attribute)
+        return data
+
+
+    @property
+    def non_required_keys(self):
+        if not hasattr(self, "requiredattribute"):
+           return []
+        attributes = self.requiredattribute
+        data = []
+        for attribute in self.required_attributes_keys:
+            value = getattr(attributes, attribute)
+            if attribute in ("skills", "business_models"):
+                if value.count() == 0:
+                    data.append(attribute)
+            else:
+                if value is False:
+                    data.append(attribute)
+        return data
+
 
     def __str__(self) -> str:
         return f"{self.title}({self.uid})"
@@ -139,12 +191,12 @@ class Job(BaseModel):
 
 class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
-    status = models.CharField(max_length=16, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
-    #date_posted = models.DateTimeField(null=True)
+    status = models.CharField(max_length=50, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
+    date_posted = models.DateTimeField(null=True)
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     province = models.CharField(max_length=64, null=True)
-    postal_code = models.CharField(max_length=8, null=True)
-    benefits = models.JSONField(default=list)
+    postal_code = models.CharField(max_length=20, null=True)
+    benefits = models.JSONField(default=list, blank=True)
     share_compensation = models.BooleanField(default=True)
     annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
@@ -172,8 +224,10 @@ class JobPost(BaseModel):
         "accounts.BusinessUser",
         null=True,
         on_delete=models.SET_NULL,
-        related_name="posted_by"
+        related_name="posted_by",
+        blank=True
     )
+
 
 
     def __str__(self) -> str:
@@ -209,6 +263,10 @@ class JobPost(BaseModel):
             query = get_query(Q(business_models__id__in=ids))
         if required_attribute.minimum_education_level and job.minimum_education_level:
             query = get_query(Q(education__level=job.minimum_education_level))
+
+        if required_attribute.work_structure and job.work_structure:
+            query = get_query(Q(work_model=job.work_structure))
+
         if required_attribute.first_language:
             query = get_query(Q(native_language=job.first_language))
         if required_attribute.secondary_language and job.additional_languages.count() > 0:
@@ -230,7 +288,7 @@ class JobPost(BaseModel):
         applications = self.jobapplication_set
         data = [
             {"key": "applicants", "count": applications.count()},
-            {"key": "new", "count": applications.filter(stage__isnull=True).count()},
+            {"key": "new", "count": applications.filter(Q(stage__isnull=True)| Q(stage__phase=PhaseType.NEW.value)).count()},
         ]
         data_set = applications.filter(stage__isnull=False).values("stage__phase")\
             .annotate(count=models.Count("stage__phase"),
@@ -255,8 +313,202 @@ class JobPost(BaseModel):
         metric.save()
         return
 
+    def get_data(self, talent, weak=True):
+        from .schemas import JobAvailableDaySchema
+        job = self.job
+        if not hasattr(job, "requiredattribute"):
+            data = dict(
+                skills = None,
+                business_models = None,
+                role = None,
+                job_level = None,
+                years_of_experience = None,
+                minimum_education_level = None,
+                work_structure = None,
+                first_language = None,
+                secondary_language = None,
+                working_hours = None,
+                location = None,
+            )
+            if weak is False:
+                data["match_score"] = 100
+            return data
+
+        attributes = job.requiredattribute
+        non_negotiables = job.required_keys
+        data = dict()
+        total_score = attributes.total_score()
+        score = total_score
+        for attribute in non_negotiables:
+            if attribute == "skills":
+                skills = attributes.skills.intersection(talent.skills.all())
+                skill_count = skills.count()
+                if skill_count == 0:
+                    score -= 1
+                    skills = attributes.skills.all()
+                if (skill_count == 0 and weak is True) or (skill_count > 0 and weak is False):
+                    data["skills"]= RequiredAttribute.format_skills_under_category(skills)  if skills.count() > 0 else None
+            elif attribute == "business_models":
+                business_models = attributes.business_models.intersection(talent.business_models.all())
+                bm_count = business_models.count()
+                if bm_count == 0:
+                    score -= 1
+                    business_models = attributes.business_models.all()
+                if (bm_count == 0 and weak is True) or (bm_count > 0 and weak is False):
+                    data["business_models"] = business_models if business_models.count() > 0 else None
+
+            elif attribute == "role":
+                experiences = talent.experience_set.filter(role=job.role).count()
+                if experiences == 0:
+                    score -= 1
+                if (experiences > 0 and weak is False) or (experiences == 0 and weak is True):
+                    data["role"] = job.role
+
+            elif attribute == "job_level":
+                experiences = talent.experience_set.filter(level=job.job_level).count()
+                if experiences == 0:
+                    score -= 1
+                if (experiences > 0 and weak is False) or (experiences == 0 and weak is True):
+                    data["job_level"] = job.job_level
+
+            elif attribute == "years_of_experience":
+                fits = talent.years_of_experience > (job.years_of_experience or  0)
+                if not fits:
+                    score -= 1
+                if (fits and weak is False) or (not fits and weak is True):
+                    data["years_of_experience"] = talent.years_of_experience
+
+            elif attribute == "minimum_education_level":
+                education = talent.education_set.filter(level=job.minimum_education_level).count()
+                if education == 0:
+                    score -= 1
+                if (education > 0 and weak is False) or (education == 0 and weak is True):
+                    data["minimum_education_level"] = job.minimum_education_level
+            elif attribute == "work_structure":
+                fits = talent.work_model == job.work_structure
+                if not fits:
+                    score -= 1
+                if (fits and weak is False) or (not fits and weak is True):
+                    data["work_structure"]  = job.work_structure
+
+            # elif attribute == "technological_requirement":
+            #     if weak is False:
+            #         data["technological_requirement"] = self.technological_requirement
+
+            elif attribute == "first_language":
+                fits = talent.native_language == job.first_language
+                if not fits and job.first_language:
+                    score -= 1
+                if (fits and weak is False) or (not fits and weak is True):
+                    data["first_language"] = job.first_language
+
+            elif attribute == "secondary_language":
+                languages = job.additional_languages.all().intersection(talent.additional_languages.all())
+                language_count = languages.count()
+                if language_count == 0:
+                    score -= 1
+                    languages = job.additional_languages.all()
+                if (language_count > 0 and weak is False) or (language_count == 0 and weak is True):
+                    data["secondary_language"] = languages if languages.count() > 0 else None
+
+            elif attribute == "location":
+                fits = self.country == talent.country
+                if not fits and self.country:
+                    score -= 1
+                if (fits and weak is False) or (not fits and weak is True):
+                    data["location"] = talent.country
+
+            elif attribute == "working_hours":
+                talent_wh_query = talent.availability_query()
+                wh_query = job.availableday_set.filter(talent_wh_query)
+                wh_count = wh_query.count()
+                if wh_count == 0:
+                    score -= 1
+                    wh_query = job.availableday_set.all()
+                if (wh_count > 0 and weak is False) or (wh_count == 0 and weak is True):
+                    data["working_hours"] = job.get_availability(JobAvailableDaySchema, wh_query) if wh_query.count() > 0 else None
+        match_score = int((score/total_score) * 100)
+        if weak is False:
+            data["match_score"] = match_score
+        return data
+
+    def weakness(self, talent):
+        return self.get_data(talent, weak=True)
+
+    def strength(self, talent):
+        return self.get_data(talent, weak=False)
+
+    def non_negotiable(self):
+        from .schemas import JobAvailableDaySchema
+        job = self.job
+        if not hasattr(job, "requiredattribute"):
+            return dict(
+                skills = None,
+                business_models = None,
+                role = None,
+                job_level = None,
+                years_of_experience = None,
+                minimum_education_level = None,
+                work_structure = None,
+                first_language = None,
+                secondary_language = None,
+                working_hours = None,
+                location = None,
+            )
+
+        attributes = job.requiredattribute
+        non_negotiables = job.required_keys
+        data = dict()
+        for attribute in non_negotiables:
+            if attribute == "skills":
+                if attributes.skills.count() > 0:
+                    data["skills"] = RequiredAttribute.format_skills_under_category(attributes.skills.all())
+            elif attribute == "business_models":
+                if attributes.business_models.count() > 0:
+                    data["business_models"] = attributes.business_models.all() if attributes.business_models.count() > 0 else None
+
+            elif attribute == "role":
+                data["role"] = job.role
+
+            elif attribute == "job_level":
+                data["job_level"] = job.job_level
+
+            elif attribute == "years_of_experience":
+                data["years_of_experience"] = job.years_of_experience
+
+            elif attribute == "minimum_education_level":
+                data["minimum_education_level"] = job.minimum_education_level
+            elif attribute == "work_structure":
+                data["work_structure"] = job.work_structure
+
+            # elif attribute == "technological_requirement":
+            #     data["technological_requirement"] = job.technological_requirement
+
+            elif attribute == "first_language":
+                data["first_language"] = job.first_language
+
+            elif attribute == "secondary_language":
+                data["secondary_language"] = job.additional_languages.all() if job.additional_languages.count() > 0 else None
+
+            elif attribute == "location":
+                data["location"] = self.country
+
+            elif attribute == "working_hours":
+                data["working_hours"] = job.get_availability(JobAvailableDaySchema, job.availableday_set.all()) if job.availableday_set.count() > 0 else None
+        return data
+
+    def screening_questions(self):
+        return self.job.screeningquestion_set.all()
+
+    def match_score(self, talent):
+        return self.strength(talent).get("match_score", 0)
+
+
+
+
+
 class JobPostMetrics(BaseModel):
-    job_post = models.OneToOneField(JobPost, on_delete=models.SET_NULL, null=True)
+    job_post = models.OneToOneField(JobPost, on_delete=models.CASCADE, null=True)
     daily_email_shares = models.PositiveIntegerField(default=0)
     weekly_views = models.PositiveIntegerField(default=0)
 
@@ -271,8 +523,9 @@ class JobPostMetrics(BaseModel):
 
 
 class JobApplication(BaseModel):
-    job_post = models.ForeignKey(JobPost, on_delete=models.SET_NULL, null=True)
+    job_post = models.ForeignKey(JobPost, on_delete=models.CASCADE, null=True)
     applicant = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE)
+    available_for_schedule = models.BooleanField(default=True)
     recruiter = models.ForeignKey(
         "accounts.BusinessUser",
         null=True,
@@ -290,6 +543,9 @@ class JobApplication(BaseModel):
         db_persist=True,
     )
     stage_date_updated = models.DateTimeField(null=True)
+
+    def other_application(self):
+        return JobApplication.objects.filter(job_post=self.job_post, applicant=self.applicant).exclude(id=self.id).last()
 
 
     def placeholders_mapper(self, placeholder:str):
@@ -364,18 +620,19 @@ class JobDraft(BaseModel):
 class JobFilter(BaseModel):
     talent = models.OneToOneField("accounts.Talent", on_delete=models.CASCADE, null=True)
     role = models.CharField(max_length=100, default="", blank=True)
-    years_of_experience = models.PositiveSmallIntegerField(default=1)
+    years_of_experience = models.PositiveSmallIntegerField(default=1, null=True)
     office_location = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     department = models.ForeignKey("accounts.Department", on_delete=models.SET_NULL, null=True)
     minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
-    location_type = models.CharField(choices=WorkStructureEnum.choices(), default=WorkStructureEnum.IN_OFFICE.value)
+    job_level = models.ForeignKey(JobLevel, on_delete=models.SET_NULL, null=True)
+    location_type = models.CharField(choices=WorkStructureEnum.choices(), default=WorkStructureEnum.IN_OFFICE.value, null=True)
     remove_applied_jobs = models.BooleanField(default=False)
 
 
     def get_queryset(self, queryset):
         # queryset for job posts
-        if self.years_of_experience > 0:
+        if self.years_of_experience and self.years_of_experience > 0:
             queryset = queryset.filter(job__years_of_experience=self.years_of_experience)
         if self.office_location:
             queryset = queryset.filter(country=self.office_location)
@@ -385,6 +642,8 @@ class JobFilter(BaseModel):
             queryset = queryset.filter(job__department=self.department)
         if self.minimum_education_level:
             queryset = queryset.filter(job__minimum_education_level=self.minimum_education_level)
+        if self.job_level:
+            queryset = queryset.filter(job__job_level=self.job_level)
         if self.location_type:
             queryset = queryset.filter(job__work_structure=self.location_type)
         if self.remove_applied_jobs:
@@ -395,7 +654,7 @@ class JobFilter(BaseModel):
 
 class ScreeningQuestion(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
-    type = models.CharField(max_length=16, choices=QuestionTypeEnum.choices())
+    type = models.CharField(max_length=50, choices=QuestionTypeEnum.choices())
     text = models.TextField()
     is_knockout = models.BooleanField(default=False)
 
@@ -456,7 +715,8 @@ class RequiredAttribute(BaseModel):
             score += 1
         return score
 
-    def get_skills(self):
+    @staticmethod
+    def format_skills_under_category(skills):
         from jobs.schemas import SkillSchema, JobSkillSchema
         from accounts.models import SkillCategory
         categories = SkillCategory.objects.only("id", "name")
@@ -464,14 +724,17 @@ class RequiredAttribute(BaseModel):
         for category in categories:
             data.append(JobSkillSchema(
                 category=category.name,
-                skills=[SkillSchema.from_orm(skill) for skill in self.skills.filter(category_id=category.id)]
+                skills=[SkillSchema.from_orm(skill) for skill in skills.filter(category_id=category.id)]
             ))
         return data
 
+    def get_skills(self):
+        return self.format_skills_under_category(self.skills)
+
 
 class JobApplicationWithdrawal(BaseModel):
-    job_post = models.ForeignKey(JobPost, on_delete=models.SET_NULL, null=True, default=None)
-    talent = models.ForeignKey("accounts.Talent", on_delete=models.SET_NULL, null=True)
+    job_post = models.ForeignKey(JobPost, on_delete=models.CASCADE, null=True, default=None)
+    talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE, null=True)
     feedback_type = models.PositiveSmallIntegerField(default=0)
     feedback = models.TextField()
 
@@ -505,3 +768,31 @@ class BusinessModel(BaseModel):
 
     def __str__(self) -> str:
         return self.name
+
+
+class JobAlert(BaseModel):
+    talent = models.OneToOneField(Talent, on_delete=models.CASCADE)
+    jobs = models.ManyToManyField(Job)
+
+
+
+    @classmethod
+    def send_alerts(cls, job):
+        from notification.notifications import send_job_alert_notification
+        user_ids = (cls.objects.filter(
+            Q(jobs__employment_type=job.employment_type)|
+            Q(jobs__years_of_experience=job.years_of_experience)|
+            Q(jobs__minimum_education_level=job.minimum_education_level)|
+            Q(jobs__job_level=job.job_level)|
+            Q(jobs__first_language=job.first_language)|
+            Q(jobs__flexible_availability=job.flexible_availability)|
+            Q(jobs__department=job.department)|
+            Q(jobs__role=job.role)|
+            Q(jobs__min_match_score = job.min_match_score)|
+            Q(jobs__skills__id__in=job.skills.all().values_list("id", flat=True))|
+            Q(jobs__business_models__id__in=job.business_models.all().values_list("id", flat=True)))
+         .distinct("talent__user_id").values_list("talent__user_id", flat=True))
+        send_job_alert_notification(job, user_ids)
+        return
+
+

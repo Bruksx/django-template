@@ -1,22 +1,22 @@
-import logging
 from datetime import timezone, date, time
 from decimal import Decimal
 from uuid import uuid4
 
+from database_seeder import generate_data
 from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.enums import PreferredCommunicationType, GenderType, NoticePeriodType, Days, BusinessUserRoleType
+from accounts.enums import Days, BusinessUserRoleType
 from accounts.models import User, VerificationCode, Country, Talent, EducationLevel, Industry, \
-    Skill, Department, SkillCategory, Role, Business, BusinessUser, Experience, TalentAvailableDay
+    Skill, Department, Role, Business, BusinessUser, Experience, TalentAvailableDay, BusinessIndustry
 from accounts.views.talent import router
 from chats.models import Conversation, Message
-from core.models import Language, Currency
+from core.models import Currency
 from factories import WorkflowStageFactory, TalentFactory, BusinessUserFactory, CountryFactory, IndustryFactory, \
     LanguageFactory, EducationFactory, EducationLevelFactory, RoleFactory, ExperienceFactory, SkillFactory, \
-    BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory
-from jobs.enums import LunchBreakEnum, WorkStructureEnum, PhaseType, JobStatusType
+    BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory, SavedJobFactory, JobFilterFactory
+from jobs.enums import LunchBreakEnum, PhaseType, JobStatusType, WorkStructureEnum
 from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, RequiredAttribute, AvailableDay, \
     JobApplication, JobInterview
 
@@ -100,11 +100,7 @@ class ValidateOtpTests(TestCase):
 class GetTalentProfileTests(TestCase):
     def setUp(self):
         self.client = TestClient(router)
-        self.country = Country.objects.create(name="Nigeria", code="NG")
-        self.industry = Industry.objects.create(name="TestIndustry")
         self.talent = TalentFactory.create()
-        self.auth = JWTAuth()
-        self.auth.authenticate = lambda r: self.user
 
 
     def test_get_talent_profile(self):
@@ -275,13 +271,30 @@ class UpdateTalentProfileTests(TestCase):
         headers = {
             "Authorization": f"Bearer {self.talent.user.token}"
         }
+        employment_type = EmploymentType.objects.first().uid
         data = {
-            "visible": False
+            "visible": False,
+            "bio": "hello",
+            "work_model": "hybrid",
+            "employment_type": str(employment_type)
         }
         response = self.client.patch(path=self.url, json=data, headers=headers)
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.assertFalse(self.talent.visible)
+        self.assertEqual(self.talent.bio, "hello")
+        self.assertEqual(self.talent.work_model, "hybrid")
+        self.assertEqual(self.talent.employment_type.uid, employment_type)
+        data = {
+            "visible": False,
+            "bio": ""
+        }
+        response = self.client.patch(path=self.url, json=data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.talent.refresh_from_db()
+        self.assertFalse(self.talent.visible)
+        self.assertEqual(self.talent.bio, "")
+
 
     def test_update_by_business_user(self):
         business_user = BusinessUserFactory.create()
@@ -321,6 +334,7 @@ class TalentDashboardTests(TestCase):
         self.employment_type = EmploymentType.objects.first()
         self.education_level = EducationLevel.objects.first()
         self.country = Country.objects.first()
+        self.industry = BusinessIndustry.objects.order_by("?").first()
         self.user2 = User.objects.create_user(
             email="testuser1@example.com",
             password="securedPassword1",
@@ -336,7 +350,7 @@ class TalentDashboardTests(TestCase):
             website="https://example.com",
             address="Lekki, Lagos, Nigeria",
             country=Country.objects.first().uid,
-            industry="Technology"
+            industry=self.industry
         )
         self.business_user = BusinessUser.objects.create(
             user=self.user,
@@ -381,8 +395,7 @@ class TalentDashboardTests(TestCase):
             annual_salary_currency=self.currency,
             recruiter=self.business_user
         )
-        self.job_required_attrs = RequiredAttribute.objects.create(
-            job=job,
+        job.requiredattribute.update(
             role=True,
             job_level=True,
             years_of_experience=True,
@@ -394,9 +407,10 @@ class TalentDashboardTests(TestCase):
             working_hours=True,
             location=True
         )
-        self.job_required_attrs.skills.set(Skill.objects.all()[:2])
-        self.job_required_attrs.business_models.set(BusinessModel.objects.all()[:2])
-        self.job_required_attrs.refresh_from_db()
+        job.requiredattribute.skills.set(Skill.objects.all()[:2])
+        job.requiredattribute.business_models.set(BusinessModel.objects.all()[:2])
+        job.requiredattribute.save()
+        job.refresh_from_db()
         TalentAvailableDay.objects.create(
             talent=self.talent,
             day=Days.WEDNESDAY,
@@ -443,35 +457,29 @@ class TalentDashboardTests(TestCase):
         }
         response = self.client.get("/dashboard-report", headers=headers)
         self.assertEqual(response.status_code, 200)
-        data = response.json()
+        data = response.json()["data"]
         self.assertIn("jobs_applied", data)
         self.assertEqual(data["jobs_applied"], 1)
         response = self.client.get("/dashboard-report?start_date=2022-02-02&end_date=2022-09-02", headers=headers)
         self.assertEqual(response.status_code, 200)
-        data = response.json()
+        data = response.json()["data"]
         self.assertIn("jobs_applied", data)
         self.assertEqual(data["jobs_applied"], 0)
 
 
-    def test_applications_chart_endpoint(self):
+    def test_dashboard_chart_endpoint(self):
         headers = {
             "authorization": f"bearer {self.user.token}"
         }
-        response = self.client.get("/applications-chart", headers=headers)
+        response = self.client.get("/dashboard-charts", headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertTrue(isinstance(data, list))
-        self.assertTrue(len(data), 12)
-
-    def test_interviews_chart_endpoint(self):
-        headers = {
-            "authorization": f"bearer {self.user.token}"
-        }
-        response = self.client.get("/interviews-chart", headers=headers)
-        self.assertEqual(response.status_code, 200)
-        data = response.json()
-        self.assertTrue(isinstance(data, list))
-        self.assertTrue(len(data), 12)
+        self.assertIn("applications", data)
+        self.assertIn("interviews", data)
+        self.assertTrue(isinstance(data["applications"], list))
+        self.assertTrue(isinstance(data["interviews"], list))
+        self.assertTrue(len(data["applications"]), 12)
+        self.assertTrue(len(data["interviews"]), 12)
 
 
 class ChangeTalentPasswordTests(TestCase):
@@ -536,3 +544,65 @@ class TalentDetailTest(TestCase):
         }
         response = self.client.get(self.url(uuid4()), headers=headers)
         self.assertEqual(response.status_code, 404)
+
+
+class DeleteTalentUserAccountTest2(TestCase):
+    def setUp(self):
+        generate_data("PASSWORD", [],
+                      talent_amount=5,
+                      silent=True
+                      )
+        self.url = "/"
+        self.client = TestClient(router)
+
+        self.talent = Talent.objects.order_by("?").first()
+        self.business_user = BusinessUser.objects.order_by("?").first()
+
+    def test_delete_talent_user_account(self):
+        from jobs.models import SavedJob, JobFilter #noqa
+        from accounts.models import Experience, Education #noqa
+
+        headers = {
+            "authorization": f"bearer {self.talent.user.token}"
+        }
+
+        response = self.client.delete(self.url, headers=headers)
+        self.assertEqual(response.status_code, 204)
+        user = User.objects.filter(id=self.talent.user.id).first()
+        self.assertIsNone(user)
+        talent_user = Talent.objects.filter(id=self.talent.id).first()
+        self.assertIsNone(talent_user)
+        user = User.deleted_objects.filter(id=self.talent.user.id).first()
+        talent_user = Talent.deleted_objects.filter(id=self.talent.id).first()
+        self.assertEqual(user.first_name, "deleted")
+        self.assertEqual(user.last_name, "user")
+        self.assertEqual(user.email, f"deleted_user_{user.id}@example.com")
+        self.assertIsNone(user.phone_number)
+        self.assertIsNone(user.facebook_id)
+        self.assertIsNone(user.linkedin_id)
+        self.assertIsNone(user.google_id)
+        self.assertIsNone(user.apple_id)
+        self.assertEqual(user.username, f"user-{user.id}")
+        self.assertFalse(user.is_active)
+
+        self.assertFalse(SavedJob.global_objects.filter(talent=talent_user).exists())
+        self.assertFalse(JobFilter.global_objects.filter(talent=talent_user).exists())
+        self.assertFalse(Education.global_objects.filter(talent=talent_user).exists())
+        self.assertFalse(Experience.global_objects.filter(talent=talent_user).exists())
+
+        self.assertIsNone(talent_user.whatsapp_number)
+        self.assertIsNone(talent_user.viber_number)
+        self.assertIsNone(talent_user.country)
+        self.assertIsNone(talent_user.state)
+        self.assertIsNone(talent_user.city)
+        self.assertIsNone(talent_user.address)
+        self.assertIsNone(talent_user.postal_code)
+        self.assertIsNone(talent_user.bio)
+        self.assertIsNone(talent_user.instagram)
+        self.assertIsNone(talent_user.linkedin)
+        self.assertIsNone(talent_user.twitter_x)
+        self.assertIsNone(talent_user.notice_period)
+        self.assertEqual(talent_user.additional_skills, [])
+        self.assertEqual(talent_user.skills.count(), 0)  # Check if ManyToMany is cleared
+        self.assertEqual(talent_user.business_models.count(), 0)  # Check if ManyToMany is cleared
+

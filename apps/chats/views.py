@@ -1,26 +1,33 @@
 from typing import List
 from uuid import UUID
 
+from config.permissions import IsBusinessUser
+from django.db import transaction
+from django.db.models import Q, F
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
+from ninja import Router, UploadedFile, Form
+from ninja.errors import HttpError
+from ninja_extra.pagination import paginate
+from ninja_jwt.authentication import JWTAuth
+
 from accounts.enums import UserType
 from accounts.models import User
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, Conversation, MessageAttachment
-from chats.schemas import ChatListSchema, ChatMessageSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema
-from django.db import transaction
-from django.db.models import Q, F
-from ninja import Router, PatchDict, UploadedFile, Form
-from ninja.errors import HttpError
-from ninja.responses import Response
-from ninja_extra.pagination import PageNumberPaginationExtra, paginate
-from ninja_extra.schemas import PaginatedResponseSchema
-from ninja_jwt.authentication import JWTAuth
-
-from monkeypatches.q_cluster import async_task
+from chats.schemas import ChatListSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema, \
+    ChatMessagePaginatedSchema, ChatMessageRequestSchema, ChatMessageResponseSchema, ChatMessageErrorSchema
+from jobs.business_views import pagination_class
+from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
 # Create your views here.
 router = Router(tags=["Chats"])
+ws_router = Router(tags=["Websocket"])
 
-@router.get("", auth=JWTAuth(), response=List[ChatListSchema])
+
+@router.get("", auth=JWTAuth(), response=PaginatedResponseSchema[ChatListSchema])
+@paginate(PageNumberPaginationExtra, page_size=50)
 def get_chats(request, search:str=""):
     user = request.user
     queryset = Conversation.objects.filter(users__id=user.id).order_by(F("last_message_time").desc(nulls_last=True))
@@ -33,22 +40,22 @@ def get_chats(request, search:str=""):
 
     return queryset.distinct()
 
-@router.get("{conversation_uid}/messages", auth=JWTAuth(), response=PaginatedResponseSchema[ChatMessageSchema])
-@paginate(PageNumberPaginationExtra, page_size=50, pass_parameter="pagination_info")
-def get_messages(request, conversation_uid:UUID, **kwargs):
+@router.get("{conversation_uid}/messages", auth=JWTAuth(), response=ChatMessagePaginatedSchema)
+def get_messages(request, conversation_uid:UUID, page_size=50, page=1, **kwargs):
     user = request.user
     conversation = Conversation.objects.filter(users__id=user.id, uid=conversation_uid).first()
     if not conversation:
         raise HttpError(403, "Not allowed")
-    pagination = kwargs.get("pagination_info")
-    page = pagination.page
-    page_size = pagination.page_size
-    start = (page - 1) * page_size
-    end = start + page_size
-    queryset = Message.objects.filter(conversation__uid=conversation_uid).order_by("-created_at")[start:end]
+    queryset = Message.objects.filter(conversation__uid=conversation_uid).order_by("-created_at")
     async_task(conversation.read_messages, message_ids=list(queryset.values_list("id", flat=True)), user_id=user.id)
-    return queryset
-
+    pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
+    return pagination_class(page_size).paginate_queryset(
+        queryset=queryset,
+        request=request,
+        pagination=pagination,
+        locked=conversation.locked,
+        recipient=ChatUserSchema.from_orm(conversation.get_recipient(user)).__dict__
+    )
 
 @router.get("messages/{message_uid}/read-by", auth=JWTAuth(), response=List[ChatUserSchema])
 def get_chat_message_readers(request, message_uid:UUID):
@@ -76,8 +83,8 @@ def create_chat_message(request, conversation_uid:UUID,
         raise HttpError(403, "Conversation is locked")
     if recipient.type == UserType.BUSINESS.value and user.type == UserType.BUSINESS.value:
         raise HttpError(403, "Not allowed")
-
     message = Message.objects.create(conversation=conversation, sender=user, body=body.body, job_post=body.job_post)
+    async_task(message.handle_post_save, notify=True)
     if attachments:
         message_attachments = list()
         for attachment in attachments:
@@ -94,9 +101,26 @@ def create_chat_message(request, conversation_uid:UUID,
         MessageAttachment.objects.bulk_create(message_attachments)
     return Response(status=200, data={"message": "Message sent successfully"})
 
-@router.post("users/{user_id}/start-conversation", auth=JWTAuth(), response={200: ResponseSchema})
+
+@router.post("{conversation_uid}/lock", auth=JWTAuth(), response={200: ChatListSchema})
 @transaction.atomic
-def start_conversation(request, user_id:UUID, data: PatchDict[MutateChatMessageSchema]):
+def lock_conversation(request, conversation_uid:UUID, lock:bool):
+    IsBusinessUser.check(request)
+    conversation = Conversation.objects.filter(uid=conversation_uid).first()
+    if not conversation:
+        raise HttpError(404, "This conversation does not exist")
+    if not conversation.users.filter(id=request.user.id).exists():
+        raise HttpError(403, "You are not a member of this conversation")
+    conversation.locked = lock
+    conversation.save()
+    return conversation
+
+
+
+@router.post("users/{user_id}/start-conversation", auth=JWTAuth(), response={200: ChatListSchema})
+@transaction.atomic
+def start_conversation(request, user_id:UUID):
+    from notification.notifications import send_new_chat_notification
     user = request.user
     if user.id == user_id:
         raise HttpError(403, "Not allowed")
@@ -114,14 +138,16 @@ def start_conversation(request, user_id:UUID, data: PatchDict[MutateChatMessageS
         raise HttpError(403, "Not allowed")
     conversation = Conversation.objects.filter(users__id=user.id).filter(users__id=recipient.id).first()
     if conversation:
-        raise HttpError(400, "Conversation already exists")
+        return conversation
     conversation = Conversation.objects.create()
     conversation.users.add(user, recipient)
     conversation.save()
-    attachments = data.pop("attachments", [])
-    message = Message.objects.create(conversation=conversation, sender=user, **data)
-    MessageAttachment.objects.bulk_create([
-        MessageAttachment(message=message, file=attachment["file"], file_type=attachment["file_type"].value) for
-        attachment in attachments
-    ])
-    return Response(status=200, data={"message": "conversation started successfully"})
+    async_task(send_new_chat_notification,conversation)
+    return conversation
+
+
+@ws_router.post('ws/chats/{conversation_uid}/', response={200: ChatMessageResponseSchema, 400: ChatMessageErrorSchema,
+                                             403: ChatMessageErrorSchema, 404: ChatMessageErrorSchema},
+             tags=["Websocket"])
+def websocket_send_chat(request, conversation_uid:UUID, token: str, data: ChatMessageRequestSchema):
+    return Response(status=200, data={"message": "Message sent successfully"})
