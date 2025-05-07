@@ -124,7 +124,7 @@ def delete_s3_item(key):
 
     except Exception as e:
         Logger.error(msg=dict(sender="Helper Utils", title="AWS S3 DELETE Error",
-                              description=f"Failed to delete S3 object {key}: {str(e)}", exc_info=True), exc_info=True)
+                              description=f"Failed to delete S3 object {key}: {str(e)}"), exc_info=True)
         raise  # Just 'raise' to preserve stack trace
 
 def upload_to_s3(files, folder_name):
