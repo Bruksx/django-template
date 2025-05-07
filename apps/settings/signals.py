@@ -7,7 +7,7 @@ from settings.models import EmailTemplateAttachment, WorkFlowStage
 
 @receiver(pre_delete, sender=EmailTemplateAttachment)
 def handle_email_template_attachment_deletion(sender, instance, **kwargs):
-    delete_s3_item(instance.file.name)
+    delete_s3_item(instance.file.url)
     instance.file.delete()
 
 @receiver(post_save, sender=WorkFlowStage)

@@ -225,7 +225,7 @@ def upload_talent_cv(request, file: Optional[UploadedFile] = File(None)):
     talent_user = request.user.talent
     if not file:
         if talent_user.cv:
-            delete_s3_item(talent_user.cv)
+            delete_s3_item(talent_user.cv.url)
         talent_user.update(cv=None)
         return Response(status=200, data={"message": "CV cleared successfully"})
     if file.name.split(".")[-1] != "pdf":
