@@ -87,17 +87,45 @@ def html_to_pdf3(source_html):
 
 def delete_s3_item(key):
     from boto3.session import Session
+
     if not settings.USE_AWS_S3:
+        Logger.info(msg=dict(sender="Helper Utils", title="AWS S3 DELETE Info",
+                             description='AWS S3 not enabled in settings, skipping delete'))
         return
+
     try:
+        region = settings.AWS_S3_REGION_NAME
         session = Session(
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=region
         )
         s3 = session.resource("s3")
-        s3.Object(settings.AWS_STORAGE_BUCKET_NAME, f"media/{key}").delete()
+        bucket = settings.AWS_STORAGE_BUCKET_NAME
+        url = f"https://{bucket}.s3.{region}.amazonaws.com/"
+        if str(key).startswith(url):
+            key = key.split(url)[-1]
+
+        obj = s3.Object(bucket, key)
+
+        # Verify object exists before deleting
+        try:
+            obj.load()
+        except Exception as load_error:
+            Logger.error(msg=dict(sender="Helper Utils", title="AWS S3 DELETE Error",
+                                 description=f"Object not found: {key}. Error: {str(load_error)}"))
+            return False
+
+        # Perform deletion
+        obj.delete()
+        Logger.info(msg=dict(sender="Helper Utils", title="AWS S3 DELETE Info",
+                             description=f"Successfully deleted S3 object: {key}"))
+        return True
+
     except Exception as e:
-        Logger.error(msg=dict(sender="Helper Utils", title="AWS DELETE Error", description=str(e)), exc_info=True)
+        Logger.error(msg=dict(sender="Helper Utils", title="AWS S3 DELETE Error",
+                              description=f"Failed to delete S3 object {key}: {str(e)}", exc_info=True), exc_info=True)
+        raise  # Just 'raise' to preserve stack trace
 
 def upload_to_s3(files, folder_name):
     if not settings.USE_AWS_S3:
