@@ -102,7 +102,7 @@ def delete_s3_item(key):
         )
         s3 = session.resource("s3")
         bucket = settings.AWS_STORAGE_BUCKET_NAME
-        url = f"https://{bucket}.s3.{region}.amazonaws.com/"
+        url = f"https://{bucket}.s3.amazonaws.com/"
         if str(key).startswith(url):
             key = key.split(url)[-1]
 
