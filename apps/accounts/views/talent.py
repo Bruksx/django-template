@@ -239,13 +239,13 @@ def upload_talent_profile_picture(request, file: Optional[UploadedFile] = File(N
     talent_user = request.user.talent
     if not file:
         if talent_user.photo_url:
-            delete_s3_item(talent_user.photo_url)
-        talent_user.update(photo=None)
+            async_task(delete_s3_item, talent_user.photo_url)
+        async_task(talent_user.update, photo=None)
         return Response(status=200, data={"message": "Profile picture cleared successfully"})
     extension = str(file.name.split(".")[-1]).lower()
     if extension not in ["jpg", "jpeg", "png"]:
         raise HttpError(400, "This file type is not supported. Only JPG/JPEG/PNG files")
-    talent_user.update(photo=file)
+    async_task(talent_user.update, photo=file)
     return Response(status=200, data={"message": "Profile picture uploaded successfully"})
 
 

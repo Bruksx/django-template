@@ -223,6 +223,7 @@ class Talent(BaseModel):
     native_language = models.ForeignKey("core.Language", on_delete=models.SET_NULL, null=True,
                                         related_name="native_language")
     skills = models.ManyToManyField("accounts.Skill")
+    role = models.ForeignKey("accounts.Role", on_delete=models.SET_NULL, null=True)
     additional_skills = models.JSONField(default=list)
     additional_languages = models.ManyToManyField("core.Language", related_name="other_languages")
     business_models = models.ManyToManyField("jobs.BusinessModel")
@@ -444,15 +445,6 @@ class Talent(BaseModel):
             "applications": self.applications_made_chart(),
             "interviews": self.interviews_chart()
         }
-
-    def role(self):
-        from jobs.models import JobFilter
-        job_filter = JobFilter.objects.filter(talent=self).first()
-        if not job_filter:
-            return None
-        if not job_filter.role:
-            return None
-        return Role.objects.filter(name__icontains=job_filter.role).first()
 
     def notifications(self, viewed:Optional[bool]=None):
         from notification.models import Notification
