@@ -72,3 +72,10 @@ class LinkedinOAuthTokenResponse:
     scope: str
     token_type: str
     id_token: str
+
+@dataclass
+class FacebookUser:
+    id: str
+    first_name: str
+    last_name: str
+    email: str
