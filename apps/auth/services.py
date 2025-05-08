@@ -83,6 +83,7 @@ def handle_social_login(data: SocialAuthSchema)->User:
         profile_dict["first_name"] = user.first_name
         profile_dict["last_name"] = user.last_name
         profile_dict["facebook_id"] = user.id
+        profile_dict["email"] = user.email
         social_query = Q(facebook_id=user.id)
 
     elif SocialType.APPLE.value == data.social_type:
