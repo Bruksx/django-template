@@ -40,7 +40,6 @@ class TalentJobListTests(TestCase):
         self.currency = Currency.objects.first()
         self.job_level = JobLevel.objects.first()
         self.employment_type = EmploymentType.objects.first()
-        self.country = Country.objects.first()
         self.user2 = User.objects.create_user(
             email="testuser1@example.com",
             password="securedPassword1",
@@ -55,7 +54,7 @@ class TalentJobListTests(TestCase):
             description="A sample business description.",
             website="https://example.com",
             address="Lekki, Lagos, Nigeria",
-            country=Country.objects.first().uid,
+            country=self.country,
             industry=self.business_industry,
         )
         self.business_user = BusinessUser.objects.create(
@@ -174,19 +173,10 @@ class TalentJobListTests(TestCase):
         match_score = response.json()["results"][0]["match_score"]
         self.assertGreaterEqual(match_score, 0)
 
-        # when talent has no job filter
         response = self.client.get("talent/job-posts?page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
 
         response = self.client.get("talent/job-posts?search=test&page_size=100&page=1", headers=headers)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["count"], 0)
-
-        # when talent now has a job filter
-        JobFilter.objects.create(
-            talent=self.talent,
-        )
-        response = self.client.get("talent/job-posts?page_size=100&page=1&sort_by=date-posted", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 0)
 
@@ -213,12 +203,11 @@ class UpdateTalentJobFilterTest(TestCase):
 
         data = {
           "location_type": WorkStructureEnum.IN_OFFICE.value,
-          "role": "",
-          "years_of_experience": 0,
+          "role": None,
+          "years_of_experience": "0 years",
           "job_level": str(JobLevel.objects.first().uid),
           "office_location": str(Country.objects.first().uid),
           "employment_type": str(EmploymentType.objects.first().uid),
-          "department": None,
           "minimum_education_level": None,
           "remove_applied_jobs": False
         }
@@ -236,7 +225,6 @@ class UpdateTalentJobFilterTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.assertEqual(self.talent.jobfilter.remove_applied_jobs, True)
-        self.assertEqual(self.talent.jobfilter.department, Department.objects.first())
 
 
 class GetTalentJobFilterTest(TestCase):

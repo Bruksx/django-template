@@ -1,7 +1,7 @@
-from functools import cached_property
+from typing import List
 
 from django.db import models
-from django.db.models import F, Q
+from django.db.models import F, Q, QuerySet
 from monkeypatches.q_cluster import async_task
 from timezone_field import TimeZoneField
 
@@ -619,38 +619,68 @@ class JobDraft(BaseModel):
 
 class JobFilter(BaseModel):
     talent = models.OneToOneField("accounts.Talent", on_delete=models.CASCADE, null=True)
-    role = models.CharField(max_length=100, default="", blank=True)
-    years_of_experience = models.PositiveSmallIntegerField(default=1, null=True)
+    job_role = models.ForeignKey("accounts.Role", on_delete=models.SET_NULL, null=True)
+    years_of_experience = models.CharField(max_length=128, null=True)
     office_location = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
-    department = models.ForeignKey("accounts.Department", on_delete=models.SET_NULL, null=True)
     minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
     job_level = models.ForeignKey(JobLevel, on_delete=models.SET_NULL, null=True)
-    location_type = models.CharField(choices=WorkStructureEnum.choices(), default=WorkStructureEnum.IN_OFFICE.value, null=True)
+    company = models.ForeignKey("accounts.Business", on_delete=models.SET_NULL, null=True)
+    location_type = models.CharField(choices=WorkStructureEnum.choices(), default=None, null=True)
     remove_applied_jobs = models.BooleanField(default=False)
 
+    def get_queryset(self, queryset=None, filters=None, extra_sorts:List[str]=None)->QuerySet:
+        """
+         get job post queryset based on this filter
 
-    def get_queryset(self, queryset):
-        # queryset for job posts
-        if self.years_of_experience and self.years_of_experience > 0:
-            queryset = queryset.filter(job__years_of_experience=self.years_of_experience)
-        if self.office_location:
-            queryset = queryset.filter(country=self.office_location)
-        if self.employment_type:
-            queryset = queryset.filter(job__employment_type=self.employment_type)
-        if self.department:
-            queryset = queryset.filter(job__department=self.department)
-        if self.minimum_education_level:
-            queryset = queryset.filter(job__minimum_education_level=self.minimum_education_level)
-        if self.job_level:
-            queryset = queryset.filter(job__job_level=self.job_level)
+         Args:
+             queryset: Job post queryset
+             filters: JobPostFilterSchema instance from API query params
+             extra_sorts: extra sort fields based on model fields
+
+        Returns:
+            Job post queryset
+        """
+        from jobs.services import order_job_posts
+        if not queryset:
+            queryset = JobPost.objects.all()
+        country = self.office_location if self.office_location else self.talent.country
+        if country:
+            queryset = queryset.filter(country=country)
+        if filters and filters.search:
+            queryset = queryset.filter(job__title__icontains=filters.search)
+        if self.company:
+            queryset = queryset.filter(job__created_by__business=self.company)
+        if self.job_role:
+            queryset = queryset.filter(job__role=self.job_role)
         if self.location_type:
             queryset = queryset.filter(job__work_structure=self.location_type)
-        if self.remove_applied_jobs:
-            queryset = queryset.exclude(jobapplication__applicant=self.talent)
-        if self.role:
-            queryset = queryset.filter(job__role__name__icontains=self.role)
-        return queryset
+        print("queryset: ", queryset)
+
+        if self.employment_type:
+            queryset = queryset.filter(job__employment_type=self.employment_type)
+        if self.job_level:
+            queryset = queryset.filter(job__job_level=self.job_level)
+        if self.minimum_education_level:
+            queryset = queryset.filter(job__minimum_education_level=self.minimum_education_level)
+        if self.years_of_experience:
+            if self.years_of_experience == "0 years":
+                queryset = queryset.filter(Q(job__years_of_experience__isnull=True)|Q(job__years_of_experience=0))
+            elif self.years_of_experience == "20+ years":
+                queryset = queryset.filter(job__years_of_experience__gte=20)
+            elif "-" in self.years_of_experience:
+                years = map(int, self.years_of_experience.replace(" years", "").split("-"))
+                queryset = queryset.filter(job__years_of_experience__range=years)
+        sorts = []
+        if not extra_sorts:
+            extra_sorts = []
+        if filters and filters.sort_by:
+            sorts = filters.sort_by.split(",")
+        return order_job_posts(queryset, sorts, *extra_sorts)
+
+    def results(self):
+        return self.get_queryset().count()
+
 
 class ScreeningQuestion(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)

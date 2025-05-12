@@ -84,8 +84,7 @@ def generate_data(password, email_recipients, talent_amount=50,
                 create_talent_available_days(talent)
             if not hasattr(talent, "jobfilter"):
                 JobFilterFactory(talent=talent,
-                                 role=get_random_data(roles),
-                                 department=get_random_data(departments),
+                                 job_role=get_random_data(roles),
                                  minimum_education_level=get_random_data(educational_levels),
                                  employment_type=get_random_data(employment_type),
                                  office_location=talent.country)

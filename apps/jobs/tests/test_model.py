@@ -93,11 +93,9 @@ class JobFilterModelTest(TestCase):
         queryset = JobPost.objects.all()
         JobFilter.objects.create(
             talent = self.talent,
-            role="",
-            years_of_experience=2,
+            years_of_experience="1-3 years",
             office_location=self.country,
             employment_type=self.employment_type,
-            department=self.department,
             minimum_education_level=self.education_level,
             location_type=WorkStructureEnum.HYBRID,
             remove_applied_jobs=False

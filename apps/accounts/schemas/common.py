@@ -1,10 +1,10 @@
 from typing import Optional
 
 from ninja import ModelSchema, Schema
-from pydantic import EmailStr
+from pydantic import EmailStr, Field
 
 from accounts.enums import CaseReasonType
-from accounts.models import User, CustomerCase
+from accounts.models import User, CustomerCase, Business
 from core.schemas import READ_EXCLUDE_FIELDS
 
 
@@ -64,3 +64,9 @@ class ChangePasswordSchema(Schema):
 class ChangePhoneSchema(Schema):
     password: str
     phone_number : str
+
+class CompanyListSchema(ModelSchema):
+    logo: Optional[str] = Field(alias="get_logo")
+    class Meta:
+        model = Business
+        fields = ['uid', 'name']
