@@ -85,11 +85,21 @@ def set_job_required_attributes(data:dict, job):
     async_task(notify_business_on_matched_talents, job=job)
     return required_attributes
 
-def order_job_posts(sorts:List[str], queryset)->QuerySet:
+def order_job_posts(queryset, sorts:List[str]=None, *extra_sort_params:List[str])->QuerySet:
+    """
+    sort job posts
+
+    Args:
+        queryset: job posts queryset
+        sorts: list of sort parameters based on API query
+        *extra_sort_params: extra sort parameters based on model fields
+    """
     mapper = {"date-posted": "date_posted", "job-level": "job__job_level"}
-    sort_values = sort_params_function(sorts, mapper)
+    sort_values = []
+    if sorts:
+        sort_values = sort_params_function(sorts, mapper)
     if not sort_values:
-        sort_values = ["-created_at"]
+        sort_values = ["-created_at", *extra_sort_params]
     return queryset.order_by(*sort_values)
 
 def get_screening_questions_service(request, job_uid:UUID):

@@ -370,12 +370,9 @@ class JobFilterFactory(DjangoModelFactory):
         model = JobFilter
 
     talent = factory.SubFactory(TalentFactory)
-    role = factory.lazy_attribute(lambda _: fake.job()[:20])
-    years_of_experience = factory.Iterator([1,2,3,4,5,6,7])
     office_location = factory.SubFactory(CountryFactory)
     job_level = factory.SubFactory(JobLevelFactory)
     employment_type = factory.SubFactory(EmploymentTypeFactory)
-    department = factory.SubFactory(DepartmentFactory)
     minimum_education_level = factory.SubFactory(EducationLevelFactory)
     location_type = factory.Iterator(WorkStructureEnum.values())
     remove_applied_jobs = factory.Iterator([True, False])

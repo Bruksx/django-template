@@ -33,11 +33,8 @@ def logged_in_talent_job_recommendations(request, filters:JobPostFilterSchema = 
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = {"talent": talent}
-    queryset = get_talent_job_recommendations(talent, filters.search)
-    if filters.sort_by:
-        sorts = filters.sort_by.split(",")
-        return order_job_posts(sorts, queryset)
-    return queryset
+    queryset = get_talent_job_recommendations(talent)
+    return JobPostFilterSchema.get_queryset(queryset, filters)
 
 @router.get("talents/{talent_uid}/job-recommendations", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
@@ -47,11 +44,8 @@ def talent_job_recommendations(request, talent_uid:UUID, filters:JobPostFilterSc
     if not talent:
         raise HttpError(404, "Talent not found")
     request.context = {"talent": talent}
-    queryset = get_talent_job_recommendations(talent, filters.search)
-    if filters.sort_by:
-        sorts = filters.sort_by.split(",")
-        return order_job_posts(sorts, queryset)
-    return queryset
+    queryset = get_talent_job_recommendations(talent)
+    return JobPostFilterSchema.get_queryset(queryset, filters)
 
 @router.get("talent/saved-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
@@ -60,30 +54,18 @@ def talent_saved_jobs(request, filters:JobPostFilterSchema = Query(...)):
     talent = request.user.talent
     request.context = {"talent": talent}
     queryset = talent.saved_jobs()
-    if filters.search:
-        queryset = queryset.filter(job__title__icontains=filters.search)
-    if hasattr(talent, "jobfilter"):
-           queryset = talent.jobfilter.get_queryset(queryset)
-    if filters.sort_by:
-        sorts = filters.sort_by.split(",")
-        return order_job_posts(sorts, queryset)
-    return queryset.order_by("-savedjob__created_at")
+    return JobPostFilterSchema.get_queryset(queryset, filters, ["-savedjob__created_at"])
 
 @router.get("talent/job-posts", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
 def job_posts_by_talent_country(request, filters:JobPostFilterSchema = Query(...)):
     IsTalentUser.check(request)
     talent = request.user.talent
+    job_filter, _ = JobFilter.objects.get_or_create(talent=talent)
     request.context = {"talent": talent}
-    queryset = JobPost.objects.filter(country=talent.country, status=JobStatusType.POSTED.value)
-    if filters.search:
-        queryset = queryset.filter(Q(job__title__icontains=filters.search)|Q(job__role__name__icontains=filters.search))
-    if hasattr(talent, "jobfilter"):
-        queryset = talent.jobfilter.get_queryset(queryset)
-    if filters.sort_by:
-        sorts = filters.sort_by.split(",")
-        return order_job_posts(sorts, queryset)
-    return queryset.order_by("-created_at")
+    queryset = JobPost.objects.filter(status=JobStatusType.POSTED.value)
+    return job_filter.get_queryset(queryset, filters)
+
 
 @router.get("talent/applied-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[AppliedTalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
@@ -92,14 +74,7 @@ def talent_applied_jobs(request, filters: JobPostFilterSchema = Query(...)):
     talent = request.user.talent
     request.context = {"talent": talent}
     queryset = talent.applied_jobs()
-    if filters.search:
-        queryset = queryset.filter(job__title__icontains=filters.search)
-    if hasattr(talent, "jobfilter"):
-        queryset = talent.jobfilter.get_queryset(queryset)
-    if filters.sort_by:
-        sorts = filters.sort_by.split(",")
-        return order_job_posts(sorts, queryset)
-    return queryset.order_by("-jobapplication__created_at")
+    return JobPostFilterSchema.get_queryset(queryset, filters, ["-jobapplication__created_at"])
 
 
 @router.patch("talent/job-filter", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentJobFilterSchema)

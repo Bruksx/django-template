@@ -1,8 +1,9 @@
 from datetime import datetime, time
-from typing import List
+from typing import List, Literal
 from typing import Optional
 from uuid import UUID
 
+from django.db.models import QuerySet
 from ninja import ModelSchema, Query
 from ninja.errors import HttpError
 from ninja.schema import Schema
@@ -961,29 +962,35 @@ class TalentJobPostSchema(JobPostListSchema):
 
 
 class MutateTalentJobFilterSchema(ModelSchema):
-    location_type:Optional[WorkStructureEnum]
-    office_location: Optional[UUID]
-    employment_type: Optional[UUID]
-    department: Optional[UUID]
-    job_level: Optional[UUID]
-    minimum_education_level: Optional[UUID]
+    location_type:Optional[WorkStructureEnum] = Field(None, title="office location")
+    company: Optional[UUID] = Field(None, title="company")
+    office_location: Optional[UUID] = Field(None, title="location")
+    employment_type: Optional[UUID] = Field(None, title="employment type")
+    job_level: Optional[UUID] = Field(None, title="job level")
+    minimum_education_level: Optional[UUID] = Field(None, title="minimum education level")
+    job_role: Optional[UUID] = Field(None, title="role")
+    location: Optional[UUID] = Query(None, title="location")
+    years_of_experience: Optional[Literal[
+        '0 years', '1-3 years', '4-7 years', '7-10 years', '11-15 years', '15-20 years', '20+ years'
+    ]] = Field(None, title="years_of_experience")
 
     class Meta:
         model = JobFilter
-        fields = ["role", "years_of_experience", "location_type",  "remove_applied_jobs"]
+        fields = [ "remove_applied_jobs"]
         optional_fields = fields
 
 class TalentJobFilterSchema(ModelSchema):
     location_type: Optional[WorkStructureEnum]
     office_location: Optional[CountrySchema]
     employment_type: Optional[EmploymentTypeSchema]
-    department: Optional[DepartmentSchema]
+    job_role: Optional[RoleSchema]
     job_level: Optional[JobLevelSchema]
     minimum_education_level: Optional[EducationLevelSchema]
+    results: int
 
     class Meta:
         model = JobFilter
-        fields = ["role", "years_of_experience", "location_type",  "remove_applied_jobs"]
+        fields = ["years_of_experience", "location_type", "remove_applied_jobs"]
         optional_fields = fields
 
 class TalentJobApplicationWithdrawalSchema(Schema):
@@ -1049,3 +1056,27 @@ class JobPostFilterSchema(Schema):
             description="it can take comma separated values. "
                         "e.g sort_by=date-posted,job_level. use append - for desc order. "
                         "e.g sort_by=-date-posted,job_level etc.")
+
+    @staticmethod
+    def get_queryset(queryset, filters, extra_sorts:List[str]=None)->QuerySet:
+        """
+         get job post queryset based on this filter
+
+         Args:
+             queryset: Job post queryset
+             filters: JobPostFilterSchema instance from API query params
+             extra_sorts: extra sort fields based on model fields
+
+        Returns:
+            Job post queryset
+        """
+        from jobs.services import order_job_posts
+        if filters.search:
+            queryset = queryset.filter(job__title__icontains=filters.search)
+        sorts = []
+        if not extra_sorts:
+            extra_sorts = []
+        if filters.sort_by:
+            sorts = filters.sort_by.split(",")
+        return order_job_posts(queryset, sorts, *extra_sorts)
+

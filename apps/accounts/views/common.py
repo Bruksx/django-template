@@ -12,9 +12,10 @@ from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode, TalentFilter, \
-    Industry
+    Industry, Business
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
+from accounts.schemas.common import CompanyListSchema
 from core.schemas import GenericNameAndUidSchema
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 
@@ -142,3 +143,9 @@ def get_industries(request, search=""):
     if search:
         return Industry.objects.filter(name__icontains=search)
     return Industry.objects.all()
+
+@router.get("companies", response=List[CompanyListSchema], tags=["Common"])
+def get_companies(request, search=""):
+    if search:
+        return Business.objects.filter(name__icontains=search)
+    return Business.objects.all()
