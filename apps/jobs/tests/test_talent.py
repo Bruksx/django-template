@@ -202,12 +202,12 @@ class UpdateTalentJobFilterTest(TestCase):
         self.assertFalse(hasattr(self.talent, "jobfilter"))
 
         data = {
-          "location_type": WorkStructureEnum.IN_OFFICE.value,
-          "role": None,
-          "years_of_experience": "0 years",
-          "job_level": str(JobLevel.objects.first().uid),
-          "office_location": str(Country.objects.first().uid),
-          "employment_type": str(EmploymentType.objects.first().uid),
+          "work_structure": [WorkStructureEnum.IN_OFFICE.value],
+          "job_role": None,
+          "yoe": ["0 years"],
+          "job_level": [str(JobLevel.objects.first().uid)],
+          "location": [str(Country.objects.first().uid)],
+          "employment_type": [str(EmploymentType.objects.first().uid)],
           "minimum_education_level": None,
           "remove_applied_jobs": False
         }
@@ -218,7 +218,6 @@ class UpdateTalentJobFilterTest(TestCase):
         self.talent.refresh_from_db()
         self.assertTrue(hasattr(self.talent, "jobfilter"))
         data["remove_applied_jobs"] = True
-        data["department"] = str(Department.objects.first().uid)
         response = self.client.patch("talent/job-filter",
                                      json=data,
                                      headers=headers)

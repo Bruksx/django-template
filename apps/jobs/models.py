@@ -6,7 +6,7 @@ from monkeypatches.q_cluster import async_task
 from timezone_field import TimeZoneField
 
 from accounts.enums import Days
-from accounts.models import Talent, TalentAvailableDay
+from accounts.models import Talent, TalentAvailableDay, Country
 from core.models import BaseModel, Language
 from jobs.managers import JobManager
 from settings.enums import PlaceHolderType
@@ -619,14 +619,14 @@ class JobDraft(BaseModel):
 
 class JobFilter(BaseModel):
     talent = models.OneToOneField("accounts.Talent", on_delete=models.CASCADE, null=True)
-    job_role = models.ForeignKey("accounts.Role", on_delete=models.SET_NULL, null=True)
-    years_of_experience = models.CharField(max_length=128, null=True)
-    office_location = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
-    employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
-    minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
-    job_level = models.ForeignKey(JobLevel, on_delete=models.SET_NULL, null=True)
-    company = models.ForeignKey("accounts.Business", on_delete=models.SET_NULL, null=True)
-    location_type = models.CharField(choices=WorkStructureEnum.choices(), default=None, null=True)
+    job_role = models.ManyToManyField("accounts.Role", blank=True)
+    yoe = models.JSONField(default=list)
+    location = models.ManyToManyField("accounts.Country", blank=True)
+    employment_type = models.ManyToManyField(EmploymentType, blank=True)
+    minimum_education_level = models.ManyToManyField("accounts.EducationLevel", blank=True)
+    job_level = models.ManyToManyField(JobLevel, blank=True)
+    company = models.ManyToManyField("accounts.Business", blank=True)
+    work_structure = models.JSONField(default=list)
     remove_applied_jobs = models.BooleanField(default=False)
 
     def get_queryset(self, queryset=None, filters=None, extra_sorts:List[str]=None)->QuerySet:
@@ -644,33 +644,34 @@ class JobFilter(BaseModel):
         from jobs.services import order_job_posts
         if not queryset:
             queryset = JobPost.objects.all()
-        country = self.office_location if self.office_location else self.talent.country
-        if country:
-            queryset = queryset.filter(country=country)
+        countries = self.location.all() if self.location.count() > 0 else Country.objects.filter(id=self.talent.country.id)
+        if countries:
+            queryset = queryset.filter(country__in=countries)
         if filters and filters.search:
             queryset = queryset.filter(job__title__icontains=filters.search)
-        if self.company:
-            queryset = queryset.filter(job__created_by__business=self.company)
-        if self.job_role:
-            queryset = queryset.filter(job__role=self.job_role)
-        if self.location_type:
-            queryset = queryset.filter(job__work_structure=self.location_type)
-        print("queryset: ", queryset)
-
-        if self.employment_type:
-            queryset = queryset.filter(job__employment_type=self.employment_type)
-        if self.job_level:
-            queryset = queryset.filter(job__job_level=self.job_level)
-        if self.minimum_education_level:
-            queryset = queryset.filter(job__minimum_education_level=self.minimum_education_level)
-        if self.years_of_experience:
-            if self.years_of_experience == "0 years":
-                queryset = queryset.filter(Q(job__years_of_experience__isnull=True)|Q(job__years_of_experience=0))
-            elif self.years_of_experience == "20+ years":
-                queryset = queryset.filter(job__years_of_experience__gte=20)
-            elif "-" in self.years_of_experience:
-                years = map(int, self.years_of_experience.replace(" years", "").split("-"))
-                queryset = queryset.filter(job__years_of_experience__range=years)
+        if self.company.count() > 0:
+            queryset = queryset.filter(job__created_by__business__in=self.company.all())
+        if self.job_role.count() > 0:
+            queryset = queryset.filter(job__role__in=self.job_role.all())
+        if self.work_structure:
+            queryset = queryset.filter(job__work_structure__in=self.work_structure)
+        if self.employment_type.count() > 0:
+            queryset = queryset.filter(job__employment_type__in=self.employment_type.all())
+        if self.job_level.count() > 0:
+            queryset = queryset.filter(job__job_level__in=self.job_level.all())
+        if self.minimum_education_level.count() > 0:
+            queryset = queryset.filter(job__minimum_education_level__in=self.minimum_education_level.all())
+        if self.yoe:
+            query = Q()
+            for yoe in set(self.yoe):
+                if yoe == "0 years":
+                    query = query | Q(Q(job__years_of_experience__isnull=True)|Q(job__years_of_experience=0))
+                elif yoe == "20+ years":
+                    query = query | Q(job__years_of_experience__gte=20)
+                elif "-" in yoe:
+                    years = map(int, yoe.replace(" years", "").split("-"))
+                    query = query | Q(job__years_of_experience__range=years)
+            queryset = queryset.filter(query)
         sorts = []
         if not extra_sorts:
             extra_sorts = []

@@ -15,9 +15,9 @@ from chats.models import Conversation, Message
 from core.models import Currency
 from factories import WorkflowStageFactory, TalentFactory, BusinessUserFactory, CountryFactory, IndustryFactory, \
     LanguageFactory, EducationFactory, EducationLevelFactory, RoleFactory, ExperienceFactory, SkillFactory, \
-    BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory, SavedJobFactory, JobFilterFactory
-from jobs.enums import LunchBreakEnum, PhaseType, JobStatusType, WorkStructureEnum
-from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, RequiredAttribute, AvailableDay, \
+    BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory
+from jobs.enums import LunchBreakEnum, PhaseType, JobStatusType
+from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, AvailableDay, \
     JobApplication, JobInterview
 
 

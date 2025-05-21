@@ -15,13 +15,13 @@ from core.models import Currency
 from django.db import transaction
 from faker import Faker
 from jobs.enums import PhaseType
-from jobs.models import JobPost, EmploymentType, JobApplication, Job, JobLevel, JobApplicationWithdrawal, SavedJob
+from jobs.models import JobPost, JobFilter, EmploymentType, JobApplication, Job, JobLevel, JobApplicationWithdrawal, SavedJob
 from settings.models import WorkFlowStage
 from apps.jobs.enums import JobStatusType
 
 
 from apps.factories import TalentFactory, BusinessFactory, BusinessUserFactory, JobFactory, JobPostFactory, \
-    RequiredAttributeFactory, JobFilterFactory, JobApplicationFactory, SavedJobFactory, \
+    RequiredAttributeFactory, JobApplicationFactory, SavedJobFactory, \
     WorkflowStageFactory, EmailTemplateFactory, CustomerCaseFactory, TalentAvailableDayFactory, \
     ScreeningQuestionFactory, AnswerFactory
 
@@ -83,11 +83,12 @@ def generate_data(password, email_recipients, talent_amount=50,
             if talent.talentavailableday_set.all().count() == 0:
                 create_talent_available_days(talent)
             if not hasattr(talent, "jobfilter"):
-                JobFilterFactory(talent=talent,
-                                 job_role=get_random_data(roles),
-                                 minimum_education_level=get_random_data(educational_levels),
-                                 employment_type=get_random_data(employment_type),
-                                 office_location=talent.country)
+                jf = JobFilter.objects.create(talent=talent)
+                jf.job_role.set(get_random_list(roles, 3))
+                jf.minimum_education_level.set(get_random_list(educational_levels, 3))
+                jf.employment_type.set(get_random_list(employment_type, 2))
+                jf.location.set([talent.country])
+                jf.save()
             count += 1
     # we have 50 talents from 5 different countries
 

@@ -3,7 +3,6 @@ from uuid import UUID
 
 from ninja import ModelSchema, Schema
 from ninja.orm.fields import AnyObject
-from pydantic import Field
 
 from accounts.models import User
 from chats.enums import ChatMessageAttachmentType

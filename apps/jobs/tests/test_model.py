@@ -91,16 +91,17 @@ class JobFilterModelTest(TestCase):
 
     def test_get_queryset(self):
         queryset = JobPost.objects.all()
-        JobFilter.objects.create(
+        job_filter = JobFilter.objects.create(
             talent = self.talent,
-            years_of_experience="1-3 years",
-            office_location=self.country,
-            employment_type=self.employment_type,
-            minimum_education_level=self.education_level,
-            location_type=WorkStructureEnum.HYBRID,
+            yoe=["1-3 years"],
+            work_structure=[WorkStructureEnum.HYBRID.value],
             remove_applied_jobs=False
 
         )
+        job_filter.location.set([self.country])
+        job_filter.employment_type.set([self.employment_type])
+        job_filter.minimum_education_level.set([self.education_level])
+        job_filter.save()
         filtered_queryset = self.talent.jobfilter.get_queryset(queryset)
 
         self.assertEqual(queryset.count(), 1)

@@ -12,10 +12,11 @@ from ninja.params import Query
 from ninja_extra.pagination import paginate
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import Talent
+from accounts.models import Talent, Business, Country, EducationLevel, Role
 from jobs import tasks
 from jobs.enums import JobStatusType, PhaseType
-from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert
+from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert, \
+    EmploymentType, JobLevel
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
     TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, AppliedTalentJobPostListSchema, ApplyToJobSchema, \
     ShareJobViaEmailSchema, ShareJobViaChatSchema, JobPostFilterSchema, TalentQuestionSchema
@@ -81,14 +82,44 @@ def talent_applied_jobs(request, filters: JobPostFilterSchema = Query(...)):
 def update_talent_job_filter(request, data: PatchDict[MutateTalentJobFilterSchema]):
     IsTalentUser.check(request)
     talent = request.user.talent
-    if "location_type" in data and data.get("location_type"):
-        data["location_type"] = data["location_type"].value
+    if "work_structure" in data and data.get("work_structure"):
+        data["work_structure"] = list(map(lambda x: x.value, data.get("work_structure")))
+    company = data.pop("company", list())
+    location = data.pop("location", list())
+    job_role = data.pop("job_role", list())
+    employment_type = data.pop("employment_type", list())
+    job_level = data.pop("job_level", list())
+    minimum_education_level = data.pop("minimum_education_level", list())
+
     if not hasattr(talent, "jobfilter"):
-        JobFilter.objects.create(talent=talent, **data)
+        job_filter = JobFilter.objects.create(talent=talent, **data)
     else:
-        talent.jobfilter.update(**data)
-    talent.refresh_from_db()
-    return talent.jobfilter
+        job_filter = talent.jobfilter.update(**data)
+    if company:
+        company = Business.objects.filter(uid__in=company)
+        job_filter.company.set(company)
+        job_filter.save()
+    if location:
+        country = Country.objects.filter(uid__in=location)
+        job_filter.location.set(country)
+        job_filter.save()
+    if employment_type:
+        employment_type = EmploymentType.objects.filter(uid__in=employment_type)
+        job_filter.employment_type.set(employment_type)
+        job_filter.save()
+    if job_level:
+        job_level = JobLevel.objects.filter(uid__in=job_level)
+        job_filter.job_level.set(job_level)
+        job_filter.save()
+    if job_role:
+        job_role = Role.objects.filter(uid__in=job_role)
+        job_filter.job_role.set(job_role)
+        job_filter.save()
+    if minimum_education_level:
+        minimum_education_level = EducationLevel.objects.filter(uid__in=minimum_education_level)
+        job_filter.minimum_education_level.set(minimum_education_level)
+        job_filter.save()
+    return job_filter
 
 @router.get("talent/job-filter", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentJobFilterSchema)
 def get_talent_job_filter(request):
