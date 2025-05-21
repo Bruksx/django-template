@@ -962,35 +962,36 @@ class TalentJobPostSchema(JobPostListSchema):
 
 
 class MutateTalentJobFilterSchema(ModelSchema):
-    location_type:Optional[WorkStructureEnum] = Field(None, title="office location")
-    company: Optional[UUID] = Field(None, title="company")
-    office_location: Optional[UUID] = Field(None, title="location")
-    employment_type: Optional[UUID] = Field(None, title="employment type")
-    job_level: Optional[UUID] = Field(None, title="job level")
-    minimum_education_level: Optional[UUID] = Field(None, title="minimum education level")
-    job_role: Optional[UUID] = Field(None, title="role")
-    location: Optional[UUID] = Query(None, title="location")
-    years_of_experience: Optional[Literal[
+    work_structure:Optional[List[WorkStructureEnum]] = None
+    company: Optional[List[UUID]] = None
+    location: Optional[List[UUID]] = None
+    employment_type: Optional[List[UUID]] = None
+    job_level: Optional[List[UUID]] = None
+    minimum_education_level: Optional[List[UUID]] = None
+    job_role: Optional[List[UUID]] = None
+    yoe: Optional[List[Literal[
         '0 years', '1-3 years', '4-7 years', '7-10 years', '11-15 years', '15-20 years', '20+ years'
-    ]] = Field(None, title="years_of_experience")
-
+    ]]] = None
     class Meta:
         model = JobFilter
         fields = [ "remove_applied_jobs"]
         optional_fields = fields
 
 class TalentJobFilterSchema(ModelSchema):
-    location_type: Optional[WorkStructureEnum]
-    office_location: Optional[CountrySchema]
-    employment_type: Optional[EmploymentTypeSchema]
-    job_role: Optional[RoleSchema]
-    job_level: Optional[JobLevelSchema]
-    minimum_education_level: Optional[EducationLevelSchema]
+    work_structure: Optional[List[WorkStructureEnum]]
+    location: Optional[List[CountrySchema]]
+    employment_type: Optional[List[EmploymentTypeSchema]]
+    job_role: Optional[List[RoleSchema]]
+    job_level: Optional[List[JobLevelSchema]]
+    minimum_education_level: Optional[List[EducationLevelSchema]]
+    yoe: Optional[List[Literal[
+        '0 years', '1-3 years', '4-7 years', '7-10 years', '11-15 years', '15-20 years', '20+ years'
+    ]]] = None
     results: int
 
     class Meta:
         model = JobFilter
-        fields = ["years_of_experience", "location_type", "remove_applied_jobs"]
+        fields = ["remove_applied_jobs"]
         optional_fields = fields
 
 class TalentJobApplicationWithdrawalSchema(Schema):
