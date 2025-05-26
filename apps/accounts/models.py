@@ -1029,6 +1029,11 @@ class BusinessUser(BaseModel):
             self.businessusernotificationsettings.hard_delete()
         return
 
+    @property
+    def talentfilter(self):
+        return self.talentfilter_set.first()
+
+
 
 
 
@@ -1083,7 +1088,8 @@ class CustomerCase(BaseModel):
 
 
 class TalentFilter(BaseModel):
-    business_user = models.OneToOneField("accounts.BusinessUser", on_delete=models.CASCADE)
+    business_user = models.ForeignKey("accounts.BusinessUser", on_delete=models.CASCADE)
+    name = models.CharField(max_length=128, default=None, null=True)
     role = models.ForeignKey("accounts.Role", on_delete=models.SET_NULL, null=True)
     industry = models.ForeignKey("accounts.Industry", on_delete=models.SET_NULL, null=True)
     location = models.CharField(max_length=128, null=True)

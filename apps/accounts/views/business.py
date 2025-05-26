@@ -27,7 +27,7 @@ from notification import notifications
 from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
-from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema
+from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema, TalentFilterListSchema
 
 router = Router(tags=["Business Account"])
 
@@ -417,10 +417,15 @@ def send_email_to_talents(request, data:SendEmailSchema=Form(), attachments: Lis
     return Response(status=200, data={"message": "Email sent successfully"})
 
 
-@router.patch("talents-filter", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentFilterSchema)
+@router.post("talents-filters", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentFilterSchema)
 @transaction.atomic
-def update_talent_filter(request, data: PatchDict[MutateTalentFilterSchema]):
+def create_talent_filter(request, data: PatchDict[MutateTalentFilterSchema]):
     IsBusinessUser.check(request)
+    name = data.get("name")
+    if not name:
+        raise HttpError(400, "Name is required")
+    if TalentFilter.objects.filter(business_user=request.user.businessuser, name__iexact=name).exists():
+        raise HttpError(400, "Name already exists")
     business_user = request.user.businessuser
     if data.get("work_structure"):
         data["work_structure"] = data["work_structure"].value
@@ -431,10 +436,7 @@ def update_talent_filter(request, data: PatchDict[MutateTalentFilterSchema]):
     if skills:
         skills = Skill.objects.filter(uid__in=skills)
 
-    if not hasattr(business_user, "talentfilter"):
-        talent_filter = TalentFilter.objects.create(business_user=business_user, **data)
-    else:
-         talent_filter = business_user.talentfilter.update(**data)
+    talent_filter = TalentFilter.objects.create(business_user=business_user, **data)
     if languages:
         talent_filter.languages.set(languages)
     else:
@@ -444,16 +446,61 @@ def update_talent_filter(request, data: PatchDict[MutateTalentFilterSchema]):
     else:
         talent_filter.skills.clear()
     talent_filter.save()
-    business_user.refresh_from_db()
-    return business_user.talentfilter
+    return talent_filter
 
-@router.get("talents-filter", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentFilterSchema)
-def get_talent_filter(request):
+@router.patch("talents-filters/{talent_filter_uid}", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentFilterSchema)
+@transaction.atomic
+def update_talent_filter(request, talent_filter_uid: UUID, data: PatchDict[MutateTalentFilterSchema]):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    if not hasattr(business_user, "talentfilter"):
-        raise HttpError(400, "You have not set a talent filter yet")
-    return business_user.talentfilter
+    talent_filter = TalentFilter.objects.filter(uid=talent_filter_uid, business_user=business_user).first()
+    if not talent_filter:
+        raise HttpError(404, "Talent filter not found")
+    name = data.get("name")
+    if (name and TalentFilter.objects.filter(business_user=request.user.businessuser, name__iexact=name)
+            .exclude(id=talent_filter.id).exists()):
+        raise HttpError(400, "Name already exists")
+
+    if data.get("work_structure"):
+        data["work_structure"] = data["work_structure"].value
+    languages = data.pop("languages", list())
+    skills = data.pop("skills", list())
+    if languages:
+        languages = Language.objects.filter(uid__in=languages)
+    if skills:
+        skills = Skill.objects.filter(uid__in=skills)
+
+    talent_filter = talent_filter.update(**data)
+    if languages:
+        talent_filter.languages.set(languages)
+    else:
+        talent_filter.languages.clear()
+    if skills:
+        talent_filter.skills.set(skills)
+    else:
+        talent_filter.skills.clear()
+    talent_filter.save()
+    return talent_filter
+
+
+
+@router.get("talents-filters", auth=JWTAuth(), tags=["Talent Jobs"], response=List[TalentFilterListSchema])
+def get_talent_filters(request):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    return TalentFilter.objects.filter(business_user=business_user).order_by("name")
+
+
+@router.get("talents-filters/{talent_filter_uid}", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentFilterSchema)
+def get_talent_filter(request, talent_filter_uid: UUID):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    talent_filter = TalentFilter.objects.filter(business_user=business_user, uid=talent_filter_uid).first()
+    if not talent_filter:
+        raise HttpError(404, "Talent filter not found")
+    return talent_filter
+
+
 
 
 

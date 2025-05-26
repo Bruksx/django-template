@@ -335,7 +335,7 @@ class TalentListTest(TestCase):
         talent_filter.languages.add(language)
         talent_filter.skills.add(skill)
 
-        response = self.client.get(f"{self.url}?apply_filter=true", headers=self.headers)
+        response = self.client.get(f"{self.url}?talent_filter_uid={talent_filter.uid}", headers=self.headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["count"], 2)  # Only the matching talent should be returned
@@ -348,7 +348,7 @@ class TalentListTest(TestCase):
 
         role2 = RoleFactory.create()
 
-        TalentFilterFactory.create(
+        tf = TalentFilterFactory.create(
             business_user=self.business_user,
             role=role,
             industry=industry
@@ -365,7 +365,7 @@ class TalentListTest(TestCase):
             role=role2,
         )
 
-        response = self.client.get(f"{self.url}?apply_filter=true", headers=self.headers)
+        response = self.client.get(f"{self.url}?talent_filter_uid={tf.uid}", headers=self.headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["count"], 0)  # No matching talents should be returned
@@ -381,7 +381,7 @@ class TalentListTest(TestCase):
         skill = SkillFactory(department=DepartmentFactory(industry=industry))
         skill2= SkillFactory(department=DepartmentFactory(industry=industry2))
         
-        TalentFilter.objects.create(
+        tf = TalentFilter.objects.create(
             business_user=self.business_user,
             role=role,
             industry=industry
@@ -406,7 +406,7 @@ class TalentListTest(TestCase):
         talent3.save()
 
 
-        response = self.client.get(f"{self.url}?search=John&apply_filter=true", headers=self.headers)
+        response = self.client.get(f"{self.url}?search=John&talent_filter_uid={tf.uid}", headers=self.headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["results"][0]["uid"], str(talent.uid))

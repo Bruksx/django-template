@@ -838,7 +838,8 @@ class UpdateTalentFilterTest(TestCase):
             business=self.business,
             role=BusinessUserRoleType.OWNER.value
         )
-        self.url = "/talents-filter"
+        tf = TalentFilterFactory.create(business_user=self.business_user)
+        self.url = f"/talents-filters/{tf.uid}"
         self.headers = {
             "authorization": f"bearer {self.business_user.user.token}"
         }
@@ -924,7 +925,6 @@ class GetTalentFilterTest(TestCase):
             business=self.business,
             role=BusinessUserRoleType.OWNER.value
         )
-        self.url = "/talents-filter"
         self.headers = {
             "authorization": f"bearer {self.business_user.user.token}"
         }
@@ -945,6 +945,7 @@ class GetTalentFilterTest(TestCase):
         )
         self.talent_filter.languages.add(self.language)
         self.talent_filter.skills.add(self.skill)
+        self.url = f"/talents-filters/{self.talent_filter.uid}"
 
     def test_get_talent_filter_success(self):
         response = self.client.get(self.url, headers=self.headers)
@@ -983,8 +984,8 @@ class GetTalentFilterTest(TestCase):
         # Delete the talent filter
         self.talent_filter.hard_delete()
         response = self.client.get(self.url, headers=self.headers)
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["detail"], "You have not set a talent filter yet")
+        self.assertEqual(response.status_code, 404)
+
 
     def test_get_talent_filter_different_business(self):
         # Create another business user
@@ -997,8 +998,8 @@ class GetTalentFilterTest(TestCase):
             "authorization": f"bearer {other_business_user.user.token}"
         }
         response = self.client.get(self.url, headers=headers)
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["detail"], "You have not set a talent filter yet")
+        self.assertEqual(response.status_code, 404)
+
 
 class TransferBusinessUserRoleTest(TestCase):
     def setUp(self):
