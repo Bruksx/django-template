@@ -1,4 +1,5 @@
-from typing import List
+from typing import List, Optional
+from uuid import UUID
 
 from django.db import transaction
 from django.db.models import Q
@@ -24,18 +25,17 @@ router = Router(tags=["Common Account APIs"])
 
 @router.get("talents", response=CustomPaginatedResponseSchema[talent_schemas.TalentUserListSchema], auth=JWTAuth())
 @paginate(CustomPageNumberPaginationExtra, page_size=50)
-def talent_lists(request, search="", apply_filter=False):
+def talent_lists(request, search="", talent_filter_uid:Optional[UUID]=None):
     talents = Talent.objects.prefetch_related("user").filter(visible=True)
     if search:
         talents = talents.filter(Q(user__first_name__icontains=search)|
                                  Q(user__last_name__icontains=search)|
                                  Q(user__email__icontains=search)
                                  )
-    if apply_filter is True and hasattr(request.user, "businessuser"):
-        if not hasattr(request.user.businessuser, "talentfilter"):
-            talent_filter = TalentFilter.objects.create(business_user=request.user.businessuser)
-        else:
-            talent_filter = request.user.businessuser.talentfilter
+    talent_filter = None
+    if talent_filter_uid:
+        talent_filter = TalentFilter.objects.filter(uid=talent_filter_uid).first()
+    if talent_filter and hasattr(request.user, "businessuser"):
         talents = talent_filter.get_queryset(talents)
 
     return talents.order_by("-user__last_login")

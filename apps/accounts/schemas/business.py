@@ -319,7 +319,7 @@ class MutateTalentFilterSchema(ModelSchema):
 
     class Meta:
         model = TalentFilter
-        fields = ["location", "maximum_notice_period"]
+        fields = ["uid", "name","location", "maximum_notice_period"]
         optional_fields = fields
 
 
@@ -333,8 +333,13 @@ class TalentFilterSchema(ModelSchema):
 
     class Meta:
         model = TalentFilter
-        fields = ["location", "maximum_notice_period", "work_structure"]
+        fields = ["uid","name", "location", "maximum_notice_period", "work_structure"]
         optional_fields = fields
+
+class TalentFilterListSchema(ModelSchema):
+    class Meta:
+        model = TalentFilter
+        fields = ["uid", "name", ]
 
 class TransferRoleSchema(Schema):
     from_business_user: UUID
