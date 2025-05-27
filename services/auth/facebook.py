@@ -19,9 +19,8 @@ APP_MAP = {
 
 
 class Facebook():
-    def __init__(self, APP_ID):
-        self.APP_ID = APP_ID
-        self.APP_SECRET = APP_MAP[APP_ID]
+    def __init__(self):
+        self.APP_SECRET = FACEBOOK_APP_SECRET
         self.scope = ['email',]
 
     def get_user(self, user_id, access_token):
