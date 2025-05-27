@@ -1,9 +1,11 @@
-from typing import List, Literal
+from typing import List, Literal, Union
 from uuid import UUID
 
 from config.permissions import IsTalentUser, IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
+
+from helpers.utils import delete_s3_item
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from ninja import Router, PatchDict, UploadedFile
@@ -145,11 +147,18 @@ def apply_to_job_post(request, job_post_id:UUID, data: ApplyToJobSchema):
     create_job_application(job_post=job_post, talent=talent, data=data)
     return Response(status=200, data={"message": "Applied successfully"})
 
-@router.post("talent/job-posts/answer-files", response={200: None}, tags=["Talent Jobs"])
+@router.post("talent/job-posts/answer-files", response={200: Union[List[str]|str]}, auth=JWTAuth(), tags=["Talent Jobs"])
 def upload_answer_files(request, files:List[UploadedFile]):
-    # IsTalentUser.check(request)
+    IsTalentUser.check(request)
     file_urls = upload_answer_files_service(files=files)
     return Response(status=200, data=dict(message="Files uploaded successfully", data=file_urls))
+
+@router.delete("talent/job-posts/answer-files", response={204: None}, auth=JWTAuth(), tags=["Talent Jobs"])
+def delete_answer_files(request, data:List[str]):
+    IsTalentUser.check(request)
+    for file_url in data:
+        async_task(delete_s3_item, file_url)
+    return Response(status=204, data=dict(message="Files deleted successfully"))
 
 
 
