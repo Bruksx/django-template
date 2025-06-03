@@ -964,6 +964,7 @@ class TalentJobPostSchema(JobPostListSchema):
 class MutateTalentJobFilterSchema(ModelSchema):
     work_structure:Optional[List[WorkStructureEnum]] = None
     company: Optional[List[UUID]] = None
+    sort_by: Optional[List[Literal['date-posted']]] = None
     location: Optional[List[UUID]] = None
     employment_type: Optional[List[UUID]] = None
     job_level: Optional[List[UUID]] = None
@@ -987,7 +988,9 @@ class TalentJobFilterSchema(ModelSchema):
     yoe: Optional[List[Literal[
         '0 years', '1-3 years', '4-7 years', '7-10 years', '11-15 years', '15-20 years', '20+ years'
     ]]] = None
+    sort_by: Optional[List[Literal['date-posted']]] = None
     results: int
+
 
     class Meta:
         model = JobFilter
@@ -1052,11 +1055,11 @@ class BusinessUserJobSchema(ModelSchema):
 
 class JobPostFilterSchema(Schema):
     search: Optional[str] = None
-    sort_by: Optional[str] = Query(None, title="sort_by",
-                                   example="date-posted",
-            description="it can take comma separated values. "
-                        "e.g sort_by=date-posted,job_level. use append - for desc order. "
-                        "e.g sort_by=-date-posted,job_level etc.")
+    # sort_by: Optional[str] = Query(None, title="sort_by",
+    #                                example="date-posted",
+    #         description="it can take comma separated values. "
+    #                     "e.g sort_by=date-posted,job_level. use append - for desc order. "
+    #                     "e.g sort_by=-date-posted,job_level etc.")
 
     @staticmethod
     def get_queryset(queryset, filters, extra_sorts:List[str]=None)->QuerySet:
@@ -1077,7 +1080,7 @@ class JobPostFilterSchema(Schema):
         sorts = []
         if not extra_sorts:
             extra_sorts = []
-        if filters.sort_by:
-            sorts = filters.sort_by.split(",")
+        # if filters.sort_by:
+        #     sorts = filters.sort_by.split(",")
         return order_job_posts(queryset, sorts, *extra_sorts)
 
