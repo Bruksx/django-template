@@ -86,38 +86,37 @@ def update_talent_job_filter(request, data: PatchDict[MutateTalentJobFilterSchem
     talent = request.user.talent
     if "work_structure" in data and data.get("work_structure"):
         data["work_structure"] = list(map(lambda x: x.value, data.get("work_structure")))
-    company = data.pop("company", list())
-    location = data.pop("location", list())
-    job_role = data.pop("job_role", list())
-    employment_type = data.pop("employment_type", list())
-    job_level = data.pop("job_level", list())
-    minimum_education_level = data.pop("minimum_education_level", list())
-
     if not hasattr(talent, "jobfilter"):
         job_filter = JobFilter.objects.create(talent=talent, **data)
     else:
         job_filter = talent.jobfilter.update(**data)
-    if company:
+    if "company" in data:
+        company = data.pop("company", list())
         company = Business.objects.filter(uid__in=company)
         job_filter.company.set(company)
         job_filter.save()
-    if location:
+    if "location" in data:
+        location = data.pop("location", list())
         country = Country.objects.filter(uid__in=location)
         job_filter.location.set(country)
         job_filter.save()
-    if employment_type:
+    if "employment_type" in data:
+        employment_type = data.pop("employment_type", list())
         employment_type = EmploymentType.objects.filter(uid__in=employment_type)
         job_filter.employment_type.set(employment_type)
         job_filter.save()
-    if job_level:
+    if "job_level" in data:
+        job_level = data.pop("job_level", list())
         job_level = JobLevel.objects.filter(uid__in=job_level)
         job_filter.job_level.set(job_level)
         job_filter.save()
-    if job_role:
+    if "job_role" in data:
+        job_role = data.pop("job_role", list())
         job_role = Role.objects.filter(uid__in=job_role)
         job_filter.job_role.set(job_role)
         job_filter.save()
-    if minimum_education_level:
+    if "minimum_education_level" in data:
+        minimum_education_level = data.pop("minimum_education_level", list())
         minimum_education_level = EducationLevel.objects.filter(uid__in=minimum_education_level)
         job_filter.minimum_education_level.set(minimum_education_level)
         job_filter.save()
