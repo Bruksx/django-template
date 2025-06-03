@@ -618,6 +618,7 @@ class JobDraft(BaseModel):
 
 
 class JobFilter(BaseModel):
+    sort_by = models.JSONField(default=list)
     talent = models.OneToOneField("accounts.Talent", on_delete=models.CASCADE, null=True)
     job_role = models.ManyToManyField("accounts.Role", blank=True)
     yoe = models.JSONField(default=list)
@@ -644,6 +645,8 @@ class JobFilter(BaseModel):
         from jobs.services import order_job_posts
         if not queryset:
             queryset = JobPost.objects.all()
+        if filters and filters.search:
+            queryset = queryset.filter(job__title__icontains=filters.search)
         countries = self.location.all() if self.location.count() > 0 else Country.objects.filter(id=self.talent.country.id)
         if countries:
             queryset = queryset.filter(country__in=countries)
@@ -675,8 +678,8 @@ class JobFilter(BaseModel):
         sorts = []
         if not extra_sorts:
             extra_sorts = []
-        if filters and filters.sort_by:
-            sorts = filters.sort_by.split(",")
+        if self.sort_by:
+            sorts = self.sort_by.split(",")
         return order_job_posts(queryset, sorts, *extra_sorts)
 
     def results(self):
