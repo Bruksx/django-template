@@ -675,12 +675,9 @@ class JobFilter(BaseModel):
                     years = map(int, yoe.replace(" years", "").split("-"))
                     query = query | Q(job__years_of_experience__range=years)
             queryset = queryset.filter(query)
-        sorts = []
         if not extra_sorts:
             extra_sorts = []
-        if self.sort_by:
-            sorts = self.sort_by.split(",")
-        return order_job_posts(queryset, sorts, *extra_sorts)
+        return order_job_posts(queryset, self.sort_by, *extra_sorts)
 
     def results(self):
         return self.get_queryset().count()
