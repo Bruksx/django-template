@@ -46,7 +46,7 @@ def country_list(request, search:str=""):
     queryset = Country.objects.all()
     if search:
         queryset = queryset.filter(name__icontains=search)
-    return queryset
+    return queryset.distinct("name").order_by("name")
 
 
 @router.get("educational-levels", response=List[talent_schemas.EducationLevelSchema], 
@@ -55,7 +55,7 @@ def educational_levels(request, search=""):
     queryset = EducationLevel.objects.all()
     if search:
         queryset = queryset.filter(name__icontains=search)
-    return queryset
+    return queryset.distinct("name").order_by("name")
 
 @router.post("customer-cases", auth=JWTAuth())
 def create_customer_case(request, data:common_schemas.MutateCustomerCaseSchema):
@@ -140,12 +140,14 @@ def send_otp_to_email(request, data: common_schemas.SendEmailOtpSchema):
 
 @router.get("industries", response=list[GenericNameAndUidSchema], tags=["Common"])
 def get_industries(request, search=""):
+    queryset = Industry.objects.all()
     if search:
-        return Industry.objects.filter(name__icontains=search)
-    return Industry.objects.all()
+        queryset = queryset.filter(name__icontains=search)
+    return queryset.distinct("name").order_by("name")
 
 @router.get("companies", response=List[CompanyListSchema], tags=["Common"])
 def get_companies(request, search=""):
+    queryset = Business.objects.all()
     if search:
-        return Business.objects.filter(name__icontains=search)
-    return Business.objects.all()
+        queryset = queryset.filter(name__icontains=search)
+    return queryset.distinct("name").order_by("name")

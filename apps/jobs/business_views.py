@@ -42,7 +42,7 @@ def get_employment_types(request, search=""):
     queryset = EmploymentType.objects.filter(parent=None)
     if search:
         queryset = queryset.filter(name__icontains=search)
-    return queryset
+    return queryset.distinct("name").order_by("name")
 
 
 @router.get("departments", response=list[DepartmentSchema], tags=["Common"])
@@ -51,7 +51,7 @@ def get_departments(request, search=""):
     if search:
         queryset = queryset.filter(Q(name__icontains=search)|
                                    Q(industry__name__icontains=search))
-    return queryset
+    return queryset.distinct("name").order_by("name")
 
 
 @router.get("roles", response=list[RoleSchema], tags=["Common"])
@@ -60,14 +60,14 @@ def get_roles(request, search=""):
     if search:
         queryset = queryset.filter(Q(name__icontains=search)|
                                    Q(department__name__icontains=search))
-    return queryset
+    return queryset.distinct("name").order_by("name")
 
 @router.get("job-levels", response=list[JobLevelSchema], tags=["Common"])
 def get_job_levels(request, search=""):
     queryset = JobLevel.objects.all()
     if search:
         queryset = queryset.filter(name__icontains=search)
-    return queryset
+    return queryset.distinct("name").order_by("name")
 
 @router.get("skill-categories", response={200: list[SkillCategorySchema]}, tags=["Common"])
 def get_skills_categories(request, search="", category=""):
@@ -95,7 +95,7 @@ def get_business_models(request, search=""):
     queryset = BusinessModel.objects.all()
     if search:
         queryset = queryset.filter(name__icontains=search)
-    return queryset
+    return queryset.distinct("name").order_by("name")
 
 @router.patch("{job_uid}/required-attributes", response=job_schemas.RequiredAttributeSchema, auth=JWTAuth())
 @transaction.atomic
