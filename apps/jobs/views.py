@@ -3,8 +3,6 @@ from uuid import UUID
 
 from config.permissions import IsTalentUser, IsBusinessUser
 from django.db import transaction
-from django.db.models import Q
-
 from helpers.utils import delete_s3_item
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
@@ -23,7 +21,7 @@ from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateT
     TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, AppliedTalentJobPostListSchema, ApplyToJobSchema, \
     ShareJobViaEmailSchema, ShareJobViaChatSchema, JobPostFilterSchema, TalentQuestionSchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service, \
-    order_job_posts, get_screening_questions_service
+    get_screening_questions_service
 from notification import notifications
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
