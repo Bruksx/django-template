@@ -54,8 +54,8 @@ def country_list(request, search:str=""):
 def educational_levels(request, search=""):
     queryset = EducationLevel.objects.all()
     if search:
-        queryset = queryset.filter(name__icontains=search)
-    return queryset.distinct("name").order_by("name")
+        queryset = queryset.filter(level__icontains=search)
+    return queryset.order_by("level")
 
 @router.post("customer-cases", auth=JWTAuth())
 def create_customer_case(request, data:common_schemas.MutateCustomerCaseSchema):
