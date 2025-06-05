@@ -22,7 +22,7 @@ from monkeypatches.q_cluster import async_task
 
 
 def get_talent_job_recommendations(talent, search=""):
-    queryset = talent.job_post_matches()
+    queryset = talent.job_post_matches(by_talent_country=True)
     if search:
         queryset = queryset.filter(job__title__icontains=search)
     return queryset.order_by("-created_at")

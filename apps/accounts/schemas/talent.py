@@ -301,7 +301,7 @@ class TalentDashboardReport(Schema):
     def resolve_job_matches(obj, context):
         if not context:
             context = dict()
-        return obj.job_post_matches( **context).count()
+        return obj.job_post_matches(by_talent_country=True, **context).count()
 
     @staticmethod
     def resolve_jobs_applied(obj, context):
