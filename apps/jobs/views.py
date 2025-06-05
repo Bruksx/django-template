@@ -46,7 +46,7 @@ def talent_job_recommendations(request, talent_uid:UUID, filters:JobPostFilterSc
         raise HttpError(404, "Talent not found")
     request.context = {"talent": talent}
     queryset = get_talent_job_recommendations(talent)
-    if filters.search != "":
+    if filters.search is not None and filters.search != "":
         queryset = queryset.filter(job__title__icontains=filters.search)
     return queryset
 
