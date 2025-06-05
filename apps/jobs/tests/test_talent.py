@@ -567,6 +567,8 @@ class TestShareJobViaChat(TestCase):
         response = self.client.post(self.url, headers=header, json=data)
         self.job_post.refresh_from_db()
         self.assertEqual(self.job_post.message_set.count(), 3)
+        message = self.job_post.message_set.first()
+        self.assertEqual(message.job_post.job.id, self.job_post.job.id)
         self.assertEqual(response.status_code, 200)
 
     def test_request_by_business_user(self):
