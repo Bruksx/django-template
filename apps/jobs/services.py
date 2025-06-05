@@ -25,10 +25,6 @@ def get_talent_job_recommendations(talent, search=""):
     queryset = talent.job_post_matches()
     if search:
         queryset = queryset.filter(job__title__icontains=search)
-
-    if hasattr(talent, "jobfilter"):
-        queryset = talent.jobfilter.get_queryset(queryset)
-
     return queryset.order_by("-created_at")
 
 @transaction.atomic
