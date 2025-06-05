@@ -46,7 +46,10 @@ def talent_job_recommendations(request, talent_uid:UUID, filters:JobPostFilterSc
         raise HttpError(404, "Talent not found")
     request.context = {"talent": talent}
     queryset = get_talent_job_recommendations(talent)
-    return JobPostFilterSchema.get_queryset(queryset, filters)
+    if filters.search != "":
+        queryset = queryset.filter(title__icontains=filters.search)
+    return queryset
+
 
 @router.get("talent/saved-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)

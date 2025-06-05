@@ -429,11 +429,11 @@ def create_talent_filter(request, data: PatchDict[MutateTalentFilterSchema]):
     business_user = request.user.businessuser
     if data.get("work_structure"):
         data["work_structure"] = data["work_structure"].value
-    languages = data.pop("languages", list())
-    skills = data.pop("skills", list())
-    if languages:
+    languages = data.pop("languages", None)
+    skills = data.pop("skills", None)
+    if languages is not None:
         languages = Language.objects.filter(uid__in=languages)
-    if skills:
+    if skills is not None:
         skills = Skill.objects.filter(uid__in=skills)
 
     talent_filter = TalentFilter.objects.create(business_user=business_user, **data)
@@ -463,11 +463,11 @@ def update_talent_filter(request, talent_filter_uid: UUID, data: PatchDict[Mutat
 
     if data.get("work_structure"):
         data["work_structure"] = data["work_structure"].value
-    languages = data.pop("languages", list())
-    skills = data.pop("skills", list())
-    if languages:
+    languages = data.pop("languages", None)
+    skills = data.pop("skills", None)
+    if languages is not None:
         languages = Language.objects.filter(uid__in=languages)
-    if skills:
+    if skills is not None:
         skills = Skill.objects.filter(uid__in=skills)
 
     talent_filter = talent_filter.update(**data)
