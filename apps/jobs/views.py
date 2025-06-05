@@ -47,7 +47,7 @@ def talent_job_recommendations(request, talent_uid:UUID, filters:JobPostFilterSc
     request.context = {"talent": talent}
     queryset = get_talent_job_recommendations(talent)
     if filters.search != "":
-        queryset = queryset.filter(title__icontains=filters.search)
+        queryset = queryset.filter(job__title__icontains=filters.search)
     return queryset
 
 
