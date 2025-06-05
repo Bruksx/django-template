@@ -749,13 +749,14 @@ class RequiredAttribute(BaseModel):
     @staticmethod
     def format_skills_under_category(skills):
         from jobs.schemas import SkillSchema, JobSkillSchema
-        from accounts.models import SkillCategory
+        from accounts.models import SkillCategory, Skill
         categories = SkillCategory.objects.only("id", "name")
+        skill_ids = skills.values_list("id", flat=True)
         data = list()
         for category in categories:
             data.append(JobSkillSchema(
                 category=category.name,
-                skills=[SkillSchema.from_orm(skill) for skill in skills.filter(category_id=category.id)]
+                skills=[SkillSchema.from_orm(skill) for skill in Skill.objects.filter(id__in=skill_ids, category_id=category.id)]
             ))
         return data
 
