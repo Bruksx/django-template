@@ -62,7 +62,7 @@ def handle_social_login(data: SocialAuthSchema)->User:
         profile_dict["google_id"] = idinfo["sub"]
         profile_dict["first_name"] = idinfo["given_name"]
         profile_dict["last_name"] = idinfo["family_name"]
-        social_query = Q(google_id=idinfo["sub"])
+        social_query = Q(email=idinfo["email"])
 
     elif data.social_type == SocialType.LINKEDIN:
         api = LinkedInAPI()
@@ -70,7 +70,7 @@ def handle_social_login(data: SocialAuthSchema)->User:
         access_token = api.get_access_token(code, data.redirect_uri)
         linkedin_profile = api.get_profile(access_token)
         auth_type = AuthType.LINKEDIN
-        social_query = Q(linkedin_id=linkedin_profile.sub)
+        social_query = Q(email=linkedin_profile.email)
         profile_dict["linkedin_id"] = linkedin_profile.sub
         profile_dict["first_name"] = linkedin_profile.given_name
         profile_dict["last_name"] = linkedin_profile.family_name
@@ -78,12 +78,13 @@ def handle_social_login(data: SocialAuthSchema)->User:
 
     elif data.social_type == SocialType.FACEBOOK:
         auth_type = AuthType.FACEBOOK
-        facebook_client = Facebook(data.app_id)
+        facebook_client = Facebook()
         user = facebook_client.get_user(data.social_id, data.access_token)
         profile_dict["first_name"] = user.first_name
         profile_dict["last_name"] = user.last_name
         profile_dict["facebook_id"] = user.id
-        social_query = Q(facebook_id=user.id)
+        profile_dict["email"] = user.email
+        social_query = Q(email=user.email)
 
     elif SocialType.APPLE.value == data.social_type:
         pass
@@ -110,6 +111,7 @@ def handle_social_login(data: SocialAuthSchema)->User:
                 email_verified=True, is_active=True,
                 auth_mode=auth_type.value
             )
+    user.__is_new = True
     user.save()
 
     if data.user_type == UserType.TALENT:

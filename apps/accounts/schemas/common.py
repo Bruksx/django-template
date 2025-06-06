@@ -13,6 +13,7 @@ class UserSchema(ModelSchema):
     email: EmailStr | None
     has_set_password: bool
     is_social_account: bool
+    is_new: bool
 
     class Meta:
         model = User
@@ -25,6 +26,12 @@ class UserSchema(ModelSchema):
     @staticmethod
     def resolve_is_social_account(obj):
         return bool(obj.google_id or obj.facebook_id or obj.linkedin_id)
+    
+    @staticmethod
+    def resolve_is_new(obj):
+        if hasattr(obj, "__is_new"):
+            return True
+        return False
 
 class UserListSchema(UserSchema):
     photo_url: Optional[str]
