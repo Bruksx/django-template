@@ -22,7 +22,7 @@ from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponse
 router = Router(tags=["Common Account APIs"])
 
 
-@router.get("talents", response=CustomPaginatedResponseSchema[talent_schemas.TalentUserListSchema], )
+@router.get("talents", auth=JWTAuth(), response=CustomPaginatedResponseSchema[talent_schemas.TalentUserListSchema], )
 @paginate(CustomPageNumberPaginationExtra, page_size=50)
 def talent_lists(request, search="", filters:TalentFilterQuerySchema = Query(...)):
     talents = Talent.objects.prefetch_related("user").filter(visible=True)
