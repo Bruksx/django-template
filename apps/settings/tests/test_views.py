@@ -280,7 +280,7 @@ class CreateWorkflowTest(TestCase):
         self.assertEqual(response.status_code, 201)
         data = {
             "name": "Test Workflow2",
-            "phase": PhaseType.HIRED.value,
+            "phase": PhaseType.REJECTED.value,
             "email_template": email_template.uid,
             "is_active": True
         }

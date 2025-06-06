@@ -437,7 +437,7 @@ class JobCreationTest(TestCase):
             business=self.business,
         )
         for phase in PhaseType.values():
-            WorkflowStageFactory.create(phase=phase.value, created_by=self.business_user)
+            WorkflowStageFactory.create(phase=phase, created_by=self.business_user)
 
         self.auth = JWTAuth()
         self.client = TestClient(router)
