@@ -19,6 +19,7 @@ from chats.schemas import ResponseSchema
 from notification.notifications import send_talents_job_matching_notification
 from paginations import CustomPageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+from settings.models import WorkFlowStage
 
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
@@ -234,6 +235,8 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     business = business_user.business
+    if WorkFlowStage.objects.filter(created_by__business=business).values_list("phase", flat=True).distinct("phase").count() != len(PhaseType.values()):
+        raise HttpError(400, "You must have a workflow stage for each phase")
     data["created_by"] = business_user
     availability = data.pop("availability", list())
     screening_questions = data.pop("screening_questions", list())

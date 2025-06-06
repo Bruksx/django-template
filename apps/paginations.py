@@ -17,6 +17,8 @@ from pydantic import Field
 class CustomBasePaginatedResponseSchema(BasePaginatedResponseSchema):
     next_page: Optional[int]
     previous_page: Optional[int]
+    number_of_pages:Optional[int]
+
 
 
 class CustomPaginatedResponseSchema(CustomBasePaginatedResponseSchema, Generic[T]):

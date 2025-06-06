@@ -647,9 +647,12 @@ class JobFilter(BaseModel):
             queryset = JobPost.objects.all()
         if filters and filters.search:
             queryset = queryset.filter(job__title__icontains=filters.search)
-        countries = self.location.all() if self.location.count() > 0 else Country.objects.filter(id=self.talent.country.id)
-        if countries:
-            queryset = queryset.filter(country__in=countries)
+
+        if self.location.count() > 0:
+            queryset = queryset.filter(country__in=self.location.all())
+        elif self.talent.country:
+            queryset = queryset.filter(country_id=self.talent.country.id)
+
         if filters and filters.search:
             queryset = queryset.filter(job__title__icontains=filters.search)
         if self.company.count() > 0:

@@ -1,5 +1,4 @@
-from typing import List, Optional
-from uuid import UUID
+from typing import List
 
 from django.db import transaction
 from django.db.models import Q
@@ -7,15 +6,15 @@ from django.utils import timezone
 from helpers.email.auth import send_verification_code
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
-from ninja import Router
+from ninja import Router, Query
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode, TalentFilter, \
-    Industry, Business
+from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode, Industry, Business
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
+from accounts.schemas.business import MutateTalentFilterSchema, TalentFilterQuerySchema
 from accounts.schemas.common import CompanyListSchema
 from core.schemas import GenericNameAndUidSchema
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
@@ -23,22 +22,17 @@ from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponse
 router = Router(tags=["Common Account APIs"])
 
 
-@router.get("talents", response=CustomPaginatedResponseSchema[talent_schemas.TalentUserListSchema], auth=JWTAuth())
+@router.get("talents", response=CustomPaginatedResponseSchema[talent_schemas.TalentUserListSchema], )
 @paginate(CustomPageNumberPaginationExtra, page_size=50)
-def talent_lists(request, search="", talent_filter_uid:Optional[UUID]=None):
+def talent_lists(request, search="", filters:TalentFilterQuerySchema = Query(...)):
     talents = Talent.objects.prefetch_related("user").filter(visible=True)
     if search:
         talents = talents.filter(Q(user__first_name__icontains=search)|
                                  Q(user__last_name__icontains=search)|
                                  Q(user__email__icontains=search)
                                  )
-    talent_filter = None
-    if talent_filter_uid:
-        talent_filter = TalentFilter.objects.filter(uid=talent_filter_uid).first()
-    if talent_filter and hasattr(request.user, "businessuser"):
-        talents = talent_filter.get_queryset(talents)
 
-    return talents.order_by("-user__last_login")
+    return filters.get_queryset(talents).order_by("-user__last_login")
 
 
 @router.get("countries", response=List[talent_schemas.CountrySchema], tags=["Common"])

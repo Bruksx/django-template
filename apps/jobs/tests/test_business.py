@@ -436,6 +436,9 @@ class JobCreationTest(TestCase):
             user=self.recruiter,
             business=self.business,
         )
+        for phase in PhaseType.values():
+            WorkflowStageFactory.create(phase=phase, created_by=self.business_user)
+
         self.auth = JWTAuth()
         self.client = TestClient(router)
         self.headers = {
@@ -545,6 +548,13 @@ class JobCreationTest(TestCase):
             ],
             "job_level": str(self.job_level.uid)
         }
+
+    def test_create_job_without_complete_stage(self):
+        from settings.models import WorkFlowStage
+        WorkFlowStage.objects.filter(created_by__business=self.business).first().delete()
+        response = self.client.post("", json=self.test_data, headers=self.headers)
+        self.assertEqual(response.status_code, 400)
+
 
     def test_create_job(self):
         response = self.client.post("", json=self.test_data, headers=self.headers)

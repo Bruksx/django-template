@@ -365,7 +365,7 @@ def delete_business_user(request, business_user_uid):
         ).filter(
             is_recruiter=True
     ).exists()
-    if has_jobs:
+    if has_jobs and staff_user.status != BusinessUserStatusType.PENDING.value:
         raise HttpError(403, "Not Allowed! Please reassign all jobs allocated to this user before proceeding with deletion")
     staff_user.user.delete()
     staff_user.delete()
