@@ -62,7 +62,7 @@ def talent_saved_jobs(request, filters:JobPostFilterSchema = Query(...)):
 
 @router.get("talent/job-posts", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def job_posts_by_talent_country(request, filters:JobPostFilterSchema = Query(...)):
+def job_posts_by_talent(request, filters:JobPostFilterSchema = Query(...)):
     IsTalentUser.check(request)
     talent = request.user.talent
     job_filter, _ = JobFilter.objects.get_or_create(talent=talent)

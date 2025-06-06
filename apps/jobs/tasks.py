@@ -28,8 +28,7 @@ def send_shared_job_chat(
     talent_ids:List[UUID],
 ):
     talents = Talent.objects.filter(uid__in=talent_ids).only("user_id", "country_id")
-    country_ids = talents.values_list("country_id", flat=True).distinct("country_id")
-    job_posts = JobPost.objects.filter(job__uid__in=job_ids, country_id__in=country_ids).only("id", "country_id")
+    job_posts = JobPost.objects.filter(job__uid__in=job_ids).distinct("job_id").only("id", "country_id")
     for talent in talents:
         chat = Conversation.objects.filter(users__id=sender_id).filter(users__id=talent.user_id).first()
         if not chat:
@@ -37,8 +36,6 @@ def send_shared_job_chat(
             chat.users.add(talent.user_id, sender_id)
             chat.save()
         for job_post in job_posts:
-            if job_post.country_id != talent.country_id:
-                continue
             if chat.message_set.filter(job_post_id=job_post.id).exists():
                 continue
             Message.objects.create(conversation=chat, sender_id=sender_id, job_post_id=job_post.id)

@@ -137,6 +137,9 @@ def create_workflow_stage(request, data: MutateWorkFlowStageSchema):
     if WorkFlowStage.objects.filter(created_by__business=business_user.business, name__iexact=data.name,
                                     phase=data.phase.value).exists():
         raise HttpError(400, "A workflow stage with this name in this phase already exists")
+    if MutateWorkFlowStageSchema.phase in [PhaseType.NEW, PhaseType.REJECTED, PhaseType.HIRED]:
+        if WorkFlowStage.objects.filter(created_by__business=business_user.business, phase=data.phase.value).exists():
+            raise HttpError(400, "You cannot create more than one workflow stage in this phase")
     wrk_flow_data = data.__dict__.copy()
     wrk_flow_data["phase"] = wrk_flow_data["phase"].value
     wrk_flow_data["phase_order"] = PhaseType.values().index(wrk_flow_data["phase"])

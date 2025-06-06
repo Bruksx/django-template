@@ -6,6 +6,7 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import CaseReasonType
 from accounts.models import Country, Industry, User, Talent, CustomerCase, VerificationCode, TalentFilter
+from accounts.schemas.business import TalentFilterQuerySchema
 from accounts.views.common import router
 from chats.views import ws_router
 from factories import (UserFactory, TalentFactory, BusinessUserFactory, RoleFactory, IndustryFactory, LanguageFactory,
@@ -323,19 +324,18 @@ class TalentListTest(TestCase):
         talent2.skills.add(skill)
         talent2.save()
 
-        talent_filter = TalentFilterFactory.create(
-            business_user=self.business_user,
-            role=role,
-            industry=industry,
+        talent_filter_params = TalentFilterQuerySchema(
+            role=role.uid,
+            industry=industry.uid,
             location="New York",
-            educational_level=educational_level,
+            educational_level=educational_level.uid,
             maximum_notice_period=14,
-            work_structure=WorkStructureEnum.REMOTE.value
-        )
-        talent_filter.languages.add(language)
-        talent_filter.skills.add(skill)
+            work_structure=WorkStructureEnum.REMOTE.value,
+            languages=[language.uid],
+            skills=[skill.uid]
+        ).to_url_params()
 
-        response = self.client.get(f"{self.url}?talent_filter_uid={talent_filter.uid}", headers=self.headers)
+        response = self.client.get(f"{self.url}{talent_filter_params}", headers=self.headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["count"], 2)  # Only the matching talent should be returned
@@ -348,11 +348,10 @@ class TalentListTest(TestCase):
 
         role2 = RoleFactory.create()
 
-        tf = TalentFilterFactory.create(
-            business_user=self.business_user,
-            role=role,
-            industry=industry
-        )
+        tf = TalentFilterQuerySchema(
+            role=role.uid,
+            industry=industry.uid
+        ).to_url_params()
 
         talent = TalentFactory.create(user=UserFactory(first_name="John"))
         talent2 = TalentFactory.create(user=UserFactory(first_name="Jane"))
@@ -365,7 +364,7 @@ class TalentListTest(TestCase):
             role=role2,
         )
 
-        response = self.client.get(f"{self.url}?talent_filter_uid={tf.uid}", headers=self.headers)
+        response = self.client.get(f"{self.url}{tf}", headers=self.headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["count"], 0)  # No matching talents should be returned
@@ -381,11 +380,10 @@ class TalentListTest(TestCase):
         skill = SkillFactory(department=DepartmentFactory(industry=industry))
         skill2= SkillFactory(department=DepartmentFactory(industry=industry2))
         
-        tf = TalentFilter.objects.create(
-            business_user=self.business_user,
-            role=role,
-            industry=industry
-        )
+        tf_params = TalentFilterQuerySchema(
+            role=role.uid,
+            industry=industry.uid
+        ).to_url_params(start=False)
 
         talent = TalentFactory.create(user=UserFactory(first_name="John"))
         talent2 = TalentFactory.create(user=UserFactory(first_name="Jane"))
@@ -406,7 +404,7 @@ class TalentListTest(TestCase):
         talent3.save()
 
 
-        response = self.client.get(f"{self.url}?search=John&talent_filter_uid={tf.uid}", headers=self.headers)
+        response = self.client.get(f"{self.url}?search=John{tf_params}", headers=self.headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["results"][0]["uid"], str(talent.uid))
