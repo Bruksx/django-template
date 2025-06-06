@@ -811,6 +811,8 @@ class JobApplicationListSchema(ModelSchema):
     def resolve_experience(obj):
         return int(obj.applicant.years_of_experience)
 
+class StageSchema(GenericNameAndUidSchema):
+    phase: str
 
 class TalentJobPostListSchema(ModelSchema):
     job: JobListSchema2
@@ -819,6 +821,8 @@ class TalentJobPostListSchema(ModelSchema):
     alert: Optional[bool]
     country: GenericNameAndUidSchema
     match_score: int|float
+    application_uid: Optional[UUID]
+    stage: Optional[StageSchema]
 
     class Meta:
         model = JobPost
@@ -864,14 +868,6 @@ class TalentJobPostListSchema(ModelSchema):
             return None
         return obj.match_score(talent)
 
-
-class StageSchema(GenericNameAndUidSchema):
-    phase: str
-
-class AppliedTalentJobPostListSchema(TalentJobPostListSchema):
-    application_uid: Optional[UUID]
-    stage: Optional[StageSchema]
-
     @staticmethod
     def resolve_application_uid(obj, context):
         request = context.get("request")
@@ -889,6 +885,10 @@ class AppliedTalentJobPostListSchema(TalentJobPostListSchema):
             return None
         application = JobApplication.objects.filter(job_post=obj, applicant=talent).only("stage").first()
         return application.stage if application else None
+
+
+
+
 
 class TalentJobPostSchema(JobPostListSchema):
     job: JobDetailSchema

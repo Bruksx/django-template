@@ -18,7 +18,7 @@ from jobs.enums import JobStatusType, PhaseType
 from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert, \
     EmploymentType, JobLevel
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
-    TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, AppliedTalentJobPostListSchema, ApplyToJobSchema, \
+    TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, ApplyToJobSchema, \
     ShareJobViaEmailSchema, ShareJobViaChatSchema, JobPostFilterSchema, TalentQuestionSchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service, \
     get_screening_questions_service
@@ -71,7 +71,7 @@ def job_posts_by_talent(request, filters:JobPostFilterSchema = Query(...)):
     return job_filter.get_queryset(queryset, filters)
 
 
-@router.get("talent/applied-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[AppliedTalentJobPostListSchema], tags=["Talent Dashboard"])
+@router.get("talent/applied-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
 def talent_applied_jobs(request, filters: JobPostFilterSchema = Query(...)):
     IsTalentUser.check(request)
