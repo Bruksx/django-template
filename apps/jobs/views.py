@@ -149,9 +149,9 @@ def apply_to_job_post(request, job_post_id:UUID, data: ApplyToJobSchema):
     return Response(status=200, data={"message": "Applied successfully"})
 
 @router.post("talent/job-posts/answer-files", response={200: Union[List[str]|str]}, auth=JWTAuth(), tags=["Talent Jobs"])
-def upload_answer_files(request, files:List[UploadedFile]):
+def upload_answer_file(request, file:UploadedFile):
     IsTalentUser.check(request)
-    file_urls = upload_answer_files_service(files=files)
+    file_urls = upload_answer_files_service(files=[file])
     return Response(status=200, data=dict(message="Files uploaded successfully", data=file_urls))
 
 @router.delete("talent/job-posts/answer-files", response={204: None}, auth=JWTAuth(), tags=["Talent Jobs"])
