@@ -3,7 +3,7 @@ from uuid import UUID
 
 from config.permissions import IsBusinessUser
 from django.db import transaction
-from django.db.models import Q, F
+from django.db.models import Q, F, OrderBy
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from ninja import Router, UploadedFile, Form
@@ -30,7 +30,7 @@ ws_router = Router(tags=["Websocket"])
 @paginate(PageNumberPaginationExtra, page_size=50)
 def get_chats(request, search:str=""):
     user = request.user
-    queryset = Conversation.objects.filter(users__id=user.id).order_by(F("last_message_time").desc(nulls_last=True))
+    queryset = Conversation.objects.filter(users__id=user.id).order_by(OrderBy(F("last_message_time"), descending=True, nulls_last=True))
 
     if search:
         queryset = queryset.filter(Q(message__body__icontains=search)|
