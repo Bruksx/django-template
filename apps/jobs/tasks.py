@@ -28,17 +28,17 @@ def send_shared_job_chat(
     talent_ids:List[UUID],
 ):
     talents = Talent.objects.filter(uid__in=talent_ids).only("user_id", "country_id")
-    job_posts = JobPost.objects.filter(job__uid__in=job_ids).distinct("job_id").only("id", "country_id")
     for talent in talents:
         chat = Conversation.objects.filter(users__id=sender_id).filter(users__id=talent.user_id).first()
         if not chat:
             chat = Conversation.objects.create()
             chat.users.add(talent.user_id, sender_id)
             chat.save()
-        for job_post in job_posts:
-            msg = chat.message_set.filter(job_post_id=job_post.id).first()
+        for job_uid in job_ids:
+            job_post = JobPost.objects.filter(job__uid=job_uid).first()
+            msg = chat.message_set.filter(job_post=job_post).first()
             if not msg:
-                msg = Message.objects.create(conversation=chat, sender_id=sender_id, job_post_id=job_post.id)
+                msg = Message.objects.create(conversation=chat, sender_id=sender_id, job_post=job_post)
             msg.handle_post_save(notify=True)
 
 def job_application_notification_task():
