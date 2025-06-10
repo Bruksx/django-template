@@ -30,7 +30,13 @@ ws_router = Router(tags=["Websocket"])
 @paginate(PageNumberPaginationExtra, page_size=50)
 def get_chats(request, search:str=""):
     user = request.user
-    queryset = Conversation.objects.filter(users__id=user.id).order_by("-last_message_time")
+    queryset = Conversation.objects.filter(users__id=user.id).annotate(
+        null_order=Case(
+            When(last_message_time__isnull=True, then=Value(1)),
+            default=Value(0),
+            output_field=IntegerField()
+        )
+    ).order_by('null_order', '-last_message_time')
 
     if search:
         queryset = queryset.filter(Q(message__body__icontains=search)|
