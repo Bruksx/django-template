@@ -90,7 +90,7 @@ class Message(BaseModel):
     def __str__(self):
         if self.body:
             return self.body[:100]
-        attachment = self.messageattachment.last()
+        attachment = self.messageattachment_set.last()
         if not attachment:
             return ""
         return attachment.file_type
