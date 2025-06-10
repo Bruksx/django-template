@@ -36,10 +36,9 @@ def send_shared_job_chat(
             chat.save()
         for job_uid in job_ids:
             job_post = JobPost.objects.filter(job__uid=job_uid).first()
-            msg = chat.message_set.filter(job_post=job_post).first()
-            if not msg:
+            if not chat.message_set.filter(job_post=job_post).exists():
                 msg = Message.objects.create(conversation=chat, sender_id=sender_id, job_post=job_post)
-            msg.handle_post_save(notify=True)
+                msg.handle_post_save(notify=True)
 
 def job_application_notification_task():
     job_posts = JobPost.objects.filter(status=JobStatusType.POSTED.value)
