@@ -9,7 +9,7 @@ from jobs.models import JobPost
 from notification.notifications import send_job_application_notification, send_job_sharing_notification, \
     send_job_performance_notification
 
-from apps.jobs.enums import JobStatusType
+from jobs.enums import JobStatusType
 from helpers.email.jobs import send_shared_job_email
 from helpers.utils import chunk_queryset
 
@@ -36,10 +36,10 @@ def send_shared_job_chat(
             chat.users.add(talent.user_id, sender_id)
             chat.save()
         for job_post in job_posts:
-            if chat.message_set.filter(job_post_id=job_post.id).exists():
-                continue
-            Message.objects.create(conversation=chat, sender_id=sender_id, job_post_id=job_post.id)
-
+            msg = chat.message_set.filter(job_post_id=job_post.id).first()
+            if not msg:
+                msg = Message.objects.create(conversation=chat, sender_id=sender_id, job_post_id=job_post.id)
+            msg.handle_post_save(notify=True)
 
 def job_application_notification_task():
     job_posts = JobPost.objects.filter(status=JobStatusType.POSTED.value)
