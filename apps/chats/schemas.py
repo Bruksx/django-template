@@ -37,6 +37,10 @@ class ChatJobSchema(ModelSchema):
     def resolve_job_business(obj):
         if not obj.job or not obj.job.created_by:
             return ""
+        if not obj.job.created_by.business:
+            return ""
+        if not obj.job.created_by.business.name:
+            return ""
         return obj.job.created_by.business.name
 
     @staticmethod
