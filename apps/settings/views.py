@@ -179,7 +179,7 @@ def retrieve_all_workflow_stages(request):
     workflows = WorkFlowStage.objects.filter(created_by__business=business_user.business)
     return [
         dict(phase=phase,
-             stages=[WorkFlowStageSchema.from_orm(stage).dict() for stage in workflows.filter(phase=phase)]
+             stages=[WorkFlowStageSchema.from_orm(stage).dict() for stage in workflows.filter(phase=phase).order_by("order")]
              )
         for phase in phases
         ]
