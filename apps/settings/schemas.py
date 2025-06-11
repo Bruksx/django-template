@@ -122,7 +122,7 @@ class MutateWorkFlowStageSchema(ModelSchema):
         exclude = [*MUTATE_EXCLUDE_FIELDS, "created_by", "phase_order", "order", "uid"]
 
 class WorkFlowStageSchema(ModelSchema):
-    email_template: EmailTemplateListSchema
+    email_template: Optional[EmailTemplateListSchema] = None
     can_be_deactivated:bool
 
     class Meta:

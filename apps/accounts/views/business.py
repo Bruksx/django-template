@@ -169,7 +169,7 @@ def get_business_details(request):
     return request.user.businessuser.business
 
 @router.get("users", auth=JWTAuth(), response=List[business_schema.BusinessUserListSchema])
-def get_business_users(request, search: str = ""):
+def get_business_users(request, search: str = "", role: BusinessUserRoleType = None):
     IsBusinessOwnerOrAdmin.check(request)
     business = request.user.businessuser.business
     query = Q()
@@ -177,6 +177,8 @@ def get_business_users(request, search: str = ""):
         query = (Q(user__first_name__icontains=search)
                  | Q(user__last_name__icontains=search)|
                  Q(user__email__icontains=search))
+    if role:
+        query = query & Q(role=role.value)
 
     return business.businessuser_set.filter(query).order_by("user__first_name", "user__last_name")
 

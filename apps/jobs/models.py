@@ -1,5 +1,6 @@
 from typing import List
 
+from django.core.cache import cache
 from django.db import models
 from django.db.models import F, Q, QuerySet
 from monkeypatches.q_cluster import async_task
@@ -433,10 +434,20 @@ class JobPost(BaseModel):
         return data
 
     def weakness(self, talent):
-        return self.get_data(talent, weak=True)
+        cache_key = f"job-{self.id}-weakness-{talent.id}"
+        value = cache.get(cache_key)
+        if not value:
+            value = self.get_data(talent, weak=True)
+            cache.set(cache_key, value, 60 * 60 * 2)
+        return value
 
     def strength(self, talent):
-        return self.get_data(talent, weak=False)
+        cache_key = f"job-{self.id}-strength-{talent.id}"
+        value = cache.get(cache_key)
+        if not value:
+            value = self.get_data(talent, weak=False)
+            cache.set(cache_key, value, 60 * 60 * 2)
+        return value
 
     def non_negotiable(self):
         from .schemas import JobAvailableDaySchema
@@ -458,6 +469,10 @@ class JobPost(BaseModel):
 
         attributes = job.requiredattribute
         non_negotiables = job.required_keys
+        cache_key = f"job-{self.id}-non_negotiable-{job.id}"
+        value = cache.get(cache_key)
+        if value:
+            return value
         data = dict()
         for attribute in non_negotiables:
             if attribute == "skills":
@@ -495,6 +510,7 @@ class JobPost(BaseModel):
 
             elif attribute == "working_hours":
                 data["working_hours"] = job.get_availability(JobAvailableDaySchema, job.availableday_set.all()) if job.availableday_set.count() > 0 else None
+        cache.set(cache_key, data, 60 * 60 * 2)
         return data
 
     def screening_questions(self):

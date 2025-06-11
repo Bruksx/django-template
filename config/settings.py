@@ -300,3 +300,10 @@ if USE_SENTRY:
             "continuous_profiling_auto_start": True,
         },
     )
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake', # A UNIQUE NAME FOR THE CACHE
+    }
+}
