@@ -302,7 +302,7 @@ if USE_SENTRY:
     )
 
 CACHES = {
-    'DEFAULT': {
+    'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         'LOCATION': 'unique-snowflake', # A UNIQUE NAME FOR THE CACHE
     }
