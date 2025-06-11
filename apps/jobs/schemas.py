@@ -3,8 +3,8 @@ from typing import List, Literal
 from typing import Optional
 from uuid import UUID
 
-from django.db.models import QuerySet
-from ninja import ModelSchema, Query
+from django.db.models import QuerySet, Q
+from ninja import ModelSchema
 from ninja.errors import HttpError
 from ninja.schema import Schema
 from pydantic import Field, EmailStr
@@ -12,11 +12,11 @@ from pydantic import Field, EmailStr
 from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from accounts.schemas.business import BusinessUserListSchema
-from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, CountrySchema, EducationLevelSchema
+from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, PhaseType, JobStatusType, ActionType
-from .models import BusinessModel, JobFilter, JobApplication, Answer
+from .models import BusinessModel, JobApplication, Answer
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
 from .models import (
     RequiredAttribute
@@ -846,6 +846,8 @@ class TalentJobPostListSchema(ModelSchema):
     @staticmethod
     def resolve_saved(obj, context):
         request = context.get("request")
+        if not request:
+            return
         talent = request.context.get("talent")
         if not talent:
             return None
@@ -854,6 +856,8 @@ class TalentJobPostListSchema(ModelSchema):
     @staticmethod
     def resolve_applied(obj, context):
         request = context.get("request")
+        if not request:
+            return
         talent = request.context.get("talent")
         if not talent:
             return None
@@ -863,6 +867,8 @@ class TalentJobPostListSchema(ModelSchema):
     @staticmethod
     def resolve_match_score(obj, context):
         request = context.get("request")
+        if not request:
+            return
         talent = request.context.get("talent")
         if not talent:
             return None
@@ -871,6 +877,8 @@ class TalentJobPostListSchema(ModelSchema):
     @staticmethod
     def resolve_application_uid(obj, context):
         request = context.get("request")
+        if not request:
+            return
         talent = request.context.get("talent")
         if not talent:
             return None
@@ -880,6 +888,8 @@ class TalentJobPostListSchema(ModelSchema):
     @staticmethod
     def resolve_stage(obj, context):
         request = context.get("request")
+        if not request:
+            return
         talent = request.context.get("talent")
         if not talent:
             return None
@@ -961,7 +971,8 @@ class TalentJobPostSchema(JobPostListSchema):
 
 
 
-class MutateTalentJobFilterSchema(ModelSchema):
+class TalentJobFilterSchema(Schema):
+    search: Optional[str] = None
     work_structure:Optional[List[WorkStructureEnum]] = None
     company: Optional[List[UUID]] = None
     sort_by: Optional[List[Literal['date-posted']]] = None
@@ -973,29 +984,68 @@ class MutateTalentJobFilterSchema(ModelSchema):
     yoe: Optional[List[Literal[
         '0 years', '1-3 years', '4-7 years', '7-10 years', '11-15 years', '15-20 years', '20+ years'
     ]]] = None
-    class Meta:
-        model = JobFilter
-        fields = [ "remove_applied_jobs"]
-        optional_fields = fields
+    remove_applied_jobs: Optional[bool] = None
 
-class TalentJobFilterSchema(ModelSchema):
-    work_structure: Optional[List[WorkStructureEnum]]
-    location: Optional[List[CountrySchema]]
-    employment_type: Optional[List[EmploymentTypeSchema]]
-    job_role: Optional[List[RoleSchema]]
-    job_level: Optional[List[JobLevelSchema]]
-    minimum_education_level: Optional[List[EducationLevelSchema]]
-    yoe: Optional[List[Literal[
-        '0 years', '1-3 years', '4-7 years', '7-10 years', '11-15 years', '15-20 years', '20+ years'
-    ]]] = None
-    sort_by: Optional[List[Literal['date-posted']]] = None
-    results: int
+    def get_queryset(self, talent=None, queryset=None, extra_sorts:List[str]=None)->QuerySet:
+        """
+         get job post queryset based on this filter
+
+         Args:
+             talent: talent object
+             queryset: Job post queryset
+             extra_sorts: extra sort fields based on model fields
+
+        Returns:
+            Job post queryset
+        """
+        from jobs.services import order_job_posts
+        if not queryset:
+            queryset = JobPost.objects.all()
+        if self.search:
+            queryset = queryset.filter(job__title__icontains=self.search)
+
+        if self.location:
+            queryset = queryset.filter(country__uid__in=self.location)
+        elif talent and talent.country:
+            queryset = queryset.filter(country=talent.country)
+
+        if self.company:
+            queryset = queryset.select_related("job__created_by__business")
+            queryset = queryset.filter(job__created_by__business__uid__in=self.company)
+        if self.job_role:
+            queryset = queryset.filter(job__role__uid__in=self.job_role)
+
+        if self.work_structure:
+            ws = [ws.value for ws in self.work_structure]
+            queryset = queryset.filter(job__work_structure__in=ws)
+
+        if self.employment_type:
+            queryset = queryset.filter(job__employment_type__uid__in=self.employment_type)
+
+        if self.job_level:
+            queryset = queryset.filter(job__job_level__uid__in=self.job_level)
+
+        if self.minimum_education_level:
+            queryset = queryset.filter(job__minimum_education_level__uid__in=self.minimum_education_level)
+
+        if self.yoe:
+            query = Q()
+            for yoe in set(self.yoe):
+                if yoe == "0 years":
+                    query = query | Q(Q(job__years_of_experience__isnull=True)|Q(job__years_of_experience=0))
+                elif yoe == "20+ years":
+                    query = query | Q(job__years_of_experience__gte=20)
+                elif "-" in yoe:
+                    years = map(int, yoe.replace(" years", "").split("-"))
+                    query = query | Q(job__years_of_experience__range=years)
+        if self.remove_applied_jobs is True and talent:
+            applied_jobs_id = talent.jobapplication_set.only("job_post_id").values_list("job_post_id", flat=True)
+            queryset = queryset.exclude(id__in=applied_jobs_id)
+        if not extra_sorts:
+            extra_sorts = []
+        return order_job_posts(queryset, self.sort_by, *extra_sorts)
 
 
-    class Meta:
-        model = JobFilter
-        fields = ["remove_applied_jobs"]
-        optional_fields = fields
 
 class TalentJobApplicationWithdrawalSchema(Schema):
        feedback_type: WithdrawalFeedbackType
@@ -1052,35 +1102,3 @@ class BusinessUserJobSchema(ModelSchema):
     class Meta:
         model = Job
         fields = ["uid", "title"]
-
-class JobPostFilterSchema(Schema):
-    search: Optional[str] = None
-    # sort_by: Optional[str] = Query(None, title="sort_by",
-    #                                example="date-posted",
-    #         description="it can take comma separated values. "
-    #                     "e.g sort_by=date-posted,job_level. use append - for desc order. "
-    #                     "e.g sort_by=-date-posted,job_level etc.")
-
-    @staticmethod
-    def get_queryset(queryset, filters, extra_sorts:List[str]=None)->QuerySet:
-        """
-         get job post queryset based on this filter
-
-         Args:
-             queryset: Job post queryset
-             filters: JobPostFilterSchema instance from API query params
-             extra_sorts: extra sort fields based on model fields
-
-        Returns:
-            Job post queryset
-        """
-        from jobs.services import order_job_posts
-        if filters.search:
-            queryset = queryset.filter(job__title__icontains=filters.search)
-        sorts = []
-        if not extra_sorts:
-            extra_sorts = []
-        # if filters.sort_by:
-        #     sorts = filters.sort_by.split(",")
-        return order_job_posts(queryset, sorts, *extra_sorts)
-

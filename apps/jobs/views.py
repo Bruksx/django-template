@@ -6,20 +6,19 @@ from django.db import transaction
 from helpers.utils import delete_s3_item
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
-from ninja import Router, PatchDict, UploadedFile
+from ninja import Router, UploadedFile
 from ninja.errors import HttpError
 from ninja.params import Query
 from ninja_extra.pagination import paginate
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import Talent, Business, Country, EducationLevel, Role
+from accounts.models import Talent
 from jobs import tasks
 from jobs.enums import JobStatusType, PhaseType
-from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert, \
-    EmploymentType, JobLevel
-from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
+from jobs.models import JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert
+from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, \
     TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, ApplyToJobSchema, \
-    ShareJobViaEmailSchema, ShareJobViaChatSchema, JobPostFilterSchema, TalentQuestionSchema
+    ShareJobViaEmailSchema, ShareJobViaChatSchema, TalentQuestionSchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service, \
     get_screening_questions_service
 from notification import notifications
@@ -30,108 +29,61 @@ router = Router()
 
 @router.get("talent/job-recommendations", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def logged_in_talent_job_recommendations(request, filters:JobPostFilterSchema = Query(...)):
+def logged_in_talent_job_recommendations(request, search:str=""):
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = {"talent": talent}
     queryset = get_talent_job_recommendations(talent)
-    return JobPostFilterSchema.get_queryset(queryset, filters)
+    if search:
+        queryset = queryset.filter(job__title__icontains=search)
+    return queryset
+
 
 @router.get("talents/{talent_uid}/job-recommendations", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def talent_job_recommendations(request, talent_uid:UUID, filters:JobPostFilterSchema = Query(...)):
+def talent_job_recommendations(request, talent_uid:UUID, search:str=""):
     IsBusinessUser.check(request)
     talent = Talent.objects.filter(uid=talent_uid).first()
     if not talent:
         raise HttpError(404, "Talent not found")
     request.context = {"talent": talent}
     queryset = get_talent_job_recommendations(talent)
-    if filters.search is not None and filters.search != "":
-        queryset = queryset.filter(job__title__icontains=filters.search)
+    if search:
+        queryset = queryset.filter(job__title__icontains=search)
     return queryset
 
 
 @router.get("talent/saved-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def talent_saved_jobs(request, filters:JobPostFilterSchema = Query(...)):
+def talent_saved_jobs(request, search:str=""):
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = {"talent": talent}
     queryset = talent.saved_jobs()
-    return JobPostFilterSchema.get_queryset(queryset, filters, ["-savedjob__created_at"])
+    if search:
+        queryset = queryset.filter(job__title__icontains=search)
+    return queryset.order_by("-savedjob__created_at")
 
 @router.get("talent/job-posts", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def job_posts_by_talent(request, filters:JobPostFilterSchema = Query(...)):
+def job_posts_by_talent(request, filters:TalentJobFilterSchema = Query(...)):
     IsTalentUser.check(request)
     talent = request.user.talent
-    job_filter, _ = JobFilter.objects.get_or_create(talent=talent)
     request.context = {"talent": talent}
     queryset = JobPost.objects.filter(status=JobStatusType.POSTED.value)
-    return job_filter.get_queryset(queryset, filters)
+    return filters.get_queryset(talent=talent, queryset=queryset)
 
 
 @router.get("talent/applied-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def talent_applied_jobs(request, filters: JobPostFilterSchema = Query(...)):
+def talent_applied_jobs(request, search:str=""):
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = {"talent": talent}
     queryset = talent.applied_jobs()
-    return JobPostFilterSchema.get_queryset(queryset, filters, ["-jobapplication__created_at"])
-
-
-@router.patch("talent/job-filter", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentJobFilterSchema)
-def update_talent_job_filter(request, data: PatchDict[MutateTalentJobFilterSchema]):
-    IsTalentUser.check(request)
-    talent = request.user.talent
-    if "work_structure" in data and data.get("work_structure"):
-        data["work_structure"] = list(map(lambda x: x.value, data.get("work_structure")))
-    company = data.pop("company", None)
-    location = data.pop("location", None)
-    job_role = data.pop("job_role", None)
-    employment_type = data.pop("employment_type", None)
-    job_level = data.pop("job_level", None)
-    minimum_education_level = data.pop("minimum_education_level", None)
-
-    if not hasattr(talent, "jobfilter"):
-        job_filter = JobFilter.objects.create(talent=talent, **data)
-    else:
-        job_filter = talent.jobfilter.update(**data)
-    if company is not None:
-        company = Business.objects.filter(uid__in=company)
-        job_filter.company.set(company)
-        job_filter.save()
-    if location is not None:
-        country = Country.objects.filter(uid__in=location)
-        job_filter.location.set(country)
-        job_filter.save()
-    if employment_type is not None:
-        employment_type = EmploymentType.objects.filter(uid__in=employment_type)
-        job_filter.employment_type.set(employment_type)
-        job_filter.save()
-    if job_level is not None:
-        job_level = JobLevel.objects.filter(uid__in=job_level)
-        job_filter.job_level.set(job_level)
-        job_filter.save()
-    if job_role is not None:
-        job_role = Role.objects.filter(uid__in=job_role)
-        job_filter.job_role.set(job_role)
-        job_filter.save()
-    if minimum_education_level is not None:
-        minimum_education_level = EducationLevel.objects.filter(uid__in=minimum_education_level)
-        job_filter.minimum_education_level.set(minimum_education_level)
-        job_filter.save()
-    return job_filter
-
-@router.get("talent/job-filter", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentJobFilterSchema)
-def get_talent_job_filter(request):
-    IsTalentUser.check(request)
-    talent = request.user.talent
-    if not hasattr(talent, "jobfilter"):
-        JobFilter.objects.create(talent=talent)
-    return talent.jobfilter
-
+    if search:
+        queryset = queryset.filter(job__title__icontains=search)
+    return queryset.order_by("-jobapplication__created_at")
 
 @router.post("talent/job-posts/{job_post_id}/apply", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 @transaction.atomic

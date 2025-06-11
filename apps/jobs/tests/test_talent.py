@@ -14,7 +14,7 @@ from factories import TalentFactory, JobPostFactory, BusinessUserFactory, JobFac
     JobApplicationFactory, CountryFactory, ScreeningQuestionFactory, fake
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusType, WithdrawalFeedbackType, \
     QuestionTypeEnum
-from jobs.models import JobPost, JobLevel, EmploymentType, SavedJob, JobApplication, JobFilter
+from jobs.models import JobPost, JobLevel, EmploymentType, SavedJob, JobApplication
 from jobs.views import router
 
 
@@ -224,38 +224,6 @@ class UpdateTalentJobFilterTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.assertEqual(self.talent.jobfilter.remove_applied_jobs, True)
-
-
-class GetTalentJobFilterTest(TestCase):
-    def setUp(self):
-        self.client = TestClient(router)
-        self.user = User.objects.create_user(email="testuser1@example.com",
-                                             password="securedPassword1",
-                                             first_name="Test1",
-                                             last_name="User1",
-                                             phone_number="9098866699")
-        self.country = Country.objects.first()
-        self.talent = Talent.objects.create(
-            user=self.user,
-            country=self.country
-        )
-
-    def test_get_job_filter_endpoint_without_job_filter(self):
-        headers = {
-            "authorization": f"bearer {self.user.token}"
-        }
-        response = self.client.get("talent/job-filter", headers=headers)
-        self.assertEqual(response.status_code, 200)
-
-    def test_get_job_filter_endpoint_with_job_filter(self):
-        headers = {
-            "authorization": f"bearer {self.user.token}"
-        }
-        JobFilter.objects.create(
-            talent=self.talent,
-        )
-        response = self.client.get("talent/job-filter", headers=headers)
-        self.assertEqual(response.status_code, 200)
 
 class ApplyToJobPostTest(TestCase):
     def setUp(self):

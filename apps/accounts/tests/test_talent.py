@@ -559,7 +559,7 @@ class DeleteTalentUserAccountTest2(TestCase):
         self.business_user = BusinessUser.objects.order_by("?").first()
 
     def test_delete_talent_user_account(self):
-        from jobs.models import SavedJob, JobFilter #noqa
+        from jobs.models import SavedJob #noqa
         from accounts.models import Experience, Education #noqa
 
         headers = {
@@ -586,7 +586,6 @@ class DeleteTalentUserAccountTest2(TestCase):
         self.assertFalse(user.is_active)
 
         self.assertFalse(SavedJob.global_objects.filter(talent=talent_user).exists())
-        self.assertFalse(JobFilter.global_objects.filter(talent=talent_user).exists())
         self.assertFalse(Education.global_objects.filter(talent=talent_user).exists())
         self.assertFalse(Experience.global_objects.filter(talent=talent_user).exists())
 
