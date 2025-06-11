@@ -181,50 +181,6 @@ class TalentJobListTests(TestCase):
         self.assertEqual(response.json()["count"], 0)
 
 
-class UpdateTalentJobFilterTest(TestCase):
-    def setUp(self):
-        self.client = TestClient(router)
-        self.user = User.objects.create_user(email="testuser1@example.com",
-                                             password="securedPassword1",
-                                             first_name="Test1",
-                                             last_name="User1",
-                                             phone_number="9098866699")
-        self.country = Country.objects.first()
-        self.talent = Talent.objects.create(
-            user=self.user,
-            country=self.country
-        )
-
-    def test_update_job_filter(self):
-        headers = {
-            "authorization": f"bearer {self.user.token}"
-        }
-        self.assertFalse(hasattr(self.talent, "jobfilter"))
-
-        data = {
-          "work_structure": [WorkStructureEnum.IN_OFFICE.value],
-          "job_role": None,
-          "yoe": ["0 years"],
-          "job_level": [str(JobLevel.objects.first().uid)],
-          "location": [str(Country.objects.first().uid)],
-          "employment_type": [str(EmploymentType.objects.first().uid)],
-          "minimum_education_level": None,
-          "remove_applied_jobs": False
-        }
-        response = self.client.patch("talent/job-filter",
-                                    json=data,
-                                    headers=headers)
-        self.assertEqual(response.status_code, 200)
-        self.talent.refresh_from_db()
-        self.assertTrue(hasattr(self.talent, "jobfilter"))
-        data["remove_applied_jobs"] = True
-        response = self.client.patch("talent/job-filter",
-                                     json=data,
-                                     headers=headers)
-        self.assertEqual(response.status_code, 200)
-        self.talent.refresh_from_db()
-        self.assertEqual(self.talent.jobfilter.remove_applied_jobs, True)
-
 class ApplyToJobPostTest(TestCase):
     def setUp(self):
         self.client = TestClient(router)

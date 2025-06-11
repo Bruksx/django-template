@@ -469,8 +469,6 @@ class Talent(BaseModel):
 
     def delete_account(self):
         self.savedjob_set.all().hard_delete()
-        if hasattr(self, "jobfilter"):
-            self.jobfilter.hard_delete()
         self.education_set.all().hard_delete()
         self.experience_set.all().hard_delete()
         self.whatsapp_number = None
