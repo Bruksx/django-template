@@ -975,7 +975,7 @@ class TalentJobFilterSchema(Schema):
     search: Optional[str] = None
     work_structure:Optional[List[WorkStructureEnum]] = None
     company: Optional[List[UUID]] = None
-    sort_by: Optional[List[Literal['date-posted']]] = None
+    sort_by: Optional[List[Literal['date-posted', '-date-posted']]] = None
     location: Optional[List[UUID]] = None
     employment_type: Optional[List[UUID]] = None
     job_level: Optional[List[UUID]] = None
