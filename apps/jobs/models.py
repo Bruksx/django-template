@@ -1,3 +1,4 @@
+import logging
 from typing import List
 
 from django.core.cache import cache
@@ -142,12 +143,14 @@ class Job(BaseModel):
             return self.logo.url
         if not self.created_by:
             return
-        if not self.created_at.business:
+        if not self.created_by.business:
             return
-        logo = self.created_at.business.get_logo()
+        logo = self.created_by.business.get_logo()
         if not logo:
             return
         return logo
+
+
 
     def hiring_company(self):
         if self.hiring_company_name:
