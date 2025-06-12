@@ -4,10 +4,10 @@ import django
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
-from django.db.models import Prefetch
+from django.db.models import Prefetch, F
 from chats.models import Conversation
-from accounts.models import User
-from accounts.enums import UserType
+from accounts.models import User, BusinessUser
+from accounts.enums import UserType, BusinessUserRoleType
 
 conversation_objs = list()
 conversations = Conversation.objects.prefetch_related(
@@ -20,3 +20,13 @@ for conversation in conversations:
 
 Conversation.objects.bulk_update(conversation_objs, ["locked"])
 print(f"{len(conversation_objs)} conversations locked")
+
+
+business_user_owners = BusinessUser.objects.filter(business__created_by=F('user')).update(
+    role=BusinessUserRoleType.OWNER.value
+)
+other_staffs = BusinessUser.objects.exclude(business__created_by=F('user')).filter(
+    role=BusinessUserRoleType.OWNER.value
+).update(role=BusinessUserRoleType.ADMIN.value)
+
+print("update business owners")
