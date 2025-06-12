@@ -601,18 +601,21 @@ class UpdateBusinessUserTestCase(TestCase):
             "email": "newemail@example.com",
             "first_name": "John",
             "last_name": "Doe",
-            "role": BusinessUserRoleType.ADMIN.value
+            "role": BusinessUserRoleType.OWNER.value
         }
         response = self.client.patch(self.url, json=payload, headers=self.auth_headers)
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()["message"], "User updated successfully")
 
+
         # Ensure changes were applied
         self.staff_user.refresh_from_db()
         self.business_staff.refresh_from_db()
+        self.business_user.refresh_from_db()
         self.assertEqual(self.staff_user.email, "newemail@example.com")
         self.assertEqual(self.staff_user.first_name, "John")
-        self.assertEqual(self.business_staff.role, BusinessUserRoleType.ADMIN.value)
+        self.assertEqual(self.business_user.role, BusinessUserRoleType.ADMIN.value)
+        self.assertEqual(self.business_staff.role, BusinessUserRoleType.OWNER.value)
 
     def test_update_business_user_deleted_email(self):
         """Fails if email belongs to a deleted user."""

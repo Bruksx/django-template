@@ -288,8 +288,7 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
             raise HttpError(400, "You cannot assign owner role to this user")
         if business_user.role == BusinessUserRoleType.OWNER.value and staff_user == business_user and role != BusinessUserRoleType.OWNER.value:
             raise HttpError(400, "You cannot change your role until you have transferred it")
-        if business_user.role == BusinessUserRoleType.OWNER.value and staff_user.id != business_user.id and role == BusinessUserRoleType.OWNER.value:
-            BusinessUser.objects.filter(id=business_user.id).update(role=BusinessUserRoleType.ADMIN.value)
+
 
     user = staff_user.user
     for key, value in data_dict.items():
@@ -309,7 +308,8 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
                 value = value.value
             setattr(staff_user, key, value)
     staff_user.save()
-
+    if staff_user.role == BusinessUserRoleType.OWNER.value and business_user.role == BusinessUserRoleType.OWNER.value:
+        business_user.update(role=BusinessUserRoleType.ADMIN.value)
     return Response(status=201, data={"message": "User updated successfully"})
 
 
