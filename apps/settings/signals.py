@@ -13,11 +13,11 @@ def handle_email_template_attachment_deletion(sender, instance, **kwargs):
 @receiver(post_save, sender=WorkFlowStage)
 def assign_order_to_new_stage(sender, instance, created, **kwargs):
     if created:
-        count = WorkFlowStage.objects.filter(
+        stage = WorkFlowStage.objects.filter(
             created_by__business=instance.created_by.business,
             phase=instance.phase
-        ).exclude(id=instance.id).count()
-        instance.order = 0 if count == 0 else count - 1
+        ).exclude(id=instance.id).order_by("order").last()
+        instance.order = stage.order + 1 if stage else 0
         instance.save()
 
 

@@ -27,7 +27,7 @@ def send_shared_job_chat(
     sender_id:int,
     talent_ids:List[UUID],
 ):
-    talents = Talent.objects.filter(uid__in=talent_ids).only("user_id", "country_id")
+    talents = Talent.objects.select_related("user").filter(uid__in=talent_ids).only("user_id", "country_id", "user__fullname")
     for talent in talents:
         chat = Conversation.objects.filter(users__id=sender_id).filter(users__id=talent.user_id).first()
         if not chat:
@@ -35,9 +35,11 @@ def send_shared_job_chat(
             chat.users.add(talent.user_id, sender_id)
             chat.save()
         for job_uid in job_ids:
-            job_post = JobPost.objects.filter(job__uid=job_uid).first()
+            job_post = JobPost.objects.select_related("job", "job__role").filter(job__uid=job_uid).first()
             if not chat.message_set.filter(job_post=job_post).exists():
-                msg = Message.objects.create(conversation=chat, sender_id=sender_id, job_post=job_post)
+                role = f"{job_post.job.role.name} role" if job_post.job.role else job_post.job.title
+                text = f"Hi {talent.user.fullname}, I think that you would be a great match for this {role}! Click the button below to View Job and Apply."
+                msg = Message.objects.create(conversation=chat, sender_id=sender_id, job_post=job_post, body=text)
                 msg.handle_post_save(notify=True)
 
 def job_application_notification_task():
