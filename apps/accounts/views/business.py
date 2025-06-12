@@ -289,6 +289,9 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
             raise HttpError(400, "You cannot assign owner role to this user")
         if business_user.role == BusinessUserRoleType.OWNER.value and staff_user == business_user and role != BusinessUserRoleType.OWNER.value:
             raise HttpError(400, "You cannot change your role until you have transferred it")
+        if business_user.role != BusinessUserRoleType.OWNER.value and role != BusinessUserRoleType.OWNER.value and staff_user.role == BusinessUserRoleType.OWNER.value:
+            raise HttpError(400, "You cannot update the role of the owner")
+
 
 
     user = staff_user.user
