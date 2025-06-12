@@ -14,6 +14,7 @@ class UserSchema(ModelSchema):
     has_set_password: bool
     is_social_account: bool
     is_new: bool
+    business_role: Optional[str]
 
     class Meta:
         model = User
@@ -22,6 +23,13 @@ class UserSchema(ModelSchema):
     @staticmethod
     def resolve_has_set_password(obj):
         return bool(obj.password)
+
+    @staticmethod
+    def resolve_business_role(obj):
+        if not hasattr(obj, "businessuser"):
+            return
+        return obj.businessuser.role
+
     
     @staticmethod
     def resolve_is_social_account(obj):
