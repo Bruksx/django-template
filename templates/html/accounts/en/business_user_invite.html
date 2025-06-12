@@ -1,8 +1,8 @@
 {% extends "all_template.html" %}
 
 {% block content %}
-
-    <p>Dear {{user}},</p>
+    <div style="width: 100%;">
+        <p>Dear {{user}},</p>
 
     <p>You have been invited to join {{company}}. Please click on the link below to accept the invitation.</p>
 
@@ -10,5 +10,8 @@
 
     <p>Best Regards,</p>
     <p>{{company}}</p>
+
+    </div>
+
 
 {% endblock %}

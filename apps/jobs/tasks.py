@@ -31,7 +31,7 @@ def send_shared_job_chat(
     for talent in talents:
         chat = Conversation.objects.filter(users__id=sender_id).filter(users__id=talent.user_id).first()
         if not chat:
-            chat = Conversation.objects.create()
+            chat = Conversation.objects.create(locked=True)
             chat.users.add(talent.user_id, sender_id)
             chat.save()
         for job_uid in job_ids:
