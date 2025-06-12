@@ -1,8 +1,6 @@
-from datetime import datetime, time
 from typing import Literal, Optional, List
 from uuid import UUID
 
-import pytz
 from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
@@ -20,7 +18,6 @@ from notification.notifications import send_talents_job_matching_notification
 from paginations import CustomPageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from settings.models import WorkFlowStage
-
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (

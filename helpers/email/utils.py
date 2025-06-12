@@ -46,6 +46,7 @@ def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_b
             email.send(fail_silently=False)
             return
         except Exception as e:
+            print("error: ", e)
             Logger.error(dict(
                 sender="Email Service",
                 title="Email was not successfully sent",
