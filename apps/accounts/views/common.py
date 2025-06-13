@@ -14,7 +14,7 @@ from ninja_jwt.authentication import JWTAuth
 from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode, Industry, Business
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
-from accounts.schemas.business import MutateTalentFilterSchema, TalentFilterQuerySchema
+from accounts.schemas.business import TalentFilterQuerySchema
 from accounts.schemas.common import CompanyListSchema
 from core.schemas import GenericNameAndUidSchema
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
@@ -46,7 +46,7 @@ def country_list(request, search:str=""):
 @router.get("educational-levels", response=List[talent_schemas.EducationLevelSchema], 
             tags=["Common"])
 def educational_levels(request, search=""):
-    queryset = EducationLevel.objects.all()
+    queryset = EducationLevel.objects.select_related("industry").objects.all()
     if search:
         queryset = queryset.filter(level__icontains=search)
     return queryset.order_by("level")

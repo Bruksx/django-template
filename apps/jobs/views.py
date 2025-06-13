@@ -70,7 +70,7 @@ def job_posts_by_talent(request, filters:TalentJobFilterSchema = Query(...)):
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = {"talent": talent}
-    queryset = JobPost.objects.filter(status=JobStatusType.POSTED.value)
+    queryset = JobPost.objects.select_related("job", "country").filter(status=JobStatusType.POSTED.value)
     return filters.get_queryset(talent=talent, queryset=queryset)
 
 
