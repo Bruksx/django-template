@@ -27,6 +27,8 @@ def validate_data(data:dict):
 def send_ws(channel:str, data:dict):
     if "test" in sys.argv:
         return
+    if "channel" in data.keys():
+        channel = data.pop("channel")
     is_valid = validate_data(data)
     if not is_valid:
         Logger.error(dict(
