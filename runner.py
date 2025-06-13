@@ -8,7 +8,8 @@ from django.db.models import F
 from chats.models import Conversation
 from accounts.models import User, BusinessUser, Business
 from accounts.enums import UserType, BusinessUserRoleType
-
+from notification.models import Notification
+from notification.schemas import NotificationSchema
 conversation_objs = list()
 conversations = Conversation.objects.iterator()
 for conversation in conversations:

@@ -32,7 +32,8 @@ def send_ws(channel:str, data:dict):
         Logger.error(dict(
             sender="Websocket Service",
             title="Invalid Websocket Data",
-            description="Please check your data format"
+            description="Please check your data format",
+            data=data
         ))
         return
 
