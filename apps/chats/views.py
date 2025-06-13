@@ -30,7 +30,7 @@ ws_router = Router(tags=["Websocket"])
 @paginate(PageNumberPaginationExtra, page_size=50)
 def get_chats(request, search:str=""):
     user = request.user
-    queryset = Conversation.objects.filter(users__id=user.id).annotate(
+    queryset = Conversation.objects.prefetch_related("users").filter(users__id=user.id).annotate(
         null_order=Case(
             When(last_message_time__isnull=True, then=Value(1)),
             default=Value(0),
@@ -52,7 +52,7 @@ def get_messages(request, conversation_uid:UUID, page_size=50, page=1, **kwargs)
     conversation = Conversation.objects.filter(users__id=user.id, uid=conversation_uid).first()
     if not conversation:
         raise HttpError(403, "Not allowed")
-    queryset = Message.objects.filter(conversation__uid=conversation_uid).order_by("-created_at")
+    queryset = Message.objects.select_related("sender", "conversation").filter(conversation__uid=conversation_uid).order_by("-created_at")
     async_task(conversation.read_messages, message_ids=list(queryset.values_list("id", flat=True)), user_id=user.id)
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(

@@ -250,7 +250,7 @@ class Talent(BaseModel):
         for category in categories:
             data.append(TalentSkillSchema(
                 category=category.name,
-                skills=[SkillSchema.from_orm(skill) for skill in self.skills.filter(category_id=category.id)]
+                skills=[SkillSchema.from_orm(skill) for skill in self.skills.filter(category_id=category.id).iterator()]
             ))
         return data
 
@@ -304,29 +304,49 @@ class Talent(BaseModel):
 
         working_hours_query = self.availability_query()
 
-        job_matching_query = Q(
-            Q(requiredattribute__job_level=True, job_level_id__in=job_level_ids)|
-            Q(requiredattribute__minimum_education_level=True, minimum_education_level_id__in=education_level_ids)|
-            Q(requiredattribute__business_models__id__in=business_model_ids)|
-            Q(requiredattribute__role=True, role_id__in=role_ids)|
-            Q(requiredattribute__work_structure=True, work_structure=self.work_model)|
-            Q(requiredattribute__years_of_experience=True, years_of_experience=years_of_experience)|
-            Q(requiredattribute__first_language=True, first_language=self.native_language)|
-            Q(requiredattribute__secondary_language=True, additional_languages__id__in=additional_language_ids)|
-            Q(requiredattribute__working_hours=True, availableday__in=AvailableDay.objects.filter(working_hours_query))|
-            Q(requiredattribute__location=True, jobpost__country=self.country)|
-            Q(requiredattribute__skills__id__in=skill_ids)
-        )
+        # Build base filters
+        filters = [
+            Q(requiredattribute__job_level=True, job_level_id__in=job_level_ids),
+            Q(requiredattribute__minimum_education_level=True, minimum_education_level_id__in=education_level_ids),
+            Q(requiredattribute__business_models__id__in=business_model_ids),
+            Q(requiredattribute__role=True, role_id__in=role_ids),
+            Q(requiredattribute__work_structure=True, work_structure=self.work_model),
+            Q(requiredattribute__years_of_experience=True, years_of_experience=years_of_experience),
+            Q(requiredattribute__first_language=True, first_language=self.native_language),
+            Q(requiredattribute__secondary_language=True, additional_languages__id__in=additional_language_ids),
+            Q(requiredattribute__working_hours=True, availableday__in=AvailableDay.objects.filter(working_hours_query)),
+            Q(requiredattribute__location=True, jobpost__country=self.country),
+            Q(requiredattribute__skills__id__in=skill_ids),
+        ]
+
+        # Combine all filters using OR
+        job_matching_query = Q()
+        for f in filters:
+            job_matching_query |= f
+
+        # Add optional date filter
         if start_date and end_date:
-            job_matching_query = Q(job_matching_query, created_at__range=[start_date, end_date])
-        jobs = Job.objects.filter(job_matching_query).only("id").distinct("id")
+            job_matching_query &= Q(created_at__range=[start_date, end_date])
+
+        # Query Job table with optimized prefetch and select_related
+        jobs = (Job.objects.prefetch_related("requiredattribute", "additional_languages", "skills", 'jobpost', 'availableday')
+                .filter(job_matching_query)
+                .only("id")
+                .distinct("id"))
+
+        # Return early if only jobs are needed
         if job_only:
             return jobs
+
+        # Get job IDs to fetch matching JobPosts
         job_ids = jobs.values_list("id", flat=True)
-        query = dict(job_id__in=job_ids)
+        jobpost_filter = {"job_id__in": job_ids}
         if by_talent_country:
-            query["country"] = self.country
-        return JobPost.objects.filter(**query).order_by("-id")
+            jobpost_filter["country"] = self.country
+
+        return JobPost.objects.select_related("job", "country") \
+            .filter(**jobpost_filter) \
+            .order_by("-id")
 
     def job_match_score(self, job_post):
         job = job_post.job
@@ -386,26 +406,26 @@ class Talent(BaseModel):
     def saved_jobs(self):
         from jobs.models import JobPost
         job_post_ids = self.savedjob_set.only("job_post_id").values_list("job_post_id", flat=True)
-        return JobPost.objects.filter(id__in=job_post_ids)
+        return JobPost.objects.select_related("job", "country").filter(id__in=job_post_ids)
 
     def applied_jobs(self):
         from jobs.models import JobPost
         job_post_ids = self.jobapplication_set.only("job_post_id").values_list("job_post_id", flat=True)
-        return JobPost.objects.filter(id__in=job_post_ids)
+        return JobPost.objects.select_related("job", "country").filter(id__in=job_post_ids)
 
     def invitations_to_apply(self, start_date:date=None, end_date:date=None)->int:
         from chats.models import Message
         query = Q(conversation__users__id=self.user.id, job_post__isnull=False)
         if start_date and end_date:
             query = Q(query, created_at__range=[start_date, end_date])
-        return Message.objects.filter(query).only("job_post_id").distinct("job_post_id").count()
+        return Message.objects.select_related("conversation", "job_post").filter(query).only("job_post_id").distinct("job_post_id").count()
 
     def job_interviews(self, start_date:date=None, end_date:date=None):
         from jobs.models import JobInterview
         query = Q(application__applicant=self)
         if start_date and end_date:
             query = Q(query, created_at__range=[start_date, end_date])
-        return JobInterview.objects.filter(query)
+        return JobInterview.objects.select_related('application').filter(query)
 
     def applications_made_chart(self):
         from accounts.schemas.talent import MonthlyChartSchema
