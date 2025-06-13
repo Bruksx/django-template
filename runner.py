@@ -4,17 +4,15 @@ import django
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
-from django.db.models import Prefetch, F
+from django.db.models import F
 from chats.models import Conversation
 from accounts.models import User, BusinessUser, Business
 from accounts.enums import UserType, BusinessUserRoleType
 
 conversation_objs = list()
-conversations = Conversation.objects.prefetch_related(
-    Prefetch("users", queryset=User.objects.filter(type=UserType.TALENT))
-).iterator(chunk_size=100)
+conversations = Conversation.objects.iterator()
 for conversation in conversations:
-    if conversation.users.count() == 2:
+    if conversation.users.filter(type=UserType.TALENT.value).count() == 2:
         conversation.locked = True
         conversation_objs.append(conversation)
 
@@ -31,7 +29,7 @@ other_staffs = BusinessUser.objects.exclude(business__created_by=F('user')).filt
 
 businesses = Business.objects.filter(created_by__isnull=True).iterator()
 for business in businesses:
-    business_user = BusinessUser.objects.filter(business=business.business).first()
+    business_user = BusinessUser.objects.filter(business=business).first()
     business.created_by = business_user.user
     business.save()
     business_user.role = BusinessUserRoleType.OWNER.value
