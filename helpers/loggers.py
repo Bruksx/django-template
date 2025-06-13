@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Optional
+from typing import Optional, Any
 
 from attr import dataclass
 from django.db.backends.base.base import logger
@@ -18,6 +18,7 @@ class LogSchema:
     sender: str
     title: str
     description: Optional[str] = None
+    data: Optional[Any] = None
 
 class Logger:
 
