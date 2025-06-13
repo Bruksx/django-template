@@ -30,9 +30,10 @@ other_staffs = BusinessUser.objects.exclude(business__created_by=F('user')).filt
 businesses = Business.objects.filter(created_by__isnull=True).iterator()
 for business in businesses:
     business_user = BusinessUser.objects.filter(business=business).first()
-    business.created_by = business_user.user
-    business.save()
-    business_user.role = BusinessUserRoleType.OWNER.value
-    business_user.save()
+    if business_user:
+        business.created_by = business_user.user
+        business.save()
+        business_user.role = BusinessUserRoleType.OWNER.value
+        business_user.save()
 
 print("update business owners")
