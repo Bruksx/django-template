@@ -9,7 +9,6 @@ from notification.models import BusinessUserNotificationSettings
 class NotificationConsumer(AsyncWebsocketConsumer):
         def __init__(self, *args, **kwargs):
             super().__init__(args, kwargs)
-            self.group_name = None
             self.user = None
 
         async def connect(self):
@@ -43,6 +42,7 @@ class NotificationConsumer(AsyncWebsocketConsumer):
 
         async def disconnect(self, code):
             if self.user:
-                await self.channel_layer.group_discard(self.group_name, self.channel_name)
+                for group in self.groups:
+                    await self.channel_layer.group_discard(group, self.channel_name)
                 self.user = None
             await super().disconnect(code)
