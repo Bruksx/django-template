@@ -1000,7 +1000,7 @@ class TalentJobFilterSchema(Schema):
         """
         from jobs.services import order_job_posts
         if not queryset:
-            queryset = JobPost.objects.all()
+            queryset = JobPost.objects.select_related("job", "country").all()
         if self.search:
             queryset = queryset.filter(job__title__icontains=self.search)
 

@@ -329,11 +329,10 @@ class Talent(BaseModel):
             job_matching_query &= Q(created_at__range=[start_date, end_date])
 
         # Query Job table with optimized prefetch and select_related
-        jobs = Job.objects.filter(job_matching_query) \
-            .only("id") \
-            .distinct("id") \
-            .select_related("job_level", "minimum_education_level", "role", "work_structure", "first_language") \
-            .prefetch_related("requiredattribute", "additional_languages", "skills")
+        jobs = (Job.objects.prefetch_related("requiredattribute", "additional_languages", "skills", 'jobpost', 'availableday')
+                .filter(job_matching_query)
+                .only("id")
+                .distinct("id"))
 
         # Return early if only jobs are needed
         if job_only:
@@ -412,14 +411,14 @@ class Talent(BaseModel):
     def applied_jobs(self):
         from jobs.models import JobPost
         job_post_ids = self.jobapplication_set.only("job_post_id").values_list("job_post_id", flat=True)
-        return JobPost.objects.filter(id__in=job_post_ids)
+        return JobPost.objects.select_related("job", "country").filter(id__in=job_post_ids)
 
     def invitations_to_apply(self, start_date:date=None, end_date:date=None)->int:
         from chats.models import Message
         query = Q(conversation__users__id=self.user.id, job_post__isnull=False)
         if start_date and end_date:
             query = Q(query, created_at__range=[start_date, end_date])
-        return Message.objects.filter(query).only("job_post_id").distinct("job_post_id").count()
+        return Message.objects.select_related("conversation", "job_post").filter(query).only("job_post_id").distinct("job_post_id").count()
 
     def job_interviews(self, start_date:date=None, end_date:date=None):
         from jobs.models import JobInterview

@@ -46,7 +46,7 @@ def country_list(request, search:str=""):
 @router.get("educational-levels", response=List[talent_schemas.EducationLevelSchema], 
             tags=["Common"])
 def educational_levels(request, search=""):
-    queryset = EducationLevel.objects.select_related("industry").objects.all()
+    queryset = EducationLevel.objects.select_related("industry").all()
     if search:
         queryset = queryset.filter(level__icontains=search)
     return queryset.order_by("level")
