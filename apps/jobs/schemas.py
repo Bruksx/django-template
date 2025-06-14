@@ -1006,8 +1006,6 @@ class TalentJobFilterSchema(Schema):
 
         if self.location:
             queryset = queryset.filter(country__uid__in=self.location)
-        elif talent and talent.country:
-            queryset = queryset.filter(country=talent.country)
 
         if self.company:
             queryset = queryset.select_related("job__created_by__business")
