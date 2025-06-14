@@ -344,7 +344,7 @@ class Talent(BaseModel):
         if by_talent_country:
             jobpost_filter["country"] = self.country
 
-        return JobPost.objects.select_related("job", "country") \
+        return JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business") \
             .filter(**jobpost_filter) \
             .order_by("-id")
 
@@ -406,12 +406,12 @@ class Talent(BaseModel):
     def saved_jobs(self):
         from jobs.models import JobPost
         job_post_ids = self.savedjob_set.only("job_post_id").values_list("job_post_id", flat=True)
-        return JobPost.objects.select_related("job", "country").filter(id__in=job_post_ids)
+        return JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(id__in=job_post_ids)
 
     def applied_jobs(self):
         from jobs.models import JobPost
         job_post_ids = self.jobapplication_set.only("job_post_id").values_list("job_post_id", flat=True)
-        return JobPost.objects.select_related("job", "country").filter(id__in=job_post_ids)
+        return JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(id__in=job_post_ids)
 
     def invitations_to_apply(self, start_date:date=None, end_date:date=None)->int:
         from chats.models import Message

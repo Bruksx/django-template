@@ -79,6 +79,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'config.middlewares.RequestTimingMiddleware'
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -306,4 +307,26 @@ CACHES = {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         'LOCATION': 'unique-snowflake', # A UNIQUE NAME FOR THE CACHE
     }
+}
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        '': {  # Root logger, capturing all messages.
+            'handlers': ['console'],
+            'level': 'INFO' if DEBUG else 'CRITICAL',
+            'propagate': False,
+        },
+        'config.middlewares.RequestTimingMiddleware': { # Specifically for our middleware.
+            'handlers': ['console'],
+            'level': 'INFO' if DEBUG else 'CRITICAL',
+            'propagate': False,
+        },
+    },
 }
