@@ -31,7 +31,7 @@ class RoleSchema(ModelSchema):
 
 
 class EducationSchema(ModelSchema):
-    level: EducationLevelSchema
+    level: Optional[EducationLevelSchema]
 
     class Meta:
         model = Education
