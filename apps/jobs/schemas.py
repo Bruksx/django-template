@@ -419,10 +419,12 @@ class JobListSchema2(ModelSchema):
     uid: UUID
     logo_url: Optional[str]
     role: Optional[GenericNameAndUidSchema]
+    hiring_company_name: Optional[str] = Field(alias="hiring_company")
     class Meta:
         model = Job
         fields = [
-            "title", "hiring_company_name", "work_structure", "office_address"]
+            "title","work_structure", "office_address"]
+
 
 
 class JobDetailSchema(ModelSchema):
