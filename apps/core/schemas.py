@@ -1,3 +1,4 @@
+from typing import Optional
 from uuid import UUID
 
 from ninja import Schema, ModelSchema
@@ -48,13 +49,15 @@ class CountrySchema(ModelSchema):
         fields = ("uid", "name", "code")
 
 class EducationLevelSchema(ModelSchema):
-    industry: str
+    industry: Optional[str]
     class Meta:
         model = EducationLevel
         fields = ("uid", "industry", "level")
 
     @staticmethod
     def resolve_industry(obj):
+        if not obj.industry:
+            return
         return obj.industry.name
 
 
