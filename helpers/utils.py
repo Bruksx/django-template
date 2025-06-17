@@ -21,6 +21,38 @@ from ninja.errors import HttpError
 from helpers.loggers import Logger
 from monkeypatches.response import Response
 
+from urllib.parse import urlencode, urljoin
+
+def create_url_with_params(base_url: str, params: dict, doseq: bool = False) -> str:
+    """
+    Constructs a URL by appending URL-encoded parameters to a base URL.
+
+    Args:
+        base_url (str): The base URL (e.g., "https://api.example.com/data").
+        params (dict): A dictionary of parameters where keys are parameter names
+                       and values are the parameter values. Values can be single
+                       items or lists/tuples if doseq is True.
+        doseq (bool): If True, and a parameter's value is a sequence (e.g., list),
+                      multiple key=value pairs will be generated (e.g., param=a&param=b).
+                      If False, sequences will be treated as a single string.
+                      Defaults to False.
+
+    Returns:
+        str: The full URL with correctly encoded parameters.
+    """
+    if not isinstance(base_url, str):
+        raise TypeError("base_url must be a string.")
+    if not isinstance(params, dict):
+        raise TypeError("params must be a dictionary.")
+
+    # Encode the parameters
+    encoded_params = urlencode(params, doseq=doseq)
+
+    # Combine the base URL and the encoded query string
+    # urljoin is robust for correctly adding '?' and handling existing query strings
+    full_url = urljoin(base_url, '?' + encoded_params)
+
+    return full_url
 
 def success_response(message="successful", data=None, status=200):
     return Response(data={"message": message, "data": data|dict()}, status=status)

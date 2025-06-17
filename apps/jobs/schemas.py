@@ -972,20 +972,48 @@ class TalentJobPostSchema(JobPostListSchema):
         return
 
 
+class TalentJobFilterQuerySchema(Schema):
+    search: Optional[str] = ""
+    work_structure:Optional[str] = Field("", description=f"comma separated work structure enums: {', '.join(WorkStructureEnum.values())}")
+    company: Optional[str] = Field("", description="comma separated company uuids")
+    sort_by: Optional[str] = Field("", description=f"comma separated sort fields: {', '.join(['date-posted', '-date-posted'])}")
+    location: Optional[str] = Field("", description="comma separated country uuids")
+    employment_type: Optional[str] = Field("", description="comma separated employment type uuids")
+    job_level: Optional[str] = Field("", description="comma separated job level uuids")
+    minimum_education_level: Optional[str] = Field("", description="comma separated minimum education level uuids")
+    job_role: Optional[str] = Field("", description="comma separated job role uuids")
+    yoe: Optional[str] = Field("", description=f"comma separated years of experience: {', '.join(['0 years', '1-3 years', '4-7 years', '7-10 years', '11-15 years', '15-20 years', '20+ years'])}")
+    remove_applied_jobs: Optional[str] = Field("", description="remove applied jobs: true or false")
+
+
+    def convert_to_schema(self):
+        return TalentJobFilterSchema(
+            search=self.search if self.search else None,
+            work_structure=self.work_structure.split(",") if self.work_structure else [],
+            company=self.company.split(",") if self.company else [],
+            sort_by=self.sort_by.split(",") if self.sort_by else [],
+            location=self.location.split(",") if self.location else [],
+            employment_type=self.employment_type.split(",") if self.employment_type else [],
+            job_level=self.job_level.split(",") if self.job_level else [],
+            minimum_education_level=self.minimum_education_level.split(",") if self.minimum_education_level else [],
+            job_role=self.job_role.split(",") if self.job_role else [],
+            yoe=self.yoe.split(",") if self.yoe else [],
+            remove_applied_jobs=self.remove_applied_jobs == "true" if self.remove_applied_jobs else None
+        )
 
 class TalentJobFilterSchema(Schema):
     search: Optional[str] = None
-    work_structure:Optional[List[WorkStructureEnum]] = None
-    company: Optional[List[UUID]] = None
-    sort_by: Optional[List[Literal['date-posted', '-date-posted']]] = None
-    location: Optional[List[UUID]] = None
-    employment_type: Optional[List[UUID]] = None
-    job_level: Optional[List[UUID]] = None
-    minimum_education_level: Optional[List[UUID]] = None
-    job_role: Optional[List[UUID]] = None
+    work_structure:Optional[List[WorkStructureEnum]] = []
+    company: Optional[List[UUID]] = []
+    sort_by: Optional[List[Literal['date-posted', '-date-posted']]] = []
+    location: Optional[List[UUID]] = []
+    employment_type: Optional[List[UUID]] = []
+    job_level: Optional[List[UUID]] = []
+    minimum_education_level: Optional[List[UUID]] = []
+    job_role: Optional[List[UUID]] = []
     yoe: Optional[List[Literal[
         '0 years', '1-3 years', '4-7 years', '7-10 years', '11-15 years', '15-20 years', '20+ years'
-    ]]] = None
+    ]]] = []
     remove_applied_jobs: Optional[bool] = None
 
     def get_queryset(self, talent=None, queryset=None, extra_sorts:List[str]=None)->QuerySet:
@@ -1031,6 +1059,7 @@ class TalentJobFilterSchema(Schema):
         if self.yoe:
             query = Q()
             for yoe in set(self.yoe):
+                yoe.strip()
                 if yoe == "0 years":
                     query = query | Q(Q(job__years_of_experience__isnull=True)|Q(job__years_of_experience=0))
                 elif yoe == "20+ years":
@@ -1038,14 +1067,13 @@ class TalentJobFilterSchema(Schema):
                 elif "-" in yoe:
                     years = map(int, yoe.replace(" years", "").split("-"))
                     query = query | Q(job__years_of_experience__range=years)
+            queryset = queryset.filter(query)
         if self.remove_applied_jobs is True and talent:
             applied_jobs_id = talent.jobapplication_set.only("job_post_id").values_list("job_post_id", flat=True)
             queryset = queryset.exclude(id__in=applied_jobs_id)
         if not extra_sorts:
             extra_sorts = []
         return order_job_posts(queryset, self.sort_by, *extra_sorts)
-
-
 
 class TalentJobApplicationWithdrawalSchema(Schema):
        feedback_type: WithdrawalFeedbackType
