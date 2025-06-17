@@ -4,37 +4,12 @@ import django
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
-from django.db.models import F
-from chats.models import Conversation
-from accounts.models import User, BusinessUser, Business
-from accounts.enums import UserType, BusinessUserRoleType
-from notification.models import Notification
-from notification.schemas import NotificationSchema
-conversation_objs = list()
-conversations = Conversation.objects.iterator()
-for conversation in conversations:
-    if conversation.users.filter(type=UserType.TALENT.value).count() == 2:
-        conversation.locked = True
-        conversation_objs.append(conversation)
-
-Conversation.objects.bulk_update(conversation_objs, ["locked"])
-print(f"{len(conversation_objs)} conversations locked")
+from helpers.email.accounts import send_business_user_invitation_email
 
 
-business_user_owners = BusinessUser.objects.filter(business__created_by=F('user')).update(
-    role=BusinessUserRoleType.OWNER.value
+send_business_user_invitation_email(
+    email="ohaegbulouis@gmail.com",
+    user_uid="345678909876543",
+    user="Ohaegbu Louis",
+    business="Heckerbella"
 )
-other_staffs = BusinessUser.objects.exclude(business__created_by=F('user')).filter(
-    role=BusinessUserRoleType.OWNER.value
-).update(role=BusinessUserRoleType.ADMIN.value)
-
-businesses = Business.objects.filter(created_by__isnull=True).iterator()
-for business in businesses:
-    business_user = BusinessUser.objects.filter(business=business).first()
-    if business_user:
-        business.created_by = business_user.user
-        business.save()
-        business_user.role = BusinessUserRoleType.OWNER.value
-        business_user.save()
-
-print("update business owners")
