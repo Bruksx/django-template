@@ -5,7 +5,7 @@ from helpers.utils import create_url_with_params
 
 
 def send_business_user_invitation_email(email:str, user_uid:str, user:str, business:str, lang="en"):
-    link = f"{settings.FRONTEND_URL}/onboarding/organization/welcome"
+    link = f"{settings.FRONTEND_URL}onboarding/organization/welcome"
     link = create_url_with_params(link, {"code": user_uid, "company": business})
     context = {'code': user_uid, 'user': user, 'company': business, 'link': link}
     html_file = f"accounts/{lang}/business_user_invite.html"

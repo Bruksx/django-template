@@ -66,8 +66,8 @@ def talent_saved_jobs(request, search:str=""):
 
 @router.get("talent/job-posts", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def job_posts_by_talent(request, filters:TalentJobFilterSchema = Query(...)):
-    #filters = filters.convert_to_schema()
+def job_posts_by_talent(request, filters:TalentJobFilterQuerySchema = Query(...)):
+    filters = filters.convert_to_schema()
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = {"talent": talent}
