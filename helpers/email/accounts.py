@@ -1,9 +1,11 @@
+from django.conf import settings
+
 from helpers.email.utils import send_email, render_html_email
 from helpers.utils import create_url_with_params
 
 
 def send_business_user_invitation_email(email:str, user_uid:str, user:str, business:str, lang="en"):
-    link = f"{{frontend_url}}/accounts/accept-invitation"
+    link = f"{settings.FRONTEND_URL}/onboarding/organization/welcome"
     link = create_url_with_params(link, {"code": user_uid, "company": business})
     context = {'code': user_uid, 'user': user, 'company': business, 'link': link}
     html_file = f"accounts/{lang}/business_user_invite.html"
