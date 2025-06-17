@@ -18,7 +18,7 @@ from jobs.enums import JobStatusType, PhaseType
 from jobs.models import JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, \
     TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, ApplyToJobSchema, \
-    ShareJobViaEmailSchema, ShareJobViaChatSchema, TalentQuestionSchema
+    ShareJobViaEmailSchema, ShareJobViaChatSchema, TalentQuestionSchema, TalentJobFilterQuerySchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service, \
     get_screening_questions_service
 from notification import notifications
@@ -67,6 +67,7 @@ def talent_saved_jobs(request, search:str=""):
 @router.get("talent/job-posts", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
 def job_posts_by_talent(request, filters:TalentJobFilterSchema = Query(...)):
+    #filters = filters.convert_to_schema()
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = {"talent": talent}
