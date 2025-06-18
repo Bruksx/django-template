@@ -351,7 +351,7 @@ class JobPostDetailSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "province", "postal_code", "status", "share_compensation"]
+        fields = ["uid", "province", "city", "postal_code", "status", "share_compensation"]
 
     @staticmethod
     def resolve_annual_bonus_currency(obj):
@@ -709,8 +709,7 @@ class JobPostFullDetailSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "created_at",
-                  "province", "postal_code"]
+        fields = ["uid", "status", "created_at", "province", "city", "postal_code"]
 
     @staticmethod
     def resolve_saved(obj, context):
@@ -828,7 +827,7 @@ class TalentJobPostListSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ("uid", "job", "country", "province","postal_code", "status")
+        fields = ("uid", "job", "country", "province", "city", "postal_code", "status")
 
     @staticmethod
     def resolve_alert(obj, context):
