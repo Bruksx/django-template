@@ -332,7 +332,8 @@ class SkillCategorySchema(Schema):
         queryset = obj.skill_set.all()
         if search:
             queryset = queryset.filter(name__icontains=search)
-        return [SkillSchema.from_orm(skill) for skill in queryset]
+        queryset = queryset.distinct("name").order_by("name")
+        return [SkillSchema.from_orm(skill) for skill in queryset.iterator()]
 
 
 class JobPostDetailSchema(ModelSchema):
