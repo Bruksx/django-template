@@ -95,7 +95,7 @@ class MutateJobPostListSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "created_at", "posted_by"]
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "created_at", "posted_by", "province"]
         fields_optional = "__all__"
 
 class BusinessUserSchema(ModelSchema):
