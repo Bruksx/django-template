@@ -311,22 +311,20 @@ def load_objects_to_db(apps, schema_editor):
     Department = apps.get_model("accounts", "Department")
     Role = apps.get_model("accounts", "Role")
     SkillCategory = apps.get_model("accounts", "SkillCategory")
-    SkillRefrence = apps.get_model("accounts", "SkillReference")
     Skill = apps.get_model("accounts", "Skill")
 
     for obj in DEPARTMENT_AND_SKILLS:
-        industry, _ = Industry.objects.get_or_create(name=obj["Industry"])
-        department = Department.objects.create(name=obj["Department"], industry=industry)
+        industry, _ = Industry.objects.get_or_create(name=obj["Industry"].strip().title())
+        department = Department.objects.get_or_create(name=obj["Department"].strip().title(), industry=industry)
         for role_name in obj["Roles"].split("\n"):
-            Role.objects.create(name=role_name.strip(), department=department)
+            Role.objects.get_or_create(name=role_name.strip().title(), department=department)
         category_names = ["Tools/Platforms", "Common Methodologies/Frameworks", "General Skills", "Soft Skills"]
         for category_name in category_names:
-            skill_category, _ = SkillCategory.objects.get_or_create(name=category_name)
+            skill_category, _ = SkillCategory.objects.get_or_create(name=category_name.strip().title())
             for skill_name in obj[category_name].split(","):
                 if skill_name == "":
                     continue
-                reference, _ = SkillRefrence.objects.get_or_create(name=skill_name)
-                Skill.objects.create(name=skill_name.strip(), category=skill_category, reference=reference, department=department)
+                Skill.objects.get_or_create(name=skill_name.strip().title(), category=skill_category, department=department)
 
 
 class Migration(migrations.Migration):
