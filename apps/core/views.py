@@ -14,7 +14,7 @@ def currency_list(request, search=""):
     queryset = Currency.objects.all()
     if search:
         queryset = queryset.filter(Q(name__icontains=search)|Q(abbreviation__icontains=search))
-    return queryset.distinct("name").order_by("name")
+    return queryset.distinct("abbreviation").order_by("abbreviation")
 
 @router.get("languages", response=List[LanguageSchema], tags=["Common"])
 def language_list(request, search=""):
