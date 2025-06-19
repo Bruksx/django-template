@@ -66,6 +66,7 @@ class Job(BaseModel):
     lunch_break_time = models.PositiveSmallIntegerField(default=0)
     responsibilities = models.JSONField(default=list, blank=True)
     additional_hours_description = models.TextField(null=True)
+    additional_skills = models.TextField(null=True)
     additional_hours_start = models.TimeField(null=True)
     additional_hours_end = models.TimeField(null=True)
     technological_requirement = models.CharField(max_length=100, null=True, blank=True)
