@@ -356,6 +356,7 @@ def business_user_jobs(request, business_user_uid):
 
 
 @router.delete("users/{business_user_uid}/", auth=JWTAuth())
+@transaction.atomic()
 def delete_business_user(request, business_user_uid):
     IsBusinessOwnerOrAdmin.check(request)
     user: User = request.user
@@ -382,8 +383,7 @@ def delete_business_user(request, business_user_uid):
     ).exists()
     if has_jobs and staff_user.status != BusinessUserStatusType.PENDING.value:
         raise HttpError(403, "Not Allowed! Please reassign all jobs allocated to this user before proceeding with deletion")
-    staff_user.user.delete()
-    staff_user.delete()
+    staff_user.user.delete_account()
     return Response(status=201, data={"message": "User updated successfully"})
 
 
