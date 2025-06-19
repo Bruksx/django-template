@@ -304,7 +304,7 @@ DEPARTMENT_AND_SKILLS = [
 ]
 
 
-def checker(model, create_data, filter_data):
+def create_item(model, create_data, filter_data):
     queryset = model.objects.filter(**filter_data)
     if queryset.count() == 0:
         item = model.objects.create(**create_data)
@@ -315,6 +315,14 @@ def checker(model, create_data, filter_data):
             item.update(**create_data)
     return item
 
+def clean_value(value):
+    value = value.strip().title()
+    if "\n" in value:
+        return
+    if value == "":
+        return
+    return value
+
 
 def cleanup_skills(apps, schema_editor):
     Industry = apps.get_model("accounts", "Industry")
@@ -323,44 +331,42 @@ def cleanup_skills(apps, schema_editor):
     SkillCategory = apps.get_model("accounts", "SkillCategory")
     Skill = apps.get_model("accounts", "Skill")
 
-    Skill.objects.all().delete()
-    SkillCategory.objects.all().delete()
-    Role.objects.all().delete()
-    Department.objects.all().delete()
-    Industry.objects.all().delete()
-
-
-
     for obj in DEPARTMENT_AND_SKILLS:
-        if obj["Industry"] == "":
+        industry_value = clean_value(obj["Industry"])
+        if not industry_value:
             continue
-        industry_create = {"name": obj["Industry"].strip().title()}
-        industry_filter = {"name__iexact":obj["Industry"].strip().title()}
-        industry = checker(Industry, industry_create, industry_filter)
-        if obj["Department"] == "":
+        industry_create = {"name": industry_value}
+        industry_filter = {"name__iexact":industry_value}
+        industry = create_item(Industry, industry_create, industry_filter)
+
+        department_value = clean_value(obj["Department"])
+        if not department_value:
             continue
-        department_create = dict(name=obj["Department"].strip().title(), industry=industry)
-        department_filter = dict(name__iexact=obj["Department"].strip().title(), industry__name__iexact=industry.name)
-        department = checker(Department, department_create, department_filter)
+        department_create = dict(name=department_value, industry=industry)
+        department_filter = dict(name__iexact=department_value, industry__name__iexact=industry.name)
+        department = create_item(Department, department_create, department_filter)
         for role_name in obj["Roles"].split("\n"):
-            if role_name == "":
+            role_value = clean_value(role_name)
+            if not role_value:
                 continue
-            role_create = dict(name=role_name.strip().title(), department=department)
-            role_filter = dict(name__iexact=role_name.strip().title(), department__name__iexact=department.name)
-            checker(Role, role_create, role_filter)
+            role_create = dict(name=role_value, department=department)
+            role_filter = dict(name__iexact=role_value, department__name__iexact=department.name)
+            create_item(Role, role_create, role_filter)
         category_names = ["Tools/Platforms", "Common Methodologies/Frameworks", "General Skills", "Soft Skills"]
         for category_name in category_names:
-            if category_name == "":
+            category_value = clean_value(category_name)
+            if not category_value:
                 continue
-            skill_category_create = dict(name=category_name.strip().title())
-            skill_category_filter = dict(name__iexact=category_name.strip().title())
-            skill_category = checker(SkillCategory, skill_category_create, skill_category_filter)
+            skill_category_create = dict(name=category_value)
+            skill_category_filter = dict(name__iexact=category_value)
+            skill_category = create_item(SkillCategory, skill_category_create, skill_category_filter)
             for skill_name in obj[category_name].split(","):
-                if skill_name == "":
+                skill_value = clean_value(skill_name)
+                if not skill_value:
                     continue
-                skill_create = dict(name=skill_name.strip().title(), category=skill_category, department=department)
-                skill_filter = dict(name=skill_name.strip().title(), category__name__iexact=skill_category.name, department__name__iexact=department.name)
-                checker(Skill, skill_create, skill_filter)
+                skill_create = dict(name=skill_value, category=skill_category, department=department)
+                skill_filter = dict(name=skill_value, category__name__iexact=skill_category.name, department__name__iexact=department.name)
+                create_item(Skill, skill_create, skill_filter)
 
 
 class Migration(migrations.Migration):
