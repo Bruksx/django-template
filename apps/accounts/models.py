@@ -1040,11 +1040,34 @@ class BusinessUser(BaseModel):
         return Notification.objects.none()
 
     def delete_account(self):
+        from jobs.models import JobPost, JobApplication, JobDraft
+        from settings.models import EmailTemplate, WorkFlowStage
         self.status = BusinessUserStatusType.DELETED.value
         self.save(update_fields=["status"])
-        self.delete()
+        another_business_user = BusinessUser.objects.filter(business=self.business).exclude(id=self.id).first()
+        if not another_business_user:
+            JobPost.objects.filter(recruiter=self).delete()
+            JobPost.objects.filter(posted_by=self).delete()
+            JobApplication.objects.filter(recruiter=self).delete()
+            JobDraft.objects.filter(user=self).delete()
+            TalentFilter.objects.filter(business_user=self).delete()
+            if hasattr(self, "businessusernotificationsettings"):
+                self.businessusernotificationsettings.hard_delete()
+            EmailTemplate.objects.filter(created_by=self).update(created_by=another_business_user)
+            WorkFlowStage.objects.filter(created_by=self).update(created_by=another_business_user)
+            self.delete()
+            self.business.delete()
+            return
+        JobPost.objects.filter(recruiter=self).update(recruiter=another_business_user)
+        JobPost.objects.filter(posted_by=self).update(posted_by=another_business_user)
+        JobApplication.objects.filter(recruiter=self).update(recruiter=another_business_user)
+        JobDraft.objects.filter(user=self).update(user=another_business_user)
+        TalentFilter.objects.filter(business_user=self).delete()
         if hasattr(self, "businessusernotificationsettings"):
             self.businessusernotificationsettings.hard_delete()
+        EmailTemplate.objects.filter(created_by=self).update(created_by=another_business_user)
+        WorkFlowStage.objects.filter(created_by=self).update(created_by=another_business_user)
+        self.delete()
         return
 
     @property
