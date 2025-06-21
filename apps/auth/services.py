@@ -51,17 +51,18 @@ def handle_social_login(data: SocialAuthSchema)->User:
     if data.social_type == SocialType.GOOGLE:
         auth_type = AuthType.GOOGLE
         try:
-            idinfo = id_token.verify_oauth2_token(
+            idinfo = id_token.verify_firebase_token(
                 data.access_token,
                 grequests.Request(),
-                data.app_id
+                #data.app_id
             )
-        except ValueError:
+        except Exception as e:
             raise HttpError(401, "Invalid Google token")
+        first_name, last_name = idinfo["name"].split()
         profile_dict["email"] = idinfo["email"]
         profile_dict["google_id"] = idinfo["sub"]
-        profile_dict["first_name"] = idinfo["given_name"]
-        profile_dict["last_name"] = idinfo["family_name"]
+        profile_dict["first_name"] = first_name
+        profile_dict["last_name"] = last_name
         social_query = Q(email=idinfo["email"])
 
     elif data.social_type == SocialType.LINKEDIN:
