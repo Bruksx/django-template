@@ -22,7 +22,12 @@ tasks = [
         },
         {
             "name": "Job Performance Notification - Friday 3 PM",
-            "func": "job_performance_notification_task",
+            "func": "jobs.tasks.job_performance_notification_task",
             "cron": "0 15 * * 5",  # Every Friday at 3:00 PM
         },
+        {
+        "name": "Lever JobPost Download - 1 AM",
+        "func": "jobs.tasks.fetch_job_posts_from_lever",
+        "cron": "0 1 * * *",  # Every day at 1:00 AM
+        }
     ]
