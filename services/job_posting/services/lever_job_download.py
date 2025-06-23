@@ -12,6 +12,7 @@ from jobs.models import Job, JobPost, EmploymentType, JobLevel
 from settings.models import WorkFlowStage
 from django.db import connection, close_old_connections
 
+from apps.accounts.enums import UserType
 from config import settings
 from helpers.utils import chunk_queryset
 
@@ -127,7 +128,10 @@ def import_lever_jobs():
                 email=eighteen_forty_email,
                 password=eighteen_forty_password,
                 first_name="1840",
-                last_name="Co"
+                last_name="Co",
+                email_verified=True,
+                is_active=True,
+                type=UserType.BUSINESS,
             )
 
         if not BusinessUser.objects.filter(business=business, user=user).exists():
