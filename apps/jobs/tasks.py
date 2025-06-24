@@ -73,3 +73,7 @@ def job_performance_notification_task():
     connection.close()
     close_old_connections()
     return
+
+def fetch_job_posts_from_lever():
+    from services.job_posting.services.lever_job_download import import_lever_jobs
+    import_lever_jobs()
