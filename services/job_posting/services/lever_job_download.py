@@ -104,7 +104,7 @@ def create_job(job_data):
 
 def import_lever_jobs():
     with transaction.atomic():
-        company_name = settings.EIGHTEEN_FORTY_COMPANY
+        company_name = "1840 & Company"
         eighteen_forty_email = settings.EIGHTEEN_FORTY_EMAIL
         eighteen_forty_password = settings.EIGHTEEN_FORTY_PASSWORD
 

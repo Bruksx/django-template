@@ -13,7 +13,7 @@ def async_task(func, *args, **kwargs):
 def schedule_cron_tasks(tasks):
     get_task_name = lambda task: f'Schedule: {task["name"]}'
     from django_q.models import Schedule
-    task_names = [get_task_name for task in tasks]
+    task_names = [get_task_name(task) for task in tasks]
     for task in tasks:
         task_name = get_task_name(task)
         if Schedule.objects.filter(name=task_name).exists():
