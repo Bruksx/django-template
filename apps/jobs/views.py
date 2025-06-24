@@ -1,8 +1,11 @@
 from typing import List, Literal, Union
 from uuid import UUID
 
+from django.http import StreamingHttpResponse, HttpResponse
+
 from config.permissions import IsTalentUser, IsBusinessUser
 from django.db import transaction
+
 from helpers.utils import delete_s3_item
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
@@ -24,6 +27,8 @@ from jobs.services import get_talent_job_recommendations, create_job_application
 from notification import notifications
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+
+from services.job_posting.linkedin_xml_generator import generate_job_post_xml
 
 router = Router()
 
@@ -248,3 +253,4 @@ def set_job_alert(request, job_post_id:UUID, action: Literal["on", "off"]):
 def get_screening_questions(request, job_uid: UUID):
     IsTalentUser.check(request)
     return get_screening_questions_service(request, job_uid)
+

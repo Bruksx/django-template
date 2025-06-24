@@ -1,0 +1,14 @@
+
+{% if responsibilities %}
+Job Responsibilities:
+{% for item in responsibilities %}
+- {{ item }}
+{% endfor %}
+{% endif %}
+
+{% if benefits %}
+Job Benefits:
+{% for item in benefits %}
+- {{ item }}
+{% endfor %}
+{% endif %}
