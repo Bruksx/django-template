@@ -46,11 +46,11 @@ def get_compensation(job_post)->CompensationsSchema:
 					value=RangeValueSchema(
 						start=ValueSchema(
 							amount=str(job_post.annual_salary_min),
-							currencyCode=job_post.annual_salary_currency.code
+							currencyCode=job_post.annual_salary_currency.abbreviation
 						),
 						end=ValueSchema(
 							amount=str(job_post.annual_salary_max),
-							currencyCode=job_post.annual_salary_currency.code
+							currencyCode=job_post.annual_salary_currency.abbreviation
 						)
 					),
 					type="BASE_SALARY",
@@ -64,11 +64,11 @@ def get_compensation(job_post)->CompensationsSchema:
 					value=RangeValueSchema(
 						start=ValueSchema(
 							amount=str(job_post.annual_bonus_min),
-							currencyCode=job_post.annual_bonus_currency.code
+							currencyCode=job_post.annual_bonus_currency.abbreviation
 						),
 						end=ValueSchema(
 							amount=str(job_post.annual_bonus_max),
-							currencyCode=job_post.annual_bonus_currency.code
+							currencyCode=job_post.annual_bonus_currency.abbreviation
 						)
 					),
 					type="BONUS",
@@ -92,11 +92,13 @@ def experience_level_mapper(experience_level):
 	).get(experience_level, ExperienceLevelEnum.NOT_APPLICABLE.value)
 
 
-def job_post_to_job_schema(job_post)->JobSchema:
-	description = render_text_email("jobs/job_description.txt", {
-		"responsibilities": job_post.job.responsibilities,
-		"benefits": job_post.benefits
-	})
+def job_post_to_job_schema(job_post, lang="en")->JobSchema:
+	responsibilities = job_post.job.responsibilities
+	benefits = job_post.benefits
+	description = render_text_email(f"jobs/{lang}/job_description.txt", {
+		"responsibilities": responsibilities,
+		"benefits": benefits
+	}) if responsibilities or benefits else ""
 	apply_url = f"{settings.FRONTEND_URL}/job-details/{job_post.uid}"
 	employment_status = employment_type_mapper(job_post.job.employment_type.name if job_post.job.employment_type else "")
 	return JobSchema(
@@ -107,7 +109,7 @@ def job_post_to_job_schema(job_post)->JobSchema:
 				externalJobPostingId=str(job_post.uid),
 				listedAt=datetime_to_epoch_milliseconds(job_post.created_at),
 				location=get_location(job_post),
-				workplaceTypes=workplace_type_mapper(job_post.job.work_structure),
+				workplaceTypes=[workplace_type_mapper(job_post.job.work_structure)],
 				compensation=get_compensation(job_post),
 				experienceLevel=experience_level_mapper(job_post.job.job_level.name if job_post.job.job_level else ""),
 			)

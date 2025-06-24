@@ -19,13 +19,14 @@ from django.contrib import admin
 from django.urls import path
 
 from . import settings
-from .api import api
+from .api import api, xml_api
 from .websocket_endpoints import websocket
 
 
 urlpatterns = [
     path('admin_gtc_8hfj5dncgodxcuchnmaujsopq274/', admin.site.urls),
     path('api/', api.urls),
+    path("xml/", xml_api.urls),
     path("", websocket.urls),
 ]
 
