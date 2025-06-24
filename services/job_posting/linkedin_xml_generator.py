@@ -22,7 +22,7 @@ def generate_job_post_xml_stream():
 
     queryset = JobPost.objects.select_related("job").filter(
         status=JobStatusType.POSTED.value,
-    ).order_by("-created_at").iterator(chunk_size=30)
+    ).order_by("-created_at").iterator()
 
     for job in queryset:
         linkedin_job = job_post_to_job_schema(job)
