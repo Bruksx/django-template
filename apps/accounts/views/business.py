@@ -211,7 +211,7 @@ def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
         user=user.fullname,
         email=user.email,
         business=business.name,
-        user_uid=str(user.uid)
+        token=business_user.get_invite_token(),
     )
     return Response(status=201, data={"message": "User invited successfully"})
 
@@ -219,7 +219,10 @@ def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
 @router.post("users/accept-invite")
 @transaction.atomic
 def accept_business_user_invite(request, data: business_schema.AcceptBusinessUserInviteSchema):
-    business_user = BusinessUser.objects.filter(uid=data.code).first()
+    token_data = BusinessUser.validate_invite_token(data.code)
+    if not token_data:
+        raise HttpError(400, "This link is invalid") 
+    business_user = BusinessUser.objects.filter(uid=token_data["business_user_uid"]).first()
     if not business_user:
         raise HttpError(400, "This link is invalid")
     if business_user.user.is_active or business_user.user.email_verified:
@@ -242,6 +245,7 @@ def accept_business_user_invite(request, data: business_schema.AcceptBusinessUse
     async_task(send_business_user_welcome_email,
                user=user.fullname, email=user.email, business=business_user.business.name)
     return Response(status=200, data={"message": "You have successfully accepted the invite"})
+
 
 @router.post("users/transfer-role", auth=JWTAuth())
 @transaction.atomic
@@ -401,7 +405,7 @@ def resend_business_user_invite(request, business_user_uid: UUID):
         user=business_user.user.fullname,
         email=business_user.user.email,
         business=business_user.business.name,
-        user_uid=str(business_user.user.uid)
+        token=business_user.get_invite_token(),
     )
     return Response(status=200, data={"message": "Invite resent successfully"})
 
