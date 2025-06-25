@@ -301,7 +301,7 @@ class MutateBusinessUserSchema(Schema):
 
 
 class AcceptBusinessUserInviteSchema(Schema):
-    code: UUID
+    code: str
     password: str
 
 class SendEmailSchema(Schema):
@@ -404,7 +404,6 @@ class TalentFilterListSchema(ModelSchema):
 class TransferRoleSchema(Schema):
     from_business_user: UUID
     to_business_user: UUID
-
 
 
 class ReassignJobPostInputSchema(Schema):
