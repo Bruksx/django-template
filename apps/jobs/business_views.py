@@ -369,7 +369,7 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
                                    Q(role__name__icontains=search)|
                                    Q(hiring_company_name=search))
     if status:
-        queryset = queryset.filter(jobpost__status=status.value).distinct()
+        request.context = {"status": status.value}
 
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(
@@ -377,7 +377,8 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
         request=request,
         pagination=pagination,
         roles=queryset.count(),
-        posts=business_user.business.job_posts().filter(job__in=queryset).count()
+        posts= business_user.business.job_posts().filter(job__in=queryset, status=status.value).count() if status else
+        business_user.business.job_posts().filter(job__in=queryset).count()
     )
 
 @router.get("{job_uid}", response=job_schemas.FullJobDetailSchema, auth=JWTAuth())

@@ -1,29 +1,21 @@
 # import os
+# from random import choice
 #
 # import django
 #
-#
 # os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 # django.setup()
-# from services.job_posting.services.lever_job_download import import_lever_jobs
-# from jobs.schemas import JobPostFullDetailSchema
+#
 # from jobs.models import JobPost
-# from core.schemas import GenericNameAndUidSchema
-# from jobs.models import EmploymentType
+# from jobs.enums import JobStatusType
 #
 #
 #
 #
-# jobs = import_lever_jobs()
+#
+# jobs = JobPost.objects.iterator()
+# for job in jobs:
+#     job.status = choice(JobStatusType.values())
+#     job.save()
 #
 #
-# for j in JobPost.objects.order_by("-id")[:30]:
-#     try:
-#         print(JobPostFullDetailSchema.from_orm(j).model_dump_json())
-#     except Exception as e:
-#         # print("error: ", e)
-#         print("job: ", j)
-#
-#
-# for j in EmploymentType.objects.all():
-#     print(GenericNameAndUidSchema.from_orm(j).model_dump_json())

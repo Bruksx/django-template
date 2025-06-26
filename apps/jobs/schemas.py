@@ -586,8 +586,13 @@ class JobFullListSchema(ModelSchema):
         return "Multiple"
 
     @staticmethod
-    def resolve_job_posts(obj):
-        return obj.jobpost_set
+    def resolve_job_posts(obj, context):
+        request = context.get("request")
+        if request and hasattr(request, "context"):
+            status = request.context.get("status")
+            if status:
+                return obj.jobpost_set.filter(status=status).order_by("-created_at")
+        return obj.jobpost_set.order_by("-created_at")
 
     @staticmethod
     def resolve_role(obj):
@@ -704,6 +709,7 @@ class JobPostFullDetailSchema(ModelSchema):
     country: GenericNameAndUidSchema
     recruiter: Optional[BusinessUserSchema]
     posted_by: Optional[BusinessUserSchema]
+    benefits: List[str] = list()
     saved: Optional[bool] = None
     alert: Optional[bool] = None
 
