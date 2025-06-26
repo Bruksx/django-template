@@ -18,7 +18,7 @@ from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
-    Skill
+    Skill, Role
 from core.models import Language
 from core.schemas import GenericNameAndUidSchema
 from jobs.models import Job, JobPost
@@ -101,7 +101,6 @@ def complete_company_profile(request, data: business_schema.CompleteBusinessProf
 @router.get("dashboard", auth=JWTAuth(), response={200: business_schema.DashboardSchema})
 def business_dashboard(request, start_date: date=None, end_date: date=None, role_id: UUID=None, client: str=None):
     # will require caching
-    from accounts.models import Role
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     business = business_user.business
