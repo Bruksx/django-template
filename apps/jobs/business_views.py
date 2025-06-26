@@ -171,7 +171,7 @@ def update_job_post(request, job_post_uid, data: PatchDict[job_schemas.MutateJob
         if data["status"] == JobStatusType.DRAFT.value and job_post.status != JobStatusType.DRAFT.value:
             # you're trying to prevent editing job posts with applications
             new_job = job_post.copy()
-            data["status"] = JobStatusType.CLOSED.value
+
     if new_job:
         job_post.update(status=JobStatusType.CLOSED.value)
         new_job.update(**data)
