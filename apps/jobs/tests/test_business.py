@@ -830,17 +830,17 @@ class JobPostUpdateTest(TestCase):
         self.assertEqual(response.status_code, 200)
 
         self.job_post.refresh_from_db()
-
-        self.assertEqual(self.test_data["status"], response.json()["status"])
-        self.assertNotEqual(self.job_post.uid, response.json()["uid"])
-        self.assertEqual(response.json()["benefits"], self.test_data["benefits"])
+        data = response.json()
+        self.assertEqual(self.test_data["status"], data["status"])
+        self.assertNotEqual(self.job_post.uid, data["uid"])
+        self.assertEqual(data["benefits"], self.test_data["benefits"])
         self.assertEqual(self.job_post.status, "closed")
-        self.assertEqual(response.data["annual_salary_currency"], self.currency)
-        self.assertEqual(response.data["annual_bonus_currency"], self.currency)
-        self.assertEqual(response.data["annual_salary_min"], self.test_data["annual_salary_min"])
-        self.assertEqual(response.data["annual_salary_max"], self.test_data["annual_salary_max"])
-        self.assertEqual(response.data["annual_bonus_min"], self.test_data["annual_bonus_min"])
-        self.assertEqual(response.data["annual_bonus_max"], self.test_data["annual_bonus_max"])
+        self.assertEqual(data["annual_salary_currency"], self.currency)
+        self.assertEqual(data["annual_bonus_currency"], self.currency)
+        self.assertEqual(data["annual_salary_min"], self.test_data["annual_salary_min"])
+        self.assertEqual(data["annual_salary_max"], self.test_data["annual_salary_max"])
+        self.assertEqual(data["annual_bonus_min"], self.test_data["annual_bonus_min"])
+        self.assertEqual(data["annual_bonus_max"], self.test_data["annual_bonus_max"])
 
 
 
