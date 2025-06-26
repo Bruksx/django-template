@@ -99,7 +99,7 @@ def job_post_to_job_schema(job_post, lang="en")->JobSchema:
 		"responsibilities": responsibilities,
 		"benefits": benefits
 	}) if responsibilities or benefits else ""
-	apply_url = f"{settings.FRONTEND_URL}/job-details/{job_post.uid}"
+	apply_url = f"{settings.FRONTEND_URL}job-details/{job_post.uid}"
 	employment_status = employment_type_mapper(job_post.job.employment_type.name if job_post.job.employment_type else "")
 	return JobSchema(
 				title=job_post.job.title,
