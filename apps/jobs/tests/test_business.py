@@ -819,8 +819,8 @@ class JobPostUpdateTest(TestCase):
         }
 
         self.assertNotEqual(self.job_post.status, self.test_data["status"])
-        self.assertNotEqual(self.job_post.annual_salary_currency, self.currency)
-        self.assertNotEqual(self.job_post.annual_bonus_currency, self.currency)
+        self.assertNotEqual(self.job_post.annual_salary_currency, self.currency.abbreviation)
+        self.assertNotEqual(self.job_post.annual_bonus_currency, self.currency.abbreviation)
         self.assertNotEqual(self.job_post.annual_salary_min, self.test_data["annual_salary_min"])
         self.assertNotEqual(self.job_post.annual_salary_max, self.test_data["annual_salary_max"])
         self.assertNotEqual(self.job_post.annual_bonus_min, self.test_data["annual_bonus_min"])
