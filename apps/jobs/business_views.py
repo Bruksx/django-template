@@ -60,6 +60,18 @@ def get_roles(request, search=""):
                                    Q(department__name__icontains=search))
     return queryset.distinct("name").order_by("name")
 
+
+@router.get("business-roles", auth=JWTAuth(), response=list[RoleSchema], tags=["Common"])
+def get_business_roles(request, search=""):
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
+    role_ids = Job.objects.select_related("created_by__business").filter(created_by__business=business).only("role_id").distinct("role_id").values_list("role_id", flat=True)
+    queryset = Role.objects.prefetch_related("department").filter(id__in=role_ids)
+    if search:
+        queryset = queryset.filter(Q(name__icontains=search)|
+                                   Q(department__name__icontains=search))
+    return queryset.distinct("name").order_by("name")
+
 @router.get("job-levels", response=list[JobLevelSchema], tags=["Common"])
 def get_job_levels(request, search=""):
     queryset = JobLevel.objects.all()
