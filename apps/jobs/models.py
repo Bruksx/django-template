@@ -243,6 +243,26 @@ class JobPost(BaseModel):
         blank=True
     )
 
+    def copy(self):
+        return JobPost.objects.create(
+            job=self.job,
+            status=JobStatusType.DRAFT.value,
+            country=self.country,
+            province=self.province,
+            city=self.city,
+            postal_code=self.postal_code,
+            benefits=self.benefits,
+            share_compensation=self.share_compensation,
+            annual_salary_min=self.annual_salary_min,
+            annual_salary_max=self.annual_salary_max,
+            annual_salary_currency=self.annual_salary_currency,
+            annual_bonus_min=self.annual_bonus_min,
+            annual_bonus_max=self.annual_bonus_max,
+            annual_bonus_currency=self.annual_bonus_currency,
+            recruiter=self.recruiter,
+            posted_by=self.posted_by,
+        )
+
 
 
     def __str__(self) -> str:

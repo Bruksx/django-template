@@ -162,13 +162,20 @@ def update_job_post(request, job_post_uid, data: PatchDict[job_schemas.MutateJob
     job_post =  JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business_user.business).first()
     if not job_post:
         raise HttpError(404, "This job post does not exist")
+    create_new_job = False
     if "status" in data:
         data["status"] = data["status"].value
         if data["status"] == JobStatusType.POSTED.value:
             data["posted_by"] = business_user
             data["date_posted"] = timezone.now()
+        if data["status"] == JobStatusType.DRAFT.value and job_post.status != JobStatusType.DRAFT.value:
+            # you're trying to prevent editing job posts with applications
+            create_new_job = True
+            data["status"] = JobStatusType.CLOSED.value
 
     job_post.update(**data)
+    if create_new_job is True:
+        return job_post.copy()
     return job_post
 
 @router.patch("job-posts", response=ResponseSchema, auth=JWTAuth())

@@ -209,7 +209,7 @@ class TestJobList(TestCase):
         self.business_user = BusinessUserFactory.create(user=self.business.created_by, business=self.business)
         jobs = JobFactory.create_batch(5, created_by=self.business_user)
         for job in jobs:
-            JobPostFactory.create_batch(5, country=country, job=job, recruiter=self.business_user)
+            JobPostFactory.create_batch(5, country=country, job=job, recruiter=self.business_user, status=JobStatusType.POSTED.value)
 
 
     def test_job_list_endpoint_by_business_user(self):
