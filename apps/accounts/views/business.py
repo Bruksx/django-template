@@ -101,9 +101,15 @@ def complete_company_profile(request, data: business_schema.CompleteBusinessProf
 @router.get("dashboard", auth=JWTAuth(), response={200: business_schema.DashboardSchema})
 def business_dashboard(request, start_date: date=None, end_date: date=None, role_id: UUID=None, client: str=None):
     # will require caching
+    from accounts.models import Role
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     business = business_user.business
+    if role_id:
+        role = Role.objects.filter(uid=role_id).first()
+        if not role:
+            raise HttpError(404, "Role not found")
+        role_id = role.id
     context = dict(
         start_date=start_date,
         end_date=end_date,
