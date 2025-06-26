@@ -376,6 +376,7 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
                                    Q(role__name__icontains=search)|
                                    Q(hiring_company_name=search))
     if status:
+        queryset = queryset.filter(jobpost__status=status.value)
         request.context = {"status": status.value}
 
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
