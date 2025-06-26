@@ -18,7 +18,7 @@ from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
-    Skill
+    Skill, Role
 from core.models import Language
 from core.schemas import GenericNameAndUidSchema
 from jobs.models import Job, JobPost
@@ -104,6 +104,11 @@ def business_dashboard(request, start_date: date=None, end_date: date=None, role
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     business = business_user.business
+    if role_id:
+        role = Role.objects.filter(uid=role_id).first()
+        if not role:
+            raise HttpError(404, "Role not found")
+        role_id = role.id
     context = dict(
         start_date=start_date,
         end_date=end_date,
