@@ -94,7 +94,6 @@ class CompleteCompanyProfileTestCase(TestCase):
             "website": "string",
             "industry_uid": str(self.industry.uid),
             "location": "string",
-            "logo": "base64string",
             "instagram": "www.instagram.com",
             "linkedin": "www.linkedin.com",
             "facebook": "www.fb.com",

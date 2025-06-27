@@ -544,7 +544,7 @@ class Business(BaseModel):
     industry = models.ForeignKey(BusinessIndustry, null=True, on_delete=models.SET_NULL)
 
     def __str__(self):
-        return self.name
+        return f"{self.name}"
 
     def location(self):
         return f"{self.address}, {self.country}"
@@ -1023,7 +1023,7 @@ class BusinessUser(BaseModel):
                               default=BusinessUserStatusType.ACTIVE.value)
 
     def __str__(self) -> str:
-        return str(self.user)
+        return f"{self.user.first_name} {self.user.last_name}"
 
     def get_added_by(self):
         if not self.added_by:
