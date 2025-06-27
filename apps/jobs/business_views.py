@@ -155,7 +155,7 @@ def refresh_job_post(request, job_post_uid:UUID):
         now = timezone.now()
         if (now - job_post.date_posted) < timedelta(days=14):
             raise HttpError(400, "You can only refresh job posts older than 2 weeks")
-        job_post.update(date_posted=timezone.now())
+    job_post.update(date_posted=timezone.now())
     return Response(status=200, data={"message": "Job post refreshed successfully"})
 
 
