@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
 
@@ -141,6 +142,24 @@ def delete_job_post(request, job_post_uid:UUID):
         raise HttpError(400, "Some job applications are tied to this job post")
     job_post.delete()
     return Response(status=204, data={"message": "Job post deleted"})
+
+
+@router.post("job-post/{job_post_uid}/refresh", auth=JWTAuth())
+def refresh_job_post(request, job_post_uid:UUID):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    job_post =  JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business_user.business).first()
+    if not job_post:
+        raise HttpError(404, "This job post does not exist")
+    if job_post.date_posted:
+        now = timezone.now()
+        if (now - job_post.date_posted) < timedelta(days=14):
+            raise HttpError(400, "You can only refresh job posts older than 2 weeks")
+        job_post.update(date_posted=timezone.now())
+    return Response(status=200, data={"message": "Job post refreshed successfully"})
+
+
+
 
 @router.delete("job/{job_uid}", auth=JWTAuth())
 def delete_job(request, job_uid:UUID):
