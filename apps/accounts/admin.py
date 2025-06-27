@@ -34,7 +34,7 @@ class SkillCategoryAdmin(admin.ModelAdmin):
 
 
 class UserAdmin(admin.ModelAdmin):
-    list_display = ('email', 'first_name', 'last_name',)  # Extra columns
+    list_display = ('email', 'type', 'first_name', 'last_name',)
     search_fields = ('email', 'first_name', 'last_name',)
     ordering = ('-created_at',)
 

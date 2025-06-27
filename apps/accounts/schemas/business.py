@@ -29,7 +29,7 @@ class CompleteBusinessProfileSchema(ModelSchema):
 
     class Meta:
         model = Business
-        fields = ["size", "description", "website", "address", "logo", "instagram", "linkedin", "facebook",
+        fields = ["size", "description", "website", "address", "instagram", "linkedin", "facebook",
                   "twitter_x"]
 
 class BusinessSchema(ModelSchema):
