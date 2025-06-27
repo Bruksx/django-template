@@ -92,7 +92,7 @@ def complete_company_profile(request, data: business_schema.CompleteBusinessProf
     for key, value in data:
         if hasattr(business, key):
             setattr(business, key, value)
-    business.logo = convert_base64_to_image_file(data.logo)
+    business.logo = data.logo
     business.industry = industry
     business.country = country
     business.save()
