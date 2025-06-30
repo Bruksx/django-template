@@ -28,6 +28,7 @@ from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
 from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema, TalentFilterListSchema
+from ..services import create_business_workflows
 
 router = Router(tags=["Business Account"])
 
@@ -52,32 +53,34 @@ def create_account(request, data: business_schema.ValidateOTPSchema):
     if existing_user:
         raise HttpError(400, "An account with this email already exists")
     verification_code = VerificationCode.objects.filter(email=data.email).last()
-    if verification_code:
-        is_correct = verification_code.verify_code(data.otp)
-        if is_correct:
-            user = User.objects.create(
-                first_name=data.first_name,
-                last_name=data.last_name,
-                type=UserType.BUSINESS.value,
-                email=data.email,
-                username=None,
-                email_verified=True,
-            )
-            user.set_password(data.password)
-            user.save()
-            business = Business(
-                name=data.company_name,
-                created_by=user,
-            )
-            business.save()
-            business_user = BusinessUser(
-                business=business,
-                user=user,
-                role=BusinessUserRoleType.OWNER.value,
-            )
-            business_user.save()
-            return user
-    raise HttpError(400, "Incorrect otp")
+    if not verification_code:
+        raise HttpError(400, "Invalid otp")
+    is_correct = verification_code.verify_code(data.otp)
+    if not is_correct:
+        raise HttpError(400, "Invalid otp")
+    user = User.objects.create(
+        first_name=data.first_name,
+        last_name=data.last_name,
+        type=UserType.BUSINESS.value,
+        email=data.email,
+        username=None,
+        email_verified=True,
+    )
+    user.set_password(data.password)
+    user.save()
+    business = Business(
+        name=data.company_name,
+        created_by=user,
+    )
+    business.save()
+    business_user = BusinessUser(
+        business=business,
+        user=user,
+        role=BusinessUserRoleType.OWNER.value,
+    )
+    business_user.save()
+    async_task(create_business_workflows, business.id)
+    return user
 
 
 @router.patch("complete-company-profile", response=business_schema.BusinessSchema, auth=JWTAuth())
