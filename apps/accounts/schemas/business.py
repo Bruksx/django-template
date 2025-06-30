@@ -21,7 +21,7 @@ class ValidateOTPSchema(Schema):
     role: str
     company_name: str
     password: str
-    phone_number: str
+    phone_number: Optional[str] = None
 
 
 class CompleteBusinessProfileSchema(ModelSchema):
