@@ -2,6 +2,7 @@ from urllib.parse import urlencode
 from uuid import uuid4
 
 from django.test import TestCase
+import jwt
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
@@ -93,7 +94,6 @@ class CompleteCompanyProfileTestCase(TestCase):
             "website": "string",
             "industry_uid": str(self.industry.uid),
             "location": "string",
-            "logo": "base64string",
             "instagram": "www.instagram.com",
             "linkedin": "www.linkedin.com",
             "facebook": "www.fb.com",
@@ -492,7 +492,7 @@ class AcceptBusinessUserInviteTest(TestCase):
 
     def test_accept_business_user_invite(self):
         data = {
-            "code": self.invited_business_user.uid,
+            "code": self.invited_business_user.get_invite_token(),
             "password": "TestPassword"
         }
         response = self.client.post(self.url, json=data)
@@ -505,16 +505,7 @@ class AcceptBusinessUserInviteTest(TestCase):
 
     def test_invalid_code(self):
         data = {
-            "code": uuid4(),
-            "password": "TestPassword"
-        }
-        response = self.client.post(self.url, json=data)
-        self.assertEqual(response.status_code, 400)
-
-    def test_talent_uid_as_code(self):
-        talent = TalentFactory.create()
-        data = {
-            "code": talent.uid,
+            "code": jwt.encode({"key": "fake_payload"}, "fake_private_key"),
             "password": "TestPassword"
         }
         response = self.client.post(self.url, json=data)
@@ -528,7 +519,7 @@ class AcceptBusinessUserInviteTest(TestCase):
         user.email_verified = True
         user.save()
         data = {
-            "code": self.invited_business_user.uid,
+            "code": self.invited_business_user.get_invite_token(),
             "password": "TestPassword"
         }
         response = self.client.post(self.url, json=data)

@@ -10,7 +10,6 @@ from django.shortcuts import get_object_or_404
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
 from helpers.email.auth import send_verification_code
 from helpers.email.utils import send_email
-from helpers.utils import convert_base64_to_image_file
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from ninja import Router, UploadedFile, PatchDict, Form
@@ -65,6 +64,7 @@ def create_account(request, data: business_schema.ValidateOTPSchema):
         email=data.email,
         username=None,
         email_verified=True,
+        phone_number=data.phone_number,
     )
     user.set_password(data.password)
     user.save()
@@ -95,7 +95,6 @@ def complete_company_profile(request, data: business_schema.CompleteBusinessProf
     for key, value in data:
         if hasattr(business, key):
             setattr(business, key, value)
-    business.logo = convert_base64_to_image_file(data.logo)
     business.industry = industry
     business.country = country
     business.save()
@@ -219,7 +218,7 @@ def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
         user=user.fullname,
         email=user.email,
         business=business.name,
-        user_uid=str(user.uid)
+        token=business_user.get_invite_token(),
     )
     return Response(status=201, data={"message": "User invited successfully"})
 
@@ -227,7 +226,10 @@ def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
 @router.post("users/accept-invite")
 @transaction.atomic
 def accept_business_user_invite(request, data: business_schema.AcceptBusinessUserInviteSchema):
-    business_user = BusinessUser.objects.filter(uid=data.code).first()
+    token_data = BusinessUser.validate_invite_token(data.code)
+    if not token_data:
+        raise HttpError(400, "This link is invalid")
+    business_user = BusinessUser.objects.filter(uid=token_data["business_user_uid"]).first()
     if not business_user:
         raise HttpError(400, "This link is invalid")
     if business_user.user.is_active or business_user.user.email_verified:
@@ -250,6 +252,7 @@ def accept_business_user_invite(request, data: business_schema.AcceptBusinessUse
     async_task(send_business_user_welcome_email,
                user=user.fullname, email=user.email, business=business_user.business.name)
     return Response(status=200, data={"message": "You have successfully accepted the invite"})
+
 
 @router.post("users/transfer-role", auth=JWTAuth())
 @transaction.atomic
@@ -409,7 +412,7 @@ def resend_business_user_invite(request, business_user_uid: UUID):
         user=business_user.user.fullname,
         email=business_user.user.email,
         business=business_user.business.name,
-        user_uid=str(business_user.user.uid)
+        token=business_user.get_invite_token(),
     )
     return Response(status=200, data={"message": "Invite resent successfully"})
 

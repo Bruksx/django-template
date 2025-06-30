@@ -14,9 +14,11 @@ from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
 from helpers.utils import delete_s3_item
 from ninja_jwt.tokens import RefreshToken
+import jwt
 
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
     BusinessSize, BusinessUserStatusType, CaseReasonType
+from config.settings import SECRET_KEY
 from core.models import BaseModel
 from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
 from notification.enums import NotificationGroup
@@ -542,7 +544,7 @@ class Business(BaseModel):
     industry = models.ForeignKey(BusinessIndustry, null=True, on_delete=models.SET_NULL)
 
     def __str__(self):
-        return self.name
+        return f"{self.name}"
 
     def location(self):
         return f"{self.address}, {self.country}"
@@ -1021,7 +1023,7 @@ class BusinessUser(BaseModel):
                               default=BusinessUserStatusType.ACTIVE.value)
 
     def __str__(self) -> str:
-        return str(self.user)
+        return f"{self.user.first_name} {self.user.last_name}"
 
     def get_added_by(self):
         if not self.added_by:
@@ -1073,6 +1075,22 @@ class BusinessUser(BaseModel):
     @property
     def talentfilter(self):
         return self.talentfilter_set.first()
+    
+    def get_invite_token(self):
+        payload = {
+            "business_user_uid": str(self.uid),
+            "timestamp": str(timezone.now())
+        }
+        token = jwt.encode(payload, SECRET_KEY, "HS256")
+        return token
+
+    @classmethod
+    def validate_invite_token(cls, token):
+        try:
+            data = jwt.decode(token, SECRET_KEY, "HS256")
+            return data
+        except jwt.DecodeError:
+            return None
 
 
 

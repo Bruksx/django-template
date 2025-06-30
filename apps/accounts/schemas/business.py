@@ -21,6 +21,7 @@ class ValidateOTPSchema(Schema):
     role: str
     company_name: str
     password: str
+    phone_number: Optional[str] = None
 
 
 class CompleteBusinessProfileSchema(ModelSchema):
@@ -29,7 +30,7 @@ class CompleteBusinessProfileSchema(ModelSchema):
 
     class Meta:
         model = Business
-        fields = ["size", "description", "website", "address", "logo", "instagram", "linkedin", "facebook",
+        fields = ["size", "description", "website", "address", "instagram", "linkedin", "facebook",
                   "twitter_x"]
 
 class BusinessSchema(ModelSchema):
@@ -301,7 +302,7 @@ class MutateBusinessUserSchema(Schema):
 
 
 class AcceptBusinessUserInviteSchema(Schema):
-    code: UUID
+    code: str
     password: str
 
 class SendEmailSchema(Schema):
@@ -404,7 +405,6 @@ class TalentFilterListSchema(ModelSchema):
 class TransferRoleSchema(Schema):
     from_business_user: UUID
     to_business_user: UUID
-
 
 
 class ReassignJobPostInputSchema(Schema):
