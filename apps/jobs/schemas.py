@@ -95,7 +95,7 @@ class MutateJobPostListSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "created_at", "posted_by"]
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "created_at", "posted_by", "date_posted"]
         fields_optional = "__all__"
 
 class BusinessUserSchema(ModelSchema):
@@ -352,7 +352,7 @@ class JobPostDetailSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "province", "city", "postal_code", "status", "share_compensation"]
+        fields = ["uid", "province", "city", "postal_code", "status", "share_compensation", "created_at", "date_posted"]
 
     @staticmethod
     def resolve_annual_bonus_currency(obj):
@@ -505,7 +505,7 @@ class JobPostListSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "created_at"]
+        fields = ["uid", "status", "created_at", "date_posted"]
 
 
     @staticmethod
@@ -716,7 +716,7 @@ class JobPostFullDetailSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "created_at", "province", "city", "postal_code"]
+        fields = ["uid", "status", "created_at", "province", "city", "postal_code", "date_posted"]
 
     @staticmethod
     def resolve_saved(obj, context):
@@ -834,7 +834,7 @@ class TalentJobPostListSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ("uid", "job", "country", "province", "city", "postal_code", "status")
+        fields = ("uid", "job", "country", "province", "city", "postal_code", "status", "date_posted", "created_at")
 
     @staticmethod
     def resolve_alert(obj, context):
