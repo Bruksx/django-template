@@ -267,9 +267,9 @@ def send_business_user_notification(business_user, action: EntityActionType, act
         return
 
     description_mapping =  {
-        EntityActionType.NEW: f"{business_user.user.fullname} has been added to your company profile",
-        EntityActionType.UPDATE: f"{business_user.user.fullname} {action_str}",
-        EntityActionType.DELETE: f"{business_user.user.fullname} has deleted their account",
+        EntityActionType.NEW.value: f"{business_user.user.fullname} has been added to your company profile",
+        EntityActionType.UPDATE.value: f"{business_user.user.fullname} {action_str}",
+        EntityActionType.DELETE.value: f"{business_user.user.fullname} has deleted their account",
     }
     notification = Notification(
         title="New Business User",
