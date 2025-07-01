@@ -13,3 +13,10 @@ class BaseEnum(Enum):
     @classmethod
     def indices(cls):
         return [i for i, x in enumerate(cls)]
+
+    @classmethod
+    def get(cls, value):
+        for item in cls.values():
+            if str(item).lower() == str(value).lower():
+                return item
+        return None

@@ -1,9 +1,16 @@
+from typing import Optional
+
 from ninja import ModelSchema
 
+from notification.enums import EntityActionType, EntityType, NotificationType
 from notification.models import Notification, BusinessUserNotificationSettings
 
 
 class NotificationSchema(ModelSchema):
+    action: Optional[EntityActionType] = None
+    entity: Optional[EntityType] = None
+    notification_type: Optional[NotificationType] = None
+
     class Meta:
         model = Notification
         fields = ("title", "description", "action",
