@@ -155,11 +155,11 @@ class TestSendBusinessUserNotification(TestCase):
 
     def test_send_business_user_notification(self):
         self.assertEqual(Notification.objects.all().count(), 0)
-        send_business_user_notification(self.business_user, EntityActionType.NEW.value, "has joined the business")
+        send_business_user_notification(self.business_user, EntityActionType.NEW, "has joined the business")
         self.assertEqual(Notification.objects.all().count(), 1)
 
     def test_where_no_user(self):
-        send_business_user_notification(None, EntityActionType.NEW.value, "has joined the business")
+        send_business_user_notification(None, EntityActionType.NEW, "has joined the business")
         self.assertEqual(Notification.objects.all().count(), 0)
 
     def test_where_no_action(self):

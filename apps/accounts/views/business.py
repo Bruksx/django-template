@@ -246,7 +246,7 @@ def accept_business_user_invite(request, data: business_schema.AcceptBusinessUse
     business_user.save(update_fields=["status"])
     notifications.send_business_user_notification(
         business_user=business_user,
-        action=notifications.EntityActionType.NEW.value,
+        action=notifications.EntityActionType.NEW,
         action_str="has joined your business"
     )
     async_task(send_business_user_welcome_email,
@@ -423,7 +423,7 @@ def delete_account(request):
     IsBusinessUser.check(request)
     notifications.send_business_user_notification(
         business_user=request.user.businessuser,
-        action=notifications.EntityActionType.DELETE.value,
+        action=notifications.EntityActionType.DELETE,
         action_str="has deleted their account"
     )
     request.user.delete_account()
