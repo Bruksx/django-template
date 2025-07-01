@@ -274,7 +274,7 @@ def send_business_user_notification(business_user, action: EntityActionType, act
     notification = Notification(
         title="New Business User",
         description=description_mapping[action],
-        action=action,
+        action=action.value,
         notification_type=NotificationType.USER.value,
         entity=EntityType.BUSINESS_USER.value,
         entity_uid=business_user.uid,
