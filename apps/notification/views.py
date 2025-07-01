@@ -39,12 +39,11 @@ def update_notification_settings(request, data: PatchDict[NotificationSettingsSc
 @router.get("", auth=JWTAuth(), response=PaginatedResponseSchema[NotificationSchema])
 @paginate(PageNumberPaginationExtra, page_size=50)
 def get_notifications(request, viewed: bool = False):
-    # if hasattr(request.user, "businessuser"):
-    #     return request.user.businessuser.notifications(viewed=viewed)
-    # elif hasattr(request.user, "talent"):
-    #     return request.user.talent.notifications(viewed=viewed)
-    # return Notification.objects.none()
-    return Notification.objects.all()
+    if hasattr(request.user, "businessuser"):
+        return request.user.businessuser.notifications(viewed=viewed)
+    elif hasattr(request.user, "talent"):
+        return request.user.talent.notifications(viewed=viewed)
+    return Notification.objects.none()
 
 @router.patch("{notification_uid}/read", auth=JWTAuth())
 def read_notification(request, notification_uid: UUID):
