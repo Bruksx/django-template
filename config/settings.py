@@ -129,10 +129,20 @@ CORS_ALLOW_CREDENTIALS = True
 
 
 DATABASES = {
-    'default': dj_database_url.config(
-        conn_max_age=120,
+    'default': {**dj_database_url.config(
+        conn_max_age=0,
         conn_health_checks=True,
     ),
+        "OPTIONS": {
+            "pool":{
+                "min_size": 2,
+                "max_size": 10,
+                "timeout": 30,
+            }
+
+        },
+
+    }
 }
 
 
