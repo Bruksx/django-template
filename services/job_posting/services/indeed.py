@@ -26,7 +26,7 @@ def get_remote_type(work_structure: WorkStructureEnum):
 def get_education(job: Job):
     if not job.minimum_education_level:
         "Not Required"
-    return job.minimum_education_level.name
+    return job.minimum_education_level.level
 
 def get_experience(job: Job):
     role = job.role.name
@@ -53,7 +53,7 @@ def convert_job_object_to_job(job_post:JobPost):
     job:Job = job_post.job
     business_user: BusinessUser = job_post.job.created_by
     return {
-        "sourcePostingId": job_post.indeed_id,
+        "sourcePostingId": job_post.indeed_id or None,
         "body": {
             "title": job.title,
             "description": job.about,

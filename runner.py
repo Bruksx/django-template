@@ -1,21 +1,14 @@
-# import os
-# from random import choice
-#
-# import django
-#
-# os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
-# django.setup()
-#
-# from jobs.models import JobPost
-# from jobs.enums import JobStatusType
-#
-#
-#
-#
-#
-# jobs = JobPost.objects.iterator()
-# for job in jobs:
-#     job.status = choice(JobStatusType.values())
-#     job.save()
-#
-#
+import os
+
+import django
+
+
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+django.setup()
+
+from services.job_posting.services import indeed
+
+jobs = indeed.JobPost.objects.all()[:2]
+for job in jobs:
+    print(indeed.convert_job_object_to_job(job))
+

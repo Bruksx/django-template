@@ -7,7 +7,6 @@ from django.conf import settings
 from django.utils import timezone
 
 from helpers.loggers import Logger, LogSchema
-from services.job_posting.services.indeed import convert_job_object_to_job, convert_job_object_to_indeed_id
 
 BASE_URL = "https://apis.indeed.com"
 AUTH_URL = f"{BASE_URL}/oauth/v2/tokens"
@@ -58,6 +57,8 @@ class IndeedJobPostingService:
             ).__dict__, exc_info=True)
 
     def expire_jobs(self, job_posts):
+        from services.job_posting.services.indeed import convert_job_object_to_indeed_id
+
         mutation = """
         mutation {
           jobsIngest {
@@ -89,6 +90,8 @@ class IndeedJobPostingService:
             ).__dict__, exc_info=True)
 
     def create_jobs(self, job_posts):
+        from services.job_posting.services.indeed import convert_job_object_to_job
+
         self.__update_access_token__()
         headers = {
             'Content-Type': 'application/json',
@@ -129,6 +132,7 @@ class IndeedJobPostingService:
             ).__dict__, exc_info=True)
 
     def update_jobs(self, job_posts):
+        from services.job_posting.services.indeed import convert_job_object_to_job
         self.__update_access_token__()
         headers = {
             'Content-Type': 'application/json',
