@@ -134,13 +134,12 @@ DATABASES = {
         conn_health_checks=True,
     ),
         "OPTIONS": {
-            "pool":{
-                "min_size": 2,
-                "max_size": 10,
-                "timeout": 30,
+            "pool": {
+                "min_size": 5,
+                "max_size": 50,
+                "timeout": 10,
             }
-
-        },
+        }
 
     }
 }
