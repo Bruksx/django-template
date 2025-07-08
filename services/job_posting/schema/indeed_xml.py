@@ -52,12 +52,12 @@ class JobBase:
         currency = job_post.annual_salary_currency
         currency = currency.symbol if currency else "$"
         if job_post.annual_salary_min and not job_post.annual_salary_max:
-            return f"{currency}{job_post.annual_salary_min} per month"
+            return f"{currency}{job_post.annual_salary_min} per year"
         if not job_post.annual_salary_min and job_post.annual_salary_max:
-            return f"{currency}{job_post.annual_salary_max} per month"
+            return f"{currency}{job_post.annual_salary_max} per year"
         if job_post.annual_salary_min and job_post.annual_salary_max:
-            return f"{currency}{job_post.annual_salary_min}-{currency}{job_post.annual_salary_max} per month"
-        return f"{currency} 0 per month"
+            return f"{currency}{job_post.annual_salary_min}-{currency}{job_post.annual_salary_max} per year"
+        return f"{currency} 0 per year"
 
     @staticmethod
     def get_description(job_post: JobPost):
