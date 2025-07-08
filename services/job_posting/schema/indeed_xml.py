@@ -8,6 +8,8 @@ from config import settings
 from jobs.enums import WorkStructureEnum, JobStatusType
 from jobs.models import JobPost, Job
 
+from helpers.loggers import Logger
+
 BASE_FRONTEND_URL = settings.FRONTEND_URL
 BASE_BACKEND_URL = settings.BACKEND_URL
 
@@ -164,8 +166,13 @@ class Source:
 
         for job_post in JobPost.objects.select_related("job").\
             filter(status=JobStatusType.POSTED.value).order_by("-created_at").iterator():
-            job_base = JobBase.convert_to_job(job_post)
-            yield tostring(job_base.to_xml(), encoding="unicode") + "\n"
+            try:
+                job_base = JobBase.convert_to_job(job_post)
+                yield tostring(job_base.to_xml(), encoding="unicode") + "\n"
+            except Exception as e:
+                Logger.critical(msg={"sender": "Indeed Job Posting service", "title": "Indeed Job Posting service Error", "description": str(e)},
+                                exc_info=True)
+
 
         yield '</source>\n'
 
