@@ -145,7 +145,7 @@ class WorkFlowStage(BaseModel):
 
 
     def can_be_deactivated(self):
-        return self.applicants().count() == 0
+        return self.applicants().count() == 0 or self.phase in [PhaseType.NEW.value, PhaseType.REJECTED.value, PhaseType.HIRED.value]
 
     def previous_stages(self):
         """
