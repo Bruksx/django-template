@@ -59,7 +59,7 @@ class JobBase:
 
     @staticmethod
     def get_description(job_post: JobPost):
-        return f"""<h2 id="job_description">Job Description: <br/><p>{job_post.job.about}</p></h2>"""
+        return f"""<h2 id="job_description">Job Description: <br><p>{job_post.job.about}</p></h2>"""
 
     @staticmethod
     def get_education(job_post: JobPost):
