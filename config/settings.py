@@ -349,4 +349,4 @@ INDEED_CLIENT_SECRET = os.environ.get("INDEED_CLIENT_SECRET", None)
 INDEED_REDIRECT_URI = os.environ.get("INDEED_REDIRECT_URI", None)
 
 BACKEND_URL = os.environ.get("BACKEND_URL", None)
-INDEED_EMAIL="gh@gmail.com"
+INDEED_EMAIL=os.environ.get("INDEED_EMAIL", "contact@1840andco.com")
