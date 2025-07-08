@@ -143,7 +143,6 @@ class WorkFlowStage(BaseModel):
         )["avg_timeline"] or 0
 
 
-
     def can_be_deactivated(self):
         return self.applicants().count() == 0 and self.phase not in [PhaseType.NEW.value, PhaseType.REJECTED.value, PhaseType.HIRED.value]
 
