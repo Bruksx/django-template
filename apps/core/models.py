@@ -70,6 +70,7 @@ class BaseModel(SoftDeleteModel):
 class Currency(BaseModel):
     name = models.CharField()
     abbreviation = models.CharField()
+    symbol = models.CharField(default="$")
 
     class Meta:
         ordering = ["name"]

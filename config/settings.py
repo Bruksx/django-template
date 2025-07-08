@@ -343,3 +343,10 @@ LOGGING = {
 
 EIGHTEEN_FORTY_EMAIL = os.environ.get("EIGHTEEN_FORTY_EMAIL", None)
 EIGHTEEN_FORTY_PASSWORD = os.environ.get("EIGHTEEN_FORTY_PASSWORD", None)
+
+INDEED_CLIENT_ID = os.environ.get("INDEED_CLIENT_ID", None)
+INDEED_CLIENT_SECRET = os.environ.get("INDEED_CLIENT_SECRET", None)
+INDEED_REDIRECT_URI = os.environ.get("INDEED_REDIRECT_URI", None)
+
+BACKEND_URL = os.environ.get("BACKEND_URL", None)
+INDEED_EMAIL="gh@gmail.com"

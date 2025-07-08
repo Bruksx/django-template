@@ -64,5 +64,6 @@ class JobSchema:
 			ET.SubElement(workplace_types, "workplaceType").text = wp
 
 		compensation_elem = ET.SubElement(job_elem, "compensation")
-		dict_to_xml(compensation_elem, self.compensation)
+		if self.compensation:
+			dict_to_xml(compensation_elem, self.compensation)
 		return job_elem
