@@ -15,6 +15,7 @@ from factories import BusinessFactory, BusinessUserFactory, CountryFactory, Curr
     TalentFilterFactory
 from jobs.enums import PhaseType, JobStatusType, WorkStructureEnum
 from jobs.models import JobApplication
+from settings.models import WorkFlowStage
 
 
 class ValidateOtpTests(TestCase):
@@ -38,6 +39,7 @@ class ValidateOtpTests(TestCase):
 
     def test_validate_otp_success(self):
         response = self.client.post(self.url, json=self.user_data)
+        business_user  = BusinessUser.objects.last()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(User.objects.count(), 1)
         self.assertEqual(Business.objects.count(), 1)
@@ -47,6 +49,7 @@ class ValidateOtpTests(TestCase):
         self.assertEqual(user.first_name, self.user_data["first_name"])
         self.assertEqual(user.last_name, self.user_data["last_name"])
         self.assertTrue(user.check_password(self.user_data["password"]))
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=business_user).count(), 3)
 
     def test_validate_otp_incorrect_otp(self):
         self.user_data["otp"] = "6543"  

@@ -311,7 +311,7 @@ class UpdateWorkflowTest(TestCase):
         self.client = TestClient(router)
         self.url = lambda uid : f"workflows/stages/{uid}"
         self.business_user = BusinessUserFactory.create()
-        self.workflow_stage = WorkflowStageFactory.create(created_by=self.business_user, is_active=True)
+        self.workflow_stage = WorkflowStageFactory.create(created_by=self.business_user, is_active=True, phase=PhaseType.INTERVIEW.value)
 
     def test_update_workflow_stage(self):
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
