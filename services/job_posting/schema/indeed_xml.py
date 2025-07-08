@@ -59,7 +59,7 @@ class JobBase:
 
     @staticmethod
     def get_description(job_post: JobPost):
-        return f"""<h2 id="job_description">Job Description: <br/><p>{job_post.job.about}</p></h2>"""
+        return f"""<h2 id="job_description">Job Description: <br><p>{job_post.job.about}</p></h2>"""
 
     @staticmethod
     def get_education(job_post: JobPost):
@@ -90,7 +90,7 @@ class JobBase:
                 jobtype="".join((job.employment_type.name,)) if job.employment_type else "",
                 experience=f"{job.years_of_experience} years" if job.years_of_experience else job.years_of_experience,
                 lastactivitydate=job_post.date_posted,
-                remotetype="Fully Remote" if job_post.job.work_structure == WorkStructureEnum.REMOTE else "Hybrid Remote",
+                remotetype="Fully remote" if job_post.job.work_structure == WorkStructureEnum.REMOTE else "Hybrid remote",
                 apijobid=str(job_post.uid)
             )
 
