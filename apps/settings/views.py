@@ -160,10 +160,17 @@ def update_workflow_stage(request, stage_uid:UUID, data:PatchDict[MutateWorkFlow
     if "phase" in data:
         data["phase"] = data["phase"].value
         data["phase_order"] = PhaseType.values().index(data["phase"])
+        if stage.phase in [PhaseType.NEW.value, PhaseType.REJECTED.value, PhaseType.HIRED.value] and stage.phase != data["phase"]:
+            raise HttpError(400, "You cannot change the phase of this workflow stage")
+    if "name" in data:
+        if stage.phase in [PhaseType.NEW.value, PhaseType.REJECTED.value, PhaseType.HIRED.value] and str(stage.name).lower() != str(data["name"]).lower():
+            raise HttpError(400, "You cannot change the name of this workflow stage")
+
     phase = data.get("phase", stage.phase)
     if "name" in data and  WorkFlowStage.objects.filter(created_by__business=business_user.business, name__iexact=data["name"],
                                     phase=phase).exclude(id=stage.id).exists():
         raise HttpError(400, "A workflow stage with this name in this phase already exists")
+    # if is_active is set to false, check if this stage can be deactivated
     if "is_active" in data and stage.is_active is True and data["is_active"] is False and stage.can_be_deactivated() is False:
         raise HttpError(400, "This workflow stage cannot be deactivated")
 
