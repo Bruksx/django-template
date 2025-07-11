@@ -7,6 +7,7 @@ from django.test import TestCase
 from django_q.models import Schedule
 
 from factories import EmailTemplateFactory, WorkflowStageFactory, JobApplicationFactory
+from jobs.enums import PhaseType
 from settings.models import EmailTemplateAttachment
 
 
@@ -88,7 +89,7 @@ class EmailTemplateModelTest(TestCase):
 
 class WorkFlowStageModelTest(TestCase):
     def setUp(self):
-        self.stage = WorkflowStageFactory.create()
+        self.stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
 
     def test_can_be_deactivated(self):
         self.stage.is_active = True

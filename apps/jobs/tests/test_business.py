@@ -573,12 +573,12 @@ class JobCreationTest(TestCase):
         self.assertEqual(available_days.count(), 2)
 
         # Check job posts
-        job_posts = JobPost.objects.filter(job=job)
+        job_posts = JobPost.objects.filter(job=job).order_by("id")
         self.assertEqual(job_posts.count(), 2)
         self.assertEqual(job_posts[0].country.code, self.country1.code)
 
         # Check screening questions
-        screening_questions = ScreeningQuestion.objects.filter(job=job)
+        screening_questions = ScreeningQuestion.objects.filter(job=job).order_by("id")
         self.assertEqual(screening_questions.count(), 1)
         self.assertEqual(screening_questions[0].text, 'Are you eligible to work in the US?')
         self.assertFalse(screening_questions[0].is_knockout)
