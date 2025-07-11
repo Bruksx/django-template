@@ -162,6 +162,8 @@ def update_workflow_stage(request, stage_uid:UUID, data:PatchDict[MutateWorkFlow
         data["phase_order"] = PhaseType.values().index(data["phase"])
         if stage.phase in [PhaseType.NEW.value, PhaseType.REJECTED.value, PhaseType.HIRED.value] and stage.phase != data["phase"]:
             raise HttpError(400, "You cannot change the phase of this workflow stage")
+        if data["phase"] in [PhaseType.NEW.value, PhaseType.REJECTED.value, PhaseType.HIRED.value] and stage.phase != data["phase"]:
+            raise HttpError(400, "You cannot add a workflow stage in this phase")
     if "name" in data:
         if stage.phase in [PhaseType.NEW.value, PhaseType.REJECTED.value, PhaseType.HIRED.value] and str(stage.name).lower() != str(data["name"]).lower():
             raise HttpError(400, "You cannot change the name of this workflow stage")
