@@ -21,8 +21,8 @@ from settings.models import WorkFlowStage
 from monkeypatches.q_cluster import async_task
 
 
-def get_talent_job_recommendations(talent, search=""):
-    queryset = talent.job_post_matches(by_talent_country=False)
+def get_talent_job_recommendations(talent, business=None, search=""):
+    queryset = talent.job_post_matches(by_talent_country=False, business=business)
     if search:
         queryset = queryset.filter(job__title__icontains=search)
     return queryset.order_by("-created_at")

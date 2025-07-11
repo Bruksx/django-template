@@ -48,11 +48,12 @@ def logged_in_talent_job_recommendations(request, search:str=""):
 @paginate(PageNumberPaginationExtra, page_size=50)
 def talent_job_recommendations(request, talent_uid:UUID, search:str=""):
     IsBusinessUser.check(request)
+    business = request.user.businessuser.business
     talent = Talent.objects.filter(uid=talent_uid).first()
     if not talent:
         raise HttpError(404, "Talent not found")
     request.context = {"talent": talent}
-    queryset = get_talent_job_recommendations(talent)
+    queryset = get_talent_job_recommendations(talent, business=business)
     if search:
         queryset = queryset.filter(job__title__icontains=search)
     return queryset
