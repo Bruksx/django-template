@@ -26,9 +26,6 @@ router = Router(tags=["Account"])
 
 @router.post("initiate-account-creation")
 def initiate_account_creation(request, data: common_schemas.RegisterSchema):
-    if User.deleted_objects.filter(email__iexact=data.email).exists():
-        raise HttpError(400, "Reach out to get your account restored")
-
     existing_user = User.objects.filter(email__iexact=data.email).exists()
     if existing_user:
         raise HttpError(400, "An account with this email already exists")

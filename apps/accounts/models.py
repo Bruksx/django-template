@@ -291,7 +291,7 @@ class Talent(BaseModel):
         months = (end_date - start_date).days/30
         return int(months//12), int(months)
 
-    def job_post_matches(self, job_only=False, by_talent_country=False, start_date: date=None, end_date: date=None):
+    def job_post_matches(self, job_only=False, by_talent_country=False, start_date: date=None, end_date: date=None, business=None):
         from jobs.models import AvailableDay, JobPost
 
         from jobs.models import Job
@@ -331,6 +331,8 @@ class Talent(BaseModel):
             job_matching_query &= Q(created_at__range=[start_date, end_date])
 
         # Query Job table with optimized prefetch and select_related
+        if business:
+            job_matching_query &= Q(created_by__business=business)
         jobs = (Job.objects.prefetch_related("requiredattribute", "additional_languages", "skills", 'jobpost', 'availableday')
                 .filter(job_matching_query)
                 .only("id")
