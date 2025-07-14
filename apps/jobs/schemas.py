@@ -420,11 +420,12 @@ class JobListSchema2(ModelSchema):
     uid: UUID
     logo_url: Optional[str]
     role: Optional[GenericNameAndUidSchema]
+    title: str = Field(alias="get_title")
     hiring_company_name: Optional[str] = Field(alias="hiring_company")
     class Meta:
         model = Job
         fields = [
-            "title","work_structure", "office_address"]
+            "work_structure", "office_address"]
 
 
 
@@ -443,11 +444,12 @@ class JobDetailSchema(ModelSchema):
     first_language: Optional[GenericNameAndUidSchema]
     additional_languages: List[GenericNameAndUidSchema]
     required_attribute: Optional[RequiredAttributeSchema]
+    title:Optional[str] = Field(alias="get_title")
 
     class Meta:
         model = Job
         fields = [
-            "title", "hiring_company_name", "hiring_company_description", "about", "years_of_experience",
+            "hiring_company_name", "hiring_company_description", "about", "years_of_experience",
             "technological_requirement", "work_structure", "office_address","lunch_break", "lunch_break_time",
             "additional_hours_start", "additional_hours_end", "flexible_availability", "qualification",
             "availability_timezone", "additional_hours_description", "additional_skills"
@@ -750,10 +752,11 @@ class JobListSchema(ModelSchema):
     business_logo: Optional[str]
     business_name: str
     role: Optional[GenericNameAndUidSchema]
+    title: Optional[str] = Field(alias="get_title")
 
     class Meta:
         model = Job
-        fields = ["uid","title", "work_structure", "role"]
+        fields = ["uid","work_structure", "role"]
 
 class OtherApplicationSchema(ModelSchema):
     role: Optional[GenericNameAndUidSchema] = Field(alias="job_post.job.role")
@@ -1038,7 +1041,7 @@ class TalentJobFilterSchema(Schema):
         if not queryset:
             queryset = JobPost.objects.select_related("job", "country").all()
         if self.search:
-            queryset = queryset.filter(job__title__icontains=self.search)
+            queryset = queryset.filter(job__role__name__icontains=self.search)
 
         if self.location:
             queryset = queryset.filter(country__uid__in=self.location)
@@ -1133,6 +1136,7 @@ class BulkJobPostSchema(Schema):
 
 class BusinessUserJobSchema(ModelSchema):
     created_by: BusinessUserListSchema
+    title: Optional[str] = Field(alias="get_title")
     class Meta:
         model = Job
-        fields = ["uid", "title"]
+        fields = ["uid"]

@@ -56,7 +56,7 @@ def send_new_chat_message_notification(message):
 def send_job_alert_notification(job, user_ids):
     from accounts.models import User
     notification = Notification.objects.create(
-        title=job.title,
+        title=job.get_title,
         description=job.about or "",
         action=EntityActionType.NEW.value,
         notification_type=NotificationType.USER.value,
@@ -70,7 +70,7 @@ def send_job_alert_notification(job, user_ids):
 
 
 def send_job_post_application_notification(job_post, start_date, end_date):
-    job_title = job_post.job.title
+    job_title = job_post.job.get_title
     application_count = job_post.jobapplication_set.filter(created_at__range=(start_date, end_date)).count()
     if application_count == 0:
         return
@@ -152,7 +152,7 @@ def send_talent_job_matching_notification(talent, job_post):
 
     notification = Notification(
         title="Job Matching",
-        description=f"High match alert! {talent.user.fullname}'s profile matches with the requirements for {job_post.job.title}%",
+        description=f"High match alert! {talent.user.fullname}'s profile matches with the requirements for {job_post.job.get_title}%",
         notification_type=NotificationType.MATCHING.value,
         entity=EntityType.JOB_POST.value,
         entity_uid=job_post.uid,
@@ -168,7 +168,7 @@ def send_talents_job_matching_notification(talent_count, job_post):
         return
     notification = Notification(
         title="Job Matching",
-        description=f"High match alert! {talent_count} talents' profile match with the requirements for {job_post.job.title}",
+        description=f"High match alert! {talent_count} talents' profile match with the requirements for {job_post.job.get_title}",
         notification_type=NotificationType.MATCHING.value,
         entity=EntityType.JOB_POST.value,
         entity_uid=job_post.uid,
@@ -203,7 +203,7 @@ def send_job_sharing_notification(job_post):
     total_shares = email_shares + chat_shares
     if total_shares == 0:
         return
-    job_title = job_post.job.title
+    job_title = job_post.job.get_title
 
     notification = Notification(
         title="Job Shared",
@@ -211,7 +211,7 @@ def send_job_sharing_notification(job_post):
         notification_type=NotificationType.SHARING.value,
         entity=EntityType.JOB_POST.value,
         entity_uid=job_post.uid,
-        entity_str=job_post.job.title,
+        entity_str=job_post.job.get_title,
         recipient_groups=[NotificationGroup.BUSINESS_USERS.value],
         business=job_post.recruiter.business
     )
@@ -233,7 +233,7 @@ def send_job_performance_notification(job_post):
     applications = job_post.jobapplication_set.filter(
         created_at__range=(last_week, now)
     ).count()
-    job_title = job_post.job.title
+    job_title = job_post.job.get_title
 
     matches = job_post.get_talents().count()
 
@@ -246,7 +246,7 @@ def send_job_performance_notification(job_post):
         notification_type=NotificationType.PERFORMANCE.value,
         entity=EntityType.JOB_POST.value,
         entity_uid=job_post.uid,
-        entity_str=job_post.job.title,
+        entity_str=job_post.job.get_title,
         recipient_groups=[NotificationGroup.BUSINESS_USERS.value],
         business=job_post.recruiter.business
     )
@@ -300,11 +300,11 @@ def send_job_post_assignment_notification(job_post, previous_recruiter=None):
     ):
         notification = Notification.objects.create(
             title="Job Re-Assignment",
-            description=f"{job_post.job.title} has been re-assigned from you",
+            description=f"{job_post.job.get_title} has been re-assigned from you",
             notification_type=NotificationType.ASSIGNMENT.value,
             entity=EntityType.JOB_POST.value,
             entity_uid=job_post.uid,
-            entity_str=job_post.job.title,
+            entity_str=job_post.job.get_title,
             business=job_post.recruiter.business
         )
         notification.recipient_users.add(previous_recruiter.user)
@@ -315,11 +315,11 @@ def send_job_post_assignment_notification(job_post, previous_recruiter=None):
     ):
         notification = Notification.objects.create(
             title="Job Assignment",
-            description=f"{job_post.job.title} has been assigned to you",
+            description=f"{job_post.job.get_title} has been assigned to you",
             notification_type=NotificationType.ASSIGNMENT.value,
             entity=EntityType.JOB_POST.value,
             entity_uid=job_post.uid,
-            entity_str=job_post.job.title,
+            entity_str=job_post.job.get_title,
             business=job_post.recruiter.business
         )
         notification.recipient_users.add(job_post.recruiter.user)
