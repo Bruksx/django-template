@@ -51,7 +51,7 @@ class Job(BaseModel):
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     hiring_company_name = models.CharField(max_length=64, null=True)
     hiring_company_description = models.TextField(null=True)
-    title = models.CharField(max_length=100, null=True)
+    title = models.CharField(max_length=100, null=True, blank=True)
     about = models.TextField(null=True)
     years_of_experience = models.IntegerField(null=True)
     minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
@@ -61,7 +61,7 @@ class Job(BaseModel):
     work_structure = models.CharField(choices=WorkStructureEnum.choices(), null=True, blank=True)
     first_language = models.ForeignKey(Language, on_delete=models.SET_NULL, null=True)
     additional_languages = models.ManyToManyField(Language, related_name="jobs")
-    office_address = models.CharField(max_length=128)
+    office_address = models.CharField(max_length=128, null=True)
     lunch_break = models.CharField(max_length=50, choices=LunchBreakEnum.choices())
     lunch_break_time = models.PositiveSmallIntegerField(default=0)
     responsibilities = models.JSONField(default=list, blank=True)
@@ -86,6 +86,13 @@ class Job(BaseModel):
             "first_language", "secondary_language", "working_hours",
             "location"
         )
+
+    @property
+    def get_title(self):
+        if not self.role:
+            return "" if not self.title else self.title
+        return self.role.name
+
 
     def get_availability(self, schema, query=None):
         data = list()
@@ -137,7 +144,7 @@ class Job(BaseModel):
 
 
     def __str__(self) -> str:
-        return f"{self.title}({self.uid})"
+        return f"{self.get_title}({self.uid})"
 
     def logo_url(self):
         if self.logo:
@@ -610,7 +617,7 @@ class JobApplication(BaseModel):
         elif placeholder == PlaceHolderType.JOB_APPLIED_TO.value:
             if not self.job_post:
                 return ""
-            return self.job_post.job.title
+            return self.job_post.job.get_title
         elif placeholder == PlaceHolderType.CANDIDATE_FIRST_NAME.value:
             if not self.applicant:
                 return ""

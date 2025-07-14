@@ -392,8 +392,7 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
     business_user = request.user.businessuser
     queryset = Job.objects.prefetch_related("jobpost_set").filter(created_by__business=business_user.business)
     if search:
-        queryset = queryset.filter(Q(title__icontains=search)|
-                                   Q(role__name__icontains=search)|
+        queryset = queryset.filter(Q(role__name__icontains=search)|
                                    Q(hiring_company_name=search))
     if status:
         queryset = queryset.filter(jobpost__status=status.value).distinct()

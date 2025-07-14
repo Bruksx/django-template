@@ -40,7 +40,7 @@ def logged_in_talent_job_recommendations(request, search:str=""):
     request.context = {"talent": talent}
     queryset = get_talent_job_recommendations(talent)
     if search:
-        queryset = queryset.filter(job__title__icontains=search)
+        queryset = queryset.filter(job__role__name__icontains=search)
     return queryset
 
 
@@ -55,7 +55,7 @@ def talent_job_recommendations(request, talent_uid:UUID, search:str=""):
     request.context = {"talent": talent}
     queryset = get_talent_job_recommendations(talent, business=business)
     if search:
-        queryset = queryset.filter(job__title__icontains=search)
+        queryset = queryset.filter(job__role__name__icontains=search)
     return queryset
 
 
@@ -67,7 +67,7 @@ def talent_saved_jobs(request, search:str=""):
     request.context = {"talent": talent}
     queryset = talent.saved_jobs()
     if search:
-        queryset = queryset.filter(job__title__icontains=search)
+        queryset = queryset.filter(job__role__name__icontains=search)
     return queryset.order_by("-savedjob__created_at")
 
 @router.get("talent/job-posts", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
@@ -89,7 +89,7 @@ def talent_applied_jobs(request, search:str=""):
     request.context = {"talent": talent}
     queryset = talent.applied_jobs()
     if search:
-        queryset = queryset.filter(job__title__icontains=search)
+        queryset = queryset.filter(job__role__name__icontains=search)
     return queryset.order_by("-jobapplication__created_at")
 
 @router.post("talent/job-posts/{job_post_id}/apply", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
