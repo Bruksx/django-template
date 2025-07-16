@@ -92,10 +92,12 @@ def get_skills_categories(request, search="", category=""):
 
 
 @router.get("skills", response={200: list[SkillSchema]}, tags=["Common"])
-def get_skills(request, search="", category=""):
+def get_skills(request, search="", category="", department:UUID=None):
     queryset = Skill.objects.all()
     if search:
         queryset = queryset.filter(name__icontains=search)
+    if department:
+        queryset = queryset.filter(department__uid=department)
     if category:
         queryset = queryset.filter(category__name__iexact=category)
     return queryset.distinct("name").order_by("name")
