@@ -295,8 +295,10 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
             if User.global_objects.filter(email=data["email"]).exists():
                 raise HttpError(400, "This email is not available")
     role = data_dict.get("role")
-    if role:
+    if role and role.value != staff_user.role:
         role = role.value
+        if staff_user.status != BusinessUserStatusType.ACTIVE.value:
+            raise HttpError(400, "This user is not active")
         if role == BusinessUserRoleType.OWNER.value and business_user.role != BusinessUserRoleType.OWNER.value:
             raise HttpError(400, "You cannot assign owner role to this user")
         if business_user.role == BusinessUserRoleType.OWNER.value and staff_user == business_user and role != BusinessUserRoleType.OWNER.value:
