@@ -6,9 +6,6 @@ import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
 
-from services.job_posting.services import indeed
+from database_seeder import generate_data_for_account
 
-jobs = indeed.JobPost.objects.all()[:2]
-for job in jobs:
-    print(indeed.convert_job_object_to_job(job))
-
+generate_data_for_account(email="emilyph@1840andco.com", job_amount=5)

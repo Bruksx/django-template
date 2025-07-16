@@ -548,9 +548,7 @@ class TalentDetailTest(TestCase):
 
 class DeleteTalentUserAccountTest2(TestCase):
     def setUp(self):
-        generate_data("PASSWORD", [],
-                      talent_amount=5,
-                      silent=True
+        generate_data(silent=True
                       )
         self.url = "/"
         self.client = TestClient(router)
