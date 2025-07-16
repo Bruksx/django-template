@@ -1,6 +1,6 @@
 from datetime import date
 from enum import Enum
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
@@ -282,7 +282,8 @@ def get_business_user(request, business_user_uid):
 
 @router.patch("users/{business_user_uid}/", auth=JWTAuth())
 @transaction.atomic
-def update_business_user(request, business_user_uid, data: PatchDict[business_schema.MutateBusinessUserSchema]):
+def update_business_user(request, business_user_uid, data: PatchDict[business_schema.MutateBusinessUserSchema], new_role: Optional[BusinessUserRoleType] = None):
+    new_role = new_role if new_role and new_role != BusinessUserRoleType.OWNER else BusinessUserRoleType.ADMIN
     IsBusinessOwnerOrAdmin.check(request)
     business_user = request.user.businessuser
     business = business_user.business
@@ -294,8 +295,10 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
             if User.global_objects.filter(email=data["email"]).exists():
                 raise HttpError(400, "This email is not available")
     role = data_dict.get("role")
-    if role:
+    if role and role.value != staff_user.role:
         role = role.value
+        if staff_user.status != BusinessUserStatusType.ACTIVE.value:
+            raise HttpError(400, "This user is not active")
         if role == BusinessUserRoleType.OWNER.value and business_user.role != BusinessUserRoleType.OWNER.value:
             raise HttpError(400, "You cannot assign owner role to this user")
         if business_user.role == BusinessUserRoleType.OWNER.value and staff_user == business_user and role != BusinessUserRoleType.OWNER.value:
@@ -324,7 +327,7 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
             setattr(staff_user, key, value)
     staff_user.save()
     if staff_user.role == BusinessUserRoleType.OWNER.value and business_user.role == BusinessUserRoleType.OWNER.value:
-        business_user.update(role=BusinessUserRoleType.ADMIN.value)
+        business_user.update(role=new_role.value)
     return Response(status=201, data={"message": "User updated successfully"})
 
 
