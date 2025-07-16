@@ -283,7 +283,7 @@ def get_business_user(request, business_user_uid):
 @router.patch("users/{business_user_uid}/", auth=JWTAuth())
 @transaction.atomic
 def update_business_user(request, business_user_uid, data: PatchDict[business_schema.MutateBusinessUserSchema], new_role: Optional[BusinessUserRoleType] = None):
-    new_role = new_role if new_role else BusinessUserRoleType.ADMIN
+    new_role = new_role if new_role and new_role != BusinessUserRoleType.OWNER else BusinessUserRoleType.ADMIN
     IsBusinessOwnerOrAdmin.check(request)
     business_user = request.user.businessuser
     business = business_user.business
