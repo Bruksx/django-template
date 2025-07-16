@@ -40,7 +40,7 @@ def get_random_list(data, count):
 
 
 @transaction.atomic
-def generate_data(password, email_recipients, talent_amount=50,
+def generate_data(password='Pass1234@now', email_recipients=None, talent_amount=50,
                   business_amount=5, staff_amount=5, job_amount=3,
                   question_amount=3, max_applied_jobs=10, max_withdrawals=10,
                   max_saved_jobs=7, silent=True
@@ -50,7 +50,6 @@ def generate_data(password, email_recipients, talent_amount=50,
     countries = [*Country.objects.exclude(name__iexact="Nigeria").order_by('?')[:4]]
     nigeria = Country.objects.filter(name__iexact="Nigeria").first()
 
-    departments = Department.objects.all()
     educational_levels = EducationLevel.objects.all()
     employment_type = EmploymentType.objects.all()
     job_level = JobLevel.objects.all()
@@ -220,10 +219,10 @@ def generate_data(password, email_recipients, talent_amount=50,
             user.set_password(password)
             user.save()
             message = f"{message}\nName: {user.fullname}\nEmail: {user.email}\nPassword: {password}\nUser Type: {user.type}\n\n"
-
-    send_email(subject="Seeded Users",
-               plain_body=message,
-               emails=email_recipients)
+    if email_recipients:
+        send_email(subject="Seeded Users",
+                   plain_body=message,
+                   emails=email_recipients)
     if not silent:
         print(message)
 
