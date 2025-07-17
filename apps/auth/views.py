@@ -1,17 +1,15 @@
-from django.db import transaction
-from django.utils import timezone
-from django.shortcuts import render
-from monkeypatches.response import Response
 from accounts.models import User, VerificationCode
 from accounts.schemas import common as common_schema
+from auth.schema import LoginSchema, SocialAuthSchema, ResetPasswordSchema
+from auth.services import handle_social_login, validate_login
+from django.db import transaction
+from django.shortcuts import render
+from django.utils import timezone
 from ninja import Router
 from ninja.errors import HttpError
 
-from auth.enums import AuthActionEnum
 from helpers.utils import validate_password
-from services.auth.schema import ProfileSchema
-from auth.schema import LoginSchema, SocialAuthSchema, ResetPasswordSchema
-from auth.services import handle_social_login, validate_login
+from monkeypatches.response import Response
 
 # Create your views here.
 router = Router(tags=["Auth"])
