@@ -82,7 +82,7 @@ class MutateJobPostSchema(ModelSchema):
         fields_optional = "__all__"
 
 class MutateJobPostListSchema(ModelSchema):
-    country: Optional[GenericNameAndUidSchema]
+    country: Optional[GenericNameAndUidSchema] = None
     recruiter: Optional[BusinessUserListSchema]
     benefits: List[str]
     status: Optional[str]
@@ -724,7 +724,7 @@ class JobPostFullDetailSchema(ModelSchema):
     annual_bonus_max: Optional[float] = None
     annual_bonus_currency: Optional[str] = None
     annual_salary_currency: Optional[str] = None
-    country: GenericNameAndUidSchema
+    country: Optional[GenericNameAndUidSchema] = None
     recruiter: Optional[BusinessUserSchema]
     posted_by: Optional[BusinessUserSchema]
     benefits: List[str] = list()
@@ -858,7 +858,7 @@ class TalentJobPostListSchema(ModelSchema):
     applied: bool
     saved: Optional[bool]
     alert: Optional[bool]
-    country: GenericNameAndUidSchema
+    country: Optional[GenericNameAndUidSchema] = None
     match_score: int|float
     application_uid: Optional[UUID]
     stage: Optional[StageSchema]
@@ -947,7 +947,7 @@ class TalentJobPostSchema(JobPostListSchema):
     application_uid: Optional[UUID]
     stage: Optional[StageSchema]
     screening_questions: List[TalentQuestionSchema]
-    country: GenericNameAndUidSchema
+    country: Optional[GenericNameAndUidSchema] = None
     strength: Optional[JobMatchSchema]
     weakness: Optional[JobMatchSchema]
     non_negotiable: JobMatchSchema
