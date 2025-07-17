@@ -275,6 +275,12 @@ class JobPost(BaseModel):
     def __str__(self) -> str:
         return f"{self.job}({self.country})"
 
+
+    def get_country(self):
+        if not self.country:
+            return
+        return self.country.name
+
     def get_talents(self):
         query = None
 
@@ -604,6 +610,12 @@ class JobApplication(BaseModel):
     def other_application(self):
         return JobApplication.objects.filter(job_post=self.job_post, applicant=self.applicant).exclude(id=self.id).last()
 
+    def get_country(self):
+        if not self.applicant:
+            return
+        if not self.applicant.country:
+            return
+        return self.applicant.country.name
 
     def placeholders_mapper(self, placeholder:str):
         if placeholder == PlaceHolderType.YOUR_COMPANY_NAME.value:

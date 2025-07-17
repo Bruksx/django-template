@@ -493,7 +493,7 @@ class JobMatchSchema(Schema):
 class JobPostListSchema(ModelSchema):
     role: Optional[str]
     client: str = Field(alias="job.hiring_company_name")
-    location: str = Field(alias="country.name")
+    location: Optional[str] = Field(None, alias="get_country")
     applicants: int
     posted_by: Optional[str]
     annual_salary_min: Optional[float] = None
@@ -809,7 +809,7 @@ class OtherApplicationSchema(ModelSchema):
         return "Active" if obj.job_post.status == JobStatusType.POSTED.value else "Closed"
 
 class JobApplicationListSchema(ModelSchema):
-    location:str = Field(alias="job_post.country.name")
+    location:Optional[str] = Field(None, alias="job_post.get_country")
     role:Optional[GenericNameAndUidSchema] = Field(alias="applicant.role")
     experience:int
     match:int
@@ -817,7 +817,7 @@ class JobApplicationListSchema(ModelSchema):
     stage:Optional[str] = None
     applicant_uid: UUID = Field(alias="applicant.uid")
     applicant: str = Field(alias="applicant.user.fullname")
-    applicant_location: str = Field(alias="applicant.country.name")
+    applicant_location: Optional[str] = Field(None, alias="applicant.get_country")
     applicant_photo:Optional[str] = Field(alias="applicant.photo_url")
     applicant_email: str = Field(alias="applicant.user.email")
     applicant_phone: Optional[str] = Field(alias="applicant.user.phone_number")
