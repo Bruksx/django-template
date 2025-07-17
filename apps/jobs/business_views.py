@@ -288,11 +288,11 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
         data["hiring_company_name"] = business.name
     if not data.get("hiring_company_description"):
         data["hiring_company_description"] = business.description
-    if "work_structure" in data:
+    if data.get("work_structure"):
         data["work_structure"] = data["work_structure"].value
-    if "lunch_break" in data:
+    if data.get("lunch_break"):
         data["lunch_break"] = data["lunch_break"].value
-    if "technological_requirement" in data:
+    if data.get("technological_requirement"):
         data["technological_requirement"] = data["technological_requirement"].value
 
 
