@@ -344,8 +344,8 @@ class JobPostDetailSchema(ModelSchema):
     annual_salary_max: Optional[float]
     annual_bonus_min: Optional[float]
     annual_bonus_max: Optional[float]
-    annual_salary_currency: Optional[str]
-    annual_bonus_currency: Optional[str]
+    annual_bonus_currency: Optional[str] = None
+    annual_salary_currency: Optional[str] = None
     saved: Optional[bool]
     alert: Optional[bool]
     applied: Optional[bool]
@@ -500,6 +500,8 @@ class JobPostListSchema(ModelSchema):
     annual_salary_max: Optional[float] = None
     annual_bonus_min: Optional[float] = None
     annual_bonus_max: Optional[float] = None
+    annual_bonus_currency: Optional[str]
+    annual_salary_currency: Optional[str]
     alert: Optional[bool] = None
     applied: Optional[bool]= None
     saved: Optional[bool] = None
@@ -563,6 +565,18 @@ class JobPostListSchema(ModelSchema):
         if obj.posted_by:
             return obj.posted_by.user.fullname
         return None
+
+    @staticmethod
+    def resolve_annual_bonus_currency(obj):
+        if obj.annual_bonus_currency:
+            return obj.annual_bonus_currency.abbreviation
+        return
+
+    @staticmethod
+    def resolve_annual_salary_currency(obj):
+        if obj.annual_salary_currency:
+            return obj.annual_salary_currency.abbreviation
+        return
 
 
 class JobFullListSchema(ModelSchema):
@@ -708,6 +722,8 @@ class JobPostFullDetailSchema(ModelSchema):
     annual_salary_max: Optional[float] = None
     annual_bonus_min: Optional[float] = None
     annual_bonus_max: Optional[float] = None
+    annual_bonus_currency: Optional[str] = None
+    annual_salary_currency: Optional[str] = None
     country: GenericNameAndUidSchema
     recruiter: Optional[BusinessUserSchema]
     posted_by: Optional[BusinessUserSchema]
@@ -745,6 +761,18 @@ class JobPostFullDetailSchema(ModelSchema):
         if not hasattr(talent, "jobalert"):
             return False
         return talent.jobalert.jobs.filter(id=obj.job_id).exists()
+
+    @staticmethod
+    def resolve_annual_bonus_currency(obj):
+        if obj.annual_bonus_currency:
+            return obj.annual_bonus_currency.abbreviation
+        return
+
+    @staticmethod
+    def resolve_annual_salary_currency(obj):
+        if obj.annual_salary_currency:
+            return obj.annual_salary_currency.abbreviation
+        return
 
 
 
@@ -919,8 +947,6 @@ class TalentJobPostSchema(JobPostListSchema):
     application_uid: Optional[UUID]
     stage: Optional[StageSchema]
     screening_questions: List[TalentQuestionSchema]
-    annual_bonus_currency: Optional[str]
-    annual_salary_currency: Optional[str]
     country: GenericNameAndUidSchema
     strength: Optional[JobMatchSchema]
     weakness: Optional[JobMatchSchema]
@@ -966,19 +992,6 @@ class TalentJobPostSchema(JobPostListSchema):
         if not talent:
             return
         return obj.weakness(talent)
-
-    @staticmethod
-    def resolve_annual_bonus_currency(obj):
-        if obj.annual_bonus_currency:
-            return obj.annual_bonus_currency.abbreviation
-        return
-
-
-    @staticmethod
-    def resolve_annual_salary_currency(obj):
-        if obj.annual_salary_currency:
-            return obj.annual_salary_currency.abbreviation
-        return
 
 
 class TalentJobFilterQuerySchema(Schema):

@@ -40,7 +40,7 @@ def get_random_list(data, count):
 
 
 @transaction.atomic
-def generate_data(password, email_recipients, talent_amount=50,
+def generate_data(password='Pass1234@now', email_recipients=None, talent_amount=50,
                   business_amount=5, staff_amount=5, job_amount=3,
                   question_amount=3, max_applied_jobs=10, max_withdrawals=10,
                   max_saved_jobs=7, silent=True
@@ -50,7 +50,6 @@ def generate_data(password, email_recipients, talent_amount=50,
     countries = [*Country.objects.exclude(name__iexact="Nigeria").order_by('?')[:4]]
     nigeria = Country.objects.filter(name__iexact="Nigeria").first()
 
-    departments = Department.objects.all()
     educational_levels = EducationLevel.objects.all()
     employment_type = EmploymentType.objects.all()
     job_level = JobLevel.objects.all()
@@ -220,10 +219,10 @@ def generate_data(password, email_recipients, talent_amount=50,
             user.set_password(password)
             user.save()
             message = f"{message}\nName: {user.fullname}\nEmail: {user.email}\nPassword: {password}\nUser Type: {user.type}\n\n"
-
-    send_email(subject="Seeded Users",
-               plain_body=message,
-               emails=email_recipients)
+    if email_recipients:
+        send_email(subject="Seeded Users",
+                   plain_body=message,
+                   emails=email_recipients)
     if not silent:
         print(message)
 
@@ -287,3 +286,120 @@ def assign_name_to_email_templates():
         email_template.name = fake.color_name()[:20]
         email_template.save()
     print("finished assigning name to email templates")
+
+
+@transaction.atomic
+def generate_data_for_account(email, job_amount=3,
+                  question_amount=3, max_applied_jobs=10, max_withdrawals=10,
+                  max_saved_jobs=7, silent=True):
+    fake = Faker()
+    countries = [*Country.objects.exclude(name__iexact="Nigeria").order_by('?')[:10]]
+    nigeria = Country.objects.filter(name__iexact="Nigeria").first()
+
+    Department.objects.all()
+    educational_levels = EducationLevel.objects.all()
+    employment_type = EmploymentType.objects.all()
+    job_level = JobLevel.objects.all()
+    roles = Role.objects.all()
+    skills = Skill.objects.all()
+    qualifications = ["Bachelor's Degree", "Master's Degree"]
+    currencies = Currency.objects.all()
+    countries.append(nigeria)
+
+    talents = Talent.objects.order_by("?")[:50]
+
+    if not silent:
+        print("creating job filters for talents")
+    # we have 50 talents from 5 different countries
+    business_user = BusinessUser.objects.filter(user__email__iexact=email).first()
+    if not business_user:
+        return
+    business = business_user.business
+
+    job_count_per_staff = business_user.job_set.all().count()
+    if job_count_per_staff < job_amount:
+        JobFactory.create_batch(
+            job_amount-job_count_per_staff, created_by=business_user,
+            minimum_education_level=get_random_data(educational_levels),
+            job_level=get_random_data(job_level),
+            qualification=choice(qualifications),
+            role=get_random_data(roles),
+            employment_type=get_random_data(employment_type)
+        )
+    jobs = Job.objects.filter(created_by__business=business).iterator()
+    for job in jobs:
+        if job.skills.all().count() == 0:
+            job.skills.set(get_random_list(skills, 10))
+            job.save()
+
+            # create job required attribute for all jobs:
+            if not hasattr(job, "requiredattribute"):
+                RequiredAttributeFactory.create(job=job)
+
+            for country in countries:
+                if not JobPost.objects.filter(job=job, country=country).exists():
+                    JobPostFactory(
+                        country=country,
+                        recruiter=business_user,
+                        job=job,
+                        annual_salary_currency=get_random_data(currencies),
+                        annual_bonus_currency=get_random_data(currencies)
+                    )
+            question_count = job.screeningquestion_set.all().count()
+            if question_count < question_amount:
+                ScreeningQuestionFactory.create_batch(question_amount-question_count, job=job)
+
+        # now we have have 75 * 5 = 375 job posts
+    if not silent:
+        print("creating workflows for businesses")
+    for phase in PhaseType.values():
+        staff = BusinessUser.objects.order_by("?").first()
+        color = fake.color_name()
+        data = dict(created_by=staff, phase=phase, name=color)
+        if not WorkFlowStage.objects.filter(created_by__business=business, phase=phase).exists():
+            email_template = EmailTemplateFactory(created_by=staff)
+            WorkflowStageFactory(**data, email_template=email_template)
+
+    if not silent:
+        print("creating applications, saved jobs and application withdrawal for talents")
+    new_stage = WorkFlowStage.objects.filter(phase=PhaseType.NEW.value, created_by__business=business).first()
+    for talent in talents:
+        job_posts = JobPost.objects.filter(country=talent.country).order_by("?")
+
+        apply_count = choice(range(1, max_applied_jobs))
+        save_count = choice(range(1, max_saved_jobs))
+        withdrawal_count = choice(range(1, max_withdrawals))
+
+        # apply for job posts
+        for job_post in job_posts[:apply_count]:
+            if not JobApplication.objects.filter(
+                job_post=job_post, applicant=talent
+            ).exists():
+                JobApplicationFactory(
+                    job_post=job_post,
+                    applicant=talent,
+                    recruiter=job_post.recruiter,
+                    stage=new_stage,
+                    match=talent.job_match_score(job_post))
+
+
+        # save job posts
+        for job_post in job_posts[apply_count:save_count+apply_count]:
+            if not SavedJob.objects.filter(job_post=job_post, talent=talent).exists():
+                SavedJobFactory(job_post=job_post, talent=talent)
+
+         # withdrawal jobs
+        for job_post in job_posts[(apply_count+save_count):(apply_count+save_count+withdrawal_count)]:
+            if not JobApplicationWithdrawal.objects.filter(job_post=job_post, talent=talent).exists():
+                JobApplicationWithdrawal(job_post=job_post, talent=talent)
+
+    job_applications = JobApplication.objects.filter(recruiter__business=business)
+
+    if not silent:
+        print("creating questions and answers for job applications")
+    for job_application in job_applications:
+        questions = job_application.job_post.job.screeningquestion_set.all()
+        for question in questions:
+            if question.answer_set.all().count() == 0:
+                AnswerFactory.create(application=job_application,
+                                     question=question)
