@@ -1,4 +1,5 @@
 from typing import Optional
+from uuid import UUID
 
 from ninja import ModelSchema, Schema
 from pydantic import EmailStr, Field
@@ -15,6 +16,7 @@ class UserSchema(ModelSchema):
     is_social_account: bool
     is_new: bool
     business_role: Optional[str]
+    business_uid: Optional[UUID]
 
     class Meta:
         model = User
@@ -29,6 +31,12 @@ class UserSchema(ModelSchema):
         if not hasattr(obj, "businessuser"):
             return
         return obj.businessuser.role
+
+    @staticmethod
+    def resolve_business_uid(obj):
+        if not hasattr(obj, "businessuser"):
+            return
+        return obj.businessuser.business.uid
 
     
     @staticmethod

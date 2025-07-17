@@ -62,7 +62,7 @@ class Job(BaseModel):
     first_language = models.ForeignKey(Language, on_delete=models.SET_NULL, null=True)
     additional_languages = models.ManyToManyField(Language, related_name="jobs")
     office_address = models.CharField(max_length=128, null=True)
-    lunch_break = models.CharField(max_length=50, choices=LunchBreakEnum.choices())
+    lunch_break = models.CharField(max_length=50, choices=LunchBreakEnum.choices(), null=True)
     lunch_break_time = models.PositiveSmallIntegerField(default=0)
     responsibilities = models.JSONField(default=list, blank=True)
     additional_hours_description = models.TextField(null=True)
