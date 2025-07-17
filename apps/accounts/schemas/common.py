@@ -16,7 +16,7 @@ class UserSchema(ModelSchema):
     is_social_account: bool
     is_new: bool
     business_role: Optional[str]
-    business_uid: Optional[UUID]
+    business_user_uid: Optional[UUID]
 
     class Meta:
         model = User
@@ -33,10 +33,10 @@ class UserSchema(ModelSchema):
         return obj.businessuser.role
 
     @staticmethod
-    def resolve_business_uid(obj):
+    def resolve_business_user_uid(obj):
         if not hasattr(obj, "businessuser"):
             return
-        return obj.businessuser.business.uid
+        return obj.businessuser.uid
 
     
     @staticmethod
