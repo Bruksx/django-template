@@ -220,6 +220,8 @@ def send_job_sharing_notification(job_post):
 
 
 def send_job_performance_notification(job_post):
+    if not job_post:
+        return
     now = timezone.now()
     last_week = now - timedelta(days=7)
 
@@ -294,6 +296,9 @@ def send_job_post_assignment_notification(job_post, previous_recruiter=None):
 
     send this notification when a job_post is assigned
     """
+    if not job_post:
+        return
+    business = job_post.job.created_by.business
 
     if previous_recruiter and BusinessUserNotificationSettings.should_send_notification(
             previous_recruiter.user, NotificationType.ASSIGNMENT.value
@@ -305,12 +310,13 @@ def send_job_post_assignment_notification(job_post, previous_recruiter=None):
             entity=EntityType.JOB_POST.value,
             entity_uid=job_post.uid,
             entity_str=job_post.job.get_title,
-            business=job_post.recruiter.business
+            business=business
         )
         notification.recipient_users.add(previous_recruiter.user)
         notification.save()
         notification.notify()
-    if BusinessUserNotificationSettings.should_send_notification(
+
+    if job_post.recruiter and BusinessUserNotificationSettings.should_send_notification(
         job_post.recruiter.user, NotificationType.ASSIGNMENT.value
     ):
         notification = Notification.objects.create(
