@@ -54,8 +54,10 @@ def get_departments(request, search=""):
 
 
 @router.get("roles", response=list[RoleSchema], tags=["Common"])
-def get_roles(request, search=""):
+def get_roles(request, search="", department:Optional[UUID]=None):
     queryset = Role.objects.prefetch_related("department").all()
+    if department:
+        queryset = queryset.filter(department__uid=department)
     if search:
         queryset = queryset.filter(Q(name__icontains=search)|
                                    Q(department__name__icontains=search))
@@ -81,8 +83,11 @@ def get_job_levels(request, search=""):
     return queryset.distinct("name").order_by("name")
 
 @router.get("skill-categories", response={200: list[SkillCategorySchema]}, tags=["Common"])
-def get_skills_categories(request, search="", category=""):
+def get_skills_categories(request, search="", category="", department:Optional[UUID]=None):
     queryset = SkillCategory.objects.all().prefetch_related("skill_set")
+    if department:
+        queryset = queryset.filter(skill__department__uid=department).distinct("skill__category_id")
+
     if search:
         queryset = queryset.filter(Q(name__icontains=search)|
                                    Q(skill__name__icontains=search)).distinct("uid")
