@@ -5,6 +5,8 @@ from django.http import StreamingHttpResponse, HttpResponse
 
 from config.permissions import IsTalentUser, IsBusinessUser
 from django.db import transaction
+from django.db.models import OuterRef, Exists, Case, When, Value, FloatField, Q, F, ExpressionWrapper
+from django.db.models.expressions import RawSQL
 
 from helpers.utils import delete_s3_item
 from monkeypatches.q_cluster import async_task
@@ -15,10 +17,13 @@ from ninja.params import Query
 from ninja_extra.pagination import paginate
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import Talent
+from accounts.models import Talent, SkillCategory, Experience, Education, TalentAvailableDay
 from jobs import tasks
 from jobs.enums import JobStatusType, PhaseType
-from jobs.models import JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert
+from jobs.models import (
+    JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert, RequiredAttribute, AvailableDay
+)
+from jobs.queries import add_job_post_annotations
 from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, \
     TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, ApplyToJobSchema, \
     ShareJobViaEmailSchema, ShareJobViaChatSchema, TalentQuestionSchema, TalentJobFilterQuerySchema
@@ -75,9 +80,10 @@ def talent_saved_jobs(request, search:str=""):
 def job_posts_by_talent(request, filters:TalentJobFilterQuerySchema = Query(...)):
     filters = filters.convert_to_schema()
     IsTalentUser.check(request)
-    talent = request.user.talent
+    talent: Talent = request.user.talent
     request.context = {"talent": talent}
     queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(status=JobStatusType.POSTED.value)
+    queryset = add_job_post_annotations(queryset, talent)
     return filters.get_queryset(talent=talent, queryset=queryset)
 
 

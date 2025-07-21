@@ -859,7 +859,7 @@ class TalentJobPostListSchema(ModelSchema):
     saved: Optional[bool]
     alert: Optional[bool]
     country: Optional[GenericNameAndUidSchema] = None
-    match_score: int|float
+    match_score: Optional[int] = 0
     application_uid: Optional[UUID]
     stage: Optional[StageSchema]
 
@@ -935,7 +935,9 @@ class TalentJobPostListSchema(ModelSchema):
         application = JobApplication.objects.filter(job_post=obj, applicant=talent).only("stage").first()
         return application.stage if application else None
 
-
+    @staticmethod
+    def resolve_match_score(obj, context):
+        return int(obj.computed_match_score)
 
 
 
