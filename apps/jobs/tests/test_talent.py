@@ -1,20 +1,24 @@
 import uuid
-from datetime import timezone
-from decimal import Decimal
+from datetime import timezone, time
+from decimal import Decimal, ROUND_HALF_UP
 
 from django.test import TestCase
 from ninja.testing import TestClient
 
-from accounts.enums import BusinessUserRoleType
+from accounts.enums import BusinessUserRoleType, Days
 from accounts.models import (
-    Country, Industry, User, Talent, BusinessUser, Business, Role, EducationLevel, Department, BusinessIndustry
+    Country, Industry, User, Talent, BusinessUser, Business, Role, EducationLevel, Department, BusinessIndustry,
+    Skill, TalentAvailableDay
 )
-from core.models import Currency
+from jobs.queries import add_job_post_annotations
+from core.models import Currency, Language
 from factories import TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory, \
     JobApplicationFactory, CountryFactory, ScreeningQuestionFactory, fake
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusType, WithdrawalFeedbackType, \
     QuestionTypeEnum
-from jobs.models import JobPost, JobLevel, EmploymentType, SavedJob, JobApplication
+from jobs.models import (
+    JobPost, JobLevel, EmploymentType, SavedJob, JobApplication, RequiredAttribute, BusinessModel, AvailableDay,
+)
 from jobs.views import router
 
 
@@ -33,8 +37,8 @@ class TalentJobListTests(TestCase):
         self.user = User.objects.create_user(**self.user_data,
                                              email_verified=True,
                                              is_active=True)
-        self.talent = TalentFactory.create(user=self.user, country=self.country)
         self.role = Role.objects.first()
+        self.talent: Talent = TalentFactory.create(user=self.user, country=self.country, role=self.role)
         self.education_level = EducationLevel.objects.first()
         self.department = Department.objects.first()
         self.currency = Currency.objects.first()
@@ -89,7 +93,7 @@ class TalentJobListTests(TestCase):
             working_hours=True,
             location=True
         )
-        self.job_post = JobPostFactory.create(
+        self.job_post: JobPost = JobPostFactory.create(
             job=job,
             status=JobStatusType.POSTED.value,  # Can be changed to True for posting
             country=self.country,
@@ -179,6 +183,149 @@ class TalentJobListTests(TestCase):
         response = self.client.get("talent/job-posts?search=test&page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 0)
+    
+    def test_match_score(self):
+        self.tool_platform_skills = Skill.objects.filter(category__name="Tools/Platforms")[:3]
+        self.methodology_skills = Skill.objects.filter(category__name="Common Methodologies/Frameworks")[:3]
+        self.general_skills = Skill.objects.filter(category__name="General Skills")[:3]
+        first_language = Language.objects.first()
+        other_languages = Language.objects.exclude(id=first_language.id)[:3]
+        available_days = [
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.TUESDAY.value,
+                start_time=time(8, 0),
+                end_time=time(2, 0)
+            ),
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.WEDNESDAY.value,
+                start_time=time(8, 0),
+                end_time=time(2, 0)
+            ),
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.FRIDAY.value,
+                start_time=time(8, 0),
+                end_time=time(2, 0)
+            ),
+        ]
+        talent_available_days = [
+            TalentAvailableDay(
+                talent=self.talent,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(3, 0)
+            ),
+            TalentAvailableDay(
+                talent=self.talent,
+                day=Days.TUESDAY.value,
+                start_time=time(7, 0),
+                end_time=time(3, 0)
+            ),
+            TalentAvailableDay(
+                talent=self.talent,
+                day=Days.WEDNESDAY.value,
+                start_time=time(7, 0),
+                end_time=time(3, 0)
+            ),
+            TalentAvailableDay(
+                talent=self.talent,
+                day=Days.FRIDAY.value,
+                start_time=time(8, 0),
+                end_time=time(2, 0)
+            ),
+            TalentAvailableDay(
+                talent=self.talent,
+                day=Days.SATURDAY.value,
+                start_time=time(8, 0),
+                end_time=time(2, 0)
+            )
+        ]
+
+
+        TalentAvailableDay.objects.bulk_create(talent_available_days)
+        AvailableDay.objects.bulk_create(available_days)
+
+        requiredattribute: RequiredAttribute = self.job_post.job.requiredattribute
+        requiredattribute.business_models.add(
+
+        )
+        requiredattribute.skills.add(
+            *self.tool_platform_skills,
+            *self.methodology_skills,
+            *self.general_skills[:0],
+        )
+        business_model = BusinessModel.objects.first()
+        requiredattribute.business_models.add(
+            business_model
+        )
+        requiredattribute.years_of_experience = False
+        requiredattribute.work_structure = True
+        requiredattribute.first_language = True
+        requiredattribute.secondary_language = True
+        requiredattribute.working_hours = True
+        requiredattribute.location = False
+        requiredattribute.minimum_education_level = False
+        requiredattribute.job_level = False
+    
+
+        self.talent.skills.add(*self.tool_platform_skills[:1], *self.methodology_skills[:2])
+        self.talent.work_model = self.job_post.job.work_structure
+        self.talent.native_language = None
+        self.talent.additional_languages.add(*other_languages[:2])
+
+
+        self.job_post.job.first_language = first_language
+        self.job_post.job.additional_languages.add(*other_languages)
+
+        requiredattribute.save()
+        self.job_post.job.save()
+        self.talent.save()
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+
+        job_post = queryset.first()
+
+        role_score = Decimal(job_post.role_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        tool_platform_score = Decimal(job_post.tools_platform_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        methodologies_score = Decimal(job_post.methodologies_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        general_skill_score = Decimal(job_post.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        business_model_score = Decimal(job_post.business_model_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        job_level_score = Decimal(job_post.job_level_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        experience_score = Decimal(job_post.experience_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        minimum_education_score = Decimal(job_post.minimum_education_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        work_structure_score = Decimal(job_post.work_structure_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        tech_requirement_score = Decimal(job_post.tech_requirement_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        first_language_score = Decimal(job_post.first_language_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        additional_language_score = Decimal(job_post.additional_language_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        work_schedule_score = Decimal(job_post.work_schedule_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        location_score = Decimal(job_post.location_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(role_score, Decimal("6.67"))
+        self.assertEqual(tool_platform_score, Decimal("2.22"))
+        self.assertEqual(methodologies_score, Decimal("4.45"))
+        self.assertEqual(general_skill_score, Decimal("6.67"))
+        self.assertEqual(business_model_score, Decimal("0.00"))
+        self.assertEqual(job_level_score, Decimal("6.67"))
+        self.assertEqual(experience_score, Decimal("6.67"))
+        self.assertEqual(minimum_education_score, Decimal("6.67"))
+        self.assertEqual(work_structure_score, Decimal("6.67"))
+        self.assertEqual(tech_requirement_score, Decimal("0.00"))
+        self.assertEqual(first_language_score, Decimal("0.00"))
+        self.assertEqual(additional_language_score, Decimal("4.45"))
+        self.assertEqual(work_schedule_score, Decimal("5.00"))
+        self.assertEqual(location_score, Decimal("6.67"))
+        self.assertEqual(computed_match_score, Decimal("62.81"))
+
 
 
 class ApplyToJobPostTest(TestCase):
