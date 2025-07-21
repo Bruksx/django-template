@@ -290,7 +290,7 @@ def assign_name_to_email_templates():
 
 @transaction.atomic
 def generate_data_for_account(email, job_amount=3,
-                  question_amount=3, max_applied_jobs=10, max_withdrawals=10,
+                  question_amount=3, max_applied_jobs=30, max_withdrawals=10,
                   max_saved_jobs=7, silent=True):
     fake = Faker()
     countries = [*Country.objects.exclude(name__iexact="Nigeria").order_by('?')[:10]]
