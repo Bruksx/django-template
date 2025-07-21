@@ -8,7 +8,7 @@ from uuid import UUID
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
-from django.db.models import Q, Count, F, Value, Avg, IntegerField
+from django.db.models import Q, Count, F, Value, Avg, IntegerField, Exists, OuterRef
 from django.db.models.functions import Concat, Cast
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
@@ -292,9 +292,9 @@ class Talent(BaseModel):
         return int(months//12), int(months)
 
     def job_post_matches(self, job_only=False, by_talent_country=False, start_date: date=None, end_date: date=None, business=None):
-        from jobs.models import AvailableDay, JobPost
+        from jobs.models import AvailableDay, JobPost, Job
+        from jobs.queries import add_job_post_annotations
 
-        from jobs.models import Job
         experiences = self.experience_set.only("level_id", "employment_type_id", "role_id")
         job_level_ids = experiences.values_list("level_id", flat=True)
         years_of_experience = int(self.years_of_experience)
@@ -307,7 +307,7 @@ class Talent(BaseModel):
         working_hours_query = self.availability_query()
 
         # Build base filters
-        filters = [
+        """filters = [
             Q(requiredattribute__job_level=True, job_level_id__in=job_level_ids),
             Q(requiredattribute__minimum_education_level=True, minimum_education_level_id__in=education_level_ids),
             Q(requiredattribute__business_models__id__in=business_model_ids),
@@ -324,7 +324,9 @@ class Talent(BaseModel):
         # Combine all filters using OR
         job_matching_query = Q()
         for f in filters:
-            job_matching_query |= f
+            job_matching_query |= f"""
+        
+        job_matching_query = Q()
 
         # Add optional date filter
         if start_date and end_date:
@@ -348,9 +350,13 @@ class Talent(BaseModel):
         if by_talent_country:
             jobpost_filter["country"] = self.country
 
-        return JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business") \
+        queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business") \
             .filter(**jobpost_filter) \
             .order_by("-id")
+        
+        queryset = add_job_post_annotations(queryset, self)
+        queryset = queryset.filter(computed_match_score__gte=50)
+        return queryset
 
     def job_match_score(self, job_post):
         job = job_post.job
@@ -408,14 +414,26 @@ class Talent(BaseModel):
         return self.jobapplication_set
 
     def saved_jobs(self):
-        from jobs.models import JobPost
-        job_post_ids = self.savedjob_set.only("job_post_id").values_list("job_post_id", flat=True)
-        return JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(id__in=job_post_ids)
+        from jobs.models import JobPost, SavedJob
+        from jobs.queries import add_job_post_annotations
+
+        is_saved = Exists(SavedJob.objects.filter(job_post__id=OuterRef("id"), talent=self))
+        queryset = JobPost.objects.select_related(
+            "job", "country", "job__role", "job__created_by__business"
+        ).annotate(is_saved=is_saved).filter(is_saved=True)
+        queryset = add_job_post_annotations(queryset, self)
+        return queryset
 
     def applied_jobs(self):
-        from jobs.models import JobPost
-        job_post_ids = self.jobapplication_set.only("job_post_id").values_list("job_post_id", flat=True)
-        return JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(id__in=job_post_ids)
+        from jobs.models import JobPost, JobApplication
+        from jobs.queries import add_job_post_annotations
+        
+        is_applied = Exists(JobApplication.objects.filter(job_post__id=OuterRef("id"), applicant=self))
+        queryset = JobPost.objects.select_related(
+            "job", "country", "job__role", "job__created_by__business"
+        ).annotate(is_applied=is_applied).filter(is_applied=True)
+        queryset = add_job_post_annotations(queryset, self)
+        return queryset
 
     def invitations_to_apply(self, start_date:date=None, end_date:date=None)->int:
         from chats.models import Message
