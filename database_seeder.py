@@ -364,11 +364,11 @@ def generate_data_for_account(email, job_amount=3,
         print("creating applications, saved jobs and application withdrawal for talents")
     new_stage = WorkFlowStage.objects.filter(phase=PhaseType.NEW.value, created_by__business=business).first()
     for talent in talents:
-        job_posts = JobPost.objects.filter(country=talent.country).order_by("?")
+        job_posts = JobPost.objects.filter(country=talent.country, job__created_by__business=business).order_by("?")
 
-        apply_count = choice(range(1, max_applied_jobs))
-        save_count = choice(range(1, max_saved_jobs))
-        withdrawal_count = choice(range(1, max_withdrawals))
+        apply_count = max_applied_jobs
+        save_count = max_saved_jobs
+        withdrawal_count = max_withdrawals
 
         # apply for job posts
         for job_post in job_posts[:apply_count]:
