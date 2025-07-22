@@ -128,22 +128,7 @@ class User(AbstractUser, BaseModel):
         return None
 
     def delete_account(self):
-        if hasattr(self, "talent"):
-            self.talent.delete_account()
-        elif hasattr(self, "businessuser"):
-            self.businessuser.delete_account()
-        self.first_name = "deleted"
-        self.last_name = "user"
-        self.email = f"deleted_user_{self.id}@example.com"
-        self.phone_number = None
-        self.facebook_id = None
-        self.linkedin_id = None
-        self.google_id = None
-        self.apple_id = None
-        self.username = f"user-{self.id}"
-        self.is_active = False
-        self.save()
-        self.delete()
+        self.hard_delete()
         return
 
 
