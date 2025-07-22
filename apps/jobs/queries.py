@@ -91,15 +91,6 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             LIMIT 1
         """, [])
     ).annotate(
-        required_attribute_skill_counts=Coalesce(
-            Subquery((
-                RequiredAttribute.skills.through.objects
-                .filter(requiredattribute__job=OuterRef("pk"))
-                .values("requiredattribute__job")  # Group by job to make aggregation valid
-                .annotate(skill_count=Count("skill_id"))
-                .values("skill_count")[:1]
-            ), output_field=IntegerField()), Value(0)),
-    ).annotate(
         business_model_score=RawSQL(f"""
             SELECT
                 CASE
@@ -265,13 +256,16 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             output_field=FloatField()
         )
     ).annotate(
-        computed_match_score=ExpressionWrapper(
-            F("role_score") + F("tools_platform_score") + F("methodologies_score") +
-            F("general_skill_score") + F("job_level_score") + F("experience_score") +
-            F("business_model_score") + F("minimum_education_score") + F("work_structure_score") +
-            F("tech_requirement_score") + F("first_language_score") + F("additional_language_score") +
-            F("work_schedule_score") + F("location_score"),
-            output_field=FloatField()
+        computed_match_score=Case(
+            When( Q(requires_location=True) & Q(location_match=False), then=Value(0.0)),
+            default=ExpressionWrapper(
+                F("role_score") + F("tools_platform_score") + F("methodologies_score") +
+                F("general_skill_score") + F("job_level_score") + F("experience_score") +
+                F("business_model_score") + F("minimum_education_score") + F("work_structure_score") +
+                F("tech_requirement_score") + F("first_language_score") + F("additional_language_score") +
+                F("work_schedule_score") + F("location_score"),
+                output_field=FloatField()
+            )
         )
     )
     return queryset

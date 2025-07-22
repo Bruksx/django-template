@@ -12,8 +12,10 @@ from accounts.models import (
 )
 from jobs.queries import add_job_post_annotations
 from core.models import Currency, Language
-from factories import TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory, \
-    JobApplicationFactory, CountryFactory, ScreeningQuestionFactory, fake
+from factories import (
+    TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory, 
+    JobApplicationFactory, CountryFactory, ScreeningQuestionFactory, fake, RequiredAttributeFactory,
+)
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusType, WithdrawalFeedbackType, \
     QuestionTypeEnum
 from jobs.models import (
@@ -319,8 +321,6 @@ class TalentJobListTests(TestCase):
         location_score = Decimal(job_post.location_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
-        print(job_post.required_attribute_skill_counts)
-
         self.assertEqual(role_score, Decimal("6.67"))
         self.assertEqual(tool_platform_score, Decimal("2.22"))
         self.assertEqual(methodologies_score, Decimal("4.45"))
@@ -336,6 +336,59 @@ class TalentJobListTests(TestCase):
         self.assertEqual(work_schedule_score, Decimal("5.00"))
         self.assertEqual(location_score, Decimal("6.67"))
         self.assertEqual(computed_match_score, Decimal("62.81"))
+
+
+
+class JobMatchTests(TestCase):
+    def setUp(self):
+        self.talent: Talent = TalentFactory.create()
+        self.location = Country.objects.first()
+        self.job: Job = JobFactory.create()
+        self.job_post: JobPost = JobPostFactory.create(
+            job=self.job,
+        )
+        self.required_attributes: RequiredAttribute = RequiredAttributeFactory.create(
+            job=self.job,
+            role=False,
+            job_level=False,
+            years_of_experience=False,
+            minimum_education_level=False,
+            work_structure=False,
+            technological_requirement=False,
+            first_language=False,
+            secondary_language=False,
+            working_hours=False,
+            location=False,
+        )
+
+    def test_location(self):
+        self.talent.country = self.location
+        self.job_post.country = self.location
+        self.update_required_attributes(location=True)
+        self.talent.save()
+        self.job_post.save()
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+
+        job_post = queryset.first()
+        location_score = Decimal(job_post.location_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        print(location_score)
+    
+    def update_required_attributes(self, *args, **kwargs):
+        self.required_attributes.update(
+            role=False,
+            job_level=False,
+            years_of_experience=False,
+            minimum_education_level=False,
+            work_structure=False,
+            technological_requirement=False,
+            first_language=False,
+            secondary_language=False,
+            working_hours=False,
+            location=False,
+            **kwargs,
+        )
 
 
 
