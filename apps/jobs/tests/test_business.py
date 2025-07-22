@@ -225,7 +225,6 @@ class TestJobList(TestCase):
             "authorization": f"bearer {self.business_user.user.token}"
         }
         response = self.client.get(self.url, headers=headers)
-        print(response.data["results"])
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 5)
         self.assertIn("posts", response.data)
