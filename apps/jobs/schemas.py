@@ -16,7 +16,7 @@ from pydantic import Field, EmailStr
 from settings.models import WorkFlowStage
 
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
-    WithdrawalFeedbackType, JobStatusType, ActionType
+    WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType
 from .models import BusinessModel, JobApplication, Answer
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
 from .models import (
@@ -654,6 +654,7 @@ class JobListPaginatedSchema(PaginatedResponseSchema[JobFullListSchema]):
 class WorkFlowSchema(ModelSchema):
     uid: UUID
     applications: int
+    phase: PhaseType
 
     class Meta:
         model = WorkFlowStage
