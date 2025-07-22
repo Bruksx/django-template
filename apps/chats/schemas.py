@@ -1,45 +1,25 @@
 from typing import Optional, List, Any, Literal
 from uuid import UUID
 
-from ninja import ModelSchema, Schema
-from ninja.orm.fields import AnyObject
-
 from accounts.models import User, Talent, BusinessUser
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, MessageAttachment, Conversation
 from jobs.models import JobPost
+from ninja import ModelSchema, Schema
+from ninja.orm.fields import AnyObject
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+from pydantic import Field
 
 from apps.accounts.enums import UserType
-from ws_tester import business_user
 
 
 class ChatUserSchema(ModelSchema):
     photo_url:Optional[str] = None
-    user_type_uid:Optional[UUID] = None
+    user_type_uid:Optional[UUID] = Field(None, alias="user_type_uid")
 
     class Meta:
         model = User
         fields = ("uid", "email", "first_name", "last_name", "type")
-
-    @staticmethod
-    def resolve_user_type_uid(obj):
-        if obj.type == UserType.TALENT.value:
-            talent = Talent.objects.filter(user=obj).first()
-            if not talent:
-                return
-            return talent.uid
-        elif obj.type == UserType.BUSINESS.value:
-            business_user = BusinessUser.objects.filter(user=obj).first()
-            if not business_user:
-                return
-            return business_user.uid
-        return
-
-
-    @staticmethod
-    def resolve_business_user_uid(obj):
-        return BusinessUser.objects.filter(user=obj).first()
 
 
 class ChatJobSchema(ModelSchema):

@@ -127,6 +127,19 @@ class User(AbstractUser, BaseModel):
             return self.businessuser.business.get_logo()
         return None
 
+    def user_type_uid(self):
+        if self.type == UserType.TALENT.value:
+            talent = Talent.objects.filter(user=self).first()
+            if not talent:
+                return
+            return talent.uid
+        elif self.type == UserType.BUSINESS.value:
+            business_user = BusinessUser.objects.filter(user=self).first()
+            if not business_user:
+                return
+            return business_user.uid
+        return
+
     def delete_account(self):
         if hasattr(self, "talent"):
             self.talent.delete_account()
