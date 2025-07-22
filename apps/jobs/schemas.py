@@ -509,7 +509,7 @@ class JobPostListSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "created_at", "date_posted"]
+        fields = ["uid", "status", "created_at", "date_posted", "share_compensation"]
 
 
     @staticmethod
@@ -734,7 +734,8 @@ class JobPostFullDetailSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "created_at", "province", "city", "postal_code", "date_posted"]
+        fields = ["uid", "status", "created_at", "province", "city", "postal_code", "date_posted",
+                  "share_compensation"]
 
     @staticmethod
     def resolve_saved(obj, context):
@@ -865,7 +866,8 @@ class TalentJobPostListSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ("uid", "job", "country", "province", "city", "postal_code", "status", "date_posted", "created_at")
+        fields = ("uid", "job", "country", "province", "city", "postal_code", "status", "date_posted", "created_at",
+                  "share_compensation")
 
     @staticmethod
     def resolve_alert(obj, context):
