@@ -13,8 +13,8 @@ from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
 class ChatUserSchema(ModelSchema):
     photo_url:Optional[str] = None
-    talent_uid:Optional[UUID] = None
-    business_user_uid:Optional[UUID] = None
+    talent:Optional[UUID] = None
+    business_user:Optional[UUID] = None
 
     class Meta:
         model = User
@@ -22,17 +22,12 @@ class ChatUserSchema(ModelSchema):
 
     @staticmethod
     def resolve_talent_uid(obj):
-        t = Talent.objects.filter(user=obj).first()
-        if not t:
-            return None
-        return t.uid
+        return Talent.objects.filter(user=obj).first()
 
     @staticmethod
     def resolve_business_user_uid(obj):
-        b = BusinessUser.objects.filter(user=obj).first()
-        if not b:
-            return None
-        return b.uid
+        return BusinessUser.objects.filter(user=obj).first()
+
 
 class ChatJobSchema(ModelSchema):
     country: str
