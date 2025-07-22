@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.utils import timezone
 from helpers.utils import convert_base64_to_image_file
 from monkeypatches.response import Response
+from monkeypatches.q_cluster import async_task
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
@@ -30,7 +31,8 @@ from .schemas import (
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema
 )
-from .services import set_job_required_attributes, get_screening_questions_service
+from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
+    update_bulk__job_posts_service
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -165,6 +167,17 @@ def refresh_job_post(request, job_post_uid:UUID):
     job_post.update(date_posted=timezone.now())
     return Response(status=200, data={"message": "Job post refreshed successfully"})
 
+@router.post("job/{job_uid}/refresh", auth=JWTAuth())
+def refresh_job(request, job_uid:UUID):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    JobPost.objects.filter(job__uid=job_uid, job__created_by__business=business_user.business,
+                                       status=JobStatusType.POSTED.value).exclude(
+        date_posted__gte=(timezone.now() - timedelta(days=14)).update(
+            date_posted=timezone.now()
+        )
+    )
+    return Response(status=200, data={"message": "Job refreshed successfully"})
 
 
 
@@ -188,35 +201,20 @@ def update_job_post(request, job_post_uid, data: PatchDict[job_schemas.MutateJob
     job_post =  JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business_user.business).first()
     if not job_post:
         raise HttpError(404, "This job post does not exist")
-    new_job = None
-    if "status" in data:
-        data["status"] = data["status"].value
-        if data["status"] == JobStatusType.POSTED.value:
-            data["posted_by"] = business_user
-            data["date_posted"] = timezone.now()
-        if data["status"] == JobStatusType.DRAFT.value and job_post.status != JobStatusType.DRAFT.value:
-            # you're trying to prevent editing job posts with applications
-            new_job = job_post.copy()
-
-    if new_job:
-        job_post.update(status=JobStatusType.CLOSED.value)
-        new_job.update(**data)
-        return new_job
-    job_post.update(**data)
-    return job_post
+    status = data.get("status")
+    return update_job_post_service(job_post, business_user, data, status=status.value if status else None)
 
 @router.patch("job-posts", response=ResponseSchema, auth=JWTAuth())
 @transaction.atomic
 def bulk_job_post_update(request, data: BulkJobPostSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    job_posts = JobPost.objects.filter(job__created_by__business=business_user.business, uid__in=data.job_posts)
     if data.action == ActionType.DELETE:
-        job_ids = (JobApplication.objects.filter(job_post__in=job_posts).
+        job_ids = (JobApplication.objects.filter(job_post__uid__in=data.job_posts).
                        only("job_post_id").values_list("job_post_id", flat=True))
-        job_posts.exclude(id__in=job_ids).delete()
+        JobPost.objects.filter(job__created_by__business=business_user.business, uid__in=data.job_posts).exclude(id__in=job_ids).delete()
     else:
-        job_posts.update(status=data.action.value)
+        async_task(update_bulk__job_posts_service, business_user, data.job_posts, data.action)
     return Response({"message" : "actions have been applied successfully"}, status=200)
 
 @router.post("{job_uid}/job-post", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
@@ -397,13 +395,15 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
 def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
+    context = dict(business=business_user.business)
     queryset = Job.objects.prefetch_related("jobpost_set").filter(created_by__business=business_user.business)
     if search:
         queryset = queryset.filter(Q(role__name__icontains=search)|
                                    Q(hiring_company_name=search))
     if status:
         queryset = queryset.filter(jobpost__status=status.value).distinct()
-        request.context = {"status": status.value}
+        context["status"] = status.value
+    request.context = context
 
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(
@@ -411,7 +411,7 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
         request=request,
         pagination=pagination,
         roles=queryset.count(),
-        posts= business_user.business.job_posts().filter(job__in=queryset, status=status.value).count() if status else
+        posts= business_user.business.job_posts(status=status.value).filter(job__in=queryset).count() if status else
         business_user.business.job_posts().filter(job__in=queryset).count()
     )
 

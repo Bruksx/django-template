@@ -1,25 +1,24 @@
 import uuid
-from random import choices, choice
+from random import choice
 from uuid import uuid4
-
-from django.test import TestCase
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent, \
     EducationLevel, SkillCategory
-from accounts.enums import BusinessUserRoleType
 from core.models import Currency
+from django.test import TestCase
+from django.utils import timezone
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
     JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, SkillFactory, BusinessModelFactory, \
     CountryFactory, ScreeningQuestionFactory, AnswerFactory
+from future.backports.datetime import timedelta
 from jobs.business_views import router
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
     BusinessModel
 )
-
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
 
 
 class EmploymentTypeListTests(TestCase):
@@ -205,9 +204,12 @@ class TestJobList(TestCase):
     def setUp(self):
         self.client = TestClient(router)
         country = Country.objects.first()
-        self.business = BusinessFactory.create()
+        user = UserFactory.create()
+        BusinessFactory.create()
+        self.business = Business.objects.create(name="holly", created_by=user)
         self.url = ""
         self.business_user = BusinessUserFactory.create(user=self.business.created_by, business=self.business)
+
         jobs = JobFactory.create_batch(5, created_by=self.business_user)
         talents = TalentFactory.create_batch(5)
         for job in jobs:
@@ -223,6 +225,7 @@ class TestJobList(TestCase):
             "authorization": f"bearer {self.business_user.user.token}"
         }
         response = self.client.get(self.url, headers=headers)
+        print(response.data["results"])
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 5)
         self.assertIn("posts", response.data)
@@ -843,7 +846,7 @@ class JobPostUpdateTest(TestCase):
         self.job_post.refresh_from_db()
         data = response.json()
         self.assertEqual(self.test_data["status"], data["status"])
-        self.assertNotEqual(self.job_post.uid, data["uid"])
+        self.assertNotEqual(str(self.job_post.uid), data["uid"])
         self.assertEqual(data["benefits"], self.test_data["benefits"])
         self.assertEqual(self.job_post.status, "closed")
         self.assertEqual(data["annual_salary_currency"], self.currency.abbreviation)
@@ -853,7 +856,22 @@ class JobPostUpdateTest(TestCase):
         self.assertEqual(data["annual_bonus_min"], self.test_data["annual_bonus_min"])
         self.assertEqual(data["annual_bonus_max"], self.test_data["annual_bonus_max"])
 
+    def test_update_job_post_to_posted(self):
+        self.job_post.update(status=JobStatusType.PAUSED.value, date_posted=timezone.now() - timedelta(days=6))
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        self.test_data["status"] = JobStatusType.POSTED.value
 
+
+        response = self.client.patch(self.url(self.job_post.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+
+        self.job_post.refresh_from_db()
+        data = response.json()
+        self.assertEqual(self.test_data["status"], data["status"])
+        self.assertEqual(str(self.job_post.uid), data["uid"])
+        self.assertEqual(self.job_post.date_posted.date(), timezone.now().date())
 
     def test_update_job_post_with_invalid_uuid(self):
         headers = {
@@ -875,6 +893,7 @@ class JobPostUpdateTest(TestCase):
         headers = {"Authorization": f"Bearer {talent.user.token}"}
         response = self.client.patch(self.url(self.job_post.uid), json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 403)
+
 
 
 class JobPostDeleteTest(TestCase):

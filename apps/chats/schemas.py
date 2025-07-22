@@ -4,7 +4,7 @@ from uuid import UUID
 from ninja import ModelSchema, Schema
 from ninja.orm.fields import AnyObject
 
-from accounts.models import User
+from accounts.models import User, Talent, BusinessUser
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, MessageAttachment, Conversation
 from jobs.models import JobPost
@@ -13,10 +13,26 @@ from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
 class ChatUserSchema(ModelSchema):
     photo_url:Optional[str] = None
+    talent_uid:Optional[UUID] = None
+    business_user_uid:Optional[UUID] = None
 
     class Meta:
         model = User
         fields = ("uid", "email", "first_name", "last_name", "type")
+
+    @staticmethod
+    def resolve_talent_uid(obj):
+        t = Talent.objects.filter(user=obj).first()
+        if not t:
+            return None
+        return t.uid
+
+    @staticmethod
+    def resolve_business_user_uid(obj):
+        b = BusinessUser.objects.filter(user=obj).first()
+        if not b:
+            return None
+        return b.uid
 
 class ChatJobSchema(ModelSchema):
     country: str
