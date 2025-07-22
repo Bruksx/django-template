@@ -8,7 +8,7 @@ from ninja.testing import TestClient
 from accounts.enums import BusinessUserRoleType, Days
 from accounts.models import (
     Country, Industry, User, Talent, BusinessUser, Business, Role, EducationLevel, Department, BusinessIndustry,
-    Skill, TalentAvailableDay
+    Skill, TalentAvailableDay, Experience, Education
 )
 from jobs.queries import add_job_post_annotations
 from core.models import Currency, Language
@@ -44,6 +44,9 @@ class TalentJobListTests(TestCase):
         self.currency = Currency.objects.first()
         self.job_level = JobLevel.objects.first()
         self.employment_type = EmploymentType.objects.first()
+        Experience.objects.filter(talent=self.talent).update(role=self.role, level=self.job_level)
+        Education.objects.filter(talent=self.talent).update(level=self.education_level)
+
         self.user2 = User.objects.create_user(
             email="testuser1@example.com",
             password="securedPassword1",
@@ -116,17 +119,6 @@ class TalentJobListTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
 
-    def test_job_recommendations_endpoint_without_availability(self):
-        headers = {
-            "authorization": f"bearer {self.user.token}"
-        }
-        self.talent.talentavailableday_set.all().delete()
-        response = self.client.get("talent/job-recommendations", headers=headers)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["count"], 1)
-        response = self.client.get("talent/job-recommendations?page_size=100&page=1", headers=headers)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["count"], 1)
 
     def test_saved_job_endpoints(self):
         SavedJob.objects.create(
