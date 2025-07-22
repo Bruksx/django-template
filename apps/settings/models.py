@@ -135,7 +135,7 @@ class WorkFlowStage(BaseModel):
 
 
     def applicants(self):
-        return self.application_set
+        return self.jobapplication_set
 
     def average_timeline_by_talent(self):
         return self.talentapplicationstagetimeline_set.aggregate(

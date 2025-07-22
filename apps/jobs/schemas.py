@@ -653,7 +653,7 @@ class JobListPaginatedSchema(PaginatedResponseSchema[JobFullListSchema]):
 
 class WorkFlowSchema(ModelSchema):
     uid: UUID
-    applicants: int
+    applications: int
 
     class Meta:
         model = WorkFlowStage
@@ -666,9 +666,9 @@ class JobPostWorkflowViewSchema(JobPostListSchema):
     def resolve_workflow_data(obj):
         business = obj.job.created_by.business
         return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
-         annotate(applicants=Count("jobapplication_set", filter=Q(jobapplication_set__job_post=obj),
+         annotate(applications=Count("jobapplication_set", filter=Q(jobapplication_set__job_post=obj),
                   distinct=True)).order_by('phase_order', 'order')
-         .values("uid", "phase", "name", "applicants")
+         .values("uid", "phase", "name", "applications")
          )
 
 
@@ -681,9 +681,9 @@ class JobFullWorkflowViewSchema(JobFullListSchema):
     def resolve_workflow_data(obj, context):
         business = obj.created_by.business
         return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
-         annotate(applicants=Count('jobapplication_set', filter=Q(jobapplication_set__job_post__job=obj),
+         annotate(applications=Count('jobapplication_set', filter=Q(jobapplication_set__job_post__job=obj),
                                    distinct=True)).order_by('phase_order', 'order')
-         .values("uid", "phase", "name", "applicants"))
+         .values("uid", "phase", "name", "applications"))
 
 class JobWorkflowViewPaginatedSchema(PaginatedResponseSchema[JobFullWorkflowViewSchema]):
     roles: int
