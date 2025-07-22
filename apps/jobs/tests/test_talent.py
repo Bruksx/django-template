@@ -18,6 +18,7 @@ from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusTy
     QuestionTypeEnum
 from jobs.models import (
     JobPost, JobLevel, EmploymentType, SavedJob, JobApplication, RequiredAttribute, BusinessModel, AvailableDay,
+    Job
 )
 from jobs.views import router
 
@@ -185,9 +186,15 @@ class TalentJobListTests(TestCase):
         self.assertEqual(response.json()["count"], 0)
     
     def test_match_score(self):
+        job2: Job = JobFactory.create()
         self.tool_platform_skills = Skill.objects.filter(category__name="Tools/Platforms")[:3]
         self.methodology_skills = Skill.objects.filter(category__name="Common Methodologies/Frameworks")[:3]
         self.general_skills = Skill.objects.filter(category__name="General Skills")[:3]
+        job2.skills.add(
+            *self.tool_platform_skills,
+            *self.methodology_skills,
+            *self.general_skills[:0],
+        )
         first_language = Language.objects.first()
         other_languages = Language.objects.exclude(id=first_language.id)[:3]
         available_days = [
@@ -254,9 +261,6 @@ class TalentJobListTests(TestCase):
         AvailableDay.objects.bulk_create(available_days)
 
         requiredattribute: RequiredAttribute = self.job_post.job.requiredattribute
-        requiredattribute.business_models.add(
-
-        )
         requiredattribute.skills.add(
             *self.tool_platform_skills,
             *self.methodology_skills,
@@ -281,9 +285,14 @@ class TalentJobListTests(TestCase):
         self.talent.native_language = None
         self.talent.additional_languages.add(*other_languages[:2])
 
-
-        self.job_post.job.first_language = first_language
-        self.job_post.job.additional_languages.add(*other_languages)
+        job: Job = self.job_post.job
+        job.first_language = first_language
+        job.additional_languages.add(*other_languages)
+        job.skills.add(
+            *self.tool_platform_skills,
+            *self.methodology_skills,
+            *self.general_skills[:0],
+        )
 
         requiredattribute.save()
         self.job_post.job.save()
@@ -309,6 +318,8 @@ class TalentJobListTests(TestCase):
         work_schedule_score = Decimal(job_post.work_schedule_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         location_score = Decimal(job_post.location_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        print(job_post.required_attribute_skill_counts)
 
         self.assertEqual(role_score, Decimal("6.67"))
         self.assertEqual(tool_platform_score, Decimal("2.22"))

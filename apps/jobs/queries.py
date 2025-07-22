@@ -1,8 +1,11 @@
 from django.db.models.query import QuerySet
 from accounts.models import Talent, SkillCategory, Experience, Education
 from .models import JobPost, RequiredAttribute
-from django.db.models import OuterRef, Exists, Case, When, Value, FloatField, Q, F, ExpressionWrapper, Func
+from django.db.models import (
+    OuterRef, Exists, Case, When, Value, FloatField, Q, F, ExpressionWrapper, Count, Subquery, IntegerField
+)
 from django.db.models.expressions import RawSQL
+from django.db.models.functions import Coalesce
 
 
 def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> QuerySet[JobPost]:
@@ -40,56 +43,62 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         tools_platform_score=RawSQL(f"""
             SELECT
                 CASE
-                    WHEN COUNT(*) FILTER (WHERE s.category_id = '{tools_platform_id}') = 0 THEN 6.67
+                    WHEN COUNT(*) FILTER (WHERE skill.category_id = '{tools_platform_id}') = 0 THEN 6.67
                     ELSE 6.67 * 
                         COUNT(*) FILTER (
-                            WHERE s.category_id = '{tools_platform_id}' AND s.id IN {skills_tuple_str}
+                            WHERE skill.category_id = '{tools_platform_id}' AND skill.id IN {skills_tuple_str}
                         ) 
                         / 
-                        NULLIF(COUNT(*) FILTER (WHERE s.category_id = '{tools_platform_id}'), 0)
+                        NULLIF(COUNT(*) FILTER (WHERE skill.category_id = '{tools_platform_id}'), 0)
                 END
-            FROM jobs_requiredattribute ra
-            JOIN jobs_requiredattribute_skills ras ON ra.id = ras.requiredattribute_id
-            JOIN accounts_skill s ON ras.skill_id = s.id
-            WHERE ra.job_id = jobs_jobpost.job_id
+            FROM jobs_job_skills as job_skills
+            JOIN accounts_skill skill ON job_skills.skill_id = skill.id
             LIMIT 1
         """, [])
     ).annotate(
         methodologies_score=RawSQL(f"""
             SELECT
                 CASE
-                    WHEN COUNT(*) FILTER (WHERE s.category_id = '{methodologies_id}') = 0 THEN 6.67
+                    WHEN COUNT(*) FILTER (WHERE skill.category_id = '{methodologies_id}') = 0 THEN 6.67
                     ELSE 6.67 * 
                         COUNT(*) FILTER (
-                            WHERE s.category_id = '{methodologies_id}' AND s.id IN {skills_tuple_str}
+                            WHERE skill.category_id = '{methodologies_id}' AND skill.id IN {skills_tuple_str}
                         ) 
                         / 
-                        NULLIF(COUNT(*) FILTER (WHERE s.category_id = '{methodologies_id}'), 0)
+                        NULLIF(COUNT(*) FILTER (WHERE skill.category_id = '{methodologies_id}'), 0)
                 END
-            FROM jobs_requiredattribute ra
-            JOIN jobs_requiredattribute_skills ras ON ra.id = ras.requiredattribute_id
-            JOIN accounts_skill s ON ras.skill_id = s.id
-            WHERE ra.job_id = jobs_jobpost.job_id
+            FROM jobs_job_skills as job_skills
+            JOIN accounts_skill skill ON job_skills.skill_id = skill.id
             LIMIT 1
         """, [])
     ).annotate(
         general_skill_score=RawSQL(f"""
             SELECT
                 CASE
-                    WHEN COUNT(*) FILTER (WHERE s.category_id = '{general_skills_id}') = 0 THEN 6.67
+                    WHEN COUNT(*) FILTER (WHERE skill.category_id = '{general_skills_id}') = 0 THEN 6.67
                     ELSE 6.67 * 
                         COUNT(*) FILTER (
-                            WHERE s.category_id = '{general_skills_id}' AND s.id IN {skills_tuple_str}
+                            WHERE skill.category_id = '{general_skills_id}' AND skill.id IN {skills_tuple_str}
                         ) 
                         / 
-                        NULLIF(COUNT(*) FILTER (WHERE s.category_id = '{general_skills_id}'), 0)
+                        NULLIF(COUNT(*) FILTER (WHERE skill.category_id = '{general_skills_id}'), 0)
                 END
-            FROM jobs_requiredattribute ra
-            JOIN jobs_requiredattribute_skills ras ON ra.id = ras.requiredattribute_id
-            JOIN accounts_skill s ON ras.skill_id = s.id
-            WHERE ra.job_id = jobs_jobpost.job_id
+            FROM jobs_job_skills as job_skills
+            JOIN accounts_skill skill ON job_skills.skill_id = skill.id
+            JOIN jobs_job job ON job_skills.job_id = job.id
+            JOIN jobs_requiredattribute required_a ON job.id = required_a.job_id
+            JOIN jobs_requiredattribute_skills requiredattribute_skills ON required_a.id = requiredattribute_skills.requiredattribute_id 
             LIMIT 1
         """, [])
+    ).annotate(
+        required_attribute_skill_counts=Coalesce(
+            Subquery((
+                RequiredAttribute.skills.through.objects
+                .filter(requiredattribute__job=OuterRef("pk"))
+                .values("requiredattribute__job")  # Group by job to make aggregation valid
+                .annotate(skill_count=Count("skill_id"))
+                .values("skill_count")[:1]
+            ), output_field=IntegerField()), Value(0)),
     ).annotate(
         business_model_score=RawSQL(f"""
             SELECT
