@@ -1,4 +1,5 @@
 import uuid
+from random import choices, choice
 from uuid import uuid4
 
 from django.test import TestCase
@@ -208,8 +209,13 @@ class TestJobList(TestCase):
         self.url = ""
         self.business_user = BusinessUserFactory.create(user=self.business.created_by, business=self.business)
         jobs = JobFactory.create_batch(5, created_by=self.business_user)
+        talents = TalentFactory.create_batch(5)
         for job in jobs:
-            JobPostFactory.create_batch(5, country=country, job=job, recruiter=self.business_user, status=JobStatusType.POSTED.value)
+            job_posts = JobPostFactory.create_batch(5, country=country, job=job, recruiter=self.business_user, status=JobStatusType.POSTED.value)
+            for talent in talents:
+                for job_post in job_posts[:choice(range(1,5))]:
+                    stage = WorkflowStageFactory.create(created_by=self.business_user)
+                    JobApplicationFactory.create(applicant=talent, job_post=job_post, stage=stage)
 
 
     def test_job_list_endpoint_by_business_user(self):
@@ -305,7 +311,11 @@ class TestApplicationList(TestCase):
         self.business_user = BusinessUserFactory.create(user=self.business.created_by, business=self.business)
         self.job = JobFactory.create(created_by=self.business_user)
         self.job_post = JobPostFactory.create(country=country, job=self.job, recruiter=self.business_user)
-        JobApplicationFactory.create_batch(10, job_post=self.job_post, recruiter=self.business_user)
+        for _ in range(10):
+            stage = WorkflowStageFactory.create(created_by=self.business_user)
+            if stage.phase == PhaseType.NEW.value:
+                stage.update(phase=PhaseType.SCREENING.value)
+            JobApplicationFactory.create(job_post=self.job_post, recruiter=self.business_user, stage=stage)
 
     def test_application_list_endpoint_by_business_user(self):
         headers = {
@@ -360,6 +370,7 @@ class TestApplicationList(TestCase):
         self.assertEqual(response.data["count"], 1)
 
     def test_endpoint_with_new_application_query(self):
+        new_stage = WorkflowStageFactory.create(phase=PhaseType.NEW.value, created_by=self.business_user)
         headers = {
             "authorization": f"bearer {self.business_user.user.token}"
         }
@@ -367,7 +378,7 @@ class TestApplicationList(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 0)
         application = JobApplication.objects.first()
-        application.update(stage=None)
+        application.update(stage=new_stage)
         response = self.client.get(f"{self.url(self.job_post.uid)}?new_application=true", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 1)

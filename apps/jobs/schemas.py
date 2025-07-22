@@ -509,7 +509,7 @@ class JobPostListSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "created_at", "date_posted"]
+        fields = ["uid", "status", "created_at", "date_posted", "share_compensation"]
 
 
     @staticmethod
@@ -558,7 +558,7 @@ class JobPostListSchema(ModelSchema):
 
     @staticmethod
     def resolve_applicants(obj):
-        return obj.jobapplication_set.count()
+        return JobApplication.objects.select_related("job_post").filter(job_post=obj).count()
 
     @staticmethod
     def resolve_posted_by(obj):
@@ -629,7 +629,7 @@ class JobFullListSchema(ModelSchema):
 
     @staticmethod
     def resolve_applicants(obj):
-        return JobApplication.objects.filter(job_post__job=obj).count()
+        return JobApplication.objects.select_related("job_post__job").filter(job_post__job=obj).count()
 
     @staticmethod
     def resolve_posted_by(obj):
@@ -651,11 +651,16 @@ class JobListPaginatedSchema(PaginatedResponseSchema[JobFullListSchema]):
     posts: int
 
 class JobPostWorkflowViewSchema(JobPostListSchema):
+    new: int
     screening: int
     interview: int
     onboarding: int
     hired: int
     rejected: int
+
+    @staticmethod
+    def resolve_new(obj):
+        return JobApplication.objects.filter(job_post=obj, stage__phase=PhaseType.NEW.value).count()
 
     @staticmethod
     def resolve_screening(obj):
@@ -679,15 +684,21 @@ class JobPostWorkflowViewSchema(JobPostListSchema):
 
 class JobFullWorkflowViewSchema(JobFullListSchema):
     job_posts: List[JobPostWorkflowViewSchema]
+    new: int
     screening: int
     interview: int
     onboarding: int
     hired: int
     rejected: int
 
+
     @staticmethod
     def resolve_screening(obj):
         return JobApplication.objects.filter(job_post__job=obj, stage__phase=PhaseType.SCREENING.value).count()
+
+    @staticmethod
+    def resolve_new(obj):
+        return JobApplication.objects.filter(job_post__job=obj, stage__phase=PhaseType.NEW.value).count()
 
     @staticmethod
     def resolve_interview(obj):
@@ -734,7 +745,8 @@ class JobPostFullDetailSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "created_at", "province", "city", "postal_code", "date_posted"]
+        fields = ["uid", "status", "created_at", "province", "city", "postal_code", "date_posted",
+                  "share_compensation"]
 
     @staticmethod
     def resolve_saved(obj, context):
@@ -865,7 +877,8 @@ class TalentJobPostListSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ("uid", "job", "country", "province", "city", "postal_code", "status", "date_posted", "created_at")
+        fields = ("uid", "job", "country", "province", "city", "postal_code", "status", "date_posted", "created_at",
+                  "share_compensation")
 
     @staticmethod
     def resolve_alert(obj, context):
