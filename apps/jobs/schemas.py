@@ -558,7 +558,7 @@ class JobPostListSchema(ModelSchema):
 
     @staticmethod
     def resolve_applicants(obj):
-        return obj.jobapplication_set.count()
+        return JobApplication.objects.select_related("job_post").filter(job_post=obj).count()
 
     @staticmethod
     def resolve_posted_by(obj):
@@ -629,7 +629,7 @@ class JobFullListSchema(ModelSchema):
 
     @staticmethod
     def resolve_applicants(obj):
-        return JobApplication.objects.filter(job_post__job=obj).count()
+        return JobApplication.objects.select_related("job_post__job").filter(job_post__job=obj).count()
 
     @staticmethod
     def resolve_posted_by(obj):
