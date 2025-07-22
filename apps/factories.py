@@ -1,5 +1,6 @@
 import datetime
 import random
+from random import choice
 
 import factory
 from django.utils import timezone
@@ -299,7 +300,7 @@ class WorkflowStageFactory(DjangoModelFactory):
     class Meta:
         model = WorkFlowStage
 
-    phase = factory.Iterator([*filter(lambda x: x not in (PhaseType.REJECTED.value, PhaseType.HIRED.value), PhaseType.values())])
+    phase = factory.lazy_attribute(lambda _: choice([x for x in PhaseType.values() if x not in [PhaseType.HIRED.value, PhaseType.REJECTED.value]]))
     name = factory.lazy_attribute(lambda _: fake.color_name()[:20])
     email_template = factory.SubFactory(EmailTemplateFactory)
     created_by = factory.SubFactory(BusinessUserFactory)

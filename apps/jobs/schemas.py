@@ -651,11 +651,16 @@ class JobListPaginatedSchema(PaginatedResponseSchema[JobFullListSchema]):
     posts: int
 
 class JobPostWorkflowViewSchema(JobPostListSchema):
+    new: int
     screening: int
     interview: int
     onboarding: int
     hired: int
     rejected: int
+
+    @staticmethod
+    def resolve_new(obj):
+        return JobApplication.objects.filter(job_post=obj, stage__phase=PhaseType.NEW.value).count()
 
     @staticmethod
     def resolve_screening(obj):
@@ -679,15 +684,21 @@ class JobPostWorkflowViewSchema(JobPostListSchema):
 
 class JobFullWorkflowViewSchema(JobFullListSchema):
     job_posts: List[JobPostWorkflowViewSchema]
+    new: int
     screening: int
     interview: int
     onboarding: int
     hired: int
     rejected: int
 
+
     @staticmethod
     def resolve_screening(obj):
         return JobApplication.objects.filter(job_post__job=obj, stage__phase=PhaseType.SCREENING.value).count()
+
+    @staticmethod
+    def resolve_new(obj):
+        return JobApplication.objects.filter(job_post__job=obj, stage__phase=PhaseType.NEW.value).count()
 
     @staticmethod
     def resolve_interview(obj):

@@ -1,4 +1,5 @@
 import uuid
+from random import choices, choice
 from uuid import uuid4
 
 from django.test import TestCase
@@ -208,8 +209,13 @@ class TestJobList(TestCase):
         self.url = ""
         self.business_user = BusinessUserFactory.create(user=self.business.created_by, business=self.business)
         jobs = JobFactory.create_batch(5, created_by=self.business_user)
+        talents = TalentFactory.create_batch(5)
         for job in jobs:
-            JobPostFactory.create_batch(5, country=country, job=job, recruiter=self.business_user, status=JobStatusType.POSTED.value)
+            job_posts = JobPostFactory.create_batch(5, country=country, job=job, recruiter=self.business_user, status=JobStatusType.POSTED.value)
+            for talent in talents:
+                for job_post in job_posts[:choice(range(1,5))]:
+                    stage = WorkflowStageFactory.create(created_by=self.business_user)
+                    JobApplicationFactory.create(applicant=talent, job_post=job_post, stage=stage)
 
 
     def test_job_list_endpoint_by_business_user(self):
