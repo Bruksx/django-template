@@ -267,7 +267,7 @@ class CreateWorkflowTest(TestCase):
         self.business_user = BusinessUserFactory.create(role=BusinessUserRoleType.ADMIN.value)
 
     def test_create_workflow_stage(self):
-        email_template = EmailTemplateFactory.create(created_by=self.business_user)
+        email_template = EmailTemplateFactory.create(created_by=self.business_user, personal=False)
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
         data = {
             "name": "Test Workflow",
@@ -292,7 +292,7 @@ class CreateWorkflowTest(TestCase):
         self.assertEqual(workflow.name, data["name"])
 
     def test_create_workflow_stage_with_same_name(self):
-        email_template = EmailTemplateFactory.create(created_by=self.business_user)
+        email_template = EmailTemplateFactory.create(created_by=self.business_user, personal=True)
         WorkflowStageFactory.create(name="Test Workflow", phase=PhaseType.HIRED.value, created_by=self.business_user)
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
         data = {
@@ -311,7 +311,10 @@ class UpdateWorkflowTest(TestCase):
         self.client = TestClient(router)
         self.url = lambda uid : f"workflows/stages/{uid}"
         self.business_user = BusinessUserFactory.create(role=BusinessUserRoleType.ADMIN.value)
-        self.workflow_stage = WorkflowStageFactory.create(created_by=self.business_user, is_active=True, phase=PhaseType.INTERVIEW.value)
+        email_template = EmailTemplateFactory.create(created_by=self.business_user, personal=False)
+        self.workflow_stage = WorkflowStageFactory.create(created_by=self.business_user, is_active=True,
+                                                       email_template=email_template,
+                                                          phase=PhaseType.INTERVIEW.value)
 
     def test_update_workflow_stage(self):
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
