@@ -108,7 +108,7 @@ def bulk_delete_email_templates(request, template_uids:List[UUID]):
     if business_user.role not in [BusinessUserRoleType.OWNER.value, BusinessUserRoleType.ADMIN.value]:
         query["created_by"] = business_user
 
-    templates = EmailTemplate.objects.filter(**query).iterator()
+    templates = EmailTemplate.objects.filter(**query)
     if templates.workflowstage_set.count() > 0:
         raise HttpError(400, "Some workflow stages are using this email template")
     templates.delete()
