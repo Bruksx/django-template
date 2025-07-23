@@ -8,3 +8,4 @@ class PlaceHolderType(BaseEnum):
     CANDIDATE_PHONE_NUMBER = "Candidate Phone Number"
     YOUR_FIRST_NAME = "Your First Name"
     CANDIDATE_FULLNAME = "Candidate Full Name"
+    YOUR_FULL_NAME = "Your Full Name"

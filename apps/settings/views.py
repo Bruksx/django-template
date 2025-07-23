@@ -1,7 +1,7 @@
 from typing import List
 from uuid import UUID
 
-from config.permissions import IsBusinessUser
+from config.permissions import IsBusinessUser, IsBusinessOwnerOrAdmin
 from django.db import transaction
 from django.db.models import Q
 from monkeypatches.response import Response
@@ -103,13 +103,21 @@ def retrieve_email_template(request, template_uid:UUID):
 @router.delete("email-templates", auth=JWTAuth())
 def bulk_delete_email_templates(request, template_uids:List[UUID]):
     IsBusinessUser.check(request)
-    EmailTemplate.objects.filter(uid__in=template_uids, created_by=request.user.businessuser).delete()
+    business_user = request.user.businessuser
+    query = dict(uid__in=template_uids)
+    if business_user.role not in [BusinessUserRoleType.OWNER.value, BusinessUserRoleType.ADMIN.value]:
+        query["created_by"] = business_user
+
+    templates = EmailTemplate.objects.filter(**query).iterator()
+    if templates.workflowstage_set.count() > 0:
+        raise HttpError(400, "Some workflow stages are using this email template")
+    templates.delete()
     return Response(status=204, data={"message": "email templates have been deleted successfully"})
 
 @router.delete("workflows/stages", auth=JWTAuth())
 def bulk_delete_workflow_stage(request, stage_uids:List[UUID]):
-    IsBusinessUser.check(request)
-    stages = WorkFlowStage.objects.filter(uid__in=stage_uids, created_by=request.user.businessuser)
+    IsBusinessOwnerOrAdmin.check(request)
+    stages = WorkFlowStage.objects.filter(uid__in=stage_uids, created_by__business=request.user.businessuser.business)
     for stage in stages:
         if stage.is_active is True:
             raise HttpError(400, f"This workflow stage '{stage.name}' is still active")
@@ -136,7 +144,7 @@ def move_applicants_across_stages(request, data: MoveApplicationToStageFromStage
 @router.post("workflows/stages", auth=JWTAuth())
 @transaction.atomic
 def create_workflow_stage(request, data: MutateWorkFlowStageSchema):
-    IsBusinessUser.check(request)
+    IsBusinessOwnerOrAdmin.check(request)
     business_user = request.user.businessuser
     if WorkFlowStage.objects.filter(created_by__business=business_user.business, name__iexact=data.name,
                                     phase=data.phase.value).exists():
@@ -144,6 +152,9 @@ def create_workflow_stage(request, data: MutateWorkFlowStageSchema):
     if data.phase in [PhaseType.NEW, PhaseType.REJECTED, PhaseType.HIRED]:
         if WorkFlowStage.objects.filter(created_by__business=business_user.business, phase=data.phase.value).exists():
             raise HttpError(400, "You cannot create more than one workflow stage in this phase")
+    if data.email_template and EmailTemplate.objects.filter(uid=data.email_template, personal=True).exists():
+        raise HttpError(400, "Personal templates are not used for stages")
+
     wrk_flow_data = data.__dict__.copy()
     wrk_flow_data["phase"] = wrk_flow_data["phase"].value
     wrk_flow_data["phase_order"] = PhaseType.values().index(wrk_flow_data["phase"])
@@ -153,7 +164,7 @@ def create_workflow_stage(request, data: MutateWorkFlowStageSchema):
 @router.patch("workflows/stages/{stage_uid}", auth=JWTAuth())
 @transaction.atomic
 def update_workflow_stage(request, stage_uid:UUID, data:PatchDict[MutateWorkFlowStageSchema]):
-    IsBusinessUser.check(request)
+    IsBusinessOwnerOrAdmin.check(request)
     business_user = request.user.businessuser
     stage = WorkFlowStage.objects.filter(uid=stage_uid, created_by__business=business_user.business).first()
     if not stage:
@@ -171,6 +182,9 @@ def update_workflow_stage(request, stage_uid:UUID, data:PatchDict[MutateWorkFlow
     if "name" in data:
         if stage.phase in [PhaseType.NEW.value, PhaseType.REJECTED.value, PhaseType.HIRED.value] and str(stage.name).lower() != str(data["name"]).lower():
             raise HttpError(400, "You cannot change the name of this workflow stage")
+
+    if data.get("email_template") and EmailTemplate.objects.filter(uid=data.get("email_template"), personal=True).exists():
+        raise HttpError(400, "Personal templates are not used for stages")
 
     phase = data.get("phase", stage.phase)
     if "name" in data and  WorkFlowStage.objects.filter(created_by__business=business_user.business, name__iexact=data["name"],
@@ -200,7 +214,7 @@ def retrieve_all_workflow_stages(request):
 @router.patch("workflows/re-arrange-stages", auth=JWTAuth())
 @transaction.atomic
 def re_arrange_workflows(request, data:List[RearrangeWorkflowStageSchema]):
-    IsBusinessUser.check(request)
+    IsBusinessOwnerOrAdmin.check(request)
     business_user = request.user.businessuser
     for arrangement in data:
         for stage in arrangement.stage_uids:
