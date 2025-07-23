@@ -3,6 +3,7 @@ from uuid import UUID
 
 from config.permissions import IsBusinessUser
 from django.db import transaction
+from django.db.models import Q
 from monkeypatches.response import Response
 from ninja import Router, Form, PatchDict, UploadedFile
 from ninja.errors import HttpError
@@ -82,7 +83,10 @@ def remove_attachments_from_email_template(request, template_uid:UUID, data: Lis
 def retrieve_all_email_templates(request, personal:bool=None):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    queryset = EmailTemplate.objects.filter(created_by__business=business_user.business)
+    queryset = EmailTemplate.objects.filter(created_by__business=business_user.business).exclude(Q(
+        personal=True
+    ) & ~Q(created_by=business_user)
+    )
     if personal is not None:
         queryset = queryset.filter(personal=personal)
     return queryset.order_by("name")
