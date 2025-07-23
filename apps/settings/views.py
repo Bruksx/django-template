@@ -109,8 +109,9 @@ def bulk_delete_email_templates(request, template_uids:List[UUID]):
         query["created_by"] = business_user
 
     templates = EmailTemplate.objects.filter(**query)
-    if templates.workflowstage_set.count() > 0:
-        raise HttpError(400, "Some workflow stages are using this email template")
+    for template in templates:
+        if template.workflowstage_set.count() > 0:
+            raise HttpError(400, f'Some workflow stages are using this email template: "{template.name}"')
     templates.delete()
     return Response(status=204, data={"message": "email templates have been deleted successfully"})
 
