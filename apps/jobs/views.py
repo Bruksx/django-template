@@ -84,6 +84,14 @@ def job_posts_by_talent(request, filters:TalentJobFilterQuerySchema = Query(...)
     request.context = {"talent": talent}
     queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(status=JobStatusType.POSTED.value)
     queryset = add_job_post_annotations(queryset, talent)
+    required_attributes: RequiredAttribute = None
+    """for jp in queryset:
+        jp.no_match = False
+        for skill in required_attributes.skills:
+            if skill not in talent.skills:
+                jp.no_match = True
+                break"""
+
     return filters.get_queryset(talent=talent, queryset=queryset)
 
 
