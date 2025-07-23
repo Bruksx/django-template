@@ -12,8 +12,9 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
 
     talent_business_models = talent.business_models.all()
     talent_skill_ids = list(talent.skills.values_list("id", flat=True))
+    additional_lang_ids = list(talent.additional_languages.values_list("id", flat=True))
     skills_tuple_str = f"({','.join(str(sid) for sid in talent_skill_ids)})" if talent_skill_ids else "(NULL)"
-    additional_languagues_tuple_str = str(tuple(talent.additional_languages.values_list('id', flat=True)))  if talent.additional_languages.count() else "(NULL)"
+    additional_languagues_tuple_str = f"({','.join(str(aid) for aid in additional_lang_ids)})" if additional_lang_ids else "(NULL)"
     tools_platform_id = SkillCategory.objects.filter(name="Tools/Platforms").first().id
     methodologies_id = SkillCategory.objects.filter(name="Common Methodologies/Frameworks").first().id
     general_skills_id = SkillCategory.objects.filter(name="General Skills").first().id
