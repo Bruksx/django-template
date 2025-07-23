@@ -338,7 +338,7 @@ class UpdateWorkflowTest(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_update_workflow_stage_by_another_business(self):
-        business_user = BusinessUserFactory.create()
+        business_user = BusinessUserFactory.create(role=BusinessUserRoleType.ADMIN.value)
         headers = {"authorization": f"bearer {business_user.user.token}"}
         data = {
             "name": "Test Workflow II"
@@ -475,7 +475,7 @@ class BulkDeleteEmailTemplatesTest(TestCase):
         self.assertEqual(EmailTemplate.objects.filter(created_by=self.business_user).count(), 0)
 
     def test_by_another_business_user(self):
-        business_user = BusinessUserFactory.create()
+        business_user = BusinessUserFactory.create(role=BusinessUserRoleType.ADMIN.value)
         headers = {
             "authorization": f"Bearer {business_user.user.token}"
         }
@@ -537,7 +537,7 @@ class BulkDeleteWorkflowStageTest(TestCase):
 
 
     def test_by_another_business_user(self):
-        business_user = BusinessUserFactory.create()
+        business_user = BusinessUserFactory.create(role=BusinessUserRoleType.ADMIN.value)
         headers = {
             "authorization": f"Bearer {business_user.user.token}"
         }

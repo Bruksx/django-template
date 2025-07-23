@@ -107,6 +107,8 @@ def bulk_delete_email_templates(request, template_uids:List[UUID]):
     query = dict(uid__in=template_uids)
     if business_user.role not in [BusinessUserRoleType.OWNER.value, BusinessUserRoleType.ADMIN.value]:
         query["created_by"] = business_user
+    else:
+        query["created_by__business"] = business_user.business
 
     templates = EmailTemplate.objects.filter(**query)
     for template in templates:

@@ -397,7 +397,7 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
     business_user = request.user.businessuser
     context = dict(business=business_user.business)
     queryset = Job.objects.prefetch_related("jobpost_set").annotate(jobpost_count=Count('jobpost')).filter(created_by__business=business_user.business,
-                                                                                                           jobpost__count__gt=0)
+                                                                                                           jobpost_count__gt=0)
     if search:
         queryset = queryset.filter(Q(role__name__icontains=search)|
                                    Q(hiring_company_name=search))
