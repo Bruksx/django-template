@@ -1,23 +1,21 @@
-from datetime import time, datetime, timezone, tzinfo
-from typing import List, Optional, Any
+from typing import List
 from uuid import UUID
 
-import pytz
-from config import settings
 from django.conf import settings
 from django.db import transaction
 from django.db.models import QuerySet
-from django.utils.timezone import is_aware
-from helpers.utils import upload_to_s3, upload_to_server
-from helpers.utils import sort_params_function
-from ninja.errors import HttpError
-
+from django.utils import timezone
 from jobs.enums import PhaseType
-from jobs.models import JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job
+from jobs.models import JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job, JobPost
 from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema
+from ninja.errors import HttpError
 from notification.notifications import send_talents_job_matching_notification
 from settings.models import WorkFlowStage
 
+from jobs.enums import JobStatusType
+from config import settings
+from helpers.utils import sort_params_function
+from helpers.utils import upload_to_s3, upload_to_server
 from monkeypatches.q_cluster import async_task
 
 
@@ -103,3 +101,28 @@ def get_screening_questions_service(request, job_uid:UUID):
         raise HttpError(404, "This job does not exist")
     screening_questions = ScreeningQuestion.objects.filter(job__uid=job_uid)
     return screening_questions.filter(job__created_by__business=request.user.businessuser.business)
+
+
+def update_job_post_service(job_post, business_user, data=None, status=None):
+    new_job = None
+    if not data:
+        data = dict()
+    if status:
+        data["status"] = status
+        if status == JobStatusType.POSTED.value:
+            data["posted_by"] = business_user
+            data["date_posted"] = timezone.now()
+        if status == JobStatusType.DRAFT.value and job_post.status != JobStatusType.DRAFT.value:
+            # you're trying to prevent editing job posts with applications
+            new_job = job_post.copy()
+
+
+    if new_job:
+        job_post.update(status=JobStatusType.CLOSED.value)
+        new_job.update(**data)
+        return new_job
+    return job_post.update(**data)
+
+def update_bulk__job_posts_service(business_user, job_posts_id, action):
+    for job_post in JobPost.objects.filter(uid__in=job_posts_id, job__created_by__business=business_user.business).iterator():
+        update_job_post_service(job_post, business_user, status=action.value)

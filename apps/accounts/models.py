@@ -127,6 +127,19 @@ class User(AbstractUser, BaseModel):
             return self.businessuser.business.get_logo()
         return None
 
+    def user_type_uid(self):
+        if self.type == UserType.TALENT.value:
+            talent = Talent.objects.filter(user=self).first()
+            if not talent:
+                return
+            return talent.uid
+        elif self.type == UserType.BUSINESS.value:
+            business_user = BusinessUser.objects.filter(user=self).first()
+            if not business_user:
+                return
+            return business_user.uid
+        return
+
     def delete_account(self):
         self.hard_delete()
         return
@@ -579,10 +592,7 @@ class Business(BaseModel):
     def total_open_roles(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobPost
         # open roles are job posts that are posted
-        queryset = JobPost.objects.filter(
-            recruiter__business=self,
-            status=JobStatusType.POSTED.value
-        )
+        queryset = self.job_posts(status=JobStatusType.POSTED.value)
         if start_date and not end_date:
             queryset = queryset.filter(created_at__gte=start_date)
         elif end_date and not start_date:
@@ -979,9 +989,12 @@ class Business(BaseModel):
             for stage in stages
         ]
 
-    def job_posts(self):
+    def job_posts(self, status=None):
         from jobs.models import JobPost
-        return JobPost.objects.filter(job__created_by__business=self)
+        query = dict(job__created_by__business=self)
+        if status:
+            query["status"] = status
+        return JobPost.objects.select_related("job__created_by__business").filter(**query)
 
 
 class VerificationCode(BaseModel):

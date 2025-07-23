@@ -3,19 +3,20 @@ from typing import List, Literal
 from typing import Optional
 from uuid import UUID
 
-from django.db.models import QuerySet, Q
-from ninja import ModelSchema
-from ninja.errors import HttpError
-from ninja.schema import Schema
-from pydantic import Field, EmailStr
-
 from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from accounts.schemas.business import BusinessUserListSchema
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
+from django.db.models import QuerySet, Q, Count
+from ninja import ModelSchema
+from ninja.errors import HttpError
+from ninja.schema import Schema
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+from pydantic import Field, EmailStr
+from settings.models import WorkFlowStage
+
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
-    WithdrawalFeedbackType, PhaseType, JobStatusType, ActionType
+    WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType
 from .models import BusinessModel, JobApplication, Answer
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
 from .models import (
@@ -650,71 +651,40 @@ class JobListPaginatedSchema(PaginatedResponseSchema[JobFullListSchema]):
     roles: int
     posts: int
 
+class WorkFlowSchema(ModelSchema):
+    uid: UUID
+    applications: int
+    phase: PhaseType
+
+    class Meta:
+        model = WorkFlowStage
+        fields = ("uid", "phase", "name")
+
 class JobPostWorkflowViewSchema(JobPostListSchema):
-    new: int
-    screening: int
-    interview: int
-    onboarding: int
-    hired: int
-    rejected: int
+    workflow_data: List[WorkFlowSchema]
 
     @staticmethod
-    def resolve_new(obj):
-        return JobApplication.objects.filter(job_post=obj, stage__phase=PhaseType.NEW.value).count()
+    def resolve_workflow_data(obj):
+        business = obj.job.created_by.business
+        return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
+         annotate(applications=Count("jobapplication", filter=Q(jobapplication__job_post=obj),
+                  distinct=True)).order_by('phase_order', 'order')
+         .values("uid", "phase", "name", "applications")
+         )
 
-    @staticmethod
-    def resolve_screening(obj):
-        return JobApplication.objects.filter(job_post=obj, stage__phase=PhaseType.SCREENING.value).count()
-
-    @staticmethod
-    def resolve_interview(obj):
-        return JobApplication.objects.filter(job_post=obj, stage__phase=PhaseType.INTERVIEW.value).count()
-
-    @staticmethod
-    def resolve_onboarding(obj):
-        return JobApplication.objects.filter(job_post=obj, stage__phase=PhaseType.ONBOARDING.value).count()
-
-    @staticmethod
-    def resolve_hired(obj):
-        return JobApplication.objects.filter(job_post=obj, stage__phase=PhaseType.HIRED.value).count()
-
-    @staticmethod
-    def resolve_rejected(obj):
-        return JobApplication.objects.filter(job_post=obj, stage__phase=PhaseType.REJECTED.value).count()
 
 class JobFullWorkflowViewSchema(JobFullListSchema):
     job_posts: List[JobPostWorkflowViewSchema]
-    new: int
-    screening: int
-    interview: int
-    onboarding: int
-    hired: int
-    rejected: int
 
+    workflow_data: List[WorkFlowSchema]
 
     @staticmethod
-    def resolve_screening(obj):
-        return JobApplication.objects.filter(job_post__job=obj, stage__phase=PhaseType.SCREENING.value).count()
-
-    @staticmethod
-    def resolve_new(obj):
-        return JobApplication.objects.filter(job_post__job=obj, stage__phase=PhaseType.NEW.value).count()
-
-    @staticmethod
-    def resolve_interview(obj):
-        return JobApplication.objects.filter(job_post__job=obj, stage__phase=PhaseType.INTERVIEW.value).count()
-
-    @staticmethod
-    def resolve_onboarding(obj):
-        return JobApplication.objects.filter(job_post__job=obj, stage__phase=PhaseType.ONBOARDING.value).count()
-
-    @staticmethod
-    def resolve_hired(obj):
-        return JobApplication.objects.filter(job_post__job=obj, stage__phase=PhaseType.HIRED.value).count()
-
-    @staticmethod
-    def resolve_rejected(obj):
-        return JobApplication.objects.filter(job_post__job=obj, stage__phase=PhaseType.REJECTED.value).count()
+    def resolve_workflow_data(obj, context):
+        business = obj.created_by.business
+        return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
+         annotate(applications=Count('jobapplication', filter=Q(jobapplication__job_post__job=obj),
+                                   distinct=True)).order_by('phase_order', 'order')
+         .values("uid", "phase", "name", "applications"))
 
 class JobWorkflowViewPaginatedSchema(PaginatedResponseSchema[JobFullWorkflowViewSchema]):
     roles: int
