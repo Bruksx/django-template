@@ -584,6 +584,9 @@ class JobPostMetrics(BaseModel):
         self.weekly_views = 0
         self.save()
 
+class JobInvite(BaseModel):
+    job = models.ForeignKey(Job, on_delete=models.CASCADE)
+    talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE)
 
 class JobApplication(BaseModel):
     job_post = models.ForeignKey(JobPost, on_delete=models.CASCADE, null=True)
@@ -645,6 +648,8 @@ class JobApplication(BaseModel):
         else:
             return ""
 
+    def invited(self):
+        return JobInvite.objects.filter(job=self.job_post.job, talent=self.applicant).exists()
 
     def get_email_context(self):
         if not self.stage:

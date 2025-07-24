@@ -18,6 +18,7 @@ from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusTy
     QuestionTypeEnum
 from jobs.models import (
     JobPost, JobLevel, EmploymentType, SavedJob, JobApplication, RequiredAttribute, BusinessModel, AvailableDay,
+    JobInvite,
 )
 from jobs.views import router
 
@@ -522,11 +523,12 @@ class ShareJobPostViaEmailTest(TestCase):
             "authorization": f"bearer {self.user.token}"
         }
         data = {
-         "emails": ["testuser3@example.com", "testuser4@example.com"],
+         "emails": [self.talent.user.email, "testuser4@example.com"],
          "jobs": [str(self.job.uid)]
         }
         response = self.client.post(self.url,
                                     headers=headers, json=data)
+        self.assertEqual(JobInvite.objects.count(), 1)
         self.assertEqual(response.status_code, 200)
 
 class SaveJobTest(TestCase):

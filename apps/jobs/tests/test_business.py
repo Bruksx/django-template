@@ -402,6 +402,10 @@ class TestApplicationList(TestCase):
         self.assertEqual(response.data["count"], 10)
         self.assertGreaterEqual(response.data["results"][0]["created_at"], response.data["results"][1]["created_at"])
 
+        response = self.client.get(f"{self.url(self.job_post.uid)}?sort_by=invited&asc=false", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 10)
+
     def test_endpoint_with_search_query(self):
         search = Talent.objects.last().user.first_name
         headers = {

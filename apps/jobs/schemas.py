@@ -773,6 +773,7 @@ class OtherApplicationSchema(ModelSchema):
     location: Optional[GenericNameAndUidSchema] = Field(alias="job_post.country")
     job_stage: Optional[str]
     job_status: str
+    invited: bool
     applied_date: datetime = Field(alias="created_at")
     recruiter: Optional[BusinessUserSchema] = Field(alias="job_post.recruiter")
 
@@ -807,6 +808,7 @@ class JobApplicationListSchema(ModelSchema):
     applicant_cv_url: Optional[str]
     applicant_linkedin_url: Optional[str] = Field(alias="applicant.linkedin")
     other_application: Optional[OtherApplicationSchema]
+    invited: bool
 
     class Meta:
         model = JobApplication

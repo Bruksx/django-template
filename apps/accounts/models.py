@@ -661,10 +661,9 @@ class Business(BaseModel):
         return int(queryset.aggregate(value=Avg("days_to_hire"))["value"] or 0)
 
     def total_invitations_sent(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
-        from chats.models import Message
-        from jobs.models import JobPost
-        job_post_ids = JobPost.objects.filter(recruiter__business=self).only("id").values_list("id", flat=True)
-        queryset = Message.objects.filter(job_post_id__in=job_post_ids)
+        from jobs.models import JobInvite
+
+        queryset = JobInvite.objects.filter(job__created_by__business=self)
         if start_date and not end_date:
             queryset = queryset.filter(created_at__gte=start_date)
         elif end_date and not start_date:
@@ -672,9 +671,9 @@ class Business(BaseModel):
         elif start_date and end_date:
             queryset = queryset.filter(created_at__range=[start_date, end_date])
         if role_id:
-            queryset = queryset.filter(job_post__job__role_id=role_id)
+            queryset = queryset.filter(job__role_id=role_id)
         if client:
-            queryset = queryset.filter(job_post__job__hiring_company_name=client)
+            queryset = queryset.filter(job__hiring_company_name=client)
         return queryset.count()
 
     def total_location_of_hires(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):

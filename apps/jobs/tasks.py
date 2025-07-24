@@ -5,7 +5,7 @@ from uuid import UUID
 from accounts.models import Talent
 from chats.models import Conversation, Message
 from django.db import connection, close_old_connections
-from jobs.models import JobPost
+from jobs.models import JobPost, Job, JobInvite
 from notification.notifications import send_job_application_notification, send_job_sharing_notification, \
     send_job_performance_notification
 
@@ -15,6 +15,14 @@ from helpers.utils import chunk_queryset
 
 
 def share_job_via_email(job_ids:List[UUID], emails: List[str]=None, language:str="en"):
+    invites = list()
+    talents = Talent.objects.filter(user__email__in=emails)
+    jobs = Job.objects.filter(uid__in=job_ids)
+    for job in jobs:
+        for talent in talents:
+            if not JobInvite.objects.filter(job=job, talent=talent).exists():
+                invites.append(JobInvite(job=job, talent=talent))
+    JobInvite.objects.bulk_create(invites)
     job_posts = JobPost.objects.filter(job__uid__in=job_ids).select_related('job').distinct("job_id")
     for job_post in job_posts:
         send_shared_job_email(job_post, emails, language)
