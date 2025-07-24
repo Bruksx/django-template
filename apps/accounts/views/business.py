@@ -197,7 +197,7 @@ def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
     business = business_user.business
     if BusinessUser.deleted_objects.filter(user__email__iexact=data.email).exists():
         raise HttpError(400, "This user's account has been deleted")
-    if BusinessUser.objects.filter(user__email__iexact=data.email).exists():
+    if User.objects.filter(email__iexact=data.email).exists():
         raise HttpError(400, "User with this email already exists")
     user = User.objects.create_user(
         first_name=data.first_name,
