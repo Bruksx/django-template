@@ -4,6 +4,7 @@ from typing import List
 from django.core.cache import cache
 from django.db import models
 from django.db.models import F, Q, QuerySet
+from django.utils import timezone
 from monkeypatches.q_cluster import async_task
 from timezone_field import TimeZoneField
 
@@ -76,7 +77,6 @@ class Job(BaseModel):
     role = models.ForeignKey("accounts.Role", null=True, on_delete=models.SET_NULL)
     skills = models.ManyToManyField("accounts.Skill")
     min_match_score = models.FloatField(null=True)
-
     objects = JobManager()
 
     required_attributes_keys = (
@@ -249,6 +249,7 @@ class JobPost(BaseModel):
         related_name="posted_by",
         blank=True
     )
+    last_refreshed = models.DateTimeField(null=True)
 
     def copy(self):
         return JobPost.objects.create(

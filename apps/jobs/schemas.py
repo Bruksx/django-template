@@ -510,7 +510,7 @@ class JobPostListSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "created_at", "date_posted", "share_compensation"]
+        fields = ["uid", "status", "created_at", "date_posted", "share_compensation", "last_refreshed"]
 
 
     @staticmethod
@@ -608,8 +608,8 @@ class JobFullListSchema(ModelSchema):
         if request and hasattr(request, "context"):
             status = request.context.get("status")
             if status:
-                return obj.jobpost_set.filter(status=status).order_by("-created_at")
-        return obj.jobpost_set.order_by("-created_at")
+                return obj.jobpost_set.filter(status=status).order_by("-last_refreshed")
+        return obj.jobpost_set.order_by("-last_refreshed")
 
     @staticmethod
     def resolve_role(obj):
