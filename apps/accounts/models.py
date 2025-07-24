@@ -146,6 +146,7 @@ class User(AbstractUser, BaseModel):
 
 
 class Country(BaseModel):
+    external_id = models.IntegerField(null=True)
     name = models.CharField(max_length=64)
     code = models.CharField(max_length=4)
 
@@ -905,7 +906,7 @@ class Business(BaseModel):
 
     def applicants_years_of_experience(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
-        ranges = (0, (1,2), (2,3), (3,4), 5)
+        ranges = (0, (1,2), (2,3), (3,4), (5,6), (7,8), (8, 10), (10, 12), (12, 15), (15, 20), 20)
         data_list = list()
         application = JobApplication.objects.filter(
             recruiter__business=self

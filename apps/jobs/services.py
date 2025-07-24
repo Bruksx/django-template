@@ -25,6 +25,20 @@ def get_talent_job_recommendations(talent, business=None, search=""):
         queryset = queryset.filter(job__role__name__icontains=search)
     return queryset.order_by("-created_at")
 
+
+def reject_application(application, previous_stage, job_post=None):
+    if not job_post:
+        job_post = application.job_post
+    rejected_stage = WorkFlowStage.objects.filter(
+        phase=PhaseType.REJECTED.value,
+        created_by__business=job_post.job.created_by.business
+    ).order_by("order").first()
+    application.update(stage=rejected_stage)
+    email = job_post.recruiter.user.email if job_post.recruiter else None
+    if not email:
+        email = job_post.job.created_by.user.email if job_post.job.created_by else None
+    send_email_on_stage_update(application=application, previous_stage=previous_stage, business_user_email=email)
+
 @transaction.atomic
 def create_job_application(job_post, talent, data:ApplyToJobSchema):
     stage = (WorkFlowStage.objects.filter(phase=PhaseType.NEW.value, created_by__business=job_post.job.created_by.business)
@@ -35,11 +49,9 @@ def create_job_application(job_post, talent, data:ApplyToJobSchema):
                                                 available_for_schedule=data.available_for_schedule,
                                                 match=talent.job_match_score(job_post))
     if job_post.job.min_match_score and application.match < job_post.job.min_match_score:
-        rejected_stage = WorkFlowStage.objects.filter(
-            phase=PhaseType.REJECTED.value,
-            created_by__business=job_post.job.created_by.business
-        ).order_by("order").first()
-        application.update(stage=rejected_stage)
+        reject_application(application, stage, job_post)
+        return
+
 
     if not data.answers:
         return
@@ -51,11 +63,7 @@ def create_job_application(job_post, talent, data:ApplyToJobSchema):
             answer.options.set(answer_data.options)
         answer.save()
     if application.stage and application.stage.phase != PhaseType.REJECTED.value and application.knockout():
-        rejected_stage = WorkFlowStage.objects.filter(
-            phase=PhaseType.REJECTED.value,
-            created_by__business=job_post.job.created_by.business
-        ).order_by("order").first()
-        application.update(stage=rejected_stage)
+        reject_application(application, stage, job_post)
     return
 
 def upload_answer_files_service(files):
@@ -126,3 +134,23 @@ def update_job_post_service(job_post, business_user, data=None, status=None):
 def update_bulk__job_posts_service(business_user, job_posts_id, action):
     for job_post in JobPost.objects.filter(uid__in=job_posts_id, job__created_by__business=business_user.business).iterator():
         update_job_post_service(job_post, business_user, status=action.value)
+
+
+def send_email_on_stage_update(application:JobApplication, previous_stage, business_user_email):
+    if not business_user_email:
+        return
+    if not application:
+        return
+    if not application.stage:
+        return
+    if previous_stage == application.stage:
+        return
+    if application.stage.email_template:
+        return
+    context = application.get_email_context()
+    application.stage.email_template.send_email(
+        context=context,
+        to=[application.applicant.user.email],
+        sender=business_user_email
+    )
+    return

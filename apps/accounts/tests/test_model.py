@@ -443,7 +443,7 @@ class BusinessModelTests(TestCase):
 
     def test_applicants_years_of_experience(self):
         data = self.business.applicants_years_of_experience()
-        self.assertEqual(len(data), 5)
+        self.assertEqual(len(data), 11)
 
 
     def test_talent_at_each_phase(self):

@@ -4,7 +4,7 @@ from uuid import UUID
 
 from config.permissions import IsBusinessUser
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.utils import timezone
 from helpers.utils import convert_base64_to_image_file
 from monkeypatches.response import Response
@@ -32,7 +32,7 @@ from .schemas import (
     TalentListJobPostSchema
 )
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
-    update_bulk__job_posts_service
+    update_bulk__job_posts_service, send_email_on_stage_update
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -396,7 +396,8 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     context = dict(business=business_user.business)
-    queryset = Job.objects.prefetch_related("jobpost_set").filter(created_by__business=business_user.business)
+    queryset = Job.objects.prefetch_related("jobpost_set").annotate(jobpost_count=Count('jobpost')).filter(created_by__business=business_user.business,
+                                                                                                           jobpost_count__gt=0)
     if search:
         queryset = queryset.filter(Q(role__name__icontains=search)|
                                    Q(hiring_company_name=search))
@@ -474,7 +475,9 @@ def update_application(request, application_uid:UUID, data:job_schemas.UpdateApp
     application = JobApplication.objects.filter(uid=application_uid, recruiter__business=request.user.businessuser.business).first()
     if not application:
         raise HttpError(404, "This application does not exist")
+    previous_stage = application.stage
     application.update(**data.dict())
+    send_email_on_stage_update(application=application, previous_stage=previous_stage, business_user_email=request.user.email)
     return application
 
 

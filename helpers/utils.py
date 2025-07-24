@@ -10,6 +10,7 @@ from sys import getsizeof
 from typing import Optional, List
 
 import boto3
+import ijson
 import pdfkit
 import psutil
 from botocore.exceptions import NoCredentialsError
@@ -335,3 +336,29 @@ def sort_params_function(sorts:List[str], mapper:dict[str, str])->List[str]:
         if sort_value:
             sort_values.append(f"{sort_sign}{sort_value}")
     return sort_values
+
+def read_json_generator(file_path):
+    """
+    Generator function to read a JSON file and yield each object one at a time without loading the entire file into memory.
+
+    Args:
+        file_path (str): Path to the JSON file
+
+    Yields:
+        dict: Individual JSON object from the file
+
+    Raises:
+        FileNotFoundError: If the specified file doesn't exist
+        ijson.JSONError: If the JSON is invalid
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            # Parse JSON objects iteratively
+            parser = ijson.items(file, 'item')
+            for item in parser:
+                yield item
+
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {file_path}")
+    except ijson.JSONError as e:
+        raise ijson.JSONError(f"Invalid JSON format: {str(e)}")
