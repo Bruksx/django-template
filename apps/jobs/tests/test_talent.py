@@ -9,19 +9,19 @@ from ninja.testing import TestClient
 from accounts.enums import BusinessUserRoleType, Days
 from accounts.models import (
     Country, Industry, User, Talent, BusinessUser, Business, Role, EducationLevel, Department, BusinessIndustry,
-    Skill, TalentAvailableDay
+    Skill, TalentAvailableDay, Experience
 )
 from jobs.queries import add_job_post_annotations
 from core.models import Currency, Language
 from factories import (
-    TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory, 
+    TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory, ExperienceFactory,
     JobApplicationFactory, CountryFactory, ScreeningQuestionFactory, fake, RequiredAttributeFactory,
 )
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusType, WithdrawalFeedbackType, \
     QuestionTypeEnum
 from jobs.models import (
     JobPost, JobLevel, EmploymentType, SavedJob, JobApplication, RequiredAttribute, BusinessModel, AvailableDay,
-    Job
+    Job, RequiredSecondaryLanguage
 )
 from jobs.views import router
 
@@ -352,6 +352,8 @@ class JobMatchTests(TestCase):
         self.required_attributes: RequiredAttribute = self.job.requiredattribute
         self.additional_languages = Language.objects.all()[:3]
         self.additional_languages2 = self.additional_languages[:1]
+        self.role = Role.objects.order_by("pk")[0]
+        self.role2 = Role.objects.order_by("pk")[1]
 
     def test_location(self):
         self.talent.country = self.location
@@ -375,7 +377,7 @@ class JobMatchTests(TestCase):
         queryset = add_job_post_annotations(queryset, self.talent)
 
         job_post = queryset.first()
-        location_score = Decimal(job_post.location_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        location_score = computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
         #test non matching location
         self.assertEqual(location_score, Decimal("0.0"))
@@ -392,7 +394,56 @@ class JobMatchTests(TestCase):
         job_post = queryset.first()
 
         additional_language_score = Decimal(job_post.additional_language_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        print(additional_language_score)
+        self.assertEqual(additional_language_score, Decimal("2.22"))
+
+        #add compulsory language
+        RequiredSecondaryLanguage.objects.create(
+            required_attribute=self.required_attributes,
+            language=self.additional_languages[2]
+        )
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+
+        computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(computed_match_score, Decimal("0.0"))
+    
+    def test_role(self):
+        self.update_required_attributes(role=False)
+        self.job.role = self.role
+        experience: Experience = ExperienceFactory.create(
+            talent=self.talent,
+            role=self.role2
+        )
+        self.talent.role = self.role2
+        self.talent.save()
+        self.job.save()
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+
+        role_score = Decimal(job_post.role_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(role_score, Decimal("0.0"))
+
+        self.update_required_attributes(role=True)
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+
+        computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(computed_match_score, Decimal("0.0"))
+
+        experience.role =self.job.role
+        experience.save()
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+
+        role_score = Decimal(job_post.role_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(role_score, Decimal("6.67"))
 
     
     def update_required_attributes(self, *args, **kwargs):

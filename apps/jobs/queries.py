@@ -1,8 +1,8 @@
 from django.db.models.query import QuerySet
 from accounts.models import Talent, SkillCategory, Experience, Education
-from .models import JobPost, RequiredAttribute
+from .models import JobPost, RequiredAttribute, RequiredSecondaryLanguage
 from django.db.models import (
-    OuterRef, Exists, Case, When, Value, FloatField, Q, F, ExpressionWrapper, Count, Subquery, IntegerField
+    OuterRef, Exists, Case, When, Value, FloatField, Q, F, ExpressionWrapper, Count, Subquery, IntegerField, BooleanField
 )
 from django.db.models.expressions import RawSQL
 from django.db.models.functions import Coalesce
@@ -28,16 +28,18 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         requires_role=Exists(
             required_attribute_subquery.filter(role__isnull=False)
         ),
+        prev_matching_role=Exists(Experience.objects.filter(talent=talent, role=OuterRef("job__role"))),
+        matching_role=Case(
+            When(Q(prev_matching_role=True) | Q(job__role=talent.role), then=Value(True)),
+            default=False,
+            output_field=BooleanField()
+        ),
         role_score=Case(
             When(
-                Q(requires_role=True) & Q(job__role=talent.role),
+                Q(matching_role=True),
                 then=Value(6.67)
             ),
-            When(
-                Q(requires_role=True) & ~Q(job__role=talent.role),
-                then=Value(0.0)
-            ),
-            default=Value(6.67),
+            default=Value(0.0),
             output_field=FloatField()
         )
     ).annotate(
@@ -223,6 +225,12 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             WHERE jal.job_id = jobs_job.id
         """, [])
     ).annotate(
+        missing_compulsory_secondary_language=Exists(
+            RequiredSecondaryLanguage.objects.filter(
+                required_attribute__job=OuterRef("job")
+            ).exclude(id__in=additional_lang_ids)
+        )
+    ).annotate(
         work_schedule_score=RawSQL(f"""
             SELECT 
                 CASE 
@@ -259,6 +267,8 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
     ).annotate(
         computed_match_score=Case(
             When( Q(requires_location=True) & Q(location_match=False), then=Value(0.0)),
+            When(missing_compulsory_secondary_language=True, then=Value(0.0)),
+            When(Q(requires_role=True) & Q(matching_role=False), then=Value(0.0)),
             default=ExpressionWrapper(
                 F("role_score") + F("tools_platform_score") + F("methodologies_score") +
                 F("general_skill_score") + F("job_level_score") + F("experience_score") +

@@ -706,9 +706,19 @@ class Answer(BaseModel):
     text = models.TextField(null=True)
     files = models.JSONField(default=list, null=True)
 
+
+class RequiredSecondaryLanguage(BaseModel):
+    required_attribute = models.ForeignKey("RequiredAttribute", on_delete=models.CASCADE)
+    language = models.ForeignKey(Language, on_delete=models.CASCADE)
+
+
+class RequiredSkill(BaseModel):
+    required_attribute = models.ForeignKey("RequiredAttribute", on_delete=models.CASCADE, related_name="required_skills")
+    skill = models.ForeignKey("accounts.Skill", on_delete=models.CASCADE)
+
+
 class RequiredAttribute(BaseModel):
     job = models.OneToOneField(Job, on_delete=models.CASCADE)
-    skills = models.ManyToManyField("accounts.Skill")
     role = models.BooleanField(default=False)
     job_level = models.BooleanField(default=False)
     years_of_experience = models.BooleanField(default=False)
@@ -720,6 +730,8 @@ class RequiredAttribute(BaseModel):
     secondary_language = models.BooleanField(default=False)
     working_hours = models.BooleanField(default=False)
     location = models.BooleanField(default=False)
+    secondary_languages = models.ManyToManyField(Language, through=RequiredSecondaryLanguage)
+    skills = models.ManyToManyField("accounts.Skill", through=RequiredSkill, related_name="required_attribute")
 
     def __str__(self) -> str:
         return f"{self.job}({self.uid})"
