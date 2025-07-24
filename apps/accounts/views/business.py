@@ -177,7 +177,7 @@ def get_business_details(request):
 
 @router.get("users", auth=JWTAuth(), response=List[business_schema.BusinessUserListSchema])
 def get_business_users(request, search: str = "", role: BusinessUserRoleType = None):
-    IsBusinessOwnerOrAdmin.check(request)
+    IsBusinessUser.check(request)
     business = request.user.businessuser.business
     query = Q()
     if search:
