@@ -160,21 +160,20 @@ def refresh_job_post(request, job_post_uid:UUID):
     job_post =  JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business_user.business).first()
     if not job_post:
         raise HttpError(404, "This job post does not exist")
-    if job_post.date_posted:
+    if job_post.last_refreshed:
         now = timezone.now()
-        if (now - job_post.date_posted) < timedelta(days=14):
+        if (now - job_post.last_refreshed) < timedelta(days=14):
             raise HttpError(400, "You can only refresh job posts older than 2 weeks")
-    job_post.update(date_posted=timezone.now())
+    job_post.update(last_refreshed=timezone.now())
     return Response(status=200, data={"message": "Job post refreshed successfully"})
 
 @router.post("job/{job_uid}/refresh", auth=JWTAuth())
 def refresh_job(request, job_uid:UUID):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    JobPost.objects.filter(job__uid=job_uid, job__created_by__business=business_user.business,
-                                       status=JobStatusType.POSTED.value).exclude(
-        date_posted__gte=(timezone.now() - timedelta(days=14)).update(
-            date_posted=timezone.now()
+    JobPost.objects.filter(job__uid=job_uid, job__created_by__business=business_user.business).exclude(
+        last_refreshed__gte=(timezone.now() - timedelta(days=14)).update(
+            last_refreshed=timezone.now()
         )
     )
     return Response(status=200, data={"message": "Job refreshed successfully"})
