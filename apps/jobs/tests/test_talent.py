@@ -14,13 +14,14 @@ from accounts.models import (
 from jobs.queries import add_job_post_annotations
 from core.models import Currency, Language
 from factories import (
-    TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory, 
+    TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory,
     JobApplicationFactory, CountryFactory, ScreeningQuestionFactory, fake, RequiredAttributeFactory,
 )
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusType, WithdrawalFeedbackType, \
     QuestionTypeEnum
 from jobs.models import (
     JobPost, JobLevel, EmploymentType, SavedJob, JobApplication, RequiredAttribute, BusinessModel, AvailableDay,
+    JobInvite,
     Job
 )
 from jobs.views import router
@@ -357,7 +358,7 @@ class JobMatchTests(TestCase):
 
         job_post = queryset.first()
         location_score = Decimal(job_post.location_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        
+
         #test matching job location
         self.assertEqual(location_score, Decimal("6.67"))
 
@@ -371,7 +372,7 @@ class JobMatchTests(TestCase):
 
         #test non matching location
         self.assertEqual(location_score, Decimal("0.0"))
-    
+
     def test_additional_language(self):
         self.job.additional_languages.add(*self.additional_languages)
         self.talent.additional_languages.add(*self.additional_languages2)
@@ -386,7 +387,7 @@ class JobMatchTests(TestCase):
         additional_language_score = Decimal(job_post.additional_language_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         print(additional_language_score)
 
-    
+
     def update_required_attributes(self, *args, **kwargs):
         for field_name in self.job.required_attributes_keys:
             if hasattr(self.required_attributes, field_name):
@@ -601,11 +602,12 @@ class ShareJobPostViaEmailTest(TestCase):
             "authorization": f"bearer {self.user.token}"
         }
         data = {
-         "emails": ["testuser3@example.com", "testuser4@example.com"],
+         "emails": [self.talent.user.email, "testuser4@example.com"],
          "jobs": [str(self.job.uid)]
         }
         response = self.client.post(self.url,
                                     headers=headers, json=data)
+        self.assertEqual(JobInvite.objects.count(), 1)
         self.assertEqual(response.status_code, 200)
 
 class SaveJobTest(TestCase):

@@ -4,7 +4,7 @@ from uuid import UUID
 
 from config.permissions import IsBusinessUser
 from django.db import transaction
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Exists, Subquery, OuterRef
 from django.utils import timezone
 from helpers.utils import convert_base64_to_image_file
 from monkeypatches.response import Response
@@ -24,7 +24,7 @@ from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication, AvailableDay,
-    ScreeningQuestion, QuestionOption, Answer
+    ScreeningQuestion, QuestionOption, Answer, JobInvite
 )
 from .schemas import (
     EmploymentTypeSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
@@ -429,10 +429,12 @@ def job_detail(request, job_uid:UUID):
 def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Optional[PhaseType]=None,
                     new_application:bool=None,
                     sort_by:Optional[Literal["applicant", "location",
-"match", "created_at", "stage", "phase", "experience"]]=None, asc:bool=True, search:str="", ):
+"match", "created_at", "stage", "phase", "experience", "invited"]]=None, asc:bool=True, search:str="", invited:Optional[bool]=None):
     IsBusinessUser.check(request)
     business = request.user.businessuser.business
-    queryset = JobApplication.objects.filter(job_post__uid=job_post_uid, recruiter__business=business,
+    queryset = JobApplication.objects.annotate(invited=Exists(Subquery(JobInvite.objects.filter(
+            job=OuterRef('job_post__job'), talent=OuterRef('applicant')
+        )))).filter(job_post__uid=job_post_uid, recruiter__business=business,
                                              applicant__deleted_at__isnull=True)
     if search:
         queryset = queryset.filter(Q(
@@ -442,6 +444,9 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
         )).distinct()
     if phase:
         queryset = queryset.filter(stage__phase=phase.value)
+    if invited:
+        queryset = queryset.filter(invited=invited)
+
     if new_application is not None:
         if new_application is True:
             queryset = queryset.filter(Q(stage__isnull=True)| Q(stage__phase=PhaseType.NEW.value))
@@ -461,6 +466,8 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
             queryset = queryset.order_by(f"{sign}stage__order")
         elif sort_by == "phase":
             queryset = queryset.order_by(f"{sign}stage__phase_order")
+        elif sort_by == "invited":
+            queryset = queryset.order_by(f"{sign}invited")
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(
         queryset=queryset,
