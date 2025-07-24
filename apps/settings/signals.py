@@ -1,4 +1,4 @@
-from django.db.models.signals import pre_delete, post_save
+from django.db.models.signals import pre_delete, post_save, pre_save
 from django.dispatch import receiver
 from helpers.utils import delete_s3_item
 
@@ -20,5 +20,9 @@ def assign_order_to_new_stage(sender, instance, created, **kwargs):
         instance.order = stage.order + 1 if stage else 0
         instance.save()
 
+
+@receiver(pre_save, sender=WorkFlowStage)
+def ensure_titlecase_for_name(sender, instance, **kwargs):
+    instance.name = str(instance.name).title()
 
 

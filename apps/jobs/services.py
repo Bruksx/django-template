@@ -37,7 +37,7 @@ def reject_application(application, previous_stage, job_post=None):
     email = job_post.recruiter.user.email if job_post.recruiter else None
     if not email:
         email = job_post.job.created_by.user.email if job_post.job.created_by else None
-    send_email_on_stage_update(application=application, previous_stage=previous_stage, business_user_email=email)
+    send_email_on_stage_update(application=application, previous_stage=previous_stage, business_user_email="1840 GTC")
 
 @transaction.atomic
 def create_job_application(job_post, talent, data:ApplyToJobSchema):
@@ -64,6 +64,8 @@ def create_job_application(job_post, talent, data:ApplyToJobSchema):
         answer.save()
     if application.stage and application.stage.phase != PhaseType.REJECTED.value and application.knockout():
         reject_application(application, stage, job_post)
+        return
+    send_email_on_stage_update(application=application, business_user_email="1840 GTC")
     return
 
 def upload_answer_files_service(files):
@@ -136,7 +138,7 @@ def update_bulk__job_posts_service(business_user, job_posts_id, action):
         update_job_post_service(job_post, business_user, status=action.value)
 
 
-def send_email_on_stage_update(application:JobApplication, previous_stage, business_user_email):
+def send_email_on_stage_update(application:JobApplication, business_user_email, previous_stage=None):
     if not business_user_email:
         return
     if not application:
