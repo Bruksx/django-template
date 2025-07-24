@@ -355,6 +355,10 @@ class JobMatchTests(TestCase):
         self.role = Role.objects.order_by("pk")[0]
         self.role2 = Role.objects.order_by("pk")[1]
 
+        self.tool_platform_skills = Skill.objects.filter(category__name="Tools/Platforms")[:3]
+        self.methodology_skills = Skill.objects.filter(category__name="Common Methodologies/Frameworks")[:3]
+        self.general_skills = Skill.objects.filter(category__name="General Skills")[:3]
+
     def test_location(self):
         self.talent.country = self.location
         self.job_post.country = self.location
@@ -444,6 +448,25 @@ class JobMatchTests(TestCase):
 
         role_score = Decimal(job_post.role_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         self.assertEqual(role_score, Decimal("6.67"))
+    
+    def test_skills(self):
+        self.update_required_attributes()
+        self.job.skills.add(*self.tool_platform_skills, *self.general_skills, *self.methodology_skills)
+        self.talent.skills.all().delete()
+        self.talent.skills.add(*self.tool_platform_skills[:1], *self.general_skills[:2], *self.methodology_skills)
+        print(f"{self.talent.skills.all()}")
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+
+        tool_platform_score = Decimal(job_post.tools_platform_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        methodologies_score = Decimal(job_post.methodologies_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        general_skill_score = Decimal(job_post.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(tool_platform_score, Decimal("2.22"))
+        self.assertEqual(methodologies_score, Decimal("4.44"))
+        self.assertEqual(general_skill_score, Decimal("6.69"))
 
     
     def update_required_attributes(self, *args, **kwargs):

@@ -16,7 +16,7 @@ from jobs.business_views import router
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
-    BusinessModel
+    BusinessModel, RequiredSkill
 )
 
 
@@ -200,6 +200,7 @@ class TestJobPostDetail(TestCase):
         response = self.client.get(self.url(self.job_post.uid), headers=headers)
         self.assertEqual(response.status_code, 404)
 
+
 class TestJobList(TestCase):
     def setUp(self):
         self.client = TestClient(router)
@@ -210,7 +211,6 @@ class TestJobList(TestCase):
         jobs = JobFactory.create_batch(5, created_by=self.business_user)
         for job in jobs:
             JobPostFactory.create_batch(5, country=country, job=job, recruiter=self.business_user, status=JobStatusType.POSTED.value)
-
 
     def test_job_list_endpoint_by_business_user(self):
         headers = {
@@ -253,6 +253,7 @@ class TestJobList(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 1)
 
+
 class TestJobDetail(TestCase):
     def setUp(self):
         self.client = TestClient(router)
@@ -262,8 +263,6 @@ class TestJobDetail(TestCase):
         self.business_user = BusinessUserFactory.create(user=self.business.created_by, business=self.business)
         self.job = JobFactory.create(created_by=self.business_user)
         self.talent = TalentFactory.create(country=country)
-
-
 
     def test_job_detail_endpoint_by_business_user(self):
         headers = {
@@ -295,6 +294,7 @@ class TestJobDetail(TestCase):
         self.job.update(created_by=business_user)
         response = self.client.get(self.url(self.job.uid), headers=headers)
         self.assertEqual(response.status_code, 404)
+
 
 class TestApplicationList(TestCase):
     def setUp(self):
@@ -918,13 +918,14 @@ class SetJobRequirementTest(TestCase):
         self.job.requiredattribute.hard_delete()
         self.job.refresh_from_db()
         self.url = lambda job_uid : f"{job_uid}/required-attributes"
-        self.skills = SkillFactory.create_batch(5)
-        self.business_models = BusinessModelFactory.create_batch(5)
+        self.skills = Skill.objects.all()[:1]
+        self.business_models = BusinessModel.objects.all()[:1]
+        self.languages = Language.objects.all()[:1]
         self.test_data = {
             "skills": list(map(lambda x: str(x.uid), self.skills)),
             "business_models": list(map(lambda x:str(x.uid), self.business_models)),
             "role": False,
-            "job_level": True,
+            "job_level": False,
             "years_of_experience": False,
             "minimum_education_level": False,
             "work_structure": False,
@@ -932,7 +933,8 @@ class SetJobRequirementTest(TestCase):
             "first_language": True,
             "secondary_language": False,
             "working_hours": False,
-            "location": False
+            "location": False,
+            "secondary_languages": list(map(lambda x: str(x.uid), self.languages)),
         }
 
     def test_set_job_required_attributes(self):
@@ -971,7 +973,10 @@ class SetJobRequirementTest(TestCase):
         self.assertTrue(hasattr(self.job, "requiredattribute"))
         required_attributes = self.job.requiredattribute
         self.assertEqual(_required_attributes.uid, required_attributes.uid)
-        self.assertTrue(required_attributes.skills.filter(uid__in=self.test_data["skills"]).exists())
+        self.assertEqual(
+            RequiredSkill.objects.filter(skill__uid__in=self.test_data["skills"]).count(), 
+            len(self.test_data["skills"])
+        )
         self.assertTrue(required_attributes.skills.count(), len(self.test_data["skills"]))
         self.assertTrue(required_attributes.business_models.filter(uid__in=self.test_data["business_models"]).exists())
         self.assertTrue(required_attributes.business_models.count(), len(self.test_data["business_models"]))
@@ -1008,6 +1013,7 @@ class SetJobRequirementTest(TestCase):
         }
         response = self.client.patch(self.url(self.job.uid), headers=headers, json=self.test_data)
         self.assertEqual(response.status_code, 404)
+
 
 class GetJobRequirementTest(TestCase):
     def setUp(self):

@@ -1,6 +1,6 @@
 from django.db.models.query import QuerySet
 from accounts.models import Talent, SkillCategory, Experience, Education
-from .models import JobPost, RequiredAttribute, RequiredSecondaryLanguage
+from .models import JobPost, RequiredAttribute, RequiredSecondaryLanguage, RequiredSkill
 from django.db.models import (
     OuterRef, Exists, Case, When, Value, FloatField, Q, F, ExpressionWrapper, Count, Subquery, IntegerField, BooleanField
 )
@@ -41,6 +41,10 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             ),
             default=Value(0.0),
             output_field=FloatField()
+        )
+    ).annotate(
+        missing_required_skill=Exists(
+            RequiredSkill.objects.exclude(skill__id__in=talent_skill_ids)
         )
     ).annotate(
         tools_platform_score=RawSQL(f"""
@@ -88,9 +92,6 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
                 END
             FROM jobs_job_skills as job_skills
             JOIN accounts_skill skill ON job_skills.skill_id = skill.id
-            JOIN jobs_job job ON job_skills.job_id = job.id
-            JOIN jobs_requiredattribute required_a ON job.id = required_a.job_id
-            JOIN jobs_requiredattribute_skills requiredattribute_skills ON required_a.id = requiredattribute_skills.requiredattribute_id 
             LIMIT 1
         """, [])
     ).annotate(
@@ -269,6 +270,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             When( Q(requires_location=True) & Q(location_match=False), then=Value(0.0)),
             When(missing_compulsory_secondary_language=True, then=Value(0.0)),
             When(Q(requires_role=True) & Q(matching_role=False), then=Value(0.0)),
+            When(Q(missing_required_skill=True), then=Value(0.0)),
             default=ExpressionWrapper(
                 F("role_score") + F("tools_platform_score") + F("methodologies_score") +
                 F("general_skill_score") + F("job_level_score") + F("experience_score") +
@@ -280,3 +282,39 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         )
     )
     return queryset
+
+#.annotate(
+#        methodologies_score=RawSQL(f"""
+#            SELECT
+#                    WHEN COUNT(*) FILTER (WHERE skill.category_id = '{methodologies_id}') = 0 THEN 6.67
+#                CASE
+#                    ELSE 6.67 * 
+#                        COUNT(*) FILTER (
+#                            WHERE skill.category_id = '{methodologies_id}' AND skill.id IN {skills_tuple_str}
+#                        ) 
+#                        / 
+#               END                        NULLIF(COUNT(*) FILTER (WHERE skill.category_id = '{methodologies_id}'), 0)
+#            FROM jobs_job_skills as job_skills
+#            JOIN accounts_skill skill ON job_skills.skill_id = skill.id
+#            LIMIT 1
+#        """, [])
+#    ).annotate(
+#        general_skill_score=RawSQL(f"""
+#            SELECT
+#                CASE
+#                    WHEN COUNT(*) FILTER (WHERE skill.category_id = '{general_skills_id}') = 0 THEN 6.67
+#                    ELSE 6.67 * 
+#                        COUNT(*) FILTER (
+#                            WHERE skill.category_id = '{general_skills_id}' AND skill.id IN {skills_tuple_str}
+#                        ) 
+#                        / 
+#                        NULLIF(COUNT(*) FILTER (WHERE skill.category_id = '{general_skills_id}'), 0)
+#                END
+#            FROM jobs_job_skills as job_skills
+#            JOIN jobs_job job ON job_skills.job_id = job.id
+#            JOIN accounts_skill skill ON job_skills.skill_id = skill.id
+#            JOIN jobs_requiredattribute required_a ON job.id = required_a.job_id
+#            JOIN jobs_requiredattribute_skills requiredattribute_skills ON required_a.id = requiredattribute_skills.requiredattribute_id 
+#            LIMIT 1
+#        """, [])
+#    )

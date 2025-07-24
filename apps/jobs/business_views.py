@@ -115,6 +115,7 @@ def get_business_models(request, search=""):
         queryset = queryset.filter(name__icontains=search)
     return queryset.distinct("name").order_by("name")
 
+
 @router.patch("{job_uid}/required-attributes", response=job_schemas.RequiredAttributeSchema, auth=JWTAuth())
 @transaction.atomic
 def set_required_attributes(request, data:job_schemas.MutateRequiredAttributeSchema, job_uid:UUID):
@@ -126,6 +127,19 @@ def set_required_attributes(request, data:job_schemas.MutateRequiredAttributeSch
     request_data = data.dict()
     return set_job_required_attributes(request_data, job)
 
+
+@router.put("{job_uid}/required-attributes", response=job_schemas.RequiredAttributeSchema, auth=JWTAuth())
+@transaction.atomic
+def set_required_attributes(request, data:job_schemas.MutatePutRequiredAttributeSchema, job_uid:UUID):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    job = Job.objects.filter(created_by__business=business_user.business, uid=job_uid).first()
+    if not job:
+        raise HttpError(404, "Job not found")
+    request_data = data.dict()
+    return set_job_required_attributes(request_data, job)
+
+
 @router.get("{job_uid}/required-attributes", response=job_schemas.RequiredAttributeSchema, auth=JWTAuth())
 def get_required_attributes(request, job_uid:UUID):
     IsBusinessUser.check(request)
@@ -134,7 +148,6 @@ def get_required_attributes(request, job_uid:UUID):
     if not job:
         raise HttpError(404, "Job not found")
     required_attributes, _ = RequiredAttribute.objects.get_or_create(job=job)
-
     return required_attributes
 
 

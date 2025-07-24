@@ -24,4 +24,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        migrations.RunPython(migrate_required_skills_to_through_model)
     ]

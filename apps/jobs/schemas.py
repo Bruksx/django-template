@@ -1,3 +1,4 @@
+from copy import copy
 from datetime import datetime, time
 from typing import List, Literal
 from typing import Optional
@@ -177,26 +178,46 @@ class MutateAnswerSchema(Schema):
     text: Optional[str] = None
     files: Optional[List[str]] = None
 
+
 class MutateRequiredAttributeSchema(ModelSchema):
     skills: Optional[list[UUID]]
-    business_models: Optional[list[UUID]]
+    business_models: Optional[list[UUID]] = list()
+    secondary_languages: Optional[list[UUID]] = list()
     class Meta:
         model = RequiredAttribute
         exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid"]
 
     @classmethod
-    def validate_required_attribute(cls, data, job):
+    def validate_required_attribute(cls, data: dict, job):
+        data = copy(data)
         count = 0
-        for key in job.required_attributes_keys:
-            value = data.get(key, None)
-            if not value:
-                continue
-            count += 1
-            if count > 5:
-                raise HttpError(400, "You can only add up to 5 required attributes")
-        return
+        many_to_many_fields = ["skills", "business_models", "secondary_languages",]
+        for field in many_to_many_fields:
+            count += len(data.pop(field, []))
+        for field in data.keys():
+            value = data[field]
+            if value == True:
+                count += 1
+        if count > 5:
+            raise HttpError(400, "You can only add up to 5 required attributes")
 
 
+class MutatePutRequiredAttributeSchema(MutateRequiredAttributeSchema):
+    skills: list[UUID]
+    business_models: list[UUID]
+    secondary_languages: list[UUID]
+    job_level: bool
+    years_of_experience: bool
+    minimum_education_level: bool
+    work_structure: bool
+    technological_requirement: bool
+    first_language: bool
+    secondary_language: bool
+    working_hours: bool
+    location: bool
+    class Meta:
+        model = RequiredAttribute
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid"]
 
 
 class CreateJobSchema(ModelSchema):
