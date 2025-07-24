@@ -1,16 +1,20 @@
 from django.db.models.query import QuerySet
 from accounts.models import Talent, SkillCategory, Experience, Education
 from .models import JobPost, RequiredAttribute
-from django.db.models import OuterRef, Exists, Case, When, Value, FloatField, Q, F, ExpressionWrapper, Func
+from django.db.models import (
+    OuterRef, Exists, Case, When, Value, FloatField, Q, F, ExpressionWrapper, Count, Subquery, IntegerField
+)
 from django.db.models.expressions import RawSQL
+from django.db.models.functions import Coalesce
 
 
 def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> QuerySet[JobPost]:
 
     talent_business_models = talent.business_models.all()
     talent_skill_ids = list(talent.skills.values_list("id", flat=True))
+    additional_lang_ids = list(talent.additional_languages.values_list("id", flat=True))
     skills_tuple_str = f"({','.join(str(sid) for sid in talent_skill_ids)})" if talent_skill_ids else "(NULL)"
-    additional_languagues_tuple_str = str(tuple(talent.additional_languages.values_list('id', flat=True)))  if talent.additional_languages.count() else "(NULL)"
+    additional_languagues_tuple_str = f"({','.join(str(aid) for aid in additional_lang_ids)})" if additional_lang_ids else "(NULL)"
     tools_platform_id = SkillCategory.objects.filter(name="Tools/Platforms").first().id
     methodologies_id = SkillCategory.objects.filter(name="Common Methodologies/Frameworks").first().id
     general_skills_id = SkillCategory.objects.filter(name="General Skills").first().id
@@ -40,54 +44,51 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         tools_platform_score=RawSQL(f"""
             SELECT
                 CASE
-                    WHEN COUNT(*) FILTER (WHERE s.category_id = '{tools_platform_id}') = 0 THEN 6.67
+                    WHEN COUNT(*) FILTER (WHERE skill.category_id = '{tools_platform_id}') = 0 THEN 6.67
                     ELSE 6.67 * 
                         COUNT(*) FILTER (
-                            WHERE s.category_id = '{tools_platform_id}' AND s.id IN {skills_tuple_str}
+                            WHERE skill.category_id = '{tools_platform_id}' AND skill.id IN {skills_tuple_str}
                         ) 
                         / 
-                        NULLIF(COUNT(*) FILTER (WHERE s.category_id = '{tools_platform_id}'), 0)
+                        NULLIF(COUNT(*) FILTER (WHERE skill.category_id = '{tools_platform_id}'), 0)
                 END
-            FROM jobs_requiredattribute ra
-            JOIN jobs_requiredattribute_skills ras ON ra.id = ras.requiredattribute_id
-            JOIN accounts_skill s ON ras.skill_id = s.id
-            WHERE ra.job_id = jobs_jobpost.job_id
+            FROM jobs_job_skills as job_skills
+            JOIN accounts_skill skill ON job_skills.skill_id = skill.id
             LIMIT 1
         """, [])
     ).annotate(
         methodologies_score=RawSQL(f"""
             SELECT
                 CASE
-                    WHEN COUNT(*) FILTER (WHERE s.category_id = '{methodologies_id}') = 0 THEN 6.67
+                    WHEN COUNT(*) FILTER (WHERE skill.category_id = '{methodologies_id}') = 0 THEN 6.67
                     ELSE 6.67 * 
                         COUNT(*) FILTER (
-                            WHERE s.category_id = '{methodologies_id}' AND s.id IN {skills_tuple_str}
+                            WHERE skill.category_id = '{methodologies_id}' AND skill.id IN {skills_tuple_str}
                         ) 
                         / 
-                        NULLIF(COUNT(*) FILTER (WHERE s.category_id = '{methodologies_id}'), 0)
+                        NULLIF(COUNT(*) FILTER (WHERE skill.category_id = '{methodologies_id}'), 0)
                 END
-            FROM jobs_requiredattribute ra
-            JOIN jobs_requiredattribute_skills ras ON ra.id = ras.requiredattribute_id
-            JOIN accounts_skill s ON ras.skill_id = s.id
-            WHERE ra.job_id = jobs_jobpost.job_id
+            FROM jobs_job_skills as job_skills
+            JOIN accounts_skill skill ON job_skills.skill_id = skill.id
             LIMIT 1
         """, [])
     ).annotate(
         general_skill_score=RawSQL(f"""
             SELECT
                 CASE
-                    WHEN COUNT(*) FILTER (WHERE s.category_id = '{general_skills_id}') = 0 THEN 6.67
+                    WHEN COUNT(*) FILTER (WHERE skill.category_id = '{general_skills_id}') = 0 THEN 6.67
                     ELSE 6.67 * 
                         COUNT(*) FILTER (
-                            WHERE s.category_id = '{general_skills_id}' AND s.id IN {skills_tuple_str}
+                            WHERE skill.category_id = '{general_skills_id}' AND skill.id IN {skills_tuple_str}
                         ) 
                         / 
-                        NULLIF(COUNT(*) FILTER (WHERE s.category_id = '{general_skills_id}'), 0)
+                        NULLIF(COUNT(*) FILTER (WHERE skill.category_id = '{general_skills_id}'), 0)
                 END
-            FROM jobs_requiredattribute ra
-            JOIN jobs_requiredattribute_skills ras ON ra.id = ras.requiredattribute_id
-            JOIN accounts_skill s ON ras.skill_id = s.id
-            WHERE ra.job_id = jobs_jobpost.job_id
+            FROM jobs_job_skills as job_skills
+            JOIN accounts_skill skill ON job_skills.skill_id = skill.id
+            JOIN jobs_job job ON job_skills.job_id = job.id
+            JOIN jobs_requiredattribute required_a ON job.id = required_a.job_id
+            JOIN jobs_requiredattribute_skills requiredattribute_skills ON required_a.id = requiredattribute_skills.requiredattribute_id 
             LIMIT 1
         """, [])
     ).annotate(
@@ -256,13 +257,16 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             output_field=FloatField()
         )
     ).annotate(
-        computed_match_score=ExpressionWrapper(
-            F("role_score") + F("tools_platform_score") + F("methodologies_score") +
-            F("general_skill_score") + F("job_level_score") + F("experience_score") +
-            F("business_model_score") + F("minimum_education_score") + F("work_structure_score") +
-            F("tech_requirement_score") + F("first_language_score") + F("additional_language_score") +
-            F("work_schedule_score") + F("location_score"),
-            output_field=FloatField()
+        computed_match_score=Case(
+            When( Q(requires_location=True) & Q(location_match=False), then=Value(0.0)),
+            default=ExpressionWrapper(
+                F("role_score") + F("tools_platform_score") + F("methodologies_score") +
+                F("general_skill_score") + F("job_level_score") + F("experience_score") +
+                F("business_model_score") + F("minimum_education_score") + F("work_structure_score") +
+                F("tech_requirement_score") + F("first_language_score") + F("additional_language_score") +
+                F("work_schedule_score") + F("location_score"),
+                output_field=FloatField()
+            )
         )
     )
     return queryset

@@ -552,18 +552,8 @@ class DeleteBusinessUserAccountTest(TestCase):
         self.assertIsNone(business_user)
         user = User.deleted_objects.filter(id=self.business.created_by.id).first()
         business_user = BusinessUser.deleted_objects.filter(business=self.business).first()
-        self.assertEqual(user.first_name, "deleted")
-        self.assertEqual(user.last_name, "user")
-        self.assertEqual(user.email, f"deleted_user_{user.id}@example.com")
-        self.assertIsNone(user.phone_number)
-        self.assertIsNone(user.facebook_id)
-        self.assertIsNone(user.linkedin_id)
-        self.assertIsNone(user.google_id)
-        self.assertIsNone(user.apple_id)
-        self.assertEqual(user.username, f"user-{user.id}")
-        self.assertFalse(user.is_active)
-        self.assertEqual(business_user.status, BusinessUserStatusType.DELETED.value)
-        self.assertFalse(hasattr(business_user, "businessusernotificationsettings"))
+        self.assertIsNone(business_user)
+        self.assertIsNone(user)
 
 class UpdateBusinessUserTestCase(TestCase):
     def setUp(self):

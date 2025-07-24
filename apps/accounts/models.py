@@ -141,22 +141,7 @@ class User(AbstractUser, BaseModel):
         return
 
     def delete_account(self):
-        if hasattr(self, "talent"):
-            self.talent.delete_account()
-        elif hasattr(self, "businessuser"):
-            self.businessuser.delete_account()
-        self.first_name = "deleted"
-        self.last_name = "user"
-        self.email = f"deleted_user_{self.id}@example.com"
-        self.phone_number = None
-        self.facebook_id = None
-        self.linkedin_id = None
-        self.google_id = None
-        self.apple_id = None
-        self.username = f"user-{self.id}"
-        self.is_active = False
-        self.save()
-        self.delete()
+        self.hard_delete()
         return
 
 
@@ -1075,34 +1060,8 @@ class BusinessUser(BaseModel):
         return Notification.objects.none()
 
     def delete_account(self):
-        from jobs.models import JobPost, JobApplication, JobDraft
-        from settings.models import EmailTemplate, WorkFlowStage
-        self.status = BusinessUserStatusType.DELETED.value
-        self.save(update_fields=["status"])
-        another_business_user = BusinessUser.objects.filter(business=self.business).exclude(id=self.id).first()
-        if not another_business_user:
-            JobPost.objects.filter(recruiter=self).delete()
-            JobPost.objects.filter(posted_by=self).delete()
-            JobApplication.objects.filter(recruiter=self).delete()
-            JobDraft.objects.filter(user=self).delete()
-            TalentFilter.objects.filter(business_user=self).delete()
-            if hasattr(self, "businessusernotificationsettings"):
-                self.businessusernotificationsettings.hard_delete()
-            EmailTemplate.objects.filter(created_by=self).update(created_by=another_business_user)
-            WorkFlowStage.objects.filter(created_by=self).update(created_by=another_business_user)
-            self.delete()
-            self.business.delete()
-            return
-        JobPost.objects.filter(recruiter=self).update(recruiter=another_business_user)
-        JobPost.objects.filter(posted_by=self).update(posted_by=another_business_user)
-        JobApplication.objects.filter(recruiter=self).update(recruiter=another_business_user)
-        JobDraft.objects.filter(user=self).update(user=another_business_user)
-        TalentFilter.objects.filter(business_user=self).delete()
-        if hasattr(self, "businessusernotificationsettings"):
-            self.businessusernotificationsettings.hard_delete()
-        EmailTemplate.objects.filter(created_by=self).update(created_by=another_business_user)
-        WorkFlowStage.objects.filter(created_by=self).update(created_by=another_business_user)
-        self.delete()
+        self.user.hard_delete()
+        self.hard_delete()
         return
 
     @property
