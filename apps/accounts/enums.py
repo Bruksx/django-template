@@ -22,6 +22,8 @@ class BusinessUserRoleType(BaseEnum):
     OWNER = "owner"
     ADMIN = "admin"
     TEAM_MEMBER = "team_member"
+    TALENT_MANAGER = "talent_manager"
+    RECRUITER = "recruiter"
 
 class BusinessUserStatusType(BaseEnum):
     ACTIVE = "active"

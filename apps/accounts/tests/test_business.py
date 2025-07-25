@@ -424,6 +424,7 @@ class InviteBusinessUserTest(TestCase):
         response = self.client.post(self.url, json=data, headers=headers)
         self.assertEqual(response.status_code, 400)
 
+
 class ResendBusinessUserInviteTest(TestCase):
     def setUp(self):
         self.business = BusinessFactory.create()
@@ -585,7 +586,7 @@ class UpdateBusinessUserTestCase(TestCase):
             "email": "newemail@example.com",
             "first_name": "John",
             "last_name": "Doe",
-            "role": BusinessUserRoleType.OWNER.value
+            "role": BusinessUserRoleType.TALENT_MANAGER.value
         }
         response = self.client.patch(self.url, json=payload, headers=self.auth_headers)
         self.assertEqual(response.status_code, 201)
@@ -598,8 +599,7 @@ class UpdateBusinessUserTestCase(TestCase):
         self.business_user.refresh_from_db()
         self.assertEqual(self.staff_user.email, "newemail@example.com")
         self.assertEqual(self.staff_user.first_name, "John")
-        self.assertEqual(self.business_user.role, BusinessUserRoleType.ADMIN.value)
-        self.assertEqual(self.business_staff.role, BusinessUserRoleType.OWNER.value)
+        self.assertEqual(self.business_staff.role, BusinessUserRoleType.TALENT_MANAGER.value)
 
     def test_update_business_user_deleted_email(self):
         """Fails if email belongs to a deleted user."""

@@ -283,7 +283,6 @@ def get_business_user(request, business_user_uid):
 @router.patch("users/{business_user_uid}/", auth=JWTAuth())
 @transaction.atomic
 def update_business_user(request, business_user_uid, data: PatchDict[business_schema.MutateBusinessUserSchema], new_role: Optional[BusinessUserRoleType] = None):
-    new_role = new_role if new_role and new_role != BusinessUserRoleType.OWNER else BusinessUserRoleType.ADMIN
     IsBusinessOwnerOrAdmin.check(request)
     business_user = request.user.businessuser
     business = business_user.business
@@ -295,6 +294,8 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
             if User.global_objects.filter(email=data["email"]).exists():
                 raise HttpError(400, "This email is not available")
     role = data_dict.get("role")
+    if role == BusinessUserRoleType.OWNER and not new_role:
+        raise HttpError(400, "You must set new role before taking this action")
     if role and role.value != staff_user.role:
         role = role.value
         if staff_user.status != BusinessUserStatusType.ACTIVE.value:
