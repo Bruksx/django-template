@@ -87,4 +87,5 @@ class CaseReasonType(BaseEnum):
     TECHNICAL_ISSUES = "Technical Issues"
     SYSTEM_HELP = "System Help"
     REPORT_BUSINESS = "Report a Business"
-    OTHERS = "Others"
+    REPORT_TALENT = "Report a Talent"
+    OTHERS = "Other"
