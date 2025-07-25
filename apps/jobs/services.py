@@ -150,8 +150,8 @@ def update_job_post_service(job_post, business_user, data=None, status=None, rai
     return job_post.update(**data)
 
 def bulk_job_posts_service(job, job_post_data, business_user):
-    new_job_posts = [dt for dt in job_post_data if "uid" not in dt]
-    job_post_data = {dt.pop("uid"): dt for dt in job_post_data if "uid" in dt}
+    new_job_posts = [dt for dt in job_post_data if not dt.get("uid")]
+    job_post_data = {dt.pop("uid"): dt for dt in job_post_data if dt.get("uid")}
     for job_post in JobPost.objects.filter(uid__in=job_post_data.keys()).iterator():
         update_job_post_service(job_post, business_user=business_user, data=job_post_data[job_post.uid])
     create_job_post_service(business_user=business_user, job=job, job_posts_data=new_job_posts)
