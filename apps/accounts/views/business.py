@@ -327,7 +327,7 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
                 value = value.value
             setattr(staff_user, key, value)
     staff_user.save()
-    if staff_user.role == BusinessUserRoleType.OWNER.value and business_user.role == BusinessUserRoleType.OWNER.value:
+    if staff_user.role == BusinessUserRoleType.OWNER.value and business_user.role == BusinessUserRoleType.OWNER.value and new_role:
         business_user.update(role=new_role.value)
     return Response(status=201, data={"message": "User updated successfully"})
 
