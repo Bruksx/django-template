@@ -325,7 +325,7 @@ class Talent(BaseModel):
         for f in filters:
             job_matching_query |= f"""
         
-        job_matching_query = Q()
+        job_matching_query = Q(status=JobStatusType.POSTED.value)
 
         # Add optional date filter
         if start_date and end_date:
