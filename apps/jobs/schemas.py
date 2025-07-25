@@ -82,6 +82,21 @@ class MutateJobPostSchema(ModelSchema):
         exclude = [*MUTATE_EXCLUDE_FIELDS, "uid", "job", "created_at", "posted_by", "date_posted"]
         fields_optional = "__all__"
 
+class UpdateJobPostSchema(ModelSchema):
+    country: Optional[UUID] = None
+    uid: Optional[UUID] = None
+    benefits: List[str]
+    recruiter: Optional[UUID] = None
+    status: Optional[JobStatusType] = None
+    annual_salary_currency: Optional[UUID]
+    annual_bonus_currency: Optional[UUID]
+
+    class Meta:
+        model = JobPost
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "created_at", "posted_by", "date_posted"]
+        fields_optional = "__all__"
+
+
 class MutateJobPostListSchema(ModelSchema):
     country: Optional[GenericNameAndUidSchema] = None
     recruiter: Optional[BusinessUserListSchema]
@@ -277,6 +292,7 @@ class UpdateJobSchema(ModelSchema):
     required_attributes: Optional[MutateRequiredAttributeSchema] = None
     additional_hours_start: Optional[str] = None
     additional_hours_end: Optional[str] = None
+    job_posts : List[UpdateJobPostSchema]  = []
 
     class Meta:
         model = Job

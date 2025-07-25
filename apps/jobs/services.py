@@ -112,11 +112,28 @@ def get_screening_questions_service(request, job_uid:UUID):
     screening_questions = ScreeningQuestion.objects.filter(job__uid=job_uid)
     return screening_questions.filter(job__created_by__business=request.user.businessuser.business)
 
+def create_job_post_service(business_user, job, job_posts_data:list):
+    job_posts = list()
+    for data in job_posts_data:
+        if "status" in data:
+            data["status"] = data["status"].value
+            if data["status"] == JobStatusType.POSTED.value:
+                data["posted_by"] = business_user
 
-def update_job_post_service(job_post, business_user, data=None, status=None):
+        job_posts.append(JobPost(**data, job=job))
+    if len(job_posts) == 1:
+        job_posts[0].save()
+        return job_posts[0]
+    JobPost.objects.bulk_create(job_posts)
+    return
+
+def update_job_post_service(job_post, business_user, data=None, status=None, raise_error=False):
     new_job = None
     if not data:
         data = dict()
+
+    if not status and "status" in data:
+        status = data.get("status").value
     if status:
         data["status"] = status
         if status == JobStatusType.POSTED.value:
@@ -126,12 +143,19 @@ def update_job_post_service(job_post, business_user, data=None, status=None):
             # you're trying to prevent editing job posts with applications
             new_job = job_post.copy()
 
-
     if new_job:
         job_post.update(status=JobStatusType.CLOSED.value)
         new_job.update(**data)
         return new_job
     return job_post.update(**data)
+
+def bulk_job_posts_service(job, job_post_data, business_user):
+    new_job_posts = [dt for dt in job_post_data if "uid" not in dt]
+    job_post_data = {dt.pop("uid"): dt for dt in job_post_data if "uid" in dt}
+    for job_post in JobPost.objects.filter(uid__in=job_post_data.keys()).iterator():
+        update_job_post_service(job_post, business_user=business_user, data=job_post_data[job_post.uid])
+    create_job_post_service(business_user=business_user, job=job, job_posts_data=new_job_posts)
+    return
 
 def update_bulk__job_posts_service(business_user, job_posts_id, action):
     for job_post in JobPost.objects.filter(uid__in=job_posts_id, job__created_by__business=business_user.business).iterator():

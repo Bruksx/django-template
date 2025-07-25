@@ -32,7 +32,8 @@ from .schemas import (
     TalentListJobPostSchema
 )
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
-    update_bulk__job_posts_service, send_email_on_stage_update
+    update_bulk__job_posts_service, send_email_on_stage_update, create_job_post_service, \
+    bulk_job_posts_service
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -223,17 +224,8 @@ def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
     job = Job.objects.filter(uid=job_uid, created_by=business_user).first()
     if not job:
         raise HttpError(404, "This job does not exist")
-    request_data = data.dict()
-    if "status" in request_data:
-        request_data["status"] = request_data["status"].value
-        if request_data["status"] == JobStatusType.POSTED.value:
-            request_data["posted_by"] = business_user
 
-    job_post = JobPost(
-        **request_data,
-        job=job
-    )
-    job_post.save()
+    job_post = create_job_post_service(business_user, job, [data.dict()])
     return job_post
 
 
@@ -347,6 +339,7 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
     skills = data.pop("skills", list())
     business_models = data.pop("business_models", list())
     required_attributes = data.pop("required_attributes", None)
+    job_posts = data.pop("job_posts", list())
     if not data.get("hiring_company_name"):
         data["hiring_company_name"] = business.name
     if not data.get("hiring_company_description"):
@@ -384,6 +377,17 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
     job.save()
     if required_attributes:
         set_job_required_attributes(required_attributes, job)
+
+    if len(job_posts) == 1:
+        if "uid" in job_posts[0]:
+            job_post = JobPost.objects.filter(uid=job_posts[0]["uid"]).first()
+            if not job_post:
+                raise HttpError(404, "Job post not found")
+            update_job_post_service(job_post, business_user, data=job_posts[0], raise_error=True)
+        else:
+            create_job_post_service(job, business_user, job_posts)
+    else:
+        async_task(bulk_job_posts_service, job,  job_posts, business_user)
 
     return job
 
