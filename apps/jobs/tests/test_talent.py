@@ -21,7 +21,7 @@ from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusTy
     QuestionTypeEnum
 from jobs.models import (
     JobPost, JobLevel, EmploymentType, SavedJob, JobApplication, RequiredAttribute, BusinessModel, AvailableDay,
-    Job, RequiredSecondaryLanguage
+    Job, RequiredSecondaryLanguage, RequiredSkill
 )
 from jobs.views import router
 
@@ -454,7 +454,6 @@ class JobMatchTests(TestCase):
         self.job.skills.add(*self.tool_platform_skills, *self.general_skills, *self.methodology_skills)
         self.talent.skills.all().delete()
         self.talent.skills.add(*self.tool_platform_skills[:1], *self.general_skills[:2], *self.methodology_skills)
-        print(f"{self.talent.skills.all()}")
 
         queryset = JobPost.objects.filter(id=self.job_post.id)
         queryset = add_job_post_annotations(queryset, self.talent)
@@ -465,8 +464,32 @@ class JobMatchTests(TestCase):
         general_skill_score = Decimal(job_post.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
         self.assertEqual(tool_platform_score, Decimal("2.22"))
-        self.assertEqual(methodologies_score, Decimal("4.44"))
-        self.assertEqual(general_skill_score, Decimal("6.69"))
+        self.assertEqual(methodologies_score, Decimal("6.67"))
+        self.assertEqual(general_skill_score, Decimal("4.45"))
+
+    def test_missing_required_skill_returns_zero_core(self):
+        self.update_required_attributes()
+        self.job.skills.add(*self.tool_platform_skills, *self.general_skills, *self.methodology_skills)
+        RequiredSkill.objects.create(
+            skill=self.job.skills.first(),
+            required_attribute=self.required_attributes,
+        )
+        self.talent.skills.all().delete()
+        self.talent.skills.add(*self.tool_platform_skills[:1], *self.general_skills[:2], *self.methodology_skills)
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+
+        tool_platform_score = Decimal(job_post.tools_platform_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        methodologies_score = Decimal(job_post.methodologies_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        general_skill_score = Decimal(job_post.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(tool_platform_score, Decimal("2.22"))
+        self.assertEqual(methodologies_score, Decimal("6.67"))
+        self.assertEqual(general_skill_score, Decimal("4.45"))
+        self.assertEqual(computed_match_score, Decimal("0.0"))
 
     
     def update_required_attributes(self, *args, **kwargs):

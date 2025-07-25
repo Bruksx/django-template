@@ -93,7 +93,8 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             FROM jobs_job_skills as job_skills
             JOIN accounts_skill skill ON job_skills.skill_id = skill.id
             LIMIT 1
-        """, [])
+        """, []
+        )
     ).annotate(
         business_model_score=RawSQL(f"""
             SELECT
@@ -124,15 +125,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
     ),
         job_level_score=Case(
             When(
-                Q(requires_job_level=True) & Q(has_matching_experience=True),
-                then=Value(6.67)
-            ),
-            When(
-                Q(requires_job_level=True) & Q(has_matching_experience=False),
-                then=Value(0.0)
-            ),
-            When(
-                Q(requires_job_level=False),
+                Q(has_matching_experience=True),
                 then=Value(6.67)
             ),
             default=Value(0.0),
@@ -271,6 +264,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             When(missing_compulsory_secondary_language=True, then=Value(0.0)),
             When(Q(requires_role=True) & Q(matching_role=False), then=Value(0.0)),
             When(Q(missing_required_skill=True), then=Value(0.0)),
+            When(Q(requires_job_level=True) & Q(has_matching_experience=False), then=Value(0.0)),
             default=ExpressionWrapper(
                 F("role_score") + F("tools_platform_score") + F("methodologies_score") +
                 F("general_skill_score") + F("job_level_score") + F("experience_score") +
