@@ -762,7 +762,7 @@ class TestJobRecommendationsEndpoint(TestCase):
         jobs = JobFactory.create_batch(5, created_by=self.business_user, years_of_experience=years_of_experience)
         for job in jobs:
             job.requiredattribute.update(job=job, years_of_experience=True, location=True)
-            JobPostFactory.create(job=job, posted_by=self.business_user, country=country)
+            JobPostFactory.create(job=job, posted_by=self.business_user, country=country, status=JobStatusType.POSTED.value)
         JobApplicationFactory.create(job_post=JobPost.objects.first(), applicant=self.talent)
 
     def test_job_recommendations_endpoint(self):
