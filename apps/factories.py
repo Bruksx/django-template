@@ -238,8 +238,6 @@ class JobFactory(BaseModelFactory):
     office_address = factory.Faker('address')
     lunch_break = factory.Iterator(LunchBreakEnum.values())
     lunch_break_time = factory.Iterator([10, 20, 30, 40])
-    additional_hours_start = factory.Faker("time")
-    additional_hours_end = factory.Faker("time")
     employment_type = factory.SubFactory(EmploymentTypeFactory)
 
 

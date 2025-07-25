@@ -246,8 +246,8 @@ class OptionalCreateJobSchema(ModelSchema):
     responsibilities: Optional[List[str]] = None
     min_match_score: Optional[float] = None
     required_attributes: Optional[MutateRequiredAttributeSchema] = None
-    additional_hours_start: Optional[time] = Field(None, description="format is HH:MM:SS do not attach Z")
-    additional_hours_end: Optional[time] = Field(None, description="format is HH:MM:SS  do not attach Z")
+    additional_hours_start: Optional[str] = None
+    additional_hours_end: Optional[str] = None
 
     class Meta:
         model = Job
@@ -275,8 +275,8 @@ class UpdateJobSchema(ModelSchema):
     responsibilities: Optional[List[str]] = None
     min_match_score: Optional[float] = None
     required_attributes: Optional[MutateRequiredAttributeSchema] = None
-    additional_hours_start: Optional[time] = Field(None, description="format is HH:MM:SS do not attach Z")
-    additional_hours_end: Optional[time] = Field(None, description="format is HH:MM:SS  do not attach Z")
+    additional_hours_start: Optional[str] = None
+    additional_hours_end: Optional[str] = None
 
     class Meta:
         model = Job
