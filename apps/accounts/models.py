@@ -325,7 +325,7 @@ class Talent(BaseModel):
         for f in filters:
             job_matching_query |= f"""
         
-        job_matching_query = Q(status=JobStatusType.POSTED.value)
+        job_matching_query = Q()
 
         # Add optional date filter
         if start_date and end_date:
@@ -354,7 +354,7 @@ class Talent(BaseModel):
             .order_by("-id")
         
         queryset = add_job_post_annotations(queryset, self)
-        queryset = queryset.filter(computed_match_score__gte=50)
+        queryset = queryset.filter(computed_match_score__gte=50, status=JobStatusType.POSTED.value)
         return queryset
 
     def job_match_score(self, job_post):
