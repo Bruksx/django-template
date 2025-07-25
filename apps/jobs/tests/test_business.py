@@ -9,9 +9,9 @@ from django.test import TestCase
 from django.utils import timezone
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
     JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, SkillFactory, BusinessModelFactory, \
-    CountryFactory, ScreeningQuestionFactory, AnswerFactory
+    CountryFactory, ScreeningQuestionFactory, AnswerFactory, CurrencyFactory
 from future.backports.datetime import timedelta
-from jobs.business_views import router
+from jobs.business_views import router, job_list
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
@@ -624,6 +624,8 @@ class JobCreationTest(TestCase):
 class JobUpdateTest(TestCase):
 
     def setUp(self):
+        self.currency = CurrencyFactory.create()
+        self.country = Country.objects.order_by("?").first()
         # Set up necessary data for the test
         self.user = UserFactory.create()
         self.business = BusinessFactory.create(created_by=self.user)
@@ -635,6 +637,7 @@ class JobUpdateTest(TestCase):
         self.auth = JWTAuth()
         self.client = TestClient(router)
         self.job = JobFactory.create(created_by=self.business_user)
+        self.job_posts = JobPostFactory.create_batch(2, job=self.job)
         self.test_data = {
             "availability": [
                 {
@@ -660,6 +663,22 @@ class JobUpdateTest(TestCase):
             "technological_requirement": "macbook",
             "lunch_break": "paid",
             "lunch_break_time": 30,
+            "job_posts": [
+                {
+                    "uid": self.job_posts[0].uid,
+                    "benefits": [
+                        "Holiday",
+                        "Paid time off"
+                    ],
+                    "status": JobStatusType.DRAFT.value,
+                    "annual_salary_currency": str(self.currency.uid),
+                    "annual_bonus_currency": str(self.currency.uid),
+                    "annual_salary_min": 100,
+                    "annual_salary_max": 1000,
+                    "annual_bonus_min": 200,
+                    "annual_bonus_max": 2000
+                }
+            ],
             "additional_hours_start": "12:00:00",
             "additional_hours_end": "22:00:00",
         }
@@ -690,10 +709,119 @@ class JobUpdateTest(TestCase):
         self.assertEqual(self.job.lunch_break_time, self.test_data["lunch_break_time"])
         self.assertEqual(self.job.office_address, office_address)
         self.assertEqual(str(self.job.additional_hours_start), self.test_data["additional_hours_start"])
-        self.assertEqual(str(self.job.additional_hours_end), self.test_data["additional_hours_end"])
+        self.assertEqual(str(self.job.additional_hours_end), self.test_data["additional_hours_end"]),
+
+        job_post = self.job_posts[0]
+        job_post.refresh_from_db()
+        self.assertEqual(job_post.benefits, self.test_data["job_posts"][0]["benefits"])
+        self.assertEqual(job_post.status, self.test_data["job_posts"][0]["status"])
+        self.assertEqual(str(job_post.annual_salary_currency.uid), self.test_data["job_posts"][0]["annual_salary_currency"])
+        self.assertEqual(str(job_post.annual_bonus_currency.uid), self.test_data["job_posts"][0]["annual_bonus_currency"])
+        self.assertEqual(job_post.annual_salary_min, self.test_data["job_posts"][0]["annual_salary_min"])
+        self.assertEqual(job_post.annual_salary_max, self.test_data["job_posts"][0]["annual_salary_max"])
+        self.assertEqual(job_post.annual_bonus_min, self.test_data["job_posts"][0]["annual_bonus_min"])
+        self.assertEqual(job_post.annual_bonus_max, self.test_data["job_posts"][0]["annual_bonus_max"])
 
         available_days = AvailableDay.objects.filter(job=self.job)
         self.assertEqual(available_days.count(), 2)
+
+    def test_update_job_with_multiple_job_posts(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        self.test_data["job_posts"] = [
+            {
+                "uid": self.job_posts[0].uid,
+                "benefits": [
+                    "Holiday",
+                    "Paid time off"
+                ],
+                "status": JobStatusType.CLOSED.value,
+                "annual_salary_currency": str(self.currency.uid),
+                "annual_bonus_currency": str(self.currency.uid),
+                "annual_salary_min": 100,
+                "annual_salary_max": 1000,
+                "annual_bonus_min": 3000,
+                "annual_bonus_max": 4000
+            },
+            {
+                "uid": self.job_posts[1].uid,
+                "benefits": [
+                    "Holiday",
+                    "Paid time off"
+                ],
+                "country": str(self.job_posts[0].country.uid),
+                "annual_salary_currency": str(self.currency.uid),
+                "annual_bonus_currency": str(self.currency.uid),
+                "annual_salary_min": 100,
+                "annual_salary_max": 1000,
+                "annual_bonus_min": 200,
+                "annual_bonus_max": 2000
+            },
+            {
+                "benefits": [
+                    "Holiday",
+                    "Paid time off"
+                ],
+                "country": str(self.country.uid),
+                "annual_salary_currency": str(self.currency.uid),
+                "annual_bonus_currency": str(self.currency.uid),
+                "annual_salary_min": 500,
+                "annual_salary_max": 1000,
+                "annual_bonus_min": 200,
+                "annual_bonus_max": 5000
+            }
+        ]
+
+        available_days = AvailableDay.objects.filter(job=self.job)
+        self.assertEqual(available_days.count(), 0)
+        title = self.job.title
+        office_address = self.job.office_address
+        self.assertNotEqual(self.job.hiring_company_name, self.test_data["hiring_company_name"])
+        self.assertNotEqual(self.job.hiring_company_description, self.test_data["hiring_company_description"])
+
+        response = self.client.patch(self.url(self.job.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+
+        self.job.refresh_from_db()
+
+        self.assertEqual(self.job.title, title)
+        self.assertEqual(self.job.hiring_company_name, self.test_data["hiring_company_name"])
+        self.assertEqual(self.job.hiring_company_description, self.test_data["hiring_company_description"])
+        self.assertEqual(self.job.work_structure, self.test_data["work_structure"])
+        self.assertEqual(self.job.technological_requirement, self.test_data["technological_requirement"])
+        self.assertEqual(self.job.lunch_break, self.test_data["lunch_break"])
+        self.assertEqual(self.job.lunch_break_time, self.test_data["lunch_break_time"])
+        self.assertEqual(self.job.office_address, office_address)
+        self.assertEqual(str(self.job.additional_hours_start), self.test_data["additional_hours_start"])
+        self.assertEqual(str(self.job.additional_hours_end), self.test_data["additional_hours_end"]),
+
+        job_post = self.job_posts[0]
+        job_post.refresh_from_db()
+        self.assertEqual(job_post.benefits, self.test_data["job_posts"][0]["benefits"])
+        self.assertEqual(job_post.status, self.test_data["job_posts"][0]["status"])
+        self.assertEqual(str(job_post.annual_salary_currency.uid), self.test_data["job_posts"][0]["annual_salary_currency"])
+        self.assertEqual(str(job_post.annual_bonus_currency.uid), self.test_data["job_posts"][0]["annual_bonus_currency"])
+        self.assertEqual(job_post.annual_salary_min, self.test_data["job_posts"][0]["annual_salary_min"])
+        self.assertEqual(job_post.annual_salary_max, self.test_data["job_posts"][0]["annual_salary_max"])
+        self.assertEqual(job_post.annual_bonus_min, self.test_data["job_posts"][0]["annual_bonus_min"])
+        self.assertEqual(job_post.annual_bonus_max, self.test_data["job_posts"][0]["annual_bonus_max"])
+
+        job_post = self.job_posts[1]
+        job_post.refresh_from_db()
+        self.assertEqual(job_post.benefits, self.test_data["job_posts"][1]["benefits"])
+        self.assertEqual(str(job_post.country.uid), self.test_data["job_posts"][1]["country"])
+        self.assertEqual(str(job_post.annual_salary_currency.uid), self.test_data["job_posts"][1]["annual_salary_currency"])
+        self.assertEqual(str(job_post.annual_bonus_currency.uid), self.test_data["job_posts"][1]["annual_bonus_currency"])
+        self.assertEqual(job_post.annual_salary_min, self.test_data["job_posts"][1]["annual_salary_min"])
+        self.assertEqual(job_post.annual_salary_max, self.test_data["job_posts"][1]["annual_salary_max"])
+        self.assertEqual(job_post.annual_bonus_min, self.test_data["job_posts"][1]["annual_bonus_min"])
+        self.assertEqual(job_post.annual_bonus_max, self.test_data["job_posts"][1]["annual_bonus_max"])
+
+
+        available_days = AvailableDay.objects.filter(job=self.job)
+        self.assertEqual(available_days.count(), 2)
+        self.assertEqual(JobPost.objects.count(), 3)
 
     def test_update_job_by_talent(self):
         talent = TalentFactory.create()
