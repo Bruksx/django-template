@@ -172,10 +172,9 @@ def refresh_job(request, job_uid:UUID):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     JobPost.objects.filter(job__uid=job_uid, job__created_by__business=business_user.business).exclude(
-        last_refreshed__gte=(timezone.now() - timedelta(days=14)).update(
+        last_refreshed__gte=(timezone.now() - timedelta(days=14))).update(
             last_refreshed=timezone.now()
         )
-    )
     return Response(status=200, data={"message": "Job refreshed successfully"})
 
 
