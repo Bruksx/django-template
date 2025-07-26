@@ -1,6 +1,8 @@
 from django.core.cache import cache
 from django.db import models
-from django.db.models import F, Q
+from django.db.models import F, Q, QuerySet
+from django.db.models.signals import pre_save
+from django_softdelete.managers import SoftDeleteManager
 from monkeypatches.q_cluster import async_task
 from timezone_field import TimeZoneField
 
@@ -29,11 +31,26 @@ class JobLevel(BaseModel):
     def __str__(self) -> str:
         return self.name
 
+class AvailableDayManager(SoftDeleteManager):
+    def bulk_create(self, objs, **kwargs):
+        for obj in objs:
+            pre_save.send(sender=self.model, instance=obj, created=False ,raw=False, using=self.db)
+        return super().bulk_create(objs, **kwargs)
+    
+    def bulk_update(self, objs, *args, **kwargs):
+        for obj in objs:
+            pre_save.send(sender=self.model, instance=obj, created=True, raw=False, using=self.db)
+        return super().bulk_update(objs, *args, **kwargs)
+    
+
 class AvailableDay(BaseModel):
     job = models.ForeignKey("Job", on_delete=models.CASCADE)
     day = models.CharField(max_length=32, choices=Days.choices())
     end_time = models.TimeField(null=True)
     start_time = models.TimeField(null=True)
+    utc_start_time = models.TimeField(null=True)
+    utc_end_time = models.TimeField(null=True)
+    objects = AvailableDayManager()
 
 
 class Job(BaseModel):
@@ -708,9 +725,19 @@ class Answer(BaseModel):
     text = models.TextField(null=True)
     files = models.JSONField(default=list, null=True)
 
+
+class RequiredSecondaryLanguage(BaseModel):
+    required_attribute = models.ForeignKey("RequiredAttribute", on_delete=models.CASCADE)
+    language = models.ForeignKey(Language, on_delete=models.CASCADE)
+
+
+class RequiredSkill(BaseModel):
+    required_attribute = models.ForeignKey("RequiredAttribute", on_delete=models.CASCADE, related_name="required_skills")
+    skill = models.ForeignKey("accounts.Skill", on_delete=models.CASCADE)
+
+
 class RequiredAttribute(BaseModel):
     job = models.OneToOneField(Job, on_delete=models.CASCADE)
-    skills = models.ManyToManyField("accounts.Skill")
     role = models.BooleanField(default=False)
     job_level = models.BooleanField(default=False)
     years_of_experience = models.BooleanField(default=False)
@@ -722,6 +749,8 @@ class RequiredAttribute(BaseModel):
     secondary_language = models.BooleanField(default=False)
     working_hours = models.BooleanField(default=False)
     location = models.BooleanField(default=False)
+    secondary_languages = models.ManyToManyField(Language, through=RequiredSecondaryLanguage)
+    skills = models.ManyToManyField("accounts.Skill", through=RequiredSkill, related_name="required_attribute")
 
     def __str__(self) -> str:
         return f"{self.job}({self.uid})"

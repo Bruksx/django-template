@@ -26,6 +26,9 @@ class BaseModelFactory(DjangoModelFactory):
     created_at = factory.LazyFunction(timezone.now)
     updated_at = factory.LazyFunction(timezone.now)
 
+    class Meta:
+        abstract = True
+
 
 class CountryFactory(BaseModelFactory):
     class Meta:

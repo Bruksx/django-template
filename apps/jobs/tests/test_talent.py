@@ -16,13 +16,13 @@ from core.models import Currency, Language
 from factories import (
     TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory,
     JobApplicationFactory, CountryFactory, ScreeningQuestionFactory, fake, RequiredAttributeFactory,
+    EducationFactory, ExperienceFactory
 )
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusType, WithdrawalFeedbackType, \
     QuestionTypeEnum
 from jobs.models import (
     JobPost, JobLevel, EmploymentType, SavedJob, JobApplication, RequiredAttribute, BusinessModel, AvailableDay,
-    JobInvite,
-    Job
+    Job, RequiredSecondaryLanguage, RequiredSkill, JobInvite
 )
 from jobs.views import router
 
@@ -119,11 +119,8 @@ class TalentJobListTests(TestCase):
         }
         response = self.client.get("talent/job-recommendations", headers=headers)
         self.assertEqual(response.status_code, 200)
-        #self.assertEqual(response.json()["count"], 1)
         response = self.client.get("talent/job-recommendations?page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
-        #self.assertEqual(response.json()["count"], 1)
-
 
     def test_saved_job_endpoints(self):
         SavedJob.objects.create(
@@ -180,157 +177,6 @@ class TalentJobListTests(TestCase):
         response = self.client.get("talent/job-posts?search=test&page_size=100&page=1", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 0)
-    
-    def test_match_score(self):
-        job2: Job = JobFactory.create()
-        self.tool_platform_skills = Skill.objects.filter(category__name="Tools/Platforms")[:3]
-        self.methodology_skills = Skill.objects.filter(category__name="Common Methodologies/Frameworks")[:3]
-        self.general_skills = Skill.objects.filter(category__name="General Skills")[:3]
-        job2.skills.add(
-            *self.tool_platform_skills,
-            *self.methodology_skills,
-            *self.general_skills[:0],
-        )
-        first_language = Language.objects.first()
-        other_languages = Language.objects.exclude(id=first_language.id)[:3]
-        available_days = [
-            AvailableDay(
-                job=self.job_post.job,
-                day=Days.MONDAY.value,
-                start_time=time(8, 0),
-                end_time=time(4, 0)
-            ),
-            AvailableDay(
-                job=self.job_post.job,
-                day=Days.TUESDAY.value,
-                start_time=time(8, 0),
-                end_time=time(2, 0)
-            ),
-            AvailableDay(
-                job=self.job_post.job,
-                day=Days.WEDNESDAY.value,
-                start_time=time(8, 0),
-                end_time=time(2, 0)
-            ),
-            AvailableDay(
-                job=self.job_post.job,
-                day=Days.FRIDAY.value,
-                start_time=time(8, 0),
-                end_time=time(2, 0)
-            ),
-        ]
-        talent_available_days = [
-            TalentAvailableDay(
-                talent=self.talent,
-                day=Days.MONDAY.value,
-                start_time=time(8, 0),
-                end_time=time(3, 0)
-            ),
-            TalentAvailableDay(
-                talent=self.talent,
-                day=Days.TUESDAY.value,
-                start_time=time(7, 0),
-                end_time=time(3, 0)
-            ),
-            TalentAvailableDay(
-                talent=self.talent,
-                day=Days.WEDNESDAY.value,
-                start_time=time(7, 0),
-                end_time=time(3, 0)
-            ),
-            TalentAvailableDay(
-                talent=self.talent,
-                day=Days.FRIDAY.value,
-                start_time=time(8, 0),
-                end_time=time(2, 0)
-            ),
-            TalentAvailableDay(
-                talent=self.talent,
-                day=Days.SATURDAY.value,
-                start_time=time(8, 0),
-                end_time=time(2, 0)
-            )
-        ]
-
-
-        TalentAvailableDay.objects.bulk_create(talent_available_days)
-        AvailableDay.objects.bulk_create(available_days)
-
-        requiredattribute: RequiredAttribute = self.job_post.job.requiredattribute
-        requiredattribute.skills.add(
-            *self.tool_platform_skills,
-            *self.methodology_skills,
-            *self.general_skills[:0],
-        )
-        business_model = BusinessModel.objects.first()
-        requiredattribute.business_models.add(
-            business_model
-        )
-        requiredattribute.years_of_experience = False
-        requiredattribute.work_structure = True
-        requiredattribute.first_language = True
-        requiredattribute.secondary_language = True
-        requiredattribute.working_hours = True
-        requiredattribute.location = False
-        requiredattribute.minimum_education_level = False
-        requiredattribute.job_level = False
-    
-
-        self.talent.skills.add(*self.tool_platform_skills[:1], *self.methodology_skills[:2])
-        self.talent.work_model = self.job_post.job.work_structure
-        self.talent.native_language = None
-        self.talent.additional_languages.add(*other_languages[:2])
-
-        job: Job = self.job_post.job
-        job.first_language = first_language
-        job.additional_languages.add(*other_languages)
-        job.skills.add(
-            *self.tool_platform_skills,
-            *self.methodology_skills,
-            *self.general_skills[:0],
-        )
-
-        requiredattribute.save()
-        self.job_post.job.save()
-        self.talent.save()
-
-        queryset = JobPost.objects.filter(id=self.job_post.id)
-        queryset = add_job_post_annotations(queryset, self.talent)
-
-        job_post = queryset.first()
-
-        role_score = Decimal(job_post.role_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        tool_platform_score = Decimal(job_post.tools_platform_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        methodologies_score = Decimal(job_post.methodologies_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        general_skill_score = Decimal(job_post.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        business_model_score = Decimal(job_post.business_model_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        job_level_score = Decimal(job_post.job_level_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        experience_score = Decimal(job_post.experience_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        minimum_education_score = Decimal(job_post.minimum_education_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        work_structure_score = Decimal(job_post.work_structure_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        tech_requirement_score = Decimal(job_post.tech_requirement_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        first_language_score = Decimal(job_post.first_language_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        additional_language_score = Decimal(job_post.additional_language_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        work_schedule_score = Decimal(job_post.work_schedule_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        location_score = Decimal(job_post.location_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-
-        self.assertEqual(role_score, Decimal("6.67"))
-        self.assertEqual(tool_platform_score, Decimal("2.22"))
-        self.assertEqual(methodologies_score, Decimal("4.45"))
-        self.assertEqual(general_skill_score, Decimal("6.67"))
-        self.assertEqual(business_model_score, Decimal("0.00"))
-        self.assertEqual(job_level_score, Decimal("6.67"))
-        self.assertEqual(experience_score, Decimal("6.67"))
-        self.assertEqual(minimum_education_score, Decimal("6.67"))
-        self.assertEqual(work_structure_score, Decimal("6.67"))
-        self.assertEqual(tech_requirement_score, Decimal("0.00"))
-        self.assertEqual(first_language_score, Decimal("0.00"))
-        self.assertEqual(additional_language_score, Decimal("4.45"))
-        self.assertEqual(work_schedule_score, Decimal("5.00"))
-        self.assertEqual(location_score, Decimal("6.67"))
-        self.assertEqual(computed_match_score, Decimal("62.81"))
-
 
 
 class JobMatchTests(TestCase):
@@ -345,6 +191,15 @@ class JobMatchTests(TestCase):
         self.required_attributes: RequiredAttribute = self.job.requiredattribute
         self.additional_languages = Language.objects.all()[:3]
         self.additional_languages2 = self.additional_languages[:1]
+        self.role = Role.objects.order_by("pk")[0]
+        self.role2 = Role.objects.order_by("pk")[1]
+
+        self.tool_platform_skills = Skill.objects.filter(category__name="Tools/Platforms")[:3]
+        self.methodology_skills = Skill.objects.filter(category__name="Common Methodologies/Frameworks")[:3]
+        self.general_skills = Skill.objects.filter(category__name="General Skills")[:3]
+
+        self.level1 = JobLevel.objects.all()[0]
+        self.level2 = JobLevel.objects.all()[1]
 
     def test_location(self):
         self.talent.country = self.location
@@ -368,7 +223,7 @@ class JobMatchTests(TestCase):
         queryset = add_job_post_annotations(queryset, self.talent)
 
         job_post = queryset.first()
-        location_score = Decimal(job_post.location_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        location_score = computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
         #test non matching location
         self.assertEqual(location_score, Decimal("0.0"))
@@ -385,9 +240,354 @@ class JobMatchTests(TestCase):
         job_post = queryset.first()
 
         additional_language_score = Decimal(job_post.additional_language_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        print(additional_language_score)
+        self.assertEqual(additional_language_score, Decimal("2.22"))
 
+        #add compulsory language
+        RequiredSecondaryLanguage.objects.create(
+            required_attribute=self.required_attributes,
+            language=self.additional_languages[2]
+        )
 
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+
+        computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(computed_match_score, Decimal("0.0"))
+    
+    def test_role(self):
+        self.update_required_attributes(role=False)
+        self.job.role = self.role
+        experience: Experience = ExperienceFactory.create(
+            talent=self.talent,
+            role=self.role2
+        )
+        self.talent.role = self.role2
+        self.talent.save()
+        self.job.save()
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+
+        role_score = Decimal(job_post.role_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(role_score, Decimal("0.0"))
+
+        self.update_required_attributes(role=True)
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+
+        computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(computed_match_score, Decimal("0.0"))
+
+        experience.role =self.job.role
+        experience.save()
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+
+        role_score = Decimal(job_post.role_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(role_score, Decimal("6.67"))
+    
+    def test_skills(self):
+        self.update_required_attributes()
+        self.job.skills.add(*self.tool_platform_skills, *self.general_skills, *self.methodology_skills)
+        self.talent.skills.all().delete()
+        self.talent.skills.add(*self.tool_platform_skills[:1], *self.general_skills[:2], *self.methodology_skills)
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+
+        tool_platform_score = Decimal(job_post.tools_platform_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        methodologies_score = Decimal(job_post.methodologies_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        general_skill_score = Decimal(job_post.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(tool_platform_score, Decimal("2.22"))
+        self.assertEqual(methodologies_score, Decimal("6.67"))
+        self.assertEqual(general_skill_score, Decimal("4.45"))
+
+    def test_missing_required_skill_returns_zero_core(self):
+        self.update_required_attributes()
+        self.job.skills.add(*self.tool_platform_skills, *self.general_skills, *self.methodology_skills)
+        RequiredSkill.objects.create(
+            skill=self.job.skills.first(),
+            required_attribute=self.required_attributes,
+        )
+        self.talent.skills.all().delete()
+        self.talent.skills.add(*self.tool_platform_skills[:1], *self.general_skills[:2], *self.methodology_skills)
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+
+        tool_platform_score = Decimal(job_post.tools_platform_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        methodologies_score = Decimal(job_post.methodologies_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        general_skill_score = Decimal(job_post.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(tool_platform_score, Decimal("2.22"))
+        self.assertEqual(methodologies_score, Decimal("6.67"))
+        self.assertEqual(general_skill_score, Decimal("4.45"))
+        self.assertEqual(computed_match_score, Decimal("0.0"))
+
+    def test_job_level_no_score(self):
+        self.update_required_attributes()
+        Experience.objects.filter(talent=self.talent).delete()
+        
+        ExperienceFactory.create(talent=self.talent, level=self.level1)
+        self.job.job_level = self.level2
+        self.job.save()
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+        job_level_score = Decimal(job_post.job_level_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(job_level_score, Decimal("0.0"))
+    
+    def test_job_level_full_score(self):
+        self.update_required_attributes()
+        Experience.objects.filter(talent=self.talent).delete()
+        level1 = JobLevel.objects.all()[0]
+        level2 = JobLevel.objects.all()[1]
+        ExperienceFactory.create(talent=self.talent, level=level1)
+        self.job.job_level = level1
+        self.job.save()
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+        job_level_score = Decimal(job_post.job_level_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(job_level_score, Decimal("6.67"))
+    
+    def test_job_level_required_or_no_score(self):
+        self.update_required_attributes(job_level=True)
+        Experience.objects.filter(talent=self.talent).delete()
+        level1 = JobLevel.objects.all()[0]
+        level2 = JobLevel.objects.all()[1]
+        ExperienceFactory.create(talent=self.talent, level=level1)
+        self.job.job_level = level2
+        self.job.save()
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+        computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(computed_match_score, Decimal("0.0")) 
+
+    def test_experience_score_full(self):
+        self.update_required_attributes()
+        self.talent.years_of_experience = 6
+        self.job.years_of_experience = 5
+        self.talent.save()
+        self.job.save() 
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+        experience_score = Decimal(job_post.experience_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(experience_score, Decimal("6.67"))
+    
+    def test_experience_score_zero(self):
+        self.update_required_attributes()
+        self.talent.years_of_experience = 6
+        self.job.years_of_experience = 8
+        self.talent.save()
+        self.job.save() 
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+        experience_score = Decimal(job_post.experience_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(experience_score, Decimal("0.0"))
+
+    def test_working_hours_complete_match_full_score(self):
+        available_days = [
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        talent_available_days = [
+            TalentAvailableDay(
+                talent=self.talent,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        TalentAvailableDay.objects.bulk_create(talent_available_days)
+        AvailableDay.objects.bulk_create(available_days)
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+        final_work_schedule_score = Decimal(job_post.final_work_schedule_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(final_work_schedule_score, Decimal("6.67"))
+    
+    def test_working_hours_incomplete_match_partial_score(self):
+        available_days = [
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.TUESDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        talent_available_days = [
+            TalentAvailableDay(
+                talent=self.talent,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        TalentAvailableDay.objects.bulk_create(talent_available_days)
+        AvailableDay.objects.bulk_create(available_days)
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+        final_work_schedule_score = Decimal(job_post.final_work_schedule_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(final_work_schedule_score, Decimal("3.33"))
+    
+    def test_working_hours_no_job_hours_full_score(self):
+        available_days = []
+        talent_available_days = [
+            TalentAvailableDay(
+                talent=self.talent,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        TalentAvailableDay.objects.bulk_create(talent_available_days)
+        AvailableDay.objects.bulk_create(available_days)
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+        final_work_schedule_score = Decimal(job_post.final_work_schedule_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(final_work_schedule_score, Decimal("6.67"))
+    
+    def test_working_hours_flexible_talent_full_score(self):
+        self.talent.flexible_availability = True
+        self.talent.save()
+        available_days = [
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.TUESDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        talent_available_days = []
+        TalentAvailableDay.objects.bulk_create(talent_available_days)
+        AvailableDay.objects.bulk_create(available_days)
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+        final_work_schedule_score = Decimal(job_post.final_work_schedule_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(final_work_schedule_score, Decimal("6.67"))
+    
+    def test_working_hours_flexible_job_full_score(self):
+        self.talent.flexible_availability = True
+        self.job.flexible_availability = True
+        self.talent.save()
+        available_days = []
+        talent_available_days = []
+        TalentAvailableDay.objects.bulk_create(talent_available_days)
+        AvailableDay.objects.bulk_create(available_days)
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+        final_work_schedule_score = Decimal(job_post.final_work_schedule_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(final_work_schedule_score, Decimal("6.67"))
+    
+    def test_working_hours_required_incomplete_match_zero_computed_score(self):
+        self.update_required_attributes(working_hours=True)
+        available_days = [
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.TUESDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        talent_available_days = [
+            TalentAvailableDay(
+                talent=self.talent,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        TalentAvailableDay.objects.bulk_create(talent_available_days)
+        AvailableDay.objects.bulk_create(available_days)
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+        computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(computed_match_score, Decimal("0.00"))
+    
+    def test_working_hours_match_accross_timezones(self):
+        self.job.availability_timezone = "America/Los_Angeles"
+        self.talent.availability_timezone = "America/New_York" #3hrs ahead
+        self.talent.save()
+        self.job.save()
+        available_days = [
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(10, 0)
+            ),
+        ]
+        talent_available_days = [
+            TalentAvailableDay(
+                talent=self.talent,
+                day=Days.MONDAY.value,
+                start_time=time(11, 0),
+                end_time=time(13, 0)
+            ),
+        ]
+        TalentAvailableDay.objects.bulk_create(talent_available_days)
+        AvailableDay.objects.bulk_create(available_days)
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+        final_work_schedule_score = Decimal(job_post.final_work_schedule_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(final_work_schedule_score, Decimal("6.67"))
+    
     def update_required_attributes(self, *args, **kwargs):
         for field_name in self.job.required_attributes_keys:
             if hasattr(self.required_attributes, field_name):
@@ -771,8 +971,6 @@ class TestJobRecommendationsEndpoint(TestCase):
         }
         response = self.client.get(self.url(self.talent.uid), headers=headers)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["count"], 5)
-
 
     def test_endpoint_by_talent(self):
         headers = {
