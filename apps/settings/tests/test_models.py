@@ -25,7 +25,7 @@ class EmailTemplateModelTest(TestCase):
         scheduled_task = Schedule.objects.first()
         self.assertIsNone(scheduled_task)
         emails = ["a@b.com", "c@d.com"]
-        self.template.send_email(context, emails)
+        self.template.send_email(context, emails, self.template.sender)
         scheduled_task = Schedule.objects.first()
         self.assertIsNotNone(scheduled_task)
 

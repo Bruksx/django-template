@@ -1,5 +1,6 @@
 import datetime
 import random
+from random import choice
 
 import factory
 from django.utils import timezone
@@ -21,58 +22,68 @@ from jobs.models import JobLevel, EmploymentType, JobPost, Job, JobApplication, 
     RequiredAttribute, BusinessModel, ScreeningQuestion, Answer, QuestionOption, JobPostMetrics, SavedJob
 
 
-class CountryFactory(DjangoModelFactory):
+class BaseModelFactory(DjangoModelFactory):
+    created_at = factory.LazyFunction(timezone.now)
+    updated_at = factory.LazyFunction(timezone.now)
+
+    class Meta:
+        abstract = True
+
+
+class CountryFactory(BaseModelFactory):
     class Meta:
         model = Country
 
     code = factory.Faker('country_code')
     name = factory.Faker('country')
-class CurrencyFactory(DjangoModelFactory):
+
+
+class CurrencyFactory(BaseModelFactory):
     class Meta:
         model = Currency
 
     abbreviation = factory.Faker('currency_code')
     name = factory.Faker('currency_name')
 
-class LanguageFactory(DjangoModelFactory):
+class LanguageFactory(BaseModelFactory):
     class Meta:
         model = Language
 
     name = factory.Faker('language_name')
 
-class JobLevelFactory(DjangoModelFactory):
+class JobLevelFactory(BaseModelFactory):
     class Meta:
         model = JobLevel
 
     name = factory.LazyAttribute(lambda _: fake.name()[:15])
 
 
-class EmploymentTypeFactory(DjangoModelFactory):
+class EmploymentTypeFactory(BaseModelFactory):
     class Meta:
         model = EmploymentType
 
     name = factory.Faker("name")
 
-class IndustryFactory(DjangoModelFactory):
+class IndustryFactory(BaseModelFactory):
     class Meta:
         model = Industry
 
     name = factory.Faker('company')
 
 
-class DepartmentFactory(DjangoModelFactory):
+class DepartmentFactory(BaseModelFactory):
     class Meta:
         model = Department
 
     name = factory.Faker("name")
     industry = factory.SubFactory(IndustryFactory)
 
-class SkillCategoryFactory(DjangoModelFactory):
+class SkillCategoryFactory(BaseModelFactory):
     name = factory.Faker("name")
     class Meta:
         model = SkillCategory
 
-class SkillFactory(DjangoModelFactory):
+class SkillFactory(BaseModelFactory):
     name = factory.Faker("name")
     category = factory.SubFactory(SkillCategoryFactory)
     department = factory.SubFactory(DepartmentFactory)
@@ -80,14 +91,14 @@ class SkillFactory(DjangoModelFactory):
     class Meta:
         model = Skill
 
-class BusinessModelFactory(DjangoModelFactory):
+class BusinessModelFactory(BaseModelFactory):
     name = factory.Faker("name")
     description = factory.Faker('sentence', nb_words=20)
 
     class Meta:
         model = BusinessModel
 
-class UserFactory(DjangoModelFactory):
+class UserFactory(BaseModelFactory):
     class Meta:
         model = User
 
@@ -99,14 +110,14 @@ class UserFactory(DjangoModelFactory):
     password = factory.Faker('password')
 
 
-class EducationLevelFactory(DjangoModelFactory):
+class EducationLevelFactory(BaseModelFactory):
     class Meta:
         model = EducationLevel
 
     industry = factory.SubFactory(IndustryFactory)
     level = factory.Faker("name")
 
-class TalentFactory(DjangoModelFactory):
+class TalentFactory(BaseModelFactory):
     class Meta:
         model = Talent
 
@@ -132,7 +143,7 @@ class TalentFactory(DjangoModelFactory):
         return
 
 
-class RoleFactory(DjangoModelFactory):
+class RoleFactory(BaseModelFactory):
     class Meta:
         model = Role
 
@@ -140,13 +151,13 @@ class RoleFactory(DjangoModelFactory):
     department = factory.SubFactory(DepartmentFactory)
 
 
-class BusinessIndustryFactory(DjangoModelFactory):
+class BusinessIndustryFactory(BaseModelFactory):
     name = factory.Faker("name")
     class Meta:
         model = BusinessIndustry
 
 
-class BusinessFactory(DjangoModelFactory):
+class BusinessFactory(BaseModelFactory):
     class Meta:
         model = Business
     created_by = factory.SubFactory(UserFactory)
@@ -157,14 +168,14 @@ class BusinessFactory(DjangoModelFactory):
     country = factory.SubFactory(CountryFactory)
     industry = factory.SubFactory(BusinessIndustryFactory)
 
-class BusinessUserFactory(DjangoModelFactory):
+class BusinessUserFactory(BaseModelFactory):
     class Meta:
         model = BusinessUser
     business = factory.SubFactory(BusinessFactory)
     user = factory.SubFactory(UserFactory)
     role = factory.Iterator(BusinessUserRoleType.values())
 
-class EducationFactory(DjangoModelFactory):
+class EducationFactory(BaseModelFactory):
     class Meta:
         model = Education
 
@@ -175,7 +186,7 @@ class EducationFactory(DjangoModelFactory):
     level = factory.SubFactory(EducationLevelFactory)
     university = factory.lazy_attribute(lambda _: fake.company()[:20])
 
-class ExperienceFactory(DjangoModelFactory):
+class ExperienceFactory(BaseModelFactory):
     class Meta:
         model = Experience
 
@@ -192,7 +203,7 @@ class ExperienceFactory(DjangoModelFactory):
     role = factory.SubFactory(RoleFactory)
     employment_type = factory.SubFactory(EmploymentTypeFactory)
 
-class TalentAvailableDayFactory(DjangoModelFactory):
+class TalentAvailableDayFactory(BaseModelFactory):
     class Meta:
         model = TalentAvailableDay
 
@@ -203,7 +214,7 @@ class TalentAvailableDayFactory(DjangoModelFactory):
 
 
 
-class CustomerCaseFactory(DjangoModelFactory):
+class CustomerCaseFactory(BaseModelFactory):
     class Meta:
         model = CustomerCase
 
@@ -213,7 +224,7 @@ class CustomerCaseFactory(DjangoModelFactory):
     user = factory.SubFactory(UserFactory)
 
 
-class JobFactory(DjangoModelFactory):
+class JobFactory(BaseModelFactory):
     class Meta:
         model = Job
     created_by = factory.SubFactory(BusinessUserFactory)
@@ -230,12 +241,10 @@ class JobFactory(DjangoModelFactory):
     office_address = factory.Faker('address')
     lunch_break = factory.Iterator(LunchBreakEnum.values())
     lunch_break_time = factory.Iterator([10, 20, 30, 40])
-    additional_hours_start = factory.Faker("time")
-    additional_hours_end = factory.Faker("time")
     employment_type = factory.SubFactory(EmploymentTypeFactory)
 
 
-class RequiredAttributeFactory(DjangoModelFactory):
+class RequiredAttributeFactory(BaseModelFactory):
     class Meta:
         model = RequiredAttribute
     job = factory.SubFactory(JobFactory)
@@ -251,7 +260,7 @@ class RequiredAttributeFactory(DjangoModelFactory):
     location = factory.Iterator([True, False])
 
 
-class JobPostFactory(DjangoModelFactory):
+class JobPostFactory(BaseModelFactory):
     class Meta:
         model = JobPost
     job = factory.SubFactory(JobFactory)
@@ -272,7 +281,7 @@ class JobPostFactory(DjangoModelFactory):
         self.date_posted = datetime.datetime.combine(date_posted, timezone.now().time(), tzinfo=timezone.get_current_timezone())
         self.save(update_fields=['date_posted'])
 
-class EmailTemplateFactory(DjangoModelFactory):
+class EmailTemplateFactory(BaseModelFactory):
     class Meta:
         model = EmailTemplate
 
@@ -286,7 +295,7 @@ class EmailTemplateFactory(DjangoModelFactory):
     bcc = factory.lazy_attribute(lambda _: [fake.email() for x in range(5)])
     cc = factory.lazy_attribute(lambda _: [fake.email() for x in range(5)])
 
-class SavedJobFactory(DjangoModelFactory):
+class SavedJobFactory(BaseModelFactory):
     class Meta:
         model = SavedJob
 
@@ -295,23 +304,23 @@ class SavedJobFactory(DjangoModelFactory):
 
 
 
-class WorkflowStageFactory(DjangoModelFactory):
+class WorkflowStageFactory(BaseModelFactory):
     class Meta:
         model = WorkFlowStage
 
-    phase = factory.Iterator([*filter(lambda x: x not in (PhaseType.REJECTED.value, PhaseType.HIRED.value), PhaseType.values())])
+    phase = factory.lazy_attribute(lambda _: choice([x for x in PhaseType.values() if x not in [PhaseType.HIRED.value, PhaseType.REJECTED.value]]))
     name = factory.lazy_attribute(lambda _: fake.color_name()[:20])
     email_template = factory.SubFactory(EmailTemplateFactory)
     created_by = factory.SubFactory(BusinessUserFactory)
     is_active = factory.Iterator([True, False])
 
-class JobApplicationFactory(DjangoModelFactory):
+class JobApplicationFactory(BaseModelFactory):
     class Meta:
         model = JobApplication
     job_post = factory.SubFactory(JobPostFactory)
     applicant = factory.SubFactory(TalentFactory)
     recruiter = factory.SubFactory(BusinessUserFactory)
-    #stage_date_updated = factory.LazyFunction(timezone.now)
+    stage_date_updated = factory.LazyFunction(timezone.now)
 
     @factory.post_generation
     def create_stage(self, create, extracted, **kwargs):
@@ -329,7 +338,7 @@ class JobApplicationFactory(DjangoModelFactory):
 
 
 
-class JobApplicationWithdrawalFactory(DjangoModelFactory):
+class JobApplicationWithdrawalFactory(BaseModelFactory):
     class Meta:
         model = JobApplicationWithdrawal
     job_post = factory.SubFactory(JobPostFactory)
@@ -338,7 +347,7 @@ class JobApplicationWithdrawalFactory(DjangoModelFactory):
 
 
 
-class ConversationFactory(DjangoModelFactory):
+class ConversationFactory(BaseModelFactory):
     class Meta:
         model = Conversation
 
@@ -356,7 +365,7 @@ class ConversationFactory(DjangoModelFactory):
             user2 = UserFactory()
             self.users.add(user1, user2)
 
-class MessageFactory(DjangoModelFactory):
+class MessageFactory(BaseModelFactory):
     class Meta:
         model = Message
 
@@ -365,7 +374,7 @@ class MessageFactory(DjangoModelFactory):
     body = factory.Faker('sentence', nb_words=50)
 
 
-class ScreeningQuestionFactory(DjangoModelFactory):
+class ScreeningQuestionFactory(BaseModelFactory):
     class Meta:
         model = ScreeningQuestion
 
@@ -393,7 +402,7 @@ class ScreeningQuestionFactory(DjangoModelFactory):
                 option.save()
         return
 
-class QuestionOptionFactory(DjangoModelFactory):
+class QuestionOptionFactory(BaseModelFactory):
     class Meta:
         model = QuestionOption
 
@@ -401,7 +410,7 @@ class QuestionOptionFactory(DjangoModelFactory):
     is_accepted = factory.Iterator([True, False])
     text = factory.lazy_attribute(lambda _: fake.sentence()[:50])
 
-class AnswerFactory(DjangoModelFactory):
+class AnswerFactory(BaseModelFactory):
     class Meta:
         model = Answer
 
@@ -429,7 +438,7 @@ class AnswerFactory(DjangoModelFactory):
             self.files = [fake.url(), fake.url()]
 
 
-class JobPostMetricsFactory(DjangoModelFactory):
+class JobPostMetricsFactory(BaseModelFactory):
     class Meta:
         model = JobPostMetrics
 
@@ -438,7 +447,7 @@ class JobPostMetricsFactory(DjangoModelFactory):
     weekly_views = factory.Iterator([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
 
 
-class BusinessUserNotificationSettingsFactory(DjangoModelFactory):
+class BusinessUserNotificationSettingsFactory(BaseModelFactory):
     class Meta:
         model = BusinessUserNotificationSettings
 
@@ -450,7 +459,7 @@ class BusinessUserNotificationSettingsFactory(DjangoModelFactory):
     user_notification = factory.Iterator([True, False])
     assignment_notification = factory.Iterator([True, False])
 
-class NotificationFactory(DjangoModelFactory):
+class NotificationFactory(BaseModelFactory):
     class Meta:
         model = Notification
 
@@ -462,7 +471,7 @@ class NotificationFactory(DjangoModelFactory):
     entity_str = factory.lazy_attribute(lambda _: fake.sentence()[:20])
     notification_type = factory.Iterator(NotificationType.values())
 
-class TalentFilterFactory(DjangoModelFactory):
+class TalentFilterFactory(BaseModelFactory):
     class Meta:
         model = TalentFilter
 

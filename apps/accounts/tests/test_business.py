@@ -424,6 +424,7 @@ class InviteBusinessUserTest(TestCase):
         response = self.client.post(self.url, json=data, headers=headers)
         self.assertEqual(response.status_code, 400)
 
+
 class ResendBusinessUserInviteTest(TestCase):
     def setUp(self):
         self.business = BusinessFactory.create()
@@ -552,18 +553,8 @@ class DeleteBusinessUserAccountTest(TestCase):
         self.assertIsNone(business_user)
         user = User.deleted_objects.filter(id=self.business.created_by.id).first()
         business_user = BusinessUser.deleted_objects.filter(business=self.business).first()
-        self.assertEqual(user.first_name, "deleted")
-        self.assertEqual(user.last_name, "user")
-        self.assertEqual(user.email, f"deleted_user_{user.id}@example.com")
-        self.assertIsNone(user.phone_number)
-        self.assertIsNone(user.facebook_id)
-        self.assertIsNone(user.linkedin_id)
-        self.assertIsNone(user.google_id)
-        self.assertIsNone(user.apple_id)
-        self.assertEqual(user.username, f"user-{user.id}")
-        self.assertFalse(user.is_active)
-        self.assertEqual(business_user.status, BusinessUserStatusType.DELETED.value)
-        self.assertFalse(hasattr(business_user, "businessusernotificationsettings"))
+        self.assertIsNone(business_user)
+        self.assertIsNone(user)
 
 class UpdateBusinessUserTestCase(TestCase):
     def setUp(self):
@@ -595,7 +586,7 @@ class UpdateBusinessUserTestCase(TestCase):
             "email": "newemail@example.com",
             "first_name": "John",
             "last_name": "Doe",
-            "role": BusinessUserRoleType.OWNER.value
+            "role": BusinessUserRoleType.TALENT_MANAGER.value
         }
         response = self.client.patch(self.url, json=payload, headers=self.auth_headers)
         self.assertEqual(response.status_code, 201)
@@ -608,8 +599,7 @@ class UpdateBusinessUserTestCase(TestCase):
         self.business_user.refresh_from_db()
         self.assertEqual(self.staff_user.email, "newemail@example.com")
         self.assertEqual(self.staff_user.first_name, "John")
-        self.assertEqual(self.business_user.role, BusinessUserRoleType.ADMIN.value)
-        self.assertEqual(self.business_staff.role, BusinessUserRoleType.OWNER.value)
+        self.assertEqual(self.business_staff.role, BusinessUserRoleType.TALENT_MANAGER.value)
 
     def test_update_business_user_deleted_email(self):
         """Fails if email belongs to a deleted user."""

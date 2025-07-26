@@ -1,22 +1,26 @@
 from typing import Optional, List, Any, Literal
 from uuid import UUID
 
-from ninja import ModelSchema, Schema
-from ninja.orm.fields import AnyObject
-
-from accounts.models import User
+from accounts.models import User, Talent, BusinessUser
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, MessageAttachment, Conversation
 from jobs.models import JobPost
+from ninja import ModelSchema, Schema
+from ninja.orm.fields import AnyObject
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+from pydantic import Field
+
+from apps.accounts.enums import UserType
 
 
 class ChatUserSchema(ModelSchema):
     photo_url:Optional[str] = None
+    user_type_uid:Optional[UUID] = Field(None, alias="user_type_uid")
 
     class Meta:
         model = User
         fields = ("uid", "email", "first_name", "last_name", "type")
+
 
 class ChatJobSchema(ModelSchema):
     country: str

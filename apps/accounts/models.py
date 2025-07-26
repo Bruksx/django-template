@@ -129,27 +129,26 @@ class User(AbstractUser, BaseModel):
             return self.businessuser.business.get_logo()
         return None
 
+    def user_type_uid(self):
+        if self.type == UserType.TALENT.value:
+            talent = Talent.objects.filter(user=self).first()
+            if not talent:
+                return
+            return talent.uid
+        elif self.type == UserType.BUSINESS.value:
+            business_user = BusinessUser.objects.filter(user=self).first()
+            if not business_user:
+                return
+            return business_user.uid
+        return
+
     def delete_account(self):
-        if hasattr(self, "talent"):
-            self.talent.delete_account()
-        elif hasattr(self, "businessuser"):
-            self.businessuser.delete_account()
-        self.first_name = "deleted"
-        self.last_name = "user"
-        self.email = f"deleted_user_{self.id}@example.com"
-        self.phone_number = None
-        self.facebook_id = None
-        self.linkedin_id = None
-        self.google_id = None
-        self.apple_id = None
-        self.username = f"user-{self.id}"
-        self.is_active = False
-        self.save()
-        self.delete()
+        self.hard_delete()
         return
 
 
 class Country(BaseModel):
+    external_id = models.IntegerField(null=True)
     name = models.CharField(max_length=64)
     code = models.CharField(max_length=4)
 
@@ -359,7 +358,7 @@ class Talent(BaseModel):
             .order_by("-id")
         
         queryset = add_job_post_annotations(queryset, self)
-        queryset = queryset.filter(computed_match_score__gte=50)
+        queryset = queryset.filter(computed_match_score__gte=50, status=JobStatusType.POSTED.value)
         return queryset
 
     def job_match_score(self, job_post):
@@ -598,10 +597,7 @@ class Business(BaseModel):
     def total_open_roles(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobPost
         # open roles are job posts that are posted
-        queryset = JobPost.objects.filter(
-            recruiter__business=self,
-            status=JobStatusType.POSTED.value
-        )
+        queryset = self.job_posts(status=JobStatusType.POSTED.value)
         if start_date and not end_date:
             queryset = queryset.filter(created_at__gte=start_date)
         elif end_date and not start_date:
@@ -654,10 +650,9 @@ class Business(BaseModel):
         return int(queryset.aggregate(value=Avg("days_to_hire"))["value"] or 0)
 
     def total_invitations_sent(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
-        from chats.models import Message
-        from jobs.models import JobPost
-        job_post_ids = JobPost.objects.filter(recruiter__business=self).only("id").values_list("id", flat=True)
-        queryset = Message.objects.filter(job_post_id__in=job_post_ids)
+        from jobs.models import JobInvite
+
+        queryset = JobInvite.objects.filter(job__created_by__business=self)
         if start_date and not end_date:
             queryset = queryset.filter(created_at__gte=start_date)
         elif end_date and not start_date:
@@ -665,9 +660,9 @@ class Business(BaseModel):
         elif start_date and end_date:
             queryset = queryset.filter(created_at__range=[start_date, end_date])
         if role_id:
-            queryset = queryset.filter(job_post__job__role_id=role_id)
+            queryset = queryset.filter(job__role_id=role_id)
         if client:
-            queryset = queryset.filter(job_post__job__hiring_company_name=client)
+            queryset = queryset.filter(job__hiring_company_name=client)
         return queryset.count()
 
     def total_location_of_hires(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
@@ -914,7 +909,7 @@ class Business(BaseModel):
 
     def applicants_years_of_experience(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
-        ranges = (0, (1,2), (2,3), (3,4), 5)
+        ranges = (0, (1,2), (2,3), (3,4), (5,6), (7,8), (8, 10), (10, 12), (12, 15), (15, 20), 20)
         data_list = list()
         application = JobApplication.objects.filter(
             recruiter__business=self
@@ -998,9 +993,12 @@ class Business(BaseModel):
             for stage in stages
         ]
 
-    def job_posts(self):
+    def job_posts(self, status=None):
         from jobs.models import JobPost
-        return JobPost.objects.filter(job__created_by__business=self)
+        query = dict(job__created_by__business=self)
+        if status:
+            query["status"] = status
+        return JobPost.objects.select_related("job__created_by__business").filter(**query)
 
 
 class VerificationCode(BaseModel):
@@ -1067,34 +1065,8 @@ class BusinessUser(BaseModel):
         return Notification.objects.none()
 
     def delete_account(self):
-        from jobs.models import JobPost, JobApplication, JobDraft
-        from settings.models import EmailTemplate, WorkFlowStage
-        self.status = BusinessUserStatusType.DELETED.value
-        self.save(update_fields=["status"])
-        another_business_user = BusinessUser.objects.filter(business=self.business).exclude(id=self.id).first()
-        if not another_business_user:
-            JobPost.objects.filter(recruiter=self).delete()
-            JobPost.objects.filter(posted_by=self).delete()
-            JobApplication.objects.filter(recruiter=self).delete()
-            JobDraft.objects.filter(user=self).delete()
-            TalentFilter.objects.filter(business_user=self).delete()
-            if hasattr(self, "businessusernotificationsettings"):
-                self.businessusernotificationsettings.hard_delete()
-            EmailTemplate.objects.filter(created_by=self).update(created_by=another_business_user)
-            WorkFlowStage.objects.filter(created_by=self).update(created_by=another_business_user)
-            self.delete()
-            self.business.delete()
-            return
-        JobPost.objects.filter(recruiter=self).update(recruiter=another_business_user)
-        JobPost.objects.filter(posted_by=self).update(posted_by=another_business_user)
-        JobApplication.objects.filter(recruiter=self).update(recruiter=another_business_user)
-        JobDraft.objects.filter(user=self).update(user=another_business_user)
-        TalentFilter.objects.filter(business_user=self).delete()
-        if hasattr(self, "businessusernotificationsettings"):
-            self.businessusernotificationsettings.hard_delete()
-        EmailTemplate.objects.filter(created_by=self).update(created_by=another_business_user)
-        WorkFlowStage.objects.filter(created_by=self).update(created_by=another_business_user)
-        self.delete()
+        self.user.hard_delete()
+        self.hard_delete()
         return
 
     @property

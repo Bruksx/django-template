@@ -22,6 +22,8 @@ class BusinessUserRoleType(BaseEnum):
     OWNER = "owner"
     ADMIN = "admin"
     TEAM_MEMBER = "team_member"
+    TALENT_MANAGER = "talent_manager"
+    RECRUITER = "recruiter"
 
 class BusinessUserStatusType(BaseEnum):
     ACTIVE = "active"
@@ -87,4 +89,5 @@ class CaseReasonType(BaseEnum):
     TECHNICAL_ISSUES = "Technical Issues"
     SYSTEM_HELP = "System Help"
     REPORT_BUSINESS = "Report a Business"
-    OTHERS = "Others"
+    REPORT_TALENT = "Report a Talent"
+    OTHERS = "Other"

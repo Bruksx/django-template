@@ -1,6 +1,3 @@
-import logging
-from typing import List
-
 from django.core.cache import cache
 from django.db import models
 from django.db.models import F, Q, QuerySet
@@ -10,7 +7,7 @@ from monkeypatches.q_cluster import async_task
 from timezone_field import TimeZoneField
 
 from accounts.enums import Days
-from accounts.models import Talent, TalentAvailableDay, Country
+from accounts.models import Talent, TalentAvailableDay
 from core.models import BaseModel, Language
 from jobs.managers import JobManager
 from settings.enums import PlaceHolderType
@@ -84,8 +81,8 @@ class Job(BaseModel):
     responsibilities = models.JSONField(default=list, blank=True)
     additional_hours_description = models.TextField(null=True)
     additional_skills = models.TextField(null=True)
-    additional_hours_start = models.TimeField(null=True)
-    additional_hours_end = models.TimeField(null=True)
+    additional_hours_start = models.CharField(max_length=100, null=True, blank=True)
+    additional_hours_end = models.CharField(max_length=100, null=True, blank=True)
     technological_requirement = models.CharField(max_length=100, null=True, blank=True)
     availability_timezone = TimeZoneField(default="America/Vancouver")
     flexible_availability = models.BooleanField(default=False)
@@ -93,7 +90,6 @@ class Job(BaseModel):
     role = models.ForeignKey("accounts.Role", null=True, on_delete=models.SET_NULL)
     skills = models.ManyToManyField("accounts.Skill")
     min_match_score = models.FloatField(null=True)
-
     objects = JobManager()
 
     required_attributes_keys = (
@@ -266,6 +262,7 @@ class JobPost(BaseModel):
         related_name="posted_by",
         blank=True
     )
+    last_refreshed = models.DateTimeField(null=True)
 
     def copy(self):
         return JobPost.objects.create(
@@ -601,6 +598,9 @@ class JobPostMetrics(BaseModel):
         self.weekly_views = 0
         self.save()
 
+class JobInvite(BaseModel):
+    job = models.ForeignKey(Job, on_delete=models.CASCADE)
+    talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE)
 
 class JobApplication(BaseModel):
     job_post = models.ForeignKey(JobPost, on_delete=models.CASCADE, null=True)
@@ -662,6 +662,8 @@ class JobApplication(BaseModel):
         else:
             return ""
 
+    def invited(self):
+        return JobInvite.objects.filter(job=self.job_post.job, talent=self.applicant).exists()
 
     def get_email_context(self):
         if not self.stage:

@@ -87,18 +87,6 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
 
 
 @receiver(pre_save, sender=JobApplication)
-def handle_stage_update(sender, instance,  **kwargs):
-    if instance.id:
-        application = JobApplication.objects.filter(id=instance.id).first()
-        if not application:
-            return
-        if instance.stage and application.stage != instance.stage:
-            if instance.stage.email_template:
-                context = instance.get_email_context()
-                instance.stage.email_template.send_email(context=context, to=[instance.applicant.user.email])
-
-
-@receiver(pre_save, sender=JobApplication)
 def handle_stage_timeline_update(sender, instance,  **kwargs):
     today = timezone.now()
     if instance.id:

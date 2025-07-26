@@ -177,7 +177,7 @@ def get_business_details(request):
 
 @router.get("users", auth=JWTAuth(), response=List[business_schema.BusinessUserListSchema])
 def get_business_users(request, search: str = "", role: BusinessUserRoleType = None):
-    IsBusinessOwnerOrAdmin.check(request)
+    IsBusinessUser.check(request)
     business = request.user.businessuser.business
     query = Q()
     if search:
@@ -197,7 +197,7 @@ def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
     business = business_user.business
     if BusinessUser.deleted_objects.filter(user__email__iexact=data.email).exists():
         raise HttpError(400, "This user's account has been deleted")
-    if BusinessUser.objects.filter(user__email__iexact=data.email).exists():
+    if User.objects.filter(email__iexact=data.email).exists():
         raise HttpError(400, "User with this email already exists")
     user = User.objects.create_user(
         first_name=data.first_name,
@@ -283,7 +283,6 @@ def get_business_user(request, business_user_uid):
 @router.patch("users/{business_user_uid}/", auth=JWTAuth())
 @transaction.atomic
 def update_business_user(request, business_user_uid, data: PatchDict[business_schema.MutateBusinessUserSchema], new_role: Optional[BusinessUserRoleType] = None):
-    new_role = new_role if new_role and new_role != BusinessUserRoleType.OWNER else BusinessUserRoleType.ADMIN
     IsBusinessOwnerOrAdmin.check(request)
     business_user = request.user.businessuser
     business = business_user.business
@@ -295,6 +294,8 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
             if User.global_objects.filter(email=data["email"]).exists():
                 raise HttpError(400, "This email is not available")
     role = data_dict.get("role")
+    if role == BusinessUserRoleType.OWNER and not new_role:
+        raise HttpError(400, "You must set new role before taking this action")
     if role and role.value != staff_user.role:
         role = role.value
         if staff_user.status != BusinessUserStatusType.ACTIVE.value:
@@ -326,7 +327,7 @@ def update_business_user(request, business_user_uid, data: PatchDict[business_sc
                 value = value.value
             setattr(staff_user, key, value)
     staff_user.save()
-    if staff_user.role == BusinessUserRoleType.OWNER.value and business_user.role == BusinessUserRoleType.OWNER.value:
+    if staff_user.role == BusinessUserRoleType.OWNER.value and business_user.role == BusinessUserRoleType.OWNER.value and new_role:
         business_user.update(role=new_role.value)
     return Response(status=201, data={"message": "User updated successfully"})
 

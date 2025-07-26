@@ -37,7 +37,7 @@ class EmailTemplate(BaseModel):
     def send_date(self)->datetime:
         return self.created_at + timedelta(days=self.delays)
 
-    def send_email(self, context: dict, to:List[str]):
+    def send_email(self, context: dict, to:List[str], sender:str):
         keys = map(self.convert_key_to_placeholder, context.keys())
         is_valid_placeholders = self.validate_placeholders(placeholders=self.placeholders, members=list(keys), raise_exception=False)
         if not is_valid_placeholders:
@@ -58,7 +58,7 @@ class EmailTemplate(BaseModel):
                     emails=to,
                     bcc=self.bcc,
                     cc=self.cc,
-                    from_user=self.sender,
+                    from_user=sender,
                     attachment_urls=attachments
                 )
         if self.delays == 0:

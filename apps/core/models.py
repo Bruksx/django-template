@@ -87,3 +87,21 @@ class Language(BaseModel):
 
     def __str__(self) -> str:
         return self.name
+
+class State(BaseModel):
+    external_id = models.IntegerField(null=True)
+    name = models.CharField(max_length=100)
+    country = models.ForeignKey('accounts.Country', on_delete=models.CASCADE)
+    code = models.CharField(max_length=50, null=True)
+
+    def __str__(self):
+        return self.name
+
+
+class City(BaseModel):
+    external_id = models.IntegerField(null=True)
+    name = models.CharField(max_length=100)
+    state = models.ForeignKey('core.State', on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.name

@@ -118,12 +118,15 @@ class IsBusinessOwner(IsBusinessUser):
 
 
 class IsBusinessTeamMember(IsBusinessUser):
-    __message__ = "You are not a business team member"
+    __message__ = "You are not a business recruiter"
 
     @classmethod
     def __has_permission__(
             cls, request, *args, **kwargs) -> bool:
-        return request.user.businessuser.role == BusinessUserRoleType.TEAM_MEMBER.value
+        return request.user.businessuser.role in [
+            BusinessUserRoleType.TEAM_MEMBER.value,
+            BusinessUserRoleType.RECRUITER.value,
+        ]
 
     @classmethod
     def __validate__(cls, request, *args, **kwargs):
@@ -135,11 +138,15 @@ class IsBusinessTeamMember(IsBusinessUser):
 
 
 class IsBusinessOwnerOrAdmin(IsBusinessUser):
-    __message__ = "You are not a business owner or admin"
+    __message__ = "You are not a business owner or talent manager"
 
     @classmethod
     def __has_permission__(cls, request, *args, **kwargs) -> bool:
-        return request.user.businessuser.role in [BusinessUserRoleType.OWNER.value, BusinessUserRoleType.ADMIN.value]
+        return request.user.businessuser.role in [
+            BusinessUserRoleType.OWNER.value, 
+            BusinessUserRoleType.ADMIN.value,
+            BusinessUserRoleType.TALENT_MANAGER.value,
+        ]
 
     @classmethod
     def __validate__(cls, request, *args, **kwargs):

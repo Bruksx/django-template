@@ -4,10 +4,11 @@ from uuid import UUID
 
 from config.permissions import IsBusinessUser
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Count, Exists, Subquery, OuterRef
 from django.utils import timezone
 from helpers.utils import convert_base64_to_image_file, to_utc
 from monkeypatches.response import Response
+from monkeypatches.q_cluster import async_task
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
@@ -23,14 +24,16 @@ from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication, AvailableDay,
-    ScreeningQuestion, QuestionOption, Answer
+    ScreeningQuestion, QuestionOption, Answer, JobInvite
 )
 from .schemas import (
     EmploymentTypeSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema
 )
-from .services import set_job_required_attributes, get_screening_questions_service
+from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
+    update_bulk__job_posts_service, send_email_on_stage_update, create_job_post_service, \
+    bulk_job_posts_service
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -171,13 +174,22 @@ def refresh_job_post(request, job_post_uid:UUID):
     job_post =  JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business_user.business).first()
     if not job_post:
         raise HttpError(404, "This job post does not exist")
-    if job_post.date_posted:
+    if job_post.last_refreshed:
         now = timezone.now()
-        if (now - job_post.date_posted) < timedelta(days=14):
+        if (now - job_post.last_refreshed) < timedelta(days=14):
             raise HttpError(400, "You can only refresh job posts older than 2 weeks")
-    job_post.update(date_posted=timezone.now())
+    job_post.update(last_refreshed=timezone.now())
     return Response(status=200, data={"message": "Job post refreshed successfully"})
 
+@router.post("job/{job_uid}/refresh", auth=JWTAuth())
+def refresh_job(request, job_uid:UUID):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    JobPost.objects.filter(job__uid=job_uid, job__created_by__business=business_user.business).exclude(
+        last_refreshed__gte=(timezone.now() - timedelta(days=14))).update(
+            last_refreshed=timezone.now()
+        )
+    return Response(status=200, data={"message": "Job refreshed successfully"})
 
 
 
@@ -201,35 +213,20 @@ def update_job_post(request, job_post_uid, data: PatchDict[job_schemas.MutateJob
     job_post =  JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business_user.business).first()
     if not job_post:
         raise HttpError(404, "This job post does not exist")
-    new_job = None
-    if "status" in data:
-        data["status"] = data["status"].value
-        if data["status"] == JobStatusType.POSTED.value:
-            data["posted_by"] = business_user
-            data["date_posted"] = timezone.now()
-        if data["status"] == JobStatusType.DRAFT.value and job_post.status != JobStatusType.DRAFT.value:
-            # you're trying to prevent editing job posts with applications
-            new_job = job_post.copy()
-
-    if new_job:
-        job_post.update(status=JobStatusType.CLOSED.value)
-        new_job.update(**data)
-        return new_job
-    job_post.update(**data)
-    return job_post
+    status = data.get("status")
+    return update_job_post_service(job_post, business_user, data, status=status.value if status else None)
 
 @router.patch("job-posts", response=ResponseSchema, auth=JWTAuth())
 @transaction.atomic
 def bulk_job_post_update(request, data: BulkJobPostSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    job_posts = JobPost.objects.filter(job__created_by__business=business_user.business, uid__in=data.job_posts)
     if data.action == ActionType.DELETE:
-        job_ids = (JobApplication.objects.filter(job_post__in=job_posts).
+        job_ids = (JobApplication.objects.filter(job_post__uid__in=data.job_posts).
                        only("job_post_id").values_list("job_post_id", flat=True))
-        job_posts.exclude(id__in=job_ids).delete()
+        JobPost.objects.filter(job__created_by__business=business_user.business, uid__in=data.job_posts).exclude(id__in=job_ids).delete()
     else:
-        job_posts.update(status=data.action.value)
+        async_task(update_bulk__job_posts_service, business_user, data.job_posts, data.action)
     return Response({"message" : "actions have been applied successfully"}, status=200)
 
 @router.post("{job_uid}/job-post", response=job_schemas.JobPostDetailSchema, auth=JWTAuth())
@@ -240,17 +237,8 @@ def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
     job = Job.objects.filter(uid=job_uid, created_by=business_user).first()
     if not job:
         raise HttpError(404, "This job does not exist")
-    request_data = data.dict()
-    if "status" in request_data:
-        request_data["status"] = request_data["status"].value
-        if request_data["status"] == JobStatusType.POSTED.value:
-            request_data["posted_by"] = business_user
 
-    job_post = JobPost(
-        **request_data,
-        job=job
-    )
-    job_post.save()
+    job_post = create_job_post_service(business_user, job, [data.dict()])
     return job_post
 
 
@@ -364,6 +352,7 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
     skills = data.pop("skills", list())
     business_models = data.pop("business_models", list())
     required_attributes = data.pop("required_attributes", None)
+    job_posts = data.pop("job_posts", list())
     if not data.get("hiring_company_name"):
         data["hiring_company_name"] = business.name
     if not data.get("hiring_company_description"):
@@ -402,6 +391,17 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
     if required_attributes:
         set_job_required_attributes(required_attributes, job)
 
+    if len(job_posts) == 1:
+        if "uid" in job_posts[0]:
+            job_post = JobPost.objects.filter(uid=job_posts[0]["uid"]).first()
+            if not job_post:
+                raise HttpError(404, "Job post not found")
+            update_job_post_service(job_post, business_user, data=job_posts[0], raise_error=True)
+        else:
+            create_job_post_service(job, business_user, job_posts)
+    else:
+        async_task(bulk_job_posts_service, job,  job_posts, business_user)
+
     return job
 
 
@@ -410,13 +410,16 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
 def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    queryset = Job.objects.prefetch_related("jobpost_set").filter(created_by__business=business_user.business)
+    context = dict(business=business_user.business)
+    queryset = Job.objects.prefetch_related("jobpost_set").annotate(jobpost_count=Count('jobpost')).filter(created_by__business=business_user.business,
+                                                                                                           jobpost_count__gt=0)
     if search:
         queryset = queryset.filter(Q(role__name__icontains=search)|
                                    Q(hiring_company_name=search))
     if status:
         queryset = queryset.filter(jobpost__status=status.value).distinct()
-        request.context = {"status": status.value}
+        context["status"] = status.value
+    request.context = context
 
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(
@@ -424,7 +427,7 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
         request=request,
         pagination=pagination,
         roles=queryset.count(),
-        posts= business_user.business.job_posts().filter(job__in=queryset, status=status.value).count() if status else
+        posts= business_user.business.job_posts(status=status.value).filter(job__in=queryset).count() if status else
         business_user.business.job_posts().filter(job__in=queryset).count()
     )
 
@@ -443,10 +446,12 @@ def job_detail(request, job_uid:UUID):
 def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Optional[PhaseType]=None,
                     new_application:bool=None,
                     sort_by:Optional[Literal["applicant", "location",
-"match", "created_at", "stage", "phase", "experience"]]=None, asc:bool=True, search:str="", ):
+"match", "created_at", "stage", "phase", "experience", "invited"]]=None, asc:bool=True, search:str="", invited:Optional[bool]=None):
     IsBusinessUser.check(request)
     business = request.user.businessuser.business
-    queryset = JobApplication.objects.filter(job_post__uid=job_post_uid, recruiter__business=business,
+    queryset = JobApplication.objects.annotate(invited=Exists(Subquery(JobInvite.objects.filter(
+            job=OuterRef('job_post__job'), talent=OuterRef('applicant')
+        )))).filter(job_post__uid=job_post_uid, recruiter__business=business,
                                              applicant__deleted_at__isnull=True)
     if search:
         queryset = queryset.filter(Q(
@@ -456,6 +461,9 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
         )).distinct()
     if phase:
         queryset = queryset.filter(stage__phase=phase.value)
+    if invited:
+        queryset = queryset.filter(invited=invited)
+
     if new_application is not None:
         if new_application is True:
             queryset = queryset.filter(Q(stage__isnull=True)| Q(stage__phase=PhaseType.NEW.value))
@@ -475,6 +483,8 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
             queryset = queryset.order_by(f"{sign}stage__order")
         elif sort_by == "phase":
             queryset = queryset.order_by(f"{sign}stage__phase_order")
+        elif sort_by == "invited":
+            queryset = queryset.order_by(f"{sign}invited")
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(
         queryset=queryset,
@@ -489,7 +499,9 @@ def update_application(request, application_uid:UUID, data:job_schemas.UpdateApp
     application = JobApplication.objects.filter(uid=application_uid, recruiter__business=request.user.businessuser.business).first()
     if not application:
         raise HttpError(404, "This application does not exist")
+    previous_stage = application.stage
     application.update(**data.dict())
+    send_email_on_stage_update(application=application, previous_stage=previous_stage, business_user_email=request.user.email)
     return application
 
 
