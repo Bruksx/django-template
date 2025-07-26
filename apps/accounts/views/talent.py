@@ -193,8 +193,6 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
             available_day["day"] = available_day["day"].value
             uid = available_day.pop("uid", None)
             active = available_day.pop("active", True)
-            available_day["utc_start_time"] = to_utc(available_day["start_time"], tzinfo=talent_user.availability_timezone)
-            available_day["utc_end_time"] = to_utc(available_day["start_time"], tzinfo=talent_user.availability_timezone)
             if uid and not active:
                 talent_user.talentavailableday_set.filter(uid=uid).delete()
             elif uid and active:

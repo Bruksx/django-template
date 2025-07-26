@@ -325,8 +325,6 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
 
     for available_day in availability:
         available_day["day"] = available_day["day"].value
-        available_day["utc_start_time"] = to_utc(available_day["start_time"], tzinfo=job.availability_timezone)
-        available_day["utc_end_time"] = to_utc(available_day["start_time"], tzinfo=job.availability_timezone)
         uid =  available_day.pop("uid", None)
         active = available_day.pop("active", True)
         if uid and not active:
@@ -381,8 +379,6 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
         availability = data.pop("availability")
         for available_day in availability:
             available_day["day"] = available_day["day"].value
-            available_day["utc_start_time"] = to_utc(available_day["start_time"], tzinfo=job.availability_timezone)
-            available_day["utc_end_time"] = to_utc(available_day["start_time"], tzinfo=job.availability_timezone)
             uid =  available_day.pop("uid", None)
             active = available_day.pop("active", True)
             if uid and not active:

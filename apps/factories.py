@@ -311,7 +311,7 @@ class JobApplicationFactory(DjangoModelFactory):
     job_post = factory.SubFactory(JobPostFactory)
     applicant = factory.SubFactory(TalentFactory)
     recruiter = factory.SubFactory(BusinessUserFactory)
-    stage_date_updated = factory.Faker("date_time")
+    #stage_date_updated = factory.LazyFunction(timezone.now)
 
     @factory.post_generation
     def create_stage(self, create, extracted, **kwargs):

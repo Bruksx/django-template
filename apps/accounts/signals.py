@@ -36,7 +36,7 @@ def create_notification_setting(sender, instance, created, **kwargs):
 
 
 @receiver(pre_save, sender=TalentAvailableDay)
-def set_utc_times(sender, instance:TalentAvailableDay, created, **kwargs):
+def set_utc_times(sender, instance, *args, **kwargs):
     if instance.start_time:
         instance.utc_start_time = to_utc(instance.start_time, tzinfo=instance.talent.availability_timezone.key)
     if instance.end_time:

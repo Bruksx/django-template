@@ -212,7 +212,7 @@ def handle_job_required_attributes(sender,  instance, created, **kwargs):
 
 
 @receiver(pre_save, sender=AvailableDay)
-def set_utc_times(sender, instance:AvailableDay, created, **kwargs):
+def set_utc_times(sender, instance, *args, **kwargs):
     if instance.start_time:
         instance.utc_start_time = to_utc(instance.start_time, tzinfo=instance.job.availability_timezone.key)
     if instance.end_time:
