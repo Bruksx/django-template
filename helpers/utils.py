@@ -4,10 +4,11 @@ import random
 import re
 import string
 import uuid
-from datetime import timezone
+from datetime import timezone, time, datetime
 from io import BytesIO
 from sys import getsizeof
 from typing import Optional, List
+from zoneinfo import ZoneInfo
 
 import boto3
 import pdfkit
@@ -335,3 +336,33 @@ def sort_params_function(sorts:List[str], mapper:dict[str, str])->List[str]:
         if sort_value:
             sort_values.append(f"{sort_sign}{sort_value}")
     return sort_values
+
+
+def to_utc(time_: str|time , tzinfo="America/Vancouver"):
+    """
+    Converts a local time string to a UTC time object.
+
+    Args:
+        time_str (str): Time string in "HH:MM:SS" format (24-hour clock).
+        tzinfo (str, optional): IANA timezone name representing the local time zone.
+            Defaults to "America/Vancouver".
+
+    Returns:
+        datetime.time: The equivalent UTC time as a time object (without date).
+    
+    Example:
+        >>> to_utc("08:00:00", tzinfo="America/Vancouver")
+        datetime.time(15, 0)  # (e.g. if DST is in effect)
+
+    Notes:
+        - The conversion is based on the current date.
+        - The output is a naive `time` object in UTC.
+    """
+    today = datetime.now().date()
+    if isinstance(time_, str):
+        time_obj = datetime.strptime(time_, "%H:%M:%S").time()
+    else:
+        time_obj = time_
+    date_time = datetime.combine(today, time_obj, tzinfo=ZoneInfo(tzinfo))
+    utc_dt = date_time.astimezone(ZoneInfo("UTC"))
+    return utc_dt.time()

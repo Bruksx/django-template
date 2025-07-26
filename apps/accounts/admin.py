@@ -8,9 +8,15 @@ class DepartmentInline(admin.TabularInline):
     fields = ["uid", "name"]
     extra = 0
 
+class EducationLevelInline(admin.TabularInline):
+    fields = ("level", "order", )
+    model = models.EducationLevel
+    extra = 0
+    ordering = ("order", "level", )
+
 
 class IndustryAdmin(admin.ModelAdmin):
-    inlines = [DepartmentInline, ]
+    inlines = [DepartmentInline, EducationLevelInline]
 
 
 class RoleInline(admin.TabularInline):
@@ -51,6 +57,10 @@ class UserAdmin(admin.ModelAdmin):
         return queryset.hard_delete()"""
 
 
+class EducationLevelAdmin(admin.ModelAdmin):
+    list_display = ("level", "industry")
+
+
 
 # Register your models here.
 admin.site.register(models.Business)
@@ -61,3 +71,4 @@ admin.site.register(models.Industry, IndustryAdmin)
 admin.site.register(models.Department, DepartmentAdmin)
 admin.site.register(models.SkillCategory, SkillCategoryAdmin)
 admin.site.register(models.Country)
+admin.site.register(models.EducationLevel, EducationLevelAdmin)

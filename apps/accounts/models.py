@@ -10,11 +10,13 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.db.models import Q, Count, F, Value, Avg, IntegerField, Exists, OuterRef
 from django.db.models.functions import Concat, Cast
+from django.db.models.signals import pre_save
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
 from helpers.utils import delete_s3_item
 from ninja_jwt.tokens import RefreshToken
 import jwt
+from timezone_field import TimeZoneField
 
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
     BusinessSize, BusinessUserStatusType, CaseReasonType
@@ -232,6 +234,8 @@ class Talent(BaseModel):
     years_of_experience = models.FloatField(default=0)
     months_of_experience = models.FloatField(default=0)
     viewers = models.ManyToManyField("accounts.User", blank=True, related_name="talent_viewers")
+    availability_timezone = TimeZoneField(default="America/Vancouver")
+    flexible_availability = models.BooleanField(default=False)
 
     @property
     def photo_url(self):
@@ -1032,6 +1036,7 @@ class VerificationCode(BaseModel):
 class EducationLevel(BaseModel):
     industry = models.ForeignKey("accounts.Industry", on_delete=models.SET_NULL, null=True)
     level = models.CharField(max_length=64)
+    order = models.IntegerField(default=0)
 
 
 class BusinessUser(BaseModel):
@@ -1113,9 +1118,6 @@ class BusinessUser(BaseModel):
             return None
 
 
-
-
-
 class Education(BaseModel):
     talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE, default=None, null=True)
     level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True, default=None)
@@ -1152,11 +1154,26 @@ class Experience(BaseModel):
         return f"{years} years, {months % 12} months"
 
 
+class CustomTalentAvailableDayManager(SoftDeleteManager):
+    def bulk_create(self, objs, **kwargs):
+        for obj in objs:
+            pre_save.send(sender=self.model, instance=obj, created=False ,raw=False, using=self.db)
+        return super().bulk_create(objs, **kwargs)
+    
+    def bulk_update(self, objs, *args, **kwargs):
+        for obj in objs:
+            pre_save.send(sender=self.model, instance=obj, created=True, raw=False, using=self.db)
+        return super().bulk_update(objs, *args, **kwargs)
+
+
 class TalentAvailableDay(BaseModel):
     talent = models.ForeignKey("Talent", on_delete=models.CASCADE)
     day = models.CharField(max_length=50, choices=Days.choices())
     end_time = models.TimeField(null=True)
     start_time = models.TimeField(null=True)
+    utc_start_time = models.TimeField(null=True)
+    utc_end_time = models.TimeField(null=True)
+    objects = CustomTalentAvailableDayManager()
 
 
 class CustomerCase(BaseModel):

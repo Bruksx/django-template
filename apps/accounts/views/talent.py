@@ -17,7 +17,7 @@ from accounts.enums import MeetingType
 from config.permissions import IsBusinessUser
 from config.permissions import IsTalentUser
 from helpers.email.auth import send_verification_code
-from helpers.utils import convert_base64_to_image_file, validate_password, delete_s3_item
+from helpers.utils import convert_base64_to_image_file, validate_password, delete_s3_item, to_utc
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from services import meeting
@@ -117,7 +117,7 @@ def talent_dashboard_chart(request):
 @transaction.atomic
 def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentProfileSchema2]):
     IsTalentUser.check(request)
-    talent_user = request.user.talent
+    talent_user: Talent = request.user.talent
     if "gender" in data:
         data["gender"] = data["gender"].value if type(data["gender"]) is not str else data["gender"]
 
@@ -193,6 +193,8 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
             available_day["day"] = available_day["day"].value
             uid = available_day.pop("uid", None)
             active = available_day.pop("active", True)
+            available_day["utc_start_time"] = to_utc(available_day["start_time"], tzinfo=talent_user.availability_timezone)
+            available_day["utc_end_time"] = to_utc(available_day["start_time"], tzinfo=talent_user.availability_timezone)
             if uid and not active:
                 talent_user.talentavailableday_set.filter(uid=uid).delete()
             elif uid and active:

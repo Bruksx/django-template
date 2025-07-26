@@ -6,13 +6,13 @@ from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
-from helpers.utils import convert_base64_to_image_file
+from helpers.utils import convert_base64_to_image_file, to_utc
 from monkeypatches.response import Response
 from ninja import Router, PatchDict
 from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import Department, Role, SkillCategory, Skill
+from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser
 from accounts.schemas.talent import SkillSchema
 from chats.schemas import ResponseSchema
 from notification.notifications import send_talents_job_matching_notification
@@ -289,7 +289,7 @@ def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
 @transaction.atomic
 def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
     IsBusinessUser.check(request)
-    business_user = request.user.businessuser
+    business_user: BusinessUser = request.user.businessuser
     business = business_user.business
     if WorkFlowStage.objects.filter(created_by__business=business).values_list("phase", flat=True).distinct("phase").count() != len(PhaseType.values()):
         raise HttpError(400, "You must have a workflow stage for each phase")
@@ -325,6 +325,8 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
 
     for available_day in availability:
         available_day["day"] = available_day["day"].value
+        available_day["utc_start_time"] = to_utc(available_day["start_time"], tzinfo=job.availability_timezone)
+        available_day["utc_end_time"] = to_utc(available_day["start_time"], tzinfo=job.availability_timezone)
         uid =  available_day.pop("uid", None)
         active = available_day.pop("active", True)
         if uid and not active:
@@ -379,6 +381,8 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
         availability = data.pop("availability")
         for available_day in availability:
             available_day["day"] = available_day["day"].value
+            available_day["utc_start_time"] = to_utc(available_day["start_time"], tzinfo=job.availability_timezone)
+            available_day["utc_end_time"] = to_utc(available_day["start_time"], tzinfo=job.availability_timezone)
             uid =  available_day.pop("uid", None)
             active = available_day.pop("active", True)
             if uid and not active:
@@ -428,6 +432,7 @@ def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None
         business_user.business.job_posts().filter(job__in=queryset).count()
     )
 
+
 @router.get("{job_uid}", response=job_schemas.FullJobDetailSchema, auth=JWTAuth())
 def job_detail(request, job_uid:UUID):
     IsBusinessUser.check(request)
@@ -436,6 +441,7 @@ def job_detail(request, job_uid:UUID):
     if not job:
         raise HttpError(404, "This job does not exist")
     return job
+
 
 @router.get("job-posts/{job_post_uid}/applications", response=PaginatedResponseSchema[job_schemas.JobApplicationListSchema], auth=JWTAuth())
 def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Optional[PhaseType]=None,

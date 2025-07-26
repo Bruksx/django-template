@@ -4,6 +4,8 @@ from typing import List
 from django.core.cache import cache
 from django.db import models
 from django.db.models import F, Q, QuerySet
+from django.db.models.signals import pre_save
+from django_softdelete.managers import SoftDeleteManager
 from monkeypatches.q_cluster import async_task
 from timezone_field import TimeZoneField
 
@@ -32,11 +34,26 @@ class JobLevel(BaseModel):
     def __str__(self) -> str:
         return self.name
 
+class AvailableDayManager(SoftDeleteManager):
+    def bulk_create(self, objs, **kwargs):
+        for obj in objs:
+            pre_save.send(sender=self.model, instance=obj, created=False ,raw=False, using=self.db)
+        return super().bulk_create(objs, **kwargs)
+    
+    def bulk_update(self, objs, *args, **kwargs):
+        for obj in objs:
+            pre_save.send(sender=self.model, instance=obj, created=True, raw=False, using=self.db)
+        return super().bulk_update(objs, *args, **kwargs)
+    
+
 class AvailableDay(BaseModel):
     job = models.ForeignKey("Job", on_delete=models.CASCADE)
     day = models.CharField(max_length=32, choices=Days.choices())
     end_time = models.TimeField(null=True)
     start_time = models.TimeField(null=True)
+    utc_start_time = models.TimeField(null=True)
+    utc_end_time = models.TimeField(null=True)
+    objects = AvailableDayManager()
 
 
 class Job(BaseModel):
