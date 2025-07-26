@@ -874,6 +874,48 @@ class JobApplicationListSchema(ModelSchema):
 class StageSchema(GenericNameAndUidSchema):
     phase: str
 
+
+class RequirementSchema(Schema):
+    requires_location: Optional[bool] = False
+    missing_compulsory_secondary_language: Optional[bool] = False
+    requires_role: Optional[bool] = False
+    missing_required_skill: Optional[bool] = False
+    requires_job_level: Optional[bool] = False
+    requires_experience: Optional[bool] = False
+    requires_minimum_education: Optional[bool] = False
+    requires_work_structure: Optional[bool] = False
+    requires_tech_requirements: Optional[bool] = False
+    missing_work_schedule: Optional[bool] = False
+
+    class Meta:
+        orm_mode = True
+
+class MatchScoreSchema(Schema):
+    role_score: Optional[float] = 0
+    tools_platform_score: Optional[float] = 0
+    methodologies_score: Optional[float] = 0
+    general_skill_score: Optional[float] = 0
+    business_model_score: Optional[float] = 0
+    job_level_score: Optional[float] = 0
+    experience_score: Optional[float] = 0
+    minimum_education_score: Optional[float] = 0
+    work_structure_score: Optional[float] = 0
+    tech_requirement_score: Optional[float] = 0
+    first_language_score: Optional[float] = 0
+    additional_language_score: Optional[float] = 0
+    final_work_schedule_score: Optional[float] = 0
+    location_score: Optional[float] = 0
+    computed_match_score: Optional[float] = 0
+    requirements: Optional[RequirementSchema] = None
+
+    class Meta:
+        orm_mode = True
+    
+    @staticmethod
+    def resolve_requirements(obj):
+        return RequirementSchema.from_orm(obj)
+
+
 class TalentJobPostListSchema(ModelSchema):
     job: JobListSchema2
     applied: bool
@@ -883,6 +925,7 @@ class TalentJobPostListSchema(ModelSchema):
     match_score: Optional[int] = 0
     application_uid: Optional[UUID]
     stage: Optional[StageSchema]
+    match_obj: Optional[MatchScoreSchema] = None
 
     class Meta:
         model = JobPost
@@ -960,6 +1003,10 @@ class TalentJobPostListSchema(ModelSchema):
     @staticmethod
     def resolve_match_score(obj, context):
         return int(obj.computed_match_score)
+    
+    @staticmethod
+    def resolve_match_obj(obj, context):
+        return MatchScoreSchema.from_orm(obj)
 
 
 
