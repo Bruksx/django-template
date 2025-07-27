@@ -906,7 +906,16 @@ class MatchScoreSchema(Schema):
     final_work_schedule_score: Optional[float] = 0
     location_score: Optional[float] = 0
     computed_match_score: Optional[float] = 0
-    requirements: Optional[RequirementSchema] = None
+    requires_location: Optional[bool] = False
+    missing_compulsory_secondary_language: Optional[bool] = False
+    requires_role: Optional[bool] = False
+    missing_required_skill: Optional[bool] = False
+    requires_job_level: Optional[bool] = False
+    requires_experience: Optional[bool] = False
+    requires_minimum_education: Optional[bool] = False
+    requires_work_structure: Optional[bool] = False
+    requires_tech_requirements: Optional[bool] = False
+    missing_work_schedule: Optional[bool] = False
 
     class Meta:
         orm_mode = True
