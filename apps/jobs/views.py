@@ -147,7 +147,7 @@ def view_job_post(request, job_post_id:UUID):
     talent = request.user.talent
     request.context = dict(talent=talent)
     job_post:JobPost = JobPost.objects.filter(uid=job_post_id)
-    job_post = add_job_post_annotations(job_post).first()
+    job_post = add_job_post_annotations(job_post, talent).first()
     if not job_post:
         raise HttpError(404, "Job post not found")
     job_post.view()
