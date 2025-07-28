@@ -444,6 +444,7 @@ def job_detail(request, job_uid:UUID):
 
 @router.get("job-posts/{job_post_uid}/applications", response=PaginatedResponseSchema[job_schemas.JobApplicationListSchema], auth=JWTAuth())
 def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Optional[PhaseType]=None,
+                    stage: Optional[UUID]=None,
                     new_application:bool=None,
                     sort_by:Optional[Literal["applicant", "location",
 "match", "created_at", "stage", "phase", "experience", "invited"]]=None, asc:bool=True, search:str="", invited:Optional[bool]=None):
@@ -461,6 +462,8 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
         )).distinct()
     if phase:
         queryset = queryset.filter(stage__phase=phase.value)
+    if stage:
+        queryset = queryset.filter(stage__uid=stage)
     if invited:
         queryset = queryset.filter(invited=invited)
 
