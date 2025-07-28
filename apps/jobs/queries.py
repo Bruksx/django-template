@@ -69,7 +69,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
     ).annotate(
         tools_platform_count=Count("job__skills", filter=Q(job__skills__category_id=tools_platform_id)),
         tools_platform_intercept_count=Count("job__skills", filter=Q(
-            job__skills__category_id=general_skills_id, job__skills__in=talent_general_skills
+            job__skills__category_id=general_skills_id, job__skills__in=talent_tools_skills
         )),
         tools_platform_score=Case(
             When(Q(tools_platform_count=0), then=Value(6.67)),
@@ -82,7 +82,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
     ).annotate(
         methodologies_count=Count("job__skills", filter=Q(job__skills__category_id=tools_platform_id)),
         methodologies_intercept_count=Count("job__skills", filter=Q(
-            job__skills__category_id=general_skills_id, job__skills__in=talent_general_skills
+            job__skills__category_id=general_skills_id, job__skills__in=talent_methodology_skills
         )),
         methodologies_score=Case(
             When(Q(methodologies_count=0), then=Value(6.67)),
