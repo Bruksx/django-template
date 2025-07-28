@@ -797,6 +797,7 @@ class JobPostFullDetailSchema(ModelSchema):
     def resolve_applicants(obj):
         return JobApplication.objects.select_related("job_post").filter(job_post=obj).count()
 
+    @staticmethod
     def resolve_workflow_data(obj, context):
         business = obj.job.created_by.business
         return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
