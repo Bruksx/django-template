@@ -492,6 +492,7 @@ class JobPost(BaseModel):
         match_score = int((score/total_score) * 100)
         if weak is False:
             data["match_score"] = match_score
+        data["match_score"] = int(self.computed_match_score)
         return data
 
     def weakness(self, talent):
