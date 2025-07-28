@@ -84,17 +84,6 @@ def job_posts_by_talent(request, filters:TalentJobFilterQuerySchema = Query(...)
     request.context = {"talent": talent}
     queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(status=JobStatusType.POSTED.value)
     queryset = add_job_post_annotations(queryset, talent)
-    required_attributes: RequiredAttribute = None
-    """for jp in queryset:
-        jp.general_skill_score = 0
-        general_skill_category = SkillCategory.objects.filter(name="General Skills").first()
-        jp_gen_skills = jp.job.skills.filter(category=general_skill_category).count()
-        talent_skills = talent.skills.filter(category=general_skill_category).count()
-        if not jp_gen_skills:
-           jp.general_skill_score = 0
-        else:
-            jp.general_skill_score = (talent_skills/jp_gen_skills) * 6.67"""
-
     return filters.get_queryset(talent=talent, queryset=queryset)
 
 

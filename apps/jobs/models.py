@@ -74,7 +74,7 @@ class Job(BaseModel):
     qualification = models.TextField(null=True, blank=True)
     work_structure = models.CharField(choices=WorkStructureEnum.choices(), null=True, blank=True)
     first_language = models.ForeignKey(Language, on_delete=models.SET_NULL, null=True)
-    additional_languages = models.ManyToManyField(Language, related_name="jobs")
+    additional_languages = models.ManyToManyField(Language, related_name="jobs", blank=True)
     office_address = models.CharField(max_length=128, null=True)
     lunch_break = models.CharField(max_length=50, choices=LunchBreakEnum.choices(), null=True)
     lunch_break_time = models.PositiveSmallIntegerField(default=0)
