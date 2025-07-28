@@ -543,6 +543,7 @@ class JobPostListSchema(ModelSchema):
     alert: Optional[bool] = None
     applied: Optional[bool]= None
     saved: Optional[bool] = None
+    recruiter: Optional[str] = None
 
 
     class Meta:
@@ -555,6 +556,13 @@ class JobPostListSchema(ModelSchema):
         if not obj.job.role:
             return None
         return obj.job.role.name
+
+    @staticmethod
+    def resolve_recruiter(obj):
+        recruiter = obj.recruiter
+        if not recruiter:
+            return None
+        return recruiter.user.fullname
 
     @staticmethod
     def resolve_applied(obj, context):
@@ -626,6 +634,7 @@ class JobFullListSchema(ModelSchema):
     posted_by: Optional[str]
     date_posted: Optional[datetime] = None
     status: Optional[str]
+    recruiter: Optional[str]
 
     class Meta:
         model = Job
@@ -638,6 +647,19 @@ class JobFullListSchema(ModelSchema):
         elif obj.jobpost_set.count() == 1:
             return obj.jobpost_set.first().status
         return "Multiple"
+
+    @staticmethod
+    def resolve_recruiter(obj):
+        count = obj.jobpost_set.count()
+        if count == 0:
+            return None
+        elif count == 1:
+            recruiter = obj.jobpost_set.first().recruiter
+            if not recruiter:
+                return None
+            return recruiter.user.fullname
+        return "Multiple"
+
 
     @staticmethod
     def resolve_job_posts(obj, context):
@@ -715,6 +737,9 @@ class JobFullWorkflowViewSchema(JobFullListSchema):
 
     workflow_data: List[WorkFlowSchema]
 
+
+
+
     @staticmethod
     def resolve_workflow_data(obj, context):
         business = obj.created_by.business
@@ -734,7 +759,8 @@ class JobApplicationCountSchema(Schema):
 
 
 class JobPostFullDetailSchema(ModelSchema):
-    applications: List[JobApplicationCountSchema] = Field(alias="phase_data")
+    workflow_data: List[WorkFlowSchema]
+    applicants: int
     job: JobDetailSchema
     annual_salary_min: Optional[float] = None
     annual_salary_max: Optional[float] = None
@@ -766,6 +792,18 @@ class JobPostFullDetailSchema(ModelSchema):
         if not talent:
             return
         return talent.savedjob_set.filter(job_post=obj).exists()
+
+    @staticmethod
+    def resolve_applicants(obj):
+        return JobApplication.objects.select_related("job_post").filter(job_post=obj).count()
+
+    @staticmethod
+    def resolve_workflow_data(obj, context):
+        business = obj.job.created_by.business
+        return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
+         annotate(applications=Count('jobapplication', filter=Q(jobapplication__job_post=obj),
+                                   distinct=True)).order_by('phase_order', 'order')
+         .values("uid", "phase", "name", "applications"))
 
     @staticmethod
     def resolve_alert(obj, context):
@@ -919,7 +957,7 @@ class MatchScoreSchema(Schema):
 
     class Meta:
         orm_mode = True
-    
+
     @staticmethod
     def resolve_requirements(obj):
         return RequirementSchema.from_orm(obj)
@@ -934,6 +972,7 @@ class TalentJobPostListSchema(ModelSchema):
     match_score: Optional[int] = 0
     application_uid: Optional[UUID]
     stage: Optional[StageSchema]
+    invited: bool
    #match_obj: Optional[MatchScoreSchema] = None
 
     class Meta:
@@ -955,6 +994,18 @@ class TalentJobPostListSchema(ModelSchema):
             return False
         return talent.jobalert.jobs.filter(id=obj.job_id).exists()
 
+    @staticmethod
+    def resolve_invited(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return
+        return obj.invited(talent)
+
 
     @staticmethod
     def resolve_saved(obj, context):
@@ -975,17 +1026,6 @@ class TalentJobPostListSchema(ModelSchema):
         if not talent:
             return None
         return JobApplication.objects.filter(job_post=obj, applicant=talent).exists()
-
-
-    @staticmethod
-    def resolve_match_score(obj, context):
-        request = context.get("request")
-        if not request:
-            return
-        talent = request.context.get("talent")
-        if not talent:
-            return None
-        return obj.match_score(talent)
 
     @staticmethod
     def resolve_application_uid(obj, context):
@@ -1012,7 +1052,7 @@ class TalentJobPostListSchema(ModelSchema):
     @staticmethod
     def resolve_match_score(obj, context):
         return int(obj.computed_match_score)
-    
+
     @staticmethod
     def resolve_match_obj(obj, context):
         return MatchScoreSchema.from_orm(obj)

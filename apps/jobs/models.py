@@ -581,6 +581,10 @@ class JobPost(BaseModel):
     def match_score(self, talent):
         return self.strength(talent).get("match_score", 0)
 
+    def invited(self, talent):
+        return JobInvite.objects.filter(job=self.job, talent=talent).exists()
+
+
 
 
 

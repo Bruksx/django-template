@@ -400,7 +400,7 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
         else:
             create_job_post_service(job, business_user, job_posts)
     else:
-        async_task(bulk_job_posts_service, job,  job_posts, business_user)
+        bulk_job_posts_service(job,  job_posts, business_user)
 
     return job
 

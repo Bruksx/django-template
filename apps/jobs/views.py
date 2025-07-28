@@ -1,13 +1,8 @@
 from typing import List, Literal, Union
 from uuid import UUID
 
-from django.http import StreamingHttpResponse, HttpResponse
-
 from config.permissions import IsTalentUser, IsBusinessUser
 from django.db import transaction
-from django.db.models import OuterRef, Exists, Case, When, Value, FloatField, Q, F, ExpressionWrapper
-from django.db.models.expressions import RawSQL
-
 from helpers.utils import delete_s3_item
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
@@ -17,23 +12,21 @@ from ninja.params import Query
 from ninja_extra.pagination import paginate
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import Talent, SkillCategory, Experience, Education, TalentAvailableDay
+from accounts.models import Talent
 from jobs import tasks
 from jobs.enums import JobStatusType, PhaseType
 from jobs.models import (
-    JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert, RequiredAttribute, AvailableDay
+    JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert, RequiredAttribute
 )
 from jobs.queries import add_job_post_annotations
-from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, \
-    TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, ApplyToJobSchema, \
+from jobs.schemas import TalentJobPostListSchema, TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, \
+    ApplyToJobSchema, \
     ShareJobViaEmailSchema, ShareJobViaChatSchema, TalentQuestionSchema, TalentJobFilterQuerySchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service, \
     get_screening_questions_service
 from notification import notifications
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
-
-from services.job_posting.linkedin_xml_generator import generate_job_post_xml
 
 router = Router()
 
