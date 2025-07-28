@@ -522,6 +522,7 @@ class JobPostListSchema(ModelSchema):
     alert: Optional[bool] = None
     applied: Optional[bool]= None
     saved: Optional[bool] = None
+    recruiter: Optional[str] = None
 
 
     class Meta:
@@ -534,6 +535,13 @@ class JobPostListSchema(ModelSchema):
         if not obj.job.role:
             return None
         return obj.job.role.name
+
+    @staticmethod
+    def resolve_recruiter(obj):
+        recruiter = obj.recruiter
+        if not recruiter:
+            return None
+        return recruiter.user.fullname
 
     @staticmethod
     def resolve_applied(obj, context):
@@ -605,6 +613,7 @@ class JobFullListSchema(ModelSchema):
     posted_by: Optional[str]
     date_posted: Optional[datetime] = None
     status: Optional[str]
+    recruiter: Optional[str]
 
     class Meta:
         model = Job
@@ -617,6 +626,19 @@ class JobFullListSchema(ModelSchema):
         elif obj.jobpost_set.count() == 1:
             return obj.jobpost_set.first().status
         return "Multiple"
+
+    @staticmethod
+    def resolve_recruiter(obj):
+        count = obj.jobpost_set.count()
+        if count == 0:
+            return None
+        elif count == 1:
+            recruiter = obj.jobpost_set.first().recruiter
+            if not recruiter:
+                return None
+            return recruiter.user.fullname
+        return "Multiple"
+
 
     @staticmethod
     def resolve_job_posts(obj, context):
@@ -693,6 +715,9 @@ class JobFullWorkflowViewSchema(JobFullListSchema):
     job_posts: List[JobPostWorkflowViewSchema]
 
     workflow_data: List[WorkFlowSchema]
+
+
+
 
     @staticmethod
     def resolve_workflow_data(obj, context):
@@ -862,6 +887,7 @@ class TalentJobPostListSchema(ModelSchema):
     match_score: Optional[int] = 0
     application_uid: Optional[UUID]
     stage: Optional[StageSchema]
+    invited: bool
 
     class Meta:
         model = JobPost
@@ -881,6 +907,18 @@ class TalentJobPostListSchema(ModelSchema):
         if not hasattr(talent, "jobalert"):
             return False
         return talent.jobalert.jobs.filter(id=obj.job_id).exists()
+
+    @staticmethod
+    def resolve_invited(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return
+        return obj.invited(talent)
 
 
     @staticmethod
