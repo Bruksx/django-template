@@ -934,7 +934,7 @@ class TalentJobPostListSchema(ModelSchema):
     match_score: Optional[int] = 0
     application_uid: Optional[UUID]
     stage: Optional[StageSchema]
-    match_obj: Optional[MatchScoreSchema] = None
+   #match_obj: Optional[MatchScoreSchema] = None
 
     class Meta:
         model = JobPost
