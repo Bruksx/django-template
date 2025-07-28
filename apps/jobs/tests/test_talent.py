@@ -309,7 +309,7 @@ class JobMatchTests(TestCase):
         self.assertEqual(methodologies_score, Decimal("6.67"))
         self.assertEqual(general_skill_score, Decimal("6.67"))
 
-    def test_missing_required_skill_returns_zero_core(self):
+    def test_missing_required_skill_returns_zero_score(self):
         self.update_required_attributes()
         self.job.skills.add(*self.tool_platform_skills, *self.general_skills, *self.methodology_skills)
         RequiredSkill.objects.create(
@@ -318,12 +318,11 @@ class JobMatchTests(TestCase):
         )
         self.talent.skills.all().delete()
         self.talent.skills.add(*self.tool_platform_skills[:1], *self.general_skills[:2], *self.methodology_skills)
-
         queryset = JobPost.objects.filter(id=self.job_post.id)
         queryset = add_job_post_annotations(queryset, self.talent)
         job_post = queryset.first()
 
-        tool_platform_score = Decimal(job_post.tools_platform_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        #tool_platform_score = Decimal(job_post.tools_platform_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         methodologies_score = Decimal(job_post.methodologies_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         general_skill_score = Decimal(job_post.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
