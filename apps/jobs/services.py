@@ -1,3 +1,4 @@
+import logging
 from typing import List
 from uuid import UUID
 
@@ -11,12 +12,12 @@ from ninja.errors import HttpError
 
 from accounts.models import Skill
 from core.models import Language
-from jobs.enums import PhaseType, JobStatusType
+from jobs.enums import PhaseType, JobStatusType, QuestionTypeEnum
 from jobs.models import (
-    JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job, RequiredSecondaryLanguage, 
-    RequiredSkill, BusinessModel, JobPost
+    JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job, RequiredSecondaryLanguage,
+    RequiredSkill, BusinessModel, JobPost, QuestionOption
 )
-from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema
+from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema, QuestionOptionSchema, MutateOptionSchema
 from ninja.errors import HttpError
 from notification.notifications import send_talents_job_matching_notification
 from settings.models import WorkFlowStage
@@ -212,3 +213,62 @@ def send_email_on_stage_update(application:JobApplication, business_user_email, 
         sender=business_user_email
     )
     return
+
+
+def validate_screening_questions(question, question_data):
+    try:
+        if not question:
+            raise HttpError(404, "This question does not exist")
+
+        if "type" in question_data:
+            error = validate_screening_question_options(question, [MutateOptionSchema(**o) for o in question_data.get("options", list())], question_data["type"].value)
+            if error:
+                raise error
+        return (question, question_data), None
+    except Exception as e:
+        return None, e
+
+
+def validate_screening_question_options(question, data, question_type):
+    try:
+        if not question:
+            raise HttpError(404, "This question does not exist")
+
+        if question_type in (QuestionTypeEnum.FILE.value, QuestionTypeEnum.TEXT.value):
+            raise HttpError(400, "This question type does not support options")
+
+        question_options = question.questionoption_set.all()
+        new_options = [option for option in data if not option.uid]
+        changing_options = [option for option in data if option.uid]
+        changing_options_id = (option.uid for option in changing_options)
+        existing_options = question_options.exclude(uid__in=changing_options_id)
+        if question_type == QuestionTypeEnum.SINGLE_SELECT.value:
+            new_correct_option = [option for option in new_options if option.is_accepted is True]
+            changing_correct_option = [option for option in changing_options if option.is_accepted is True]
+            correct_option = new_correct_option + changing_correct_option
+            if (len(correct_option) + existing_options.filter(is_accepted=True).count()) != 1:
+                raise HttpError(400, "Single select question must have exactly one correct option")
+        if question_type == QuestionTypeEnum.MULTI_SELECT.value:
+            new_correct_options = [option for option in new_options if option.is_accepted is True]
+            changing_correct_options = [option for option in changing_options if option.is_accepted is True]
+            correct_options = new_correct_options + changing_correct_options
+            if (len(correct_options) + existing_options.filter(is_accepted=True).count()) < 2:
+                raise HttpError(400, "Multiple select question must have at least two correct options")
+        return
+    except Exception as e:
+        return e
+
+def update_screening_question_options(question, data:List[MutateOptionSchema]):
+    if not question:
+        return None, HttpError(404, "This question does not exist")
+    error = validate_screening_question_options(question, data, question.type)
+    if error:
+        return None, error
+    for option in data:
+        if not option.uid:
+            opt_data = option.dict()
+            opt_data.pop("uid", None)
+            QuestionOption.objects.create(question=question, **opt_data)
+        else:
+            question.questionoption_set.filter(uid=option.uid).update(**option.dict())
+    return question, None
