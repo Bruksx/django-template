@@ -738,7 +738,8 @@ class JobApplicationCountSchema(Schema):
 
 
 class JobPostFullDetailSchema(ModelSchema):
-    applications: List[JobApplicationCountSchema] = Field(alias="phase_data")
+    workflow_data: List[WorkFlowSchema]
+    applicants: int
     job: JobDetailSchema
     annual_salary_min: Optional[float] = None
     annual_salary_max: Optional[float] = None
@@ -770,6 +771,17 @@ class JobPostFullDetailSchema(ModelSchema):
         if not talent:
             return
         return talent.savedjob_set.filter(job_post=obj).exists()
+
+    @staticmethod
+    def resolve_applicants(obj):
+        return JobApplication.objects.select_related("job_post").filter(job_post=obj).count()
+
+    def resolve_workflow_data(obj, context):
+        business = obj.job.created_by.business
+        return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
+         annotate(applications=Count('jobapplication', filter=Q(jobapplication__job_post=obj),
+                                   distinct=True)).order_by('phase_order', 'order')
+         .values("uid", "phase", "name", "applications"))
 
     @staticmethod
     def resolve_alert(obj, context):

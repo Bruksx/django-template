@@ -186,7 +186,6 @@ def get_business_users(request, search: str = "", role: BusinessUserRoleType = N
                  Q(user__email__icontains=search))
     if role:
         query = query & Q(role=role.value)
-
     return business.businessuser_set.filter(query).order_by("user__first_name", "user__last_name")
 
 @router.post("users", auth=JWTAuth())
