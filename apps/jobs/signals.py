@@ -2,8 +2,9 @@ from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 from django.utils import timezone
 
+from helpers.utils import to_utc
 from jobs.enums import PhaseType, JobStatusType
-from jobs.models import JobApplication, JobPost, JobPostMetrics, RequiredAttribute, Job
+from jobs.models import JobApplication, JobPost, JobPostMetrics, RequiredAttribute, Job, AvailableDay
 from notification import notifications
 
 from monkeypatches.q_cluster import async_task
@@ -198,3 +199,9 @@ def handle_job_required_attributes(sender,  instance, created, **kwargs):
         RequiredAttribute.objects.create(job=instance)
 
 
+@receiver(pre_save, sender=AvailableDay)
+def set_utc_times(sender, instance, *args, **kwargs):
+    if instance.start_time:
+        instance.utc_start_time = to_utc(instance.start_time, tzinfo=instance.job.availability_timezone.key)
+    if instance.end_time:
+        instance.utc_end_time = to_utc(instance.end_time, tzinfo=instance.job.availability_timezone.key)

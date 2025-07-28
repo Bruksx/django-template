@@ -170,6 +170,7 @@ class TalentUserSchema(ModelSchema):
     additional_skills: List[str]
     years_of_experience: str = Field(alias="get_years_of_experience")
 
+
     class Meta:
         model = Talent
         exclude = (*READ_EXCLUDE_FIELDS, "cv", "photo", "months_of_experience")
@@ -181,6 +182,11 @@ class TalentUserSchema(ModelSchema):
     @staticmethod
     def resolve_availability(obj):
         return obj.get_available_days()
+    
+    @staticmethod
+    def resolve_availability_timezone(obj):
+        return obj.availability_timezone.key
+
 
 class TalentResumeSchema(ModelSchema):
     photo_url: Optional[str]

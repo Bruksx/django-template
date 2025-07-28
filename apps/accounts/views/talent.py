@@ -17,7 +17,7 @@ from accounts.enums import MeetingType
 from config.permissions import IsBusinessUser
 from config.permissions import IsTalentUser
 from helpers.email.auth import send_verification_code
-from helpers.utils import convert_base64_to_image_file, validate_password, delete_s3_item
+from helpers.utils import convert_base64_to_image_file, validate_password, delete_s3_item, to_utc
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from services import meeting
@@ -117,7 +117,7 @@ def talent_dashboard_chart(request):
 @transaction.atomic
 def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentProfileSchema2]):
     IsTalentUser.check(request)
-    talent_user = request.user.talent
+    talent_user: Talent = request.user.talent
     if "gender" in data:
         data["gender"] = data["gender"].value if type(data["gender"]) is not str else data["gender"]
 

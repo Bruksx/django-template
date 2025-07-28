@@ -1,3 +1,4 @@
+from copy import copy
 from datetime import datetime, time
 from typing import List, Literal
 from typing import Optional
@@ -193,26 +194,46 @@ class MutateAnswerSchema(Schema):
     text: Optional[str] = None
     files: Optional[List[str]] = None
 
+
 class MutateRequiredAttributeSchema(ModelSchema):
     skills: Optional[list[UUID]]
-    business_models: Optional[list[UUID]]
+    business_models: Optional[list[UUID]] = list()
+    secondary_languages: Optional[list[UUID]] = list()
     class Meta:
         model = RequiredAttribute
         exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid"]
 
     @classmethod
-    def validate_required_attribute(cls, data, job):
+    def validate_required_attribute(cls, data: dict, job):
+        data = copy(data)
         count = 0
-        for key in job.required_attributes_keys:
-            value = data.get(key, None)
-            if not value:
-                continue
-            count += 1
-            if count > 5:
-                raise HttpError(400, "You can only add up to 5 required attributes")
-        return
+        many_to_many_fields = ["skills", "business_models", "secondary_languages",]
+        for field in many_to_many_fields:
+            count += len(data.pop(field, []))
+        for field in data.keys():
+            value = data[field]
+            if value == True:
+                count += 1
+        if count > 5:
+            raise HttpError(400, "You can only add up to 5 required attributes")
 
 
+class MutatePutRequiredAttributeSchema(MutateRequiredAttributeSchema):
+    skills: list[UUID]
+    business_models: list[UUID]
+    secondary_languages: list[UUID]
+    job_level: bool
+    years_of_experience: bool
+    minimum_education_level: bool
+    work_structure: bool
+    technological_requirement: bool
+    first_language: bool
+    secondary_language: bool
+    working_hours: bool
+    location: bool
+    class Meta:
+        model = RequiredAttribute
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "uid"]
 
 
 class CreateJobSchema(ModelSchema):
@@ -890,6 +911,57 @@ class JobApplicationListSchema(ModelSchema):
 class StageSchema(GenericNameAndUidSchema):
     phase: str
 
+
+class RequirementSchema(Schema):
+    requires_location: Optional[bool] = False
+    missing_compulsory_secondary_language: Optional[bool] = False
+    requires_role: Optional[bool] = False
+    missing_required_skill: Optional[bool] = False
+    requires_job_level: Optional[bool] = False
+    requires_experience: Optional[bool] = False
+    requires_minimum_education: Optional[bool] = False
+    requires_work_structure: Optional[bool] = False
+    requires_tech_requirements: Optional[bool] = False
+    missing_work_schedule: Optional[bool] = False
+
+    class Meta:
+        orm_mode = True
+
+class MatchScoreSchema(Schema):
+    role_score: Optional[float] = 0
+    tools_platform_score: Optional[float] = 0
+    methodologies_score: Optional[float] = 0
+    general_skill_score: Optional[float] = 0
+    business_model_score: Optional[float] = 0
+    job_level_score: Optional[float] = 0
+    experience_score: Optional[float] = 0
+    minimum_education_score: Optional[float] = 0
+    work_structure_score: Optional[float] = 0
+    tech_requirement_score: Optional[float] = 0
+    first_language_score: Optional[float] = 0
+    additional_language_score: Optional[float] = 0
+    final_work_schedule_score: Optional[float] = 0
+    location_score: Optional[float] = 0
+    computed_match_score: Optional[float] = 0
+    requires_location: Optional[bool] = False
+    missing_compulsory_secondary_language: Optional[bool] = False
+    requires_role: Optional[bool] = False
+    missing_required_skill: Optional[bool] = False
+    requires_job_level: Optional[bool] = False
+    requires_experience: Optional[bool] = False
+    requires_minimum_education: Optional[bool] = False
+    requires_work_structure: Optional[bool] = False
+    requires_tech_requirements: Optional[bool] = False
+    missing_work_schedule: Optional[bool] = False
+
+    class Meta:
+        orm_mode = True
+
+    @staticmethod
+    def resolve_requirements(obj):
+        return RequirementSchema.from_orm(obj)
+
+
 class TalentJobPostListSchema(ModelSchema):
     job: JobListSchema2
     applied: bool
@@ -900,6 +972,7 @@ class TalentJobPostListSchema(ModelSchema):
     application_uid: Optional[UUID]
     stage: Optional[StageSchema]
     invited: bool
+   #match_obj: Optional[MatchScoreSchema] = None
 
     class Meta:
         model = JobPost
@@ -953,17 +1026,6 @@ class TalentJobPostListSchema(ModelSchema):
             return None
         return JobApplication.objects.filter(job_post=obj, applicant=talent).exists()
 
-
-    @staticmethod
-    def resolve_match_score(obj, context):
-        request = context.get("request")
-        if not request:
-            return
-        talent = request.context.get("talent")
-        if not talent:
-            return None
-        return obj.match_score(talent)
-
     @staticmethod
     def resolve_application_uid(obj, context):
         request = context.get("request")
@@ -989,6 +1051,10 @@ class TalentJobPostListSchema(ModelSchema):
     @staticmethod
     def resolve_match_score(obj, context):
         return int(obj.computed_match_score)
+
+    @staticmethod
+    def resolve_match_obj(obj, context):
+        return MatchScoreSchema.from_orm(obj)
 
 
 

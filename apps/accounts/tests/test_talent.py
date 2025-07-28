@@ -548,11 +548,10 @@ class TalentDetailTest(TestCase):
 
 class DeleteTalentUserAccountTest2(TestCase):
     def setUp(self):
-        generate_data(silent=True)
         self.url = "/"
         self.client = TestClient(router)
 
-        self.talent = Talent.objects.order_by("?").first()
+        self.talent = TalentFactory.create()
         self.business_user = BusinessUser.objects.order_by("?").first()
 
     def test_delete_talent_user_account(self):

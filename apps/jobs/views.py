@@ -77,14 +77,6 @@ def job_posts_by_talent(request, filters:TalentJobFilterQuerySchema = Query(...)
     request.context = {"talent": talent}
     queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(status=JobStatusType.POSTED.value)
     queryset = add_job_post_annotations(queryset, talent)
-    required_attributes: RequiredAttribute = None
-    """for jp in queryset:
-        jp.no_match = False
-        for skill in required_attributes.skills:
-            if skill not in talent.skills:
-                jp.no_match = True
-                break"""
-
     return filters.get_queryset(talent=talent, queryset=queryset)
 
 
@@ -136,7 +128,8 @@ def view_job_post(request, job_post_id:UUID):
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = dict(talent=talent)
-    job_post:JobPost = JobPost.objects.filter(uid=job_post_id).first()
+    job_post:JobPost = JobPost.objects.filter(uid=job_post_id)
+    job_post = add_job_post_annotations(job_post, talent).first()
     if not job_post:
         raise HttpError(404, "Job post not found")
     job_post.view()
