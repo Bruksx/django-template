@@ -631,7 +631,7 @@ class JobPostListSchema(ModelSchema):
 
     @staticmethod
     def resolve_applicants(obj):
-        return JobApplication.objects.select_related("job_post").filter(job_post=obj).count()
+        return obj.jobapplication_set.count()
 
     @staticmethod
     def resolve_posted_by(obj):
@@ -751,13 +751,7 @@ class JobPostWorkflowViewSchema(JobPostListSchema):
 
     @staticmethod
     def resolve_workflow_data(obj):
-        business = obj.job.created_by.business
-        return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
-         annotate(applications=Count("jobapplication", filter=Q(jobapplication__job_post=obj),
-                  distinct=True)).order_by('phase_order', 'order')
-         .values("uid", "phase", "name", "applications")
-         )
-
+        return obj.workflow_stage_data()
 
 class JobFullWorkflowViewSchema(JobFullListSchema):
     job_posts: List[JobPostWorkflowViewSchema]
@@ -765,15 +759,9 @@ class JobFullWorkflowViewSchema(JobFullListSchema):
     workflow_data: List[WorkFlowSchema]
 
 
-
-
     @staticmethod
     def resolve_workflow_data(obj, context):
-        business = obj.created_by.business
-        return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
-         annotate(applications=Count('jobapplication', filter=Q(jobapplication__job_post__job=obj),
-                                   distinct=True)).order_by('phase_order', 'order')
-         .values("uid", "phase", "name", "applications"))
+        return obj.workflow_stage_data()
 
 class JobWorkflowViewPaginatedSchema(PaginatedResponseSchema[JobFullWorkflowViewSchema]):
     roles: int
@@ -822,15 +810,11 @@ class JobPostFullDetailSchema(ModelSchema):
 
     @staticmethod
     def resolve_applicants(obj):
-        return JobApplication.objects.select_related("job_post").filter(job_post=obj).count()
+        return obj.jobapplication_set.count()
 
     @staticmethod
     def resolve_workflow_data(obj, context):
-        business = obj.job.created_by.business
-        return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
-         annotate(applications=Count('jobapplication', filter=Q(jobapplication__job_post=obj),
-                                   distinct=True)).order_by('phase_order', 'order')
-         .values("uid", "phase", "name", "applications"))
+        return obj.workflow_stage_data()
 
     @staticmethod
     def resolve_alert(obj, context):

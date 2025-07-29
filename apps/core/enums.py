@@ -25,6 +25,13 @@ class BaseEnum(Enum):
                 return i
         return
 
+    @classmethod
+    def from_index(cls, index):
+        for i, x in enumerate(cls):
+            if i == index:
+                return x
+        return
+
 
     @classmethod
     def get(cls, value):

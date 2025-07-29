@@ -1404,7 +1404,7 @@ class UpdateScreeningQuestionTest(TestCase):
             "authorization": f"Bearer {self.business_user.user.token}"
         }
         response = self.client.patch(self.url(self.screening_question.uid), json=self.test_data, headers=headers)
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
 
     def test_update_with_invalid_uid(self):
         headers = {

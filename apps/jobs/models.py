@@ -1,6 +1,6 @@
 from django.core.cache import cache
 from django.db import models
-from django.db.models import F, Q, QuerySet
+from django.db.models import F, Q, QuerySet, Count
 from django.db.models.signals import pre_save
 from django_softdelete.managers import SoftDeleteManager
 from monkeypatches.q_cluster import async_task
@@ -221,6 +221,16 @@ class Job(BaseModel):
         return data
 
 
+    def workflow_stage_data(self):
+        from settings.models import WorkFlowStage
+        business = self.created_by.business
+        return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
+                annotate(applications=Count('jobapplication', filter=Q(jobapplication__job_post__job=self),
+                                            distinct=True)).order_by('phase_order', 'order')
+                .values("uid", "phase", "name", "applications"))
+
+
+
 
 
 class JobPost(BaseModel):
@@ -362,6 +372,15 @@ class JobPost(BaseModel):
                 "count": get_phase_count()
             })
         return data
+
+    def workflow_stage_data(self):
+        from settings.models import WorkFlowStage
+        business = self.job.created_by.business
+        return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
+                annotate(applications=Count("jobapplication", filter=Q(jobapplication__job_post=self),
+                                            distinct=True)).order_by('phase_order', 'order')
+                .values("uid", "phase", "name", "applications")
+                )
 
     def view(self):
         metric, _ = JobPostMetrics.objects.get_or_create(job_post=self)

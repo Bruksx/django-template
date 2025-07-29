@@ -234,7 +234,7 @@ def validate_screening_question_options(question, data, question_type):
         if not question:
             raise HttpError(404, "This question does not exist")
 
-        if question_type in (QuestionTypeEnum.FILE.value, QuestionTypeEnum.TEXT.value):
+        if question_type in (QuestionTypeEnum.FILE.value, QuestionTypeEnum.TEXT.value) and data:
             raise HttpError(400, "This question type does not support options")
 
         question_options = question.questionoption_set.all()
