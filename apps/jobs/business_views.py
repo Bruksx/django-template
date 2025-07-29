@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
@@ -29,11 +30,11 @@ from .models import (
 from .schemas import (
     EmploymentTypeSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
-    TalentListJobPostSchema
+    TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema
 )
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, send_email_on_stage_update, create_job_post_service, \
-    bulk_job_posts_service
+    bulk_job_posts_service, validate_screening_questions, update_screening_question_options
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -289,6 +290,13 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
     additional_languages = data.pop("additional_languages", list())
     skills = data.pop("skills", list())
     business_models = data.pop("business_models", list())
+    logo = data.pop("logo", None)
+
+    if logo:
+        logo_data = JobLogoSchema(**logo)
+        name = logo_data.get_name()
+        data["logo"] = convert_base64_to_image_file(logo_data.base64, name)
+
 
     if not data.get("hiring_company_name"):
         data["hiring_company_name"] = business.name
@@ -324,8 +332,6 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
             if job.availableday_set.filter(day=day).exists():
                 raise HttpError(400, f"{day} already exists")
             AvailableDay.objects.create(**available_day, job=job)
-    if data.get("logo"):
-        data["logo"] = convert_base64_to_image_file(data["logo"])
 
 
     for job_post in job_posts:
@@ -345,6 +351,7 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     business = business_user.business
+    screening_questions = data.pop("screening_questions", list())
     job = Job.objects.filter(uid=job_uid, created_by__business=business_user.business).first()
     if not job:
         raise HttpError(404, "Job not found")
@@ -353,6 +360,8 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
     business_models = data.pop("business_models", list())
     required_attributes = data.pop("required_attributes", None)
     job_posts = data.pop("job_posts", list())
+    availability = data.pop("availability", list())
+    logo = data.pop("logo", None)
     if not data.get("hiring_company_name"):
         data["hiring_company_name"] = business.name
     if not data.get("hiring_company_description"):
@@ -363,24 +372,28 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
         data["lunch_break"] = data["lunch_break"].value
     if data.get("technological_requirement"):
         data["technological_requirement"] = data["technological_requirement"].value
+
+    if logo:
+        logo_data = JobLogoSchema(**logo)
+        name = logo_data.get_name()
+        logging.critical(f"name:  {name}")
+        data["logo"] = convert_base64_to_image_file(logo_data.base64, name)
+
     job.update(**data)
-    if "availability" in data:
-        availability = data.pop("availability")
-        for available_day in availability:
-            available_day["day"] = available_day["day"].value
-            uid =  available_day.pop("uid", None)
-            active = available_day.pop("active", True)
-            if uid and not active:
-                job.availableday_set.filter(uid=uid).delete()
-            elif uid and active:
-                job.availableday_set.filter(uid=uid).update(**available_day)
-            elif not uid:
-                day = available_day['day']
-                if job.availableday_set.filter(day=day).exists():
-                    raise HttpError(400, f"{day} already exists")
-                AvailableDay.objects.create(**available_day, job=job)
-    if data.get("logo"):
-        data["logo"] = convert_base64_to_image_file(data["logo"])
+    for available_day in availability:
+        available_day["day"] = available_day["day"].value
+        uid =  available_day.pop("uid", None)
+        active = available_day.pop("active", True)
+        if uid and not active:
+            job.availableday_set.filter(uid=uid).delete()
+        elif uid and active:
+            job.availableday_set.filter(uid=uid).update(**available_day)
+        elif not uid:
+            day = available_day['day']
+            if job.availableday_set.filter(day=day).exists():
+                raise HttpError(400, f"{day} already exists")
+            AvailableDay.objects.create(**available_day, job=job)
+
     if business_models:
         job.business_models.set(business_models)
     if skills:
@@ -402,6 +415,30 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
     else:
         bulk_job_posts_service(job,  job_posts, business_user)
 
+    if screening_questions:
+        new_questions = (q for q in screening_questions if not q.get("uid"))
+        old_questions = (q for q in screening_questions if q.get("uid"))
+
+        for question in new_questions:
+            question["type"] = question["type"].value
+            options = question.pop("options")
+            question = ScreeningQuestion.objects.create(job=job, **question)
+            QuestionOption.objects.bulk_create([QuestionOption(**option, question=question) for option in options])
+
+        for question_data in old_questions:
+            question = ScreeningQuestion.objects.filter(uid=question_data.get("uid")).first()
+            _, error = validate_screening_questions(question, question_data)
+            if error:
+                logging.critical(error, exc_info=True)
+                raise error
+            if "type" in question_data:
+                question_data["type"] = question_data["type"].value
+            question.update(**question_data)
+            options_data = [MutateOptionSchema(**o) for o in question_data["options"]]
+            _, error = update_screening_question_options(question, options_data)
+            if error:
+                logging.critical(error, exc_info=True)
+                raise error
     return job
 
 
@@ -544,22 +581,11 @@ def update_screening_question(request, question_uid:UUID, question: PatchDict[jo
     IsBusinessUser.check(request)
     _question = ScreeningQuestion.objects.filter(uid=question_uid,
             job__created_by__business=request.user.businessuser.business).first()
-    if not _question:
-        raise HttpError(404, "This question does not exist")
-
+    _, error = validate_screening_questions(_question, question)
+    if error:
+        raise error
     if "type" in question:
         question["type"] = question["type"].value
-        options = [job_schemas.QuestionOptionSchema.from_orm(option).dict() for option in _question.options()]
-        if options and question["type"] in (QuestionTypeEnum.FILE.value, QuestionTypeEnum.TEXT.value):
-            raise HttpError(400, "This question type does not support options")
-        if question["type"] == QuestionTypeEnum.SINGLE_SELECT.value:
-            correct_option = [option for option in options if option["is_accepted"]]
-            if len(correct_option) != 1:
-                raise HttpError(400, "Single select question must have exactly one correct option")
-        if question["type"] == QuestionTypeEnum.MULTI_SELECT.value:
-            correct_options = [option for option in options if option["is_accepted"]]
-            if len(correct_options) < 2:
-                raise HttpError(400, "Multiple select question must have at least two correct options")
     _question.update(**question)
     return _question
 
@@ -570,34 +596,10 @@ def mutate_options_in_screening_questions(request, question_uid:UUID, data: List
     IsBusinessUser.check(request)
     question = ScreeningQuestion.objects.filter(uid=question_uid,
                                                 job__created_by__business=request.user.businessuser.business).first()
-    if not question:
-        raise HttpError(404, "This question does not exist")
-    if question.type in (QuestionTypeEnum.FILE.value, QuestionTypeEnum.TEXT.value):
-        raise HttpError(400, "This question type does not support options")
-    question_options = question.options().all()
-    new_options = [option for option in data if not option.uid]
-    changing_options = [option for option in data if option.uid]
-    changing_options_id = (option.uid for option in changing_options)
-    existing_options = question_options.exclude(uid__in=changing_options_id)
-    if question.type == QuestionTypeEnum.SINGLE_SELECT.value:
-        new_correct_option = [option for option in new_options if option.is_accepted]
-        changing_correct_option = [option for option in changing_options if option.is_accepted]
-        correct_option = new_correct_option + changing_correct_option
-        if (len(correct_option) + existing_options.filter(is_accepted=True).count()) != 1:
-            raise HttpError(400, "Single select question must have exactly one correct option")
-    if question.type == QuestionTypeEnum.MULTI_SELECT.value:
-        new_correct_options = [option for option in new_options if option.is_accepted]
-        changing_correct_options = [option for option in changing_options if option.is_accepted]
-        correct_options = new_correct_options + changing_correct_options
-        if (len(correct_options) + existing_options.filter(is_accepted=True).count()) < 2:
-            raise HttpError(400, "Multiple select question must have at least two correct options")
-    for option in data:
-        if not option.uid:
-            opt_data = option.dict()
-            opt_data.pop("uid", None)
-            QuestionOption.objects.create(question=question, **opt_data)
-        else:
-            question.questionoption_set.filter(uid=option.uid).update(**option.dict())
+
+    question, error = update_screening_question_options(question, data)
+    if error:
+        raise error
     return question
 
 @router.delete("screening-questions/{question_uid}/options", auth=JWTAuth(), tags=["Screening Test"],

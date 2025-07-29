@@ -9,6 +9,7 @@ from accounts.models import Department, Role, Skill, SkillCategory, Talent, Busi
 from accounts.schemas.business import BusinessUserListSchema
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
 from django.db.models import QuerySet, Q, Count
+from django.utils import timezone
 from ninja import ModelSchema
 from ninja.errors import HttpError
 from ninja.schema import Schema
@@ -178,6 +179,16 @@ class MutateOptionSchema(ModelSchema):
         fields = ["is_accepted", "text"]
 
 
+class MutateQuestionSchema(ModelSchema):
+    uid: Optional[UUID] = None
+    type: Optional[QuestionTypeEnum] = None
+    options: List[MutateOptionSchema] = None
+
+    class Meta:
+        model = ScreeningQuestion
+        fields = ["type", "text", "is_knockout"]
+
+
 class ScreeningAnswerSchema(ModelSchema):
     question: QuestionSchema
     options: Optional[List[QuestionOptionSchema]] = None
@@ -263,6 +274,19 @@ class CreateJobSchema(ModelSchema):
             *MUTATE_EXCLUDE_FIELDS, "business_models", "created_by","uid"]
         fields_optional = "__all__"
 
+class JobLogoSchema(Schema):
+    base64: str
+    content_type: Literal['image/jpg', 'image/png', 'image/jpeg', 'image/gif']
+    name: Optional[str] = None
+
+
+    def get_name(self):
+        if not self.name:
+            self.name = f"job-logo-{str(timezone.now().timestamp()).split('.')[0]}"
+        name = str(self.name).strip().replace(" ", "-")
+        content_type = self.content_type.split("/")[-1] if "/" in self.content_type else self.content_type
+        return name if name.split(".")[-1] in ("jpg", "jpeg", "gif", "png") else f"{name}.{content_type}"
+
 class OptionalCreateJobSchema(ModelSchema):
     employment_type: Optional[UUID] = None
     availability: Optional[List[MutateJobAvailableDaySchema]] = None
@@ -277,6 +301,7 @@ class OptionalCreateJobSchema(ModelSchema):
     role: Optional[UUID] = None
     skills: Optional[List[UUID]] = None
     job_level: Optional[UUID] = None
+    logo: Optional[JobLogoSchema] = None
     business_models: Optional[List[UUID]] = None
     minimum_education_level: Optional[UUID] = None
     responsibilities: Optional[List[str]] = None
@@ -306,6 +331,7 @@ class UpdateJobSchema(ModelSchema):
     role: Optional[UUID] = None
     skills: List[Optional[UUID]] = None
     job_level: Optional[UUID] = None
+    logo: Optional[JobLogoSchema] = None
     business_models: Optional[List[UUID]] = None
     minimum_education_level: Optional[UUID] = None
     responsibilities: Optional[List[str]] = None
@@ -314,6 +340,7 @@ class UpdateJobSchema(ModelSchema):
     additional_hours_start: Optional[str] = None
     additional_hours_end: Optional[str] = None
     job_posts : List[UpdateJobPostSchema]  = []
+    screening_questions: List[MutateQuestionSchema]
 
     class Meta:
         model = Job
