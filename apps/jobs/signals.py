@@ -75,7 +75,7 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
                     current_timeline += subtracted_days
                     setattr(instance, current_attribute, current_timeline)
 
-        elif application_stage and not stage:
+        elif application_stage and not stage and application_stage.phase != PhaseType.REJECTED.value:
             subtracted_days = 0
             index = phases.index(application_stage.phase)
             for i in (index, -1, -1):

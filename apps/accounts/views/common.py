@@ -3,6 +3,8 @@ from typing import List
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+
+from helpers.email.accounts import send_customer_case_email
 from helpers.email.auth import send_verification_code
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
@@ -59,6 +61,9 @@ def create_customer_case(request, data:common_schemas.MutateCustomerCaseSchema):
     if user.customercase_set.filter(**data).exists():
         raise HttpError(400, "Case already exists")
     CustomerCase.objects.create(**data, user=user).save()
+    async_task(send_customer_case_email, user, data["reason"],
+               data["subject"], data["description"])
+
     return Response(status=200, data={"message": "Case created successfully"})
 
 @router.get("customer-cases", auth=JWTAuth(), response=List[common_schemas.CustomerCaseSchema])

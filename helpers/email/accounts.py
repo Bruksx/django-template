@@ -17,3 +17,11 @@ def send_business_user_welcome_email(email:str, user:str, business:str, lang="en
     html_file = f"accounts/{lang}/business_user_welcome.html"
     html_content = render_html_email(html_file, context)
     send_email(subject=f"Welcome to {business}", emails=[email], html_body=html_content)
+
+
+def send_customer_case_email(sender,reason: str, subject:str, description, lang="en"):
+    context = {'sender': sender.fullname, 'email': sender.email, 'account_type': sender.type,
+               'reason': reason, 'description': description}
+    html_file = f"accounts/{lang}/customer_case_email.html"
+    html_content = render_html_email(html_file, context)
+    send_email(subject=subject, emails=["contact@1840andco.com"], html_body=html_content)
