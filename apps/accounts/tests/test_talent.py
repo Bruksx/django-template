@@ -275,16 +275,16 @@ class UpdateTalentProfileTests(TestCase):
         data = {
             "visible": False,
             "bio": "hello",
-            "work_model": "hybrid",
-            "employment_type": str(employment_type)
+            "work_models": ["hybrid"],
+            "employment_types": [str(employment_type)]
         }
         response = self.client.patch(path=self.url, json=data, headers=headers)
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.assertFalse(self.talent.visible)
         self.assertEqual(self.talent.bio, "hello")
-        self.assertEqual(self.talent.work_model, "hybrid")
-        self.assertEqual(self.talent.employment_type.uid, employment_type)
+        self.assertIn("hybrid", self.talent.work_models)
+        self.assertEqual(self.talent.employment_types.first().uid, employment_type)
         data = {
             "visible": False,
             "bio": ""

@@ -163,7 +163,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         ),
         work_structure_score=Case(
             When(
-                Q(job__work_structure=talent.work_model),
+                Q(job__work_structure__in=talent.work_models),
                 then=Value(6.67)
             ),
             default=Value(0.0),
@@ -281,7 +281,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             When(Q(requires_job_level=True) & Q(has_matching_experience=False), then=Value(0.0)),
             When(Q(requires_experience=True) & Q(meets_experience=False), then=Value(0.0)),
             When(Q(requires_minimum_education=True) & Q(has_minimum_education_requirement=False), then=Value(0.0)),
-            When(Q(requires_work_structure=True) & Q(job__work_structure=talent.work_model), then=Value(0.0)),
+            When(Q(requires_work_structure=True) & Q(job__work_structure__in=talent.work_models), then=Value(0.0)),
             When(Q(requires_tech_requirements=True) & Q(meets_tech_requirements=False), then=Value(0.0)),
             When(Q(missing_work_schedule=True), then=Value(0.0)),
             default=ExpressionWrapper(
