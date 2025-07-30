@@ -158,6 +158,7 @@ class TalentUserSchema(ModelSchema):
     role: Optional[RoleSchema]
     country: Optional[CountrySchema]
     employment_types: Optional[List[EmploymentTypeSchema]]
+    work_models: Optional[List[WorkStructureEnum]]
     skills: List[TalentSkillSchema]
     business_models: List[BusinessModelSchema]
     experience_history: List[ExperienceSchema]
