@@ -17,6 +17,7 @@ class UserSchema(ModelSchema):
     is_new: bool
     business_role: Optional[str]
     business_user_uid: Optional[UUID]
+    phone_number: Optional[str] = Field(alias="get_phone")
 
     class Meta:
         model = User
@@ -51,6 +52,7 @@ class UserSchema(ModelSchema):
 
 class UserListSchema(UserSchema):
     photo_url: Optional[str]
+    phone_number: Optional[str] = Field(alias="get_phone")
     class Meta:
         model = User
         fields = ['uid', 'email', 'first_name', 'last_name', 'type', "phone_number"]
@@ -87,6 +89,7 @@ class ChangePasswordSchema(Schema):
 class ChangePhoneSchema(Schema):
     password: str
     phone_number : str
+    phone_code: Optional[str] = None
 
 class CompanyListSchema(ModelSchema):
     logo: Optional[str] = Field(alias="get_logo")
