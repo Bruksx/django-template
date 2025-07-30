@@ -682,7 +682,7 @@ class JobApplication(BaseModel):
         elif placeholder == PlaceHolderType.CANDIDATE_PHONE_NUMBER.value:
             if not self.applicant:
                 return ""
-            return self.applicant.user.phone_number
+            return self.applicant.user.get_phone()
         else:
             return ""
 

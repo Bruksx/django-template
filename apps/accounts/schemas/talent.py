@@ -98,6 +98,7 @@ class UpdateTalentProfileSchema2(Schema):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     preferred_communication: Optional[PreferredCommunicationType|str] = None
+    phone_code: Optional[str] = None
     phone_number: Optional[str] = None
     country: Optional[UUID] = None
     state: Optional[str] = None
@@ -137,9 +138,12 @@ class ValidateTalentOTPSchema(UpdateTalentProfileSchema):
 
 
 class UserSchema(ModelSchema):
+    phone_number: Optional[str] = None
+    phone_code: Optional[str] = None
+
     class Meta:
         model = User
-        fields = ["uid", "email", "first_name", "last_name", "phone_number",
+        fields = ["uid", "email", "first_name", "last_name", "phone_number", "phone_code",
                   "gender"]
 
 class LoggedInUserSchema(UserSchema):
@@ -193,7 +197,8 @@ class TalentResumeSchema(ModelSchema):
     photo_url: Optional[str]
     name: str = Field(alias="user.fullname")
     email: EmailStr = Field(alias="user.email")
-    phone_number: str = Field(alias="user.phone_number")
+    phone_number: Optional[str] = None
+    phone_code: Optional[str] = None
     bio: str
     address: str
     languages: str
@@ -252,7 +257,8 @@ class TalentUserListSchema(ModelSchema):
     user_uid: UUID = Field(alias="user.uid")
     role: Optional[RoleSchema]
     country: Optional[CountrySchema]
-    phone_number: Optional[str] = Field(alias="user.phone_number")
+    phone_number: Optional[str] = None
+    phone_code: Optional[str] = None
     photo_url:Optional[str]
     cv_url:Optional[str]
     class Meta:

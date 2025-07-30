@@ -65,6 +65,7 @@ def create_account(request, data: business_schema.ValidateOTPSchema):
         username=None,
         email_verified=True,
         phone_number=data.phone_number,
+        phone_code=data.phone_code
     )
     user.set_password(data.password)
     user.save()

@@ -889,7 +889,7 @@ class JobApplicationListSchema(ModelSchema):
     applicant_location: Optional[str] = Field(None, alias="applicant.get_country")
     applicant_photo:Optional[str] = Field(alias="applicant.photo_url")
     applicant_email: str = Field(alias="applicant.user.email")
-    applicant_phone: Optional[str] = Field(alias="applicant.user.phone_number")
+    applicant_phone: Optional[str] = Field(alias="applicant.user.get_phone")
     applicant_country: Optional[GenericNameAndUidSchema] = Field(alias="applicant.country")
     applicant_cv_url: Optional[str]
     applicant_linkedin_url: Optional[str] = Field(alias="applicant.linkedin")
@@ -1246,7 +1246,8 @@ class TalentListJobPostSchema(ModelSchema):
     last_name: str = Field(alias="user.last_name")
     user_uid: UUID = Field(alias="user.uid")
     email: EmailStr = Field(alias="user.email")
-    phone_number: Optional[str] = Field(alias="user.phone_number")
+    phone_number: Optional[str] = Field(None, alias="user.phone_number")
+    phone_code: Optional[str] = Field(None, alias="user.phone_code")
     photo_url: Optional[str]
     cv_url: Optional[str]
     match_score: Optional[int]

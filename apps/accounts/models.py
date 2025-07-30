@@ -69,6 +69,7 @@ class User(AbstractUser, BaseModel):
 
     gender = models.CharField(max_length=100, choices=GenderType.choices(), default=GenderType.OTHERS.value)
     phone_number = models.CharField(max_length=50, null=True)
+    phone_code = models.CharField(max_length=50, null=True)
     email = models.EmailField(unique=True, null=True)
     email_verified = models.BooleanField(default=False)
     type = models.CharField(max_length=50, null=True, choices=UserType.choices())
@@ -91,6 +92,13 @@ class User(AbstractUser, BaseModel):
 
     def __str__(self) -> str:
         return f"{self.get_full_name()}"
+
+    def get_phone(self):
+        if not self.phone_number:
+            return
+        if self.phone_code:
+            return f"+{self.phone_code} {self.phone_number}"
+        return self.phone_number
 
     @property
     def notification_group_name(self):

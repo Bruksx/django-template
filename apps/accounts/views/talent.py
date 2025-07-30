@@ -147,6 +147,8 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
         data["photo"] = convert_base64_to_image_file(data["photo"])
     if "phone_number" in data:
         user_data["phone_number"] = data.pop("phone_number")
+    if "phone_code" in data:
+        user_data["phone_code"] = data.pop("phone_code")
     if "skills" in data and data["skills"]:
         talent_user.skills.set(data.pop("skills"))
     if "business_models" in data and data["business_models"]:

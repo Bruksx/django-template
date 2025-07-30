@@ -121,6 +121,7 @@ def phone_number_change(request, data: common_schemas.ChangePhoneSchema):
     if not user.check_password(data.password):
         raise HttpError(400, "Incorrect password")
     user.phone_number = data.phone_number
+    user.phone_code  = data.phone_code
     user.save()
     return Response(data={"message": "phone number changed successfully"})
 
