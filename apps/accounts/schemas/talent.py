@@ -138,6 +138,9 @@ class ValidateTalentOTPSchema(UpdateTalentProfileSchema):
 
 
 class UserSchema(ModelSchema):
+    phone_number: Optional[str] = None
+    phone_code: Optional[str] = None
+
     class Meta:
         model = User
         fields = ["uid", "email", "first_name", "last_name", "phone_number", "phone_code",
@@ -254,8 +257,8 @@ class TalentUserListSchema(ModelSchema):
     user_uid: UUID = Field(alias="user.uid")
     role: Optional[RoleSchema]
     country: Optional[CountrySchema]
-    phone_number: Optional[str]
-    phone_code: Optional[str]
+    phone_number: Optional[str] = None
+    phone_code: Optional[str] = None
     photo_url:Optional[str]
     cv_url:Optional[str]
     class Meta:

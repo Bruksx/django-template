@@ -1246,8 +1246,8 @@ class TalentListJobPostSchema(ModelSchema):
     last_name: str = Field(alias="user.last_name")
     user_uid: UUID = Field(alias="user.uid")
     email: EmailStr = Field(alias="user.email")
-    phone_number: Optional[str]
-    phone_code: Optional[str]
+    phone_number: Optional[str] = Field(None, alias="user.phone_number")
+    phone_code: Optional[str] = Field(None, alias="user.phone_code")
     photo_url: Optional[str]
     cv_url: Optional[str]
     match_score: Optional[int]

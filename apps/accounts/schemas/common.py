@@ -17,7 +17,8 @@ class UserSchema(ModelSchema):
     is_new: bool
     business_role: Optional[str]
     business_user_uid: Optional[UUID]
-    phone_number: Optional[str]
+    phone_number: Optional[str] = None
+    phone_code: Optional[str] = None
 
     class Meta:
         model = User
@@ -51,8 +52,9 @@ class UserSchema(ModelSchema):
         return False
 
 class UserListSchema(UserSchema):
-    photo_url: Optional[str]
-    phone_number: Optional[str]
+    photo_url: Optional[str] = None
+    phone_number: Optional[str] = None
+    phone_code: Optional[str] = None
     class Meta:
         model = User
         fields = ['uid', 'email', 'first_name', 'last_name', 'type', "phone_number", "phone_code"]
