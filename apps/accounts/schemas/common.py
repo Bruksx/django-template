@@ -17,11 +17,11 @@ class UserSchema(ModelSchema):
     is_new: bool
     business_role: Optional[str]
     business_user_uid: Optional[UUID]
-    phone_number: Optional[str] = Field(alias="get_phone")
+    phone_number: Optional[str]
 
     class Meta:
         model = User
-        fields = ['uid', 'email', 'first_name', 'last_name', 'type', 'phone_number']
+        fields = ['uid', 'email', 'first_name', 'last_name', 'type', 'phone_number', 'phone_code']
     
     @staticmethod
     def resolve_has_set_password(obj):
@@ -52,10 +52,10 @@ class UserSchema(ModelSchema):
 
 class UserListSchema(UserSchema):
     photo_url: Optional[str]
-    phone_number: Optional[str] = Field(alias="get_phone")
+    phone_number: Optional[str]
     class Meta:
         model = User
-        fields = ['uid', 'email', 'first_name', 'last_name', 'type', "phone_number"]
+        fields = ['uid', 'email', 'first_name', 'last_name', 'type', "phone_number", "phone_code"]
 
 class RegisterSchema(Schema):
     email: str

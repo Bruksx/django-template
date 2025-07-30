@@ -194,7 +194,8 @@ class TalentResumeSchema(ModelSchema):
     photo_url: Optional[str]
     name: str = Field(alias="user.fullname")
     email: EmailStr = Field(alias="user.email")
-    phone_number: Optional[str] = Field(alias="user.get_phone")
+    phone_number: Optional[str] = None
+    phone_code: Optional[str] = None
     bio: str
     address: str
     languages: str
@@ -253,7 +254,8 @@ class TalentUserListSchema(ModelSchema):
     user_uid: UUID = Field(alias="user.uid")
     role: Optional[RoleSchema]
     country: Optional[CountrySchema]
-    phone_number: Optional[str] = Field(alias="user.get_phone")
+    phone_number: Optional[str]
+    phone_code: Optional[str]
     photo_url:Optional[str]
     cv_url:Optional[str]
     class Meta:
