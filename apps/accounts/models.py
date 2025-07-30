@@ -209,10 +209,10 @@ class Talent(BaseModel):
     city = models.CharField(max_length=64, null=True)
     address = models.CharField(max_length=128, null=True)
     postal_code = models.CharField(max_length=20, null=True)
-    employment_type = models.ForeignKey("jobs.EmploymentType", on_delete=models.SET_NULL, null=True)
+    employment_types = models.ManyToManyField('jobs.EmploymentType', blank=True)
     visible = models.BooleanField(default=True)
     preferred_communication = models.CharField(max_length=64, null=True)
-    work_model = models.CharField(max_length=64, null=True, choices=WorkStructureEnum.choices())
+    work_models = models.JSONField(default=list)
     bio = models.TextField(null=True)
     notice_period = models.IntegerField(null=True)
     instagram = models.URLField(null=True)
@@ -298,36 +298,6 @@ class Talent(BaseModel):
         from jobs.models import AvailableDay, JobPost, Job
         from jobs.queries import add_job_post_annotations
 
-        experiences = self.experience_set.only("level_id", "employment_type_id", "role_id")
-        job_level_ids = experiences.values_list("level_id", flat=True)
-        years_of_experience = int(self.years_of_experience)
-        education_level_ids = self.education_set.only("level_id").values_list("level_id", flat=True)
-        business_model_ids = self.business_models.only("id").values_list("id", flat=True)
-        role_ids=experiences.values_list("role_id", flat=True)
-        additional_language_ids = self.additional_languages.only("id").values_list("id", flat=True)
-        skill_ids = self.skills.only("id").values_list("id", flat=True)
-
-        working_hours_query = self.availability_query()
-
-        # Build base filters
-        """filters = [
-            Q(requiredattribute__job_level=True, job_level_id__in=job_level_ids),
-            Q(requiredattribute__minimum_education_level=True, minimum_education_level_id__in=education_level_ids),
-            Q(requiredattribute__business_models__id__in=business_model_ids),
-            Q(requiredattribute__role=True, role_id__in=role_ids),
-            Q(requiredattribute__work_structure=True, work_structure=self.work_model),
-            Q(requiredattribute__years_of_experience=True, years_of_experience=years_of_experience),
-            Q(requiredattribute__first_language=True, first_language=self.native_language),
-            Q(requiredattribute__secondary_language=True, additional_languages__id__in=additional_language_ids),
-            Q(requiredattribute__working_hours=True, availableday__in=AvailableDay.objects.filter(working_hours_query)),
-            Q(requiredattribute__location=True, jobpost__country=self.country),
-            Q(requiredattribute__skills__id__in=skill_ids),
-        ]
-
-        # Combine all filters using OR
-        job_matching_query = Q()
-        for f in filters:
-            job_matching_query |= f"""
         
         job_matching_query = Q()
 
@@ -385,7 +355,7 @@ class Talent(BaseModel):
             score -= 1
         if required_attribute.secondary_language and job.additional_languages.intersection(self.additional_languages.all()).count() == 0:
             score -= 1
-        if required_attribute.work_structure and self.work_model != job.work_structure:
+        if required_attribute.work_structure and job.work_structure not in self.work_models:
             score -= 1
         if required_attribute.working_hours:
             working_hours_query = self.availability_query()

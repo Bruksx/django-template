@@ -124,7 +124,7 @@ class TalentFactory(BaseModelFactory):
     user = factory.SubFactory(UserFactory)
     country = factory.SubFactory(CountryFactory)
     preferred_communication = factory.Iterator(PreferredCommunicationType.values())
-    work_model = factory.Iterator(WorkStructureEnum.values())
+
 
     @factory.post_generation
     def education(self, create, extracted, **kwargs):

@@ -306,12 +306,12 @@ class TalentListTest(TestCase):
         country = CountryFactory.create(name="New York")
 
         talent = TalentFactory.create(user=UserFactory(first_name="John"), country=country, notice_period=5,
-                                                       work_model=WorkStructureEnum.REMOTE.value,
+                                                       work_models=[WorkStructureEnum.REMOTE.value],
                                                        native_language=language)
         talent2 = TalentFactory.create(user=UserFactory(first_name="Jane"), country=country, notice_period=6,
-                                                        work_model=WorkStructureEnum.REMOTE.value)
+                                                        work_models=[WorkStructureEnum.REMOTE.value])
         TalentFactory.create(user=UserFactory(first_name="John"), notice_period=18,
-                                                        work_model=WorkStructureEnum.HYBRID.value)
+                                                        work_models=[WorkStructureEnum.HYBRID.value])
         EducationFactory(level=educational_level, talent=talent)
         EducationFactory(level=educational_level, talent=talent2)
 

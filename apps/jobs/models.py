@@ -337,7 +337,7 @@ class JobPost(BaseModel):
             query = get_query(Q(education__level=job.minimum_education_level))
 
         if required_attribute.work_structure and job.work_structure:
-            query = get_query(Q(work_model=job.work_structure))
+            query = get_query(Q(work_models__contains=[job.work_structure]))
 
         if required_attribute.first_language:
             query = get_query(Q(native_language=job.first_language))
@@ -466,7 +466,7 @@ class JobPost(BaseModel):
                 if (education > 0 and weak is False) or (education == 0 and weak is True):
                     data["minimum_education_level"] = job.minimum_education_level
             elif attribute == "work_structure":
-                fits = talent.work_model == job.work_structure
+                fits = job.work_structure in talent.work_models
                 if not fits:
                     score -= 1
                 if (fits and weak is False) or (not fits and weak is True):

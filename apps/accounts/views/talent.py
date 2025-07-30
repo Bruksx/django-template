@@ -121,8 +121,11 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
     if "gender" in data:
         data["gender"] = data["gender"].value if type(data["gender"]) is not str else data["gender"]
 
-    if "work_model" in data:
-        data["work_model"] = data["work_model"].value if type(data["work_model"]) is not str else data["work_model"]
+    if "work_models" in data:
+        wm_func = lambda x: x.value if type(x) is not str else x
+        if data["work_models"] is not None:
+            data["work_models"] = list(map(wm_func, data["work_models"]))
+
 
     if "preferred_communication" in data:
         data["preferred_communication"] = data["preferred_communication"].value if type(data["preferred_communication"]) is not str else data["preferred_communication"]
@@ -185,9 +188,19 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
                 education  = Education.objects.create(**education, talent=talent_user)
                 uids.append(education.uid)
         talent_user.education_set.exclude(uid__in=uids).hard_delete()
-    if "additional_languages" in data and data["additional_languages"]:
-        additional_languages = data.pop("additional_languages")
-        talent_user.additional_languages.set(additional_languages)
+    if "additional_languages" in data:
+        additional_languages = data.pop("additional_languages", list())
+        if additional_languages:
+            talent_user.additional_languages.set(additional_languages)
+        else:
+            talent_user.additional_languages.clear()
+    if "employment_types" in data:
+        employment_types = data.pop("employment_types", list())
+        if employment_types:
+            talent_user.employment_types.set(employment_types)
+        else:
+            talent_user.employment_types.clear()
+
     if "availability" in data and data["availability"]:
         for available_day in data.pop("availability"):
             available_day["day"] = available_day["day"].value

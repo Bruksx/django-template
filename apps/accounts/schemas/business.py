@@ -344,7 +344,7 @@ class TalentFilterQuerySchema(ModelSchema):
                 "talent_id").values_list("talent_id", flat=True)
             queryset = queryset.filter(id__in=ids)
         if self.work_structure:
-            queryset = queryset.filter(work_model=self.work_structure.value)
+            queryset = queryset.filter(work_models__contains=[self.work_structure.value])
         if self.skills:
             queryset = queryset.filter(skills__uid__in=self.skills)
         if self.maximum_notice_period:

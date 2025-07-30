@@ -103,10 +103,10 @@ class UpdateTalentProfileSchema2(Schema):
     state: Optional[str] = None
     city: Optional[str] = None
     role: Optional[UUID] = None
-    employment_type: Optional[UUID] = None
+    employment_types: Optional[List[UUID]] = None
     postal_code: Optional[str] = None
     whatsapp_number: Optional[str] = None
-    work_model: Optional[WorkStructureEnum|str] = None
+    work_models: Optional[List[WorkStructureEnum|str]] = None
     viber_number: Optional[str] = None
     address: Optional[str] = None
     gender: Optional[GenderType] = None
@@ -157,7 +157,8 @@ class TalentUserSchema(ModelSchema):
     user: UserSchema
     role: Optional[RoleSchema]
     country: Optional[CountrySchema]
-    employment_type: Optional[EmploymentTypeSchema]
+    employment_types: Optional[List[EmploymentTypeSchema]]
+    work_models: Optional[List[WorkStructureEnum]]
     skills: List[TalentSkillSchema]
     business_models: List[BusinessModelSchema]
     experience_history: List[ExperienceSchema]
