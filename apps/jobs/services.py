@@ -204,8 +204,6 @@ def send_email_on_stage_update(application:JobApplication, business_user_email, 
         return
     if previous_stage == application.stage:
         return
-    if application.stage.email_template:
-        return
     if not application.stage.email_template:
         return
     context = application.get_email_context()
