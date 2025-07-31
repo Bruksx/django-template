@@ -252,12 +252,14 @@ def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
     if not job_post:
         raise HttpError(404, "Job Post not found")
     request.context = dict(job_post=job_post)
+
     query = Q()
     if search:
-        query = (Q(user__first_name__icontains=search) |
-                 Q(user__last_name__icontains=search)|
-                 Q(user__email__icontains=search)
-        )
+        q = Q()
+        for s in search.split(" "):
+            if s:
+                q = q | Q(user__fullname__icontains=s) | Q(user__email__icontains=s)
+        query = query & q
     talents = job_post.get_talents()
     send_talents_job_matching_notification(talents.count(), job_post)
     return talents.filter(query).order_by("-user__last_login")
@@ -475,16 +477,18 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
 "match", "created_at", "stage", "phase", "experience", "invited"]]=None, asc:bool=True, search:str="", invited:Optional[bool]=None):
     IsBusinessUser.check(request)
     business = request.user.businessuser.business
-    queryset = JobApplication.objects.annotate(invited=Exists(Subquery(JobInvite.objects.filter(
+    queryset = JobApplication.objects.select_related("stage", "applicant", "applicant__user",
+                                                     "applicant__country").annotate(invited=Exists(Subquery(JobInvite.objects.filter(
             job=OuterRef('job_post__job'), talent=OuterRef('applicant')
         )))).filter(job_post__uid=job_post_uid, recruiter__business=business,
                                              applicant__deleted_at__isnull=True)
     if search:
-        queryset = queryset.filter(Q(
-            Q(applicant__user__fullname__icontains=search)|
-            Q(applicant__country__name__icontains=search)|
-            Q(applicant__user__email__icontains=search)
-        )).distinct()
+        q = Q()
+        for s in search.split(" "):
+            if s:
+                q = q | Q(applicant__user__fullname__icontains=s) | Q(applicant__user__email__icontains=s) | Q(applicant__country__name__icontains=s)
+
+        queryset = queryset.filter(q).distinct()
     if phase:
         queryset = queryset.filter(stage__phase=phase.value)
     if stage:

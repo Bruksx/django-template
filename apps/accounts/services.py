@@ -1,4 +1,4 @@
-from accounts.models import BusinessUser, CustomerCase
+from accounts.models import BusinessUser
 
 
 def create_business_workflows(business_id):
@@ -14,6 +14,9 @@ def create_business_workflows(business_id):
         if not workflow:
             WorkFlowStage.objects.create(created_by=business_user, phase=phase, name=phase, phase_order=phases.index(phase))
     return
+
+
+
 
 
 

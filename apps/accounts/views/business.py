@@ -26,7 +26,8 @@ from notification import notifications
 from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
-from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema, TalentFilterListSchema
+from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema, TalentFilterListSchema, \
+    SendBulkChatSchema
 from ..services import create_business_workflows
 
 router = Router(tags=["Business Account"])
@@ -182,9 +183,12 @@ def get_business_users(request, search: str = "", role: BusinessUserRoleType = N
     business = request.user.businessuser.business
     query = Q()
     if search:
-        query = (Q(user__first_name__icontains=search)
-                 | Q(user__last_name__icontains=search)|
-                 Q(user__email__icontains=search))
+        q = Q()
+        for s in search.split(" "):
+            if s:
+                q = q | Q(user__fullname__icontains=s) | Q(user__email__icontains=s)
+        query = query & q
+
     if role:
         query = query & Q(role=role.value)
     return business.businessuser_set.filter(query).order_by("user__first_name", "user__last_name")
@@ -442,9 +446,18 @@ def get_business_industries(request):
 @router.post("email-talents", auth=JWTAuth())
 def send_email_to_talents(request, data:SendEmailSchema=Form(), attachments: List[UploadedFile]=None):
     IsBusinessUser.check(request)
-    async_task(send_email, subject=data.subject, emails=data.emails, plain_body=data.body, attachments=attachments,
+    async_task(send_email, subject=data.subject, emails=data.emails[0].split(","), plain_body=data.body, attachments=attachments,
                from_user=data.from_email)
     return Response(status=200, data={"message": "Email sent successfully"})
+
+@router.post("message-talents", auth=JWTAuth())
+def send_bulk_chat_message_to_talents(request, data:SendBulkChatSchema=Form(), attachments: List[UploadedFile]=None):
+    from chats.services import send_bulk_chat_message
+    IsBusinessUser.check(request)
+    async_task(send_bulk_chat_message, message=f'{data.subject}\n\n{data.body}', talent_uids=map(UUID,data.talent_uids[0].split(","))
+               , attachments=attachments or list(),
+               business_user_id=request.user.id)
+    return Response(status=200, data={"message": "Bulk Messages sent successfully"})
 
 
 @router.post("talents-filters", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentFilterSchema)

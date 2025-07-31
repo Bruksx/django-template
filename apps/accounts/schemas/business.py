@@ -312,6 +312,11 @@ class SendEmailSchema(Schema):
     body : str
     from_email: str
 
+class SendBulkChatSchema(Schema):
+    talent_uids: List[str] = Field(description="List of talent UIDs")
+    subject: str
+    body : str
+
 class TalentFilterQuerySchema(ModelSchema):
     role: Optional[UUID] = Field(None, description="Role UID")
     industry: Optional[UUID] = Field(None, description="Industry UID")
