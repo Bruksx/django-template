@@ -1,5 +1,4 @@
 EDUCATION_LEVEL = [
-    {"industry": "General Industries", "education": "None"},
     {"industry": "General Industries", "education": "Associates"},
     {"industry": "General Industries", "education": "Bachelors"},
     {"industry": "General Industries", "education": "Masters"},

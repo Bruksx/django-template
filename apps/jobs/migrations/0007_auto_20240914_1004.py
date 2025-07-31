@@ -28,7 +28,7 @@ EMPLOYMENT_TYPES = [
                 "children":[]
             },
             {
-                "name":"Your Entity",
+                "name":"Own Entity",
                 "description":None,
                 "children":[]
             }

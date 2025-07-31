@@ -87,9 +87,24 @@ class AddAttachmentsToEmailTemplateSchema(Schema):
 
 
 class EmailTemplateListSchema(ModelSchema):
+    in_use: bool
+    can_be_deleted: Optional[bool] = None
     class Meta:
         model = EmailTemplate
         fields = ("uid", "name", "personal","created_at")
+
+    @staticmethod
+    def resolve_can_be_deleted(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        business_user = request.context.get("business_user")
+        if not business_user:
+            return None
+        return obj.can_be_deleted(business_user)
+
 
 class EmailTemplateAttachmentSchema(ModelSchema):
     url: Optional[str] = Field(alias="file_url")
@@ -108,6 +123,20 @@ class EmailTemplateDetailSchema(ModelSchema):
     bcc: List[EmailStr]
     cc: List[EmailStr]
     attachments: List[EmailTemplateAttachmentSchema]
+    in_use: bool
+    can_be_deleted: Optional[bool] = None
+
+    @staticmethod
+    def resolve_can_be_deleted(obj, context):
+        request = context.get("request")
+        if not request:
+            return
+        if not hasattr(request, "context"):
+            return
+        business_user = request.context.get("business_user")
+        if not business_user:
+            return None
+        return obj.can_be_deleted(business_user)
 
     class Meta:
         model = EmailTemplate
