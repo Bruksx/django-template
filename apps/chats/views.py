@@ -39,10 +39,11 @@ def get_chats(request, search:str=""):
     ).order_by('null_order', '-last_message_time')
 
     if search:
-        queryset = queryset.filter(Q(message__body__icontains=search)|
-                                   Q(users__first_name__icontains=search)|
-                                   Q(users__last_name__icontains=search)
-                                   )
+        q = Q()
+        for s in search.split(" "):
+            if s:
+                q = q | Q(users__fullname__icontains=s) | Q(message_body__icontains=s)
+        queryset = queryset.filter(q)
 
     return queryset.distinct()
 
@@ -157,3 +158,4 @@ def start_conversation(request, user_id:UUID):
              tags=["Websocket"])
 def websocket_send_chat(request, conversation_uid:UUID, token: str, data: ChatMessageRequestSchema):
     return Response(status=200, data={"message": "Message sent successfully"})
+

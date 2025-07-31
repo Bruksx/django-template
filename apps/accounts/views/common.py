@@ -29,10 +29,11 @@ router = Router(tags=["Common Account APIs"])
 def talent_lists(request, search="", filters:TalentFilterQuerySchema = Query(...)):
     talents = Talent.objects.prefetch_related("user").filter(visible=True)
     if search:
-        talents = talents.filter(Q(user__first_name__icontains=search)|
-                                 Q(user__last_name__icontains=search)|
-                                 Q(user__email__icontains=search)
-                                 )
+        q = Q()
+        for s in search.split(" "):
+            if s:
+                q = q | Q(user__fullname__icontains=s) | Q(user__email__icontains=s)
+        talents = talents.filter(q)
 
     return filters.get_queryset(talents).order_by("-user__last_login")
 
