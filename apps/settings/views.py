@@ -3,7 +3,7 @@ from uuid import UUID
 
 from config.permissions import IsBusinessUser, IsBusinessOwnerOrAdmin
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Subquery
 from monkeypatches.response import Response
 from ninja import Router, Form, PatchDict, UploadedFile
 from ninja.errors import HttpError
@@ -89,11 +89,13 @@ def retrieve_all_email_templates(request, personal:bool=None):
     )
     if personal is not None:
         queryset = queryset.filter(personal=personal)
+    request.context = {"business_user": business_user}
     return queryset.order_by("name")
 
 @router.get("email-templates/{template_uid}", auth=JWTAuth(), response=EmailTemplateDetailSchema)
 def retrieve_email_template(request, template_uid:UUID):
     IsBusinessUser.check(request)
+    request.context = {"business_user": request.user.businessuser}
     business = request.user.businessuser.business
     template = EmailTemplate.objects.filter(uid=template_uid, created_by__business=business).first()
     if not template:

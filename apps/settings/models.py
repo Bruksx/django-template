@@ -11,6 +11,7 @@ from django.template import Template, Context, TemplateSyntaxError
 from django_q.models import Schedule
 from jobs.enums import PhaseType
 
+from accounts.enums import BusinessUserRoleType
 from helpers.email.utils import send_template_email
 from helpers.loggers import Logger, LogSchema
 from monkeypatches.q_cluster import async_task
@@ -107,6 +108,15 @@ class EmailTemplate(BaseModel):
                                          raise_exception=False):
             raise ValueError("Invalid placeholders in template")
         return True
+
+    def in_use(self):
+        return self.workflowstage_set.exists()
+
+    def can_be_deleted(self, business_user):
+        if self.in_use():
+            return False
+        return self.created_by == business_user or business_user.role in [BusinessUserRoleType.ADMIN.value, BusinessUserRoleType.OWNER.value]
+
 
 
 class EmailTemplateAttachment(BaseModel):
