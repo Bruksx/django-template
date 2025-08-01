@@ -75,8 +75,8 @@ class MutateJobPostSchema(ModelSchema):
     benefits: List[str]
     recruiter: Optional[UUID] = None
     status: Optional[JobStatusType] = None
-    annual_salary_currency: Optional[UUID]
-    annual_bonus_currency: Optional[UUID]
+    annual_salary_currency: Optional[UUID] = None
+    annual_bonus_currency: Optional[UUID] = None
 
 
     class Meta:
