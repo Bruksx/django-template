@@ -889,6 +889,7 @@ class JobApplicationListSchema(ModelSchema):
     applicant_location: Optional[str] = Field(None, alias="applicant.get_country")
     applicant_photo:Optional[str] = Field(alias="applicant.photo_url")
     applicant_email: str = Field(alias="applicant.user.email")
+    applicant_user_uid: UUID = Field(alias="applicant.user.uid")
     applicant_phone: Optional[str] = Field(alias="applicant.user.get_phone")
     applicant_country: Optional[GenericNameAndUidSchema] = Field(alias="applicant.country")
     applicant_cv_url: Optional[str]

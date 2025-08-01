@@ -49,8 +49,10 @@ def get_employment_types(request, search=""):
 
 
 @router.get("departments", response=list[DepartmentSchema], tags=["Common"])
-def get_departments(request, search=""):
+def get_departments(request, search="", role:Optional[UUID]=None):
     queryset = Department.objects.prefetch_related("industry").all()
+    if role:
+        queryset = queryset.filter(role__uid=role)
     if search:
         queryset = queryset.filter(Q(name__icontains=search)|
                                    Q(industry__name__icontains=search))
