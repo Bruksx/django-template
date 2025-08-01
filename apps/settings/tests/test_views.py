@@ -326,7 +326,7 @@ class UpdateWorkflowTest(TestCase):
                                      headers=headers)
         self.assertEqual(response.status_code, 200)
         workflow = WorkFlowStage.objects.first()
-        self.assertEqual(workflow.name, str(data["name"]).title())
+        self.assertEqual(workflow.name, str(data["name"]))
         self.assertEqual(workflow.is_active, data["is_active"])
 
     def test_update_workflow_stage_with_same_name(self):

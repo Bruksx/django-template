@@ -20,9 +20,3 @@ def assign_order_to_new_stage(sender, instance, created, **kwargs):
         instance.order = stage.order + 1 if stage else 0
         instance.save()
 
-
-@receiver(pre_save, sender=WorkFlowStage)
-def ensure_titlecase_for_name(sender, instance, **kwargs):
-    instance.name = str(instance.name).title()
-
-

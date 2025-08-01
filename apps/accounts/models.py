@@ -159,6 +159,7 @@ class Country(BaseModel):
     external_id = models.IntegerField(null=True)
     name = models.CharField(max_length=64)
     code = models.CharField(max_length=4)
+    phone_code = models.CharField(max_length=5, null=True)
 
     class Meta:
         ordering = ["name"]

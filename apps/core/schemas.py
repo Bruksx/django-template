@@ -46,7 +46,7 @@ class LanguageSchema(ModelSchema):
 class CountrySchema(ModelSchema):
     class Meta:
         model = Country
-        fields = ("uid", "name", "code")
+        fields = ("uid", "name", "code", "phone_code")
 
 class EducationLevelSchema(ModelSchema):
     industry: Optional[str]
