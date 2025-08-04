@@ -54,9 +54,14 @@ def handle_social_login(data: SocialAuthSchema)->User:
             idinfo = id_token.verify_firebase_token(
                 data.access_token,
                 grequests.Request(),
-                #data.app_id
             )
         except Exception as e:
+            idinfo = id_token.verify_oauth2_token(
+                data.access_token,
+                grequests.Request(),
+                data.app_id,
+            )
+        except:
             raise HttpError(401, "Invalid Google token")
         first_name, last_name = idinfo["name"].split()
         profile_dict["email"] = idinfo["email"]
