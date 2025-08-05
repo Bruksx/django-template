@@ -87,10 +87,10 @@ class HiresByCountrySchema(Schema):
 
 class TimeToHireSchema(Schema):
     role: str
-    posted: int
-    screening: int
-    interview: int
-    onboarding: int
+    posted: Optional[int] = None
+    screening: Optional[int] = None
+    interview: Optional[int] = None
+    onboarding: Optional[int] = None
     days_to_hire: int
 
 class StageTimelineSchema(Schema):

@@ -4,7 +4,7 @@ from uuid import UUID
 
 from accounts.models import Talent
 from chats.models import Conversation, Message
-from django.db import connection, close_old_connections
+from django.db import connection, close_old_connections, transaction
 from jobs.models import JobPost, Job, JobInvite
 from notification.notifications import send_job_application_notification, send_job_sharing_notification, \
     send_job_performance_notification
@@ -51,35 +51,38 @@ def send_shared_job_chat(
                 msg.handle_post_save(notify=True)
 
 def job_application_notification_task():
-    job_posts = JobPost.objects.filter(status=JobStatusType.POSTED.value)
-    with ThreadPoolExecutor(max_workers=20) as executor:
-        for chunk in chunk_queryset(job_posts):
-            executor.map(send_job_application_notification, chunk)
-    connection.close()
-    close_old_connections()
+    with transaction.atomic():
+        job_posts = JobPost.objects.filter(status=JobStatusType.POSTED.value)
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            for chunk in chunk_queryset(job_posts):
+                executor.map(send_job_application_notification, chunk)
+        connection.close()
+        close_old_connections()
     return
 
 
 def job_sharing_notification_task():
-    job_posts = JobPost.objects.filter(status=JobStatusType.POSTED.value)
-    with ThreadPoolExecutor(max_workers=20) as executor:
-        for chunk in chunk_queryset(job_posts):
-            executor.map(send_job_sharing_notification, chunk)
-    connection.close()
-    close_old_connections()
+    with transaction.atomic():
+        job_posts = JobPost.objects.filter(status=JobStatusType.POSTED.value)
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            for chunk in chunk_queryset(job_posts):
+                executor.map(send_job_sharing_notification, chunk)
+        connection.close()
+        close_old_connections()
     return
 
 
 
 def job_performance_notification_task():
-    job_posts = JobPost.objects.filter(status=JobStatusType.POSTED.value)
+    with transaction.atomic():
+        job_posts = JobPost.objects.filter(status=JobStatusType.POSTED.value)
 
-    with ThreadPoolExecutor(max_workers=20) as executor:
-        for chunk in chunk_queryset(job_posts):
-            executor.map(send_job_performance_notification, chunk)
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            for chunk in chunk_queryset(job_posts):
+                executor.map(send_job_performance_notification, chunk)
 
-    connection.close()
-    close_old_connections()
+        connection.close()
+        close_old_connections()
     return
 
 def fetch_job_posts_from_lever():
