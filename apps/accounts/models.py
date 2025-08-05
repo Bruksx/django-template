@@ -1,3 +1,4 @@
+import logging
 import random
 import secrets
 import string
@@ -8,7 +9,7 @@ from uuid import UUID
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
-from django.db.models import Q, Count, F, Value, Avg, IntegerField, Exists, OuterRef
+from django.db.models import Q, Count, F, Value, Avg, IntegerField, Exists, OuterRef, Sum
 from django.db.models.functions import Concat, Cast
 from django.db.models.signals import pre_save
 from django.utils import timezone
@@ -749,25 +750,31 @@ class Business(BaseModel):
         if client:
             data_list = data_list.filter(job_post__job__hiring_company_name=client)
 
-        data_list = data_list.values("job_post__job__role") \
+        data_list = (data_list.values("job_post__job__role") \
             .annotate(
             role=F("job_post__job__role__name"),
             posted=Cast(Avg("posted_timeline"), output_field=IntegerField()),
             screening=Cast(Avg("screening_timeline"), output_field=IntegerField()),
             interview=Cast(Avg("interview_timeline"), output_field=IntegerField()),
-            onboarding=Cast(Avg("onboarding_timeline"), output_field=IntegerField())
-        )\
+            onboarding=Cast(Avg("onboarding_timeline"), output_field=IntegerField()),
+        )
+        .annotate(
+            days_to_hire=F("posted") + F("screening") + F("interview") + F("onboarding")
+        )
+        .order_by("-days_to_hire")
         .values("role", "posted",
-                "screening", "interview", "onboarding")
-        data_list = [dict(**data,
-                          days_to_hire=sum([
-                              data["posted"],
-                              data["screening"],
-                              data["interview"],
-                              data["onboarding"],
-                              ]
-                          )) for data in  data_list]
-        return sorted(data_list, key=lambda x: x["days_to_hire"], reverse=True)
+                "screening", "interview", "onboarding", "days_to_hire")
+         )[:5]
+        for data in data_list:
+            if data.get("posted", 0) == 0:
+                data.pop("posted", 0)
+            if data.get("screening", 0) == 0:
+                data.pop("screening", 0)
+            if data.get("interview", 0) == 0:
+                data.pop("interview", 0)
+            if data.get("onboarding", 0) == 0:
+                data.pop("onboarding", 0)
+        return list(data_list)
 
     @staticmethod
     def job_role_stage_timeline(job_role_id, stages):
@@ -776,10 +783,10 @@ class Business(BaseModel):
         stage_timelines = (
             TalentApplicationStageTimeline.objects.filter(job_role_id=job_role_id, stage__in=stages)
             .values("stage_id")
-            .annotate(avg_timeline=Avg("timeline"))
+            .annotate(avg_timeline=Avg("timeline")).filter(avg_timeline__gte=0)
         )
 
-        stage_timeline_map = {item["stage_id"]: int(item["avg_timeline"] or 0) for item in stage_timelines}
+        stage_timeline_map = {item["stage_id"]: int(item["avg_timeline"]) for item in stage_timelines}
 
         data_list = [
             {
@@ -801,7 +808,7 @@ class Business(BaseModel):
         from settings.models import WorkFlowStage
         stages = (
             WorkFlowStage.objects.filter(created_by__business=self)
-            .order_by("order", "phase_order")
+            .order_by("phase_order", "order")
             .exclude(phase__in=(PhaseType.ONBOARDING, PhaseType.REJECTED))
         )
         timelines = TalentApplicationStageTimeline.objects.prefetch_related("application").filter(
@@ -920,57 +927,55 @@ class Business(BaseModel):
         return data_list
 
     def talent_at_each_phase(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
-        from jobs.models import JobApplication
-        application = JobApplication.objects.filter(
-                recruiter__business=self,
-                stage__isnull=False
-        )
+        from settings.models import WorkFlowStage
+
+        query = Q(jobapplication__stage__phase=F('phase'))
         if start_date and not end_date:
-            application = application.filter(created_at__gte=start_date)
+            query = query & Q(jobapplication__created_at__gte=start_date)
+
         elif end_date and not start_date:
-            application = application.filter(created_at__lte=end_date)
+            query = query & Q(jobapplication__created_at__lte=end_date)
+
         elif start_date and end_date:
-            application = application.filter(created_at__range=[start_date, end_date])
+            query = query & Q(jobapplication__created_at__range=[start_date, end_date])
         if role_id:
-            application = application.filter(job_post__job__role_id=role_id)
+            query = query & Q(jobapplication__job_post__job__role_id=role_id)
+
         if client:
-            application = application.filter(job_post__job__hiring_company_name=client)
-        phase = PhaseType.values()
-        data_list = list()
-        for phase in phase:
-            data_list.append(
-                {
-                    "phase": phase,
-                    "count": application.filter(stage__phase=phase).count()
-                }
-            )
-        return sorted(data_list, key=lambda x: x["count"], reverse=True)
+            query = query & Q(jobapplication__job_post__job__hiring_company_name=client)
+
+        return (WorkFlowStage.objects
+                .prefetch_related("jobapplication", "jobapplication__job_post", "jobapplication__job_post__job", "jobapplication__jobpost__job__role")
+                .filter(created_by__business=self).order_by("phase_order")
+                .values("phase").annotate(
+            count=Count("jobapplication", filter=query)
+        ).values("phase", "count"))
 
     def talent_at_each_stage(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
-        from jobs.models import JobApplication
         from settings.models import WorkFlowStage
-        application = JobApplication.objects.filter(
-                recruiter__business=self,
-                stage__isnull=False
-        )
+        query = Q(jobapplication__stage_id=F('id'))
         if start_date and not end_date:
-            application = application.filter(created_at__gte=start_date)
+            query = query & Q(jobapplication__created_at__gte=start_date)
+
         elif end_date and not start_date:
-            application = application.filter(created_at__lte=end_date)
+            query = query & Q(jobapplication__created_at__lte=end_date)
+
         elif start_date and end_date:
-            application = application.filter(created_at__range=[start_date, end_date])
+            query = query & Q(jobapplication__created_at__range=[start_date, end_date])
         if role_id:
-            application = application.filter(job_post__job__role_id=role_id)
+            query = query & Q(jobapplication__job_post__job__role_id=role_id)
+
         if client:
-            application = application.filter(job_post__job__hiring_company_name=client)
-        stages = WorkFlowStage.objects.filter(created_by__business=self).order_by("order", "phase_order").only("id", "name")
-        return [
-            dict(
-                stage=stage.name,
-                count=application.filter(stage_id=stage.id).count()
-            )
-            for stage in stages
-        ]
+            query = query & Q(jobapplication__job_post__job__hiring_company_name=client)
+
+        return (WorkFlowStage.objects
+        .prefetch_related("jobapplication", "jobapplication__job_post", "jobapplication__job_post__job", "jobapplication__jobpost__job__role")
+        .filter(created_by__business=self).order_by("phase_order", "order")
+               .values("id").annotate(
+            stage=F("name"),
+            count=Count("jobapplication", filter=query)
+        ).values("stage", "count"))
+
 
     def job_posts(self, status=None):
         from jobs.models import JobPost
