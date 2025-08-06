@@ -929,7 +929,7 @@ class Business(BaseModel):
     def talent_at_each_phase(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from settings.models import WorkFlowStage
 
-        query = Q(jobapplication__stage__phase=F('phase'))
+        query = Q(jobapplication__stage__phase=F('phase'), jobapplication__deleted_at__isnull=True)
         if start_date and not end_date:
             query = query & Q(jobapplication__created_at__gte=start_date)
 
@@ -953,7 +953,7 @@ class Business(BaseModel):
 
     def talent_at_each_stage(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from settings.models import WorkFlowStage
-        query = Q(jobapplication__stage_id=F('id'))
+        query = Q(jobapplication__stage_id=F('id'), jobapplication__deleted_at__isnull=True)
         if start_date and not end_date:
             query = query & Q(jobapplication__created_at__gte=start_date)
 

@@ -3,6 +3,8 @@ from django.db import models
 from django.db.models import F, Q, QuerySet, Count
 from django.db.models.signals import pre_save
 from django_softdelete.managers import SoftDeleteManager
+from future.backports.datetime import datetime
+
 from monkeypatches.q_cluster import async_task
 from timezone_field import TimeZoneField
 
@@ -225,7 +227,7 @@ class Job(BaseModel):
         from settings.models import WorkFlowStage
         business = self.created_by.business
         return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
-                annotate(applications=Count('jobapplication', filter=Q(jobapplication__job_post__job=self),
+                annotate(applications=Count('jobapplication', filter=Q(jobapplication__job_post__job=self, jobapplication__deleted_at__isnull=True),
                                             distinct=True)).order_by('phase_order', 'order')
                 .values("uid", "phase", "name", "applications"))
 
@@ -272,7 +274,7 @@ class JobPost(BaseModel):
         related_name="posted_by",
         blank=True
     )
-    last_refreshed = models.DateTimeField(null=True)
+    last_refreshed = models.DateTimeField(null=True, default=datetime.now)
 
     def copy(self):
         return JobPost.objects.create(
@@ -377,7 +379,7 @@ class JobPost(BaseModel):
         from settings.models import WorkFlowStage
         business = self.job.created_by.business
         return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
-                annotate(applications=Count("jobapplication", filter=Q(jobapplication__job_post=self),
+                annotate(applications=Count("jobapplication", filter=Q(jobapplication__job_post=self, jobapplication__deleted_at__isnull=True),
                                             distinct=True)).order_by('phase_order', 'order')
                 .values("uid", "phase", "name", "applications")
                 )
@@ -867,8 +869,9 @@ class JobAlert(BaseModel):
 
     @classmethod
     def send_alerts(cls, job):
+
         from notification.notifications import send_job_alert_notification
-        user_ids = (cls.objects.filter(
+        user_ids = (cls.objects.filter(jobs__jobpost__status=JobStatusType.POSTED.value).filter(
             Q(jobs__employment_type=job.employment_type)|
             Q(jobs__years_of_experience=job.years_of_experience)|
             Q(jobs__minimum_education_level=job.minimum_education_level)|
@@ -881,6 +884,7 @@ class JobAlert(BaseModel):
             Q(jobs__skills__id__in=job.skills.all().values_list("id", flat=True))|
             Q(jobs__business_models__id__in=job.business_models.all().values_list("id", flat=True)))
          .distinct("talent__user_id").values_list("talent__user_id", flat=True))
+        print(user_ids)
         send_job_alert_notification(job, user_ids)
         return
 
