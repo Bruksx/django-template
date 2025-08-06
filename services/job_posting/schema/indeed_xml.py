@@ -165,7 +165,7 @@ class Source:
         yield f'<publisherurl>{BASE_FRONTEND_URL}</publisherurl>\n'
 
         for job_post in JobPost.objects.select_related("job").\
-            filter(status=JobStatusType.POSTED.value).order_by("-created_at").iterator():
+            filter(status=JobStatusType.POSTED.value).order_by("-last_refreshed").iterator():
             try:
                 job_base = JobBase.convert_to_job(job_post)
                 yield tostring(job_base.to_xml(), encoding="unicode") + "\n"

@@ -17,15 +17,18 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
     attributes = ["posted_timeline", "screening_timeline", "interview_timeline", "onboarding_timeline"]
     today = timezone.now()
     if instance.id:
+        # retrieve state of previous application
         application = JobApplication.objects.filter(id=instance.id).first()
         if not application:
             return
         stage = instance.stage
+        # retrieve previous stage
         application_stage = application.stage
         if stage and stage.phase == PhaseType.NEW.value:
             stage = None
         if application_stage and application_stage.phase == PhaseType.NEW.value:
             application_stage = None
+        #
         if stage and application_stage != stage and stage.phase != PhaseType.REJECTED.value:
             index = phases.index(stage.phase)
             if application_stage is None:
@@ -83,7 +86,8 @@ def handle_phase_timeline_update(sender, instance,  **kwargs):
                 timeline = getattr(instance, current_attribute)
                 subtracted_days += timeline
                 setattr(instance, current_attribute, 0)
-                instance.stage_date_updated - timezone.timedelta(days=subtracted_days)
+            if instance.stage_date_updated:
+                instance.stage_date_updated -= timezone.timedelta(days=subtracted_days)
 
 
 @receiver(pre_save, sender=JobApplication)
@@ -171,9 +175,13 @@ def handle_job_post_date(sender, instance, **kwargs):
             return
         if instance.status == JobStatusType.POSTED.value and existing_instance.status != JobStatusType.POSTED.value:
             instance.date_posted = timezone.now()
+        elif instance.status != JobStatusType.DRAFT.value and existing_instance.status == JobStatusType.DRAFT.value:
+            instance.date_posted = None
     else:
         if instance.status == JobStatusType.POSTED.value:
             instance.date_posted = timezone.now()
+        elif instance.status != JobStatusType.DRAFT.value:
+            instance.date_posted = None
 
 @receiver(pre_save, sender=JobApplication)
 def handle_new_application(sender, instance,  **kwargs):

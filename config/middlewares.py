@@ -95,3 +95,26 @@ class RequestTimingMiddleware:
 
         # Return the response to continue the request-response cycle.
         return response
+
+
+from django.db import connections, close_old_connections
+
+class DatabaseConnectionMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Process the request (view execution, including any transaction.atomic)
+        response = self.get_response(request)
+
+        # After the view: Close all connections or old connections
+        try:
+            close_old_connections()  # Preferred: Closes only stale connections
+
+        except Exception as e:
+            # Log any errors during connection closure
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error closing connections: {e}")
+
+        return response
