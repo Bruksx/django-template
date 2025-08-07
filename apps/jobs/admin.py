@@ -20,7 +20,7 @@ admin.site.register(AvailableDay)
 @admin.register(JobApplication)
 class JobApplicationAdmin(admin.ModelAdmin):
     list_display = ('id','uid','applicant__user__fullname', 'job_post__job__role__name', 'stage__name')
-    search_fields = ('applicant__user__email', 'applicant__user__fullname', "uid")
+    search_fields = ('applicant__user__email', 'applicant__user__fullname', "uid", 'job_post__uid')
     list_filter = ('stage__phase', 'deleted_at','stage__created_by__business__name')
 
     def get_queryset(self, request):
