@@ -342,38 +342,10 @@ class Talent(BaseModel):
         return queryset
 
     def job_match_score(self, job_post):
-        job = job_post.job
-        if not hasattr(job, "requiredattribute"):
-            return 100
-        required_attribute = job.requiredattribute
-        requirement_score = required_attribute.total_score()
-        score = requirement_score
-        if required_attribute.skills.count() > 0 and required_attribute.skills.intersection(self.skills.all()).count()  == 0:
-            score -= 1
-        if required_attribute.role and not self.experience_set.filter(role=job.role).exists():
-            score -=1
-        if  required_attribute.job_level and not self.experience_set.filter(level=job.job_level).exists():
-            score -=1
-        if  required_attribute.years_of_experience and self.years_of_experience > (job.years_of_experience or 0):
-            score -=1
-        if required_attribute.business_models.count() > 0 and required_attribute.business_models.intersection(self.business_models.all()).count() == 0:
-            score -= 1
-        if required_attribute.minimum_education_level and not self.education_set.filter(level=job.minimum_education_level).exists():
-            score -= 1
-
-        if required_attribute.first_language and self.native_language != job.first_language:
-            score -= 1
-        if required_attribute.secondary_language and job.additional_languages.intersection(self.additional_languages.all()).count() == 0:
-            score -= 1
-        if required_attribute.work_structure and job.work_structure not in self.work_models:
-            score -= 1
-        if required_attribute.working_hours:
-            working_hours_query = self.availability_query()
-            if not job.availableday_set.filter(working_hours_query).exists():
-                score -= 1
-        if required_attribute.location and self.country != job_post.country:
-            score -= 1
-        return int((score/requirement_score) * 100)
+        jobpost = self.job_post_matches().filter(id=job_post.id).first()
+        if not jobpost:
+            return 0
+        return jobpost.computed_match_score
 
 
     def availability_query(self):

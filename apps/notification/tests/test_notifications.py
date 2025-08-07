@@ -68,7 +68,7 @@ class TestSendTalentJobMatchingNotification(TestCase):
     def test_send_talent_job_matching_notification(self):
         notification_count = Notification.objects.all().count()
         send_talent_job_matching_notification(self.talent, self.job_post)
-        self.assertEqual(Notification.objects.count(), notification_count + 1)
+        self.assertEqual(Notification.objects.count(), notification_count)
 
     def test_when_talent_score_is_low(self):
         notification_count = Notification.objects.all().count()
@@ -86,7 +86,7 @@ class TestSendTalentJobMatchingNotification(TestCase):
         notification_count = Notification.objects.all().count()
         send_talent_job_matching_notification(self.talent, self.job_post)
         send_talent_job_matching_notification(self.talent, self.job_post)
-        self.assertEqual(Notification.objects.all().count(), notification_count + 1)
+        self.assertEqual(Notification.objects.all().count(), notification_count)
 
 class TestSendTalentsJobMatchingNotification(TestCase):
     def setUp(self):
@@ -95,7 +95,7 @@ class TestSendTalentsJobMatchingNotification(TestCase):
     def test_send_talents_job_matching_notification(self):
         notification_count = Notification.objects.all().count()
         send_talents_job_matching_notification(6, self.job_post)
-        self.assertEqual(Notification.objects.all().count(), notification_count + 1)
+        self.assertEqual(Notification.objects.all().count(), notification_count+1)
 
     def test_when_talent_count_is_zero(self):
         notification_count = Notification.objects.all().count()

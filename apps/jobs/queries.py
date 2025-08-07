@@ -10,7 +10,6 @@ from django.db.models.functions import Coalesce, Cast
 
 
 def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> QuerySet[JobPost]:
-
     talent_business_models = talent.business_models.all()
     talent_skill_ids = list(talent.skills.values_list("id", flat=True))
     additional_lang_ids = list(talent.additional_languages.values_list("id", flat=True))

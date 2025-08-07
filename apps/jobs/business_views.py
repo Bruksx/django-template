@@ -482,7 +482,7 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
     queryset = JobApplication.objects.select_related("stage", "applicant", "applicant__user",
                                                      "applicant__country").annotate(invited=Exists(Subquery(JobInvite.objects.filter(
             job=OuterRef('job_post__job'), talent=OuterRef('applicant')
-        )))).filter(job_post__uid=job_post_uid, recruiter__business=business,
+        )))).filter(job_post__uid=job_post_uid, stage__created_by__business=business,
                                              applicant__deleted_at__isnull=True)
     if search:
         q = Q()
