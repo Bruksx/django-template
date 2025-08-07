@@ -364,7 +364,7 @@ class TestApplicationList(TestCase):
         response = self.client.get(f"{self.url(self.job_post.uid)}?phase={phase}", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 0)
-        stage = WorkflowStageFactory.create(phase=phase)
+        stage = WorkflowStageFactory.create(phase=phase, created_by=self.business_user)
         application = JobApplication.objects.first()
         application.update(stage=stage)
         response = self.client.get(f"{self.url(self.job_post.uid)}?phase={phase}", headers=headers)
