@@ -884,7 +884,6 @@ class JobAlert(BaseModel):
             Q(jobs__skills__id__in=job.skills.all().values_list("id", flat=True))|
             Q(jobs__business_models__id__in=job.business_models.all().values_list("id", flat=True)))
          .distinct("talent__user_id").values_list("talent__user_id", flat=True))
-        print(user_ids)
         send_job_alert_notification(job, user_ids)
         return
 

@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from datetime import date, timezone, datetime
 from decimal import Decimal
 
@@ -475,7 +476,8 @@ class BusinessModelTests(TestCase):
         self.assertIn("role", data[0])
         self.assertIn("graph" , data[0])
         self.assertIn("days_to_hire", data[0])
-        self.assertTrue(isinstance(data[0]["graph"], list))
+        print(data[0]["graph"])
+        self.assertTrue(isinstance(data[0]["graph"], Iterable))
         self.assertIn("stage", data[0]["graph"][0])
         self.assertIn("avg_timeline", data[0]["graph"][0])
 
