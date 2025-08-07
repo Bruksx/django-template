@@ -747,7 +747,7 @@ class Business(BaseModel):
                  stage=F("name"))
         graph = graph.annotate(avg_timeline=Cast(Case(
             When(avg_timelines__isnull=True, then=float(0)), default=F("avg_timelines")),output_field=IntegerField()))
-        return {"graph": graph.values("stage", "avg_timeline"), "days_to_hire": int(graph.aggregate(Avg("avg_timeline"))["avg_timeline__avg"] or 0)}
+        return {"graph": graph.values("stage", "avg_timeline"), "days_to_hire": int(graph.aggregate(Sum("avg_timeline"))["avg_timeline__sum"] or 0)}
 
 
     def time_to_hire_via_stage(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
