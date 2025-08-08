@@ -5,7 +5,7 @@ from django.db import models
 from django.db.models import Q
 from helpers.websocket.utils import send_ws
 
-from accounts.enums import BusinessUserRoleType
+from accounts.enums import BusinessUserRoleType, UserType
 from core.models import BaseModel
 from notification.enums import EntityType, EntityActionType, NotificationType, NotificationGroup
 
@@ -24,6 +24,7 @@ class Notification(BaseModel):
     recipient_users = models.ManyToManyField("accounts.User", blank=True)
     notification_type = models.CharField(max_length=150, choices=NotificationType.choices, null=True)
     viewers = models.ManyToManyField("accounts.User", blank=True, related_name="viewers")
+    all_recipients = models.ManyToManyField("accounts.User", blank=True, related_name="all_recipients")
     business = models.ForeignKey("accounts.Business", on_delete=models.SET_NULL, null=True)
     role = models.CharField(max_length=150, choices=BusinessUserRoleType.choices, null=True)
 
@@ -44,6 +45,25 @@ class Notification(BaseModel):
         if self.role and self.business:
             send_ws(f"{self.role}_{self.business.uid}", notification)
         return
+
+
+    def get_recipients(self):
+        from accounts.models import User
+        group_query = Q()
+        if len(self.recipient_groups) > 0:
+            for group in self.recipient_groups:
+                if group == NotificationGroup.BUSINESS_USERS.value:
+                    business_user_query = Q(type=UserType.BUSINESS.value)
+                    if self.role:
+                        business_user_query = business_user_query & Q(businessuser__role=self.role)
+                    if self.business:
+                        business_user_query = business_user_query & Q(businessuser__business=self.business)
+                    group_query = group_query | business_user_query
+
+                elif group == NotificationGroup.TALENTS.value:
+                    group_query = group_query | Q(type=UserType.TALENT.value)
+
+        return User.objects.filter(group_query)
 
     def view(self, user):
         if not self.can_view(user):
@@ -75,6 +95,20 @@ class Notification(BaseModel):
                 if NotificationGroup.BUSINESS_USERS.value in self.recipient_groups:
                     return True
         return False
+
+
+    def delete_notification(self, user):
+        if self.all_recipients.filter(id=user.id).exists():
+            self.all_recipients.remove(user)
+        self.all_recipients.remove(user)
+        if self.viewers.filter(id=user.id).exists():
+            self.viewers.remove(user)
+        if self.recipient_users.filter(id=user.id).exists():
+            self.recipient_users.remove(user)
+        self.save()
+
+
+
 
 class BusinessUserNotificationSettings(BaseModel):
     business_user = models.OneToOneField("accounts.BusinessUser", on_delete=models.CASCADE)
@@ -120,35 +154,22 @@ class BusinessUserNotificationSettings(BaseModel):
         return types
 
     def notifications(self, viewed:Optional[bool]=None):
-        notifications = Notification.objects.filter(
+       initial_query = Q(Q(
             Q(notification_type__in=self.allowed_notification_types()) |
             Q(notification_type__isnull=True)
-        )
-        recipients_query = Q(recipient_users__id=self.business_user.user.id)
-        role_query  = Q(
-            business=self.business_user.business,
-            role=self.business_user.role
-        )
-        group_query = Q(
-            Q(business=self.business_user.business, recipient_groups__contains=[NotificationGroup.BUSINESS_USERS.value])|
-            Q(recipient_groups__contains=[NotificationGroup.ALL_USERS.value])|
-            Q(recipient_groups__contains=[NotificationGroup.BUSINESS_USERS.value])
-        )
-        notifications = notifications.filter(
-            recipients_query |
-            role_query |
-            group_query
-        )
+        ) & Q(all_recipients__id=self.business_user.user.id))
 
-        if viewed is True:
+
+       notifications = Notification.objects.filter(initial_query)
+       if viewed is True:
             notifications = notifications.filter(
                 viewers__id=self.business_user.user.id
             )
-        elif viewed is False:
+       elif viewed is False:
             notifications = notifications.exclude(
                 viewers__id=self.business_user.user.id
             )
-        return notifications.order_by("-id")
+       return notifications.order_by("-id")
 
     @classmethod
     def should_send_notification(cls, user, notification_type:Optional[str]):

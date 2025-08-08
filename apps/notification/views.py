@@ -54,6 +54,14 @@ def read_notification(request, notification_uid: UUID):
     return Response(status=200, data={"message": "Notification marked as read"})
 
 
+@router.delete("", auth=JWTAuth())
+def delete_notifications(request, notification_uids: list[UUID]):
+    notifications = Notification.objects.filter(uid__in=notification_uids).iterator()
+    for notification in notifications:
+        notification.delete_notification(request.user)
+    return Response(status=204, data={"message": "Notifications deleted successfully"})
+
+
 @ws_router.get('ws/notifications/', response={200: NotificationSchema},
              tags=["Websocket"])
 def websocket_notification(request, token: str):
