@@ -7,7 +7,7 @@ from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, BusinessSize
-from accounts.models import User, VerificationCode, Business, BusinessUser, BusinessIndustry, Country
+from accounts.models import User, VerificationCode, Business, BusinessUser, BusinessIndustry, Country, TalentFilter
 from accounts.views.business import router
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
@@ -985,6 +985,75 @@ class GetTalentFilterTest(TestCase):
             "authorization": f"bearer {other_business_user.user.token}"
         }
         response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 404)
+
+
+class DeleteTalentFilterTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        # Create initial talent filter with all fields
+        self.role = RoleFactory.create()
+        self.industry = IndustryFactory.create()
+        self.language = LanguageFactory.create()
+        self.educational_level = EducationLevelFactory.create()
+        self.skill = SkillFactory.create()
+        self.talent_filter = TalentFilterFactory.create(
+            business_user=self.business_user,
+            role=self.role,
+            industry=self.industry,
+            location="New York",
+            educational_level=self.educational_level,
+            maximum_notice_period=30,
+            work_structure=WorkStructureEnum.REMOTE.value
+        )
+        self.talent_filter.languages.add(self.language)
+        self.talent_filter.skills.add(self.skill)
+        self.url = f"/talents-filters/{self.talent_filter.uid}"
+
+    def test_get_talent_filter_success(self):
+        response = self.client.delete(self.url, headers=self.headers)
+        self.assertEqual(response.status_code, 204)
+        self.assertFalse(TalentFilter.objects.filter(uid=self.talent_filter.uid).exists())
+
+    def test_delete_talent_filter_unauthorized(self):
+        # Test without authentication
+        response = self.client.delete(self.url)
+        self.assertEqual(response.status_code, 401)
+
+        # Test with non-business user
+        talent_user = UserFactory.create(type="TALENT")
+        headers = {
+            "authorization": f"bearer {talent_user.token}"
+        }
+        response = self.client.delete(self.url, headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_delete_talent_filter_not_found(self):
+        # Delete the talent filter
+        self.talent_filter.hard_delete()
+        response = self.client.delete(self.url, headers=self.headers)
+        self.assertEqual(response.status_code, 404)
+
+
+    def test_delete_talent_filter_different_business(self):
+        # Create another business user
+        other_business = BusinessFactory.create()
+        other_business_user = BusinessUserFactory.create(
+            business=other_business,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        headers = {
+            "authorization": f"bearer {other_business_user.user.token}"
+        }
+        response = self.client.delete(self.url, headers=headers)
         self.assertEqual(response.status_code, 404)
 
 
