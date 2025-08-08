@@ -102,6 +102,7 @@ class GetNotificationsTest(TestCase):
         notification = Notification.objects.first()
         talent = TalentFactory.create()
         notification.recipient_users.add(talent.user)
+        notification.all_recipients.add(talent.user)
         notification.save()
         headers = {
             "authorization": f"bearer {talent.user.token}"
@@ -114,6 +115,7 @@ class GetNotificationsTest(TestCase):
         notification = Notification.objects.first()
         business_user = BusinessUserFactory.create()
         notification.recipient_users.add(business_user.user)
+        notification.all_recipients.add(business_user.user)
         notification.save()
         headers = {
             "authorization": f"bearer {business_user.user.token}"
@@ -123,10 +125,10 @@ class GetNotificationsTest(TestCase):
         self.assertEqual(response.json()["count"], 1)
 
     def test_when_recipient_group_is_for_talent(self):
-        notification = Notification.objects.first()
         talent = TalentFactory.create()
-        notification.recipient_groups = [NotificationGroup.TALENTS.value]
-        notification.save()
+        Notification.objects.create(
+            recipient_groups=[NotificationGroup.TALENTS.value]
+        )
         headers = {
             "authorization": f"bearer {talent.user.token}"
         }
@@ -135,11 +137,12 @@ class GetNotificationsTest(TestCase):
         self.assertEqual(response.json()["count"], 1)
 
     def test_when_recipient_group_is_for_business_user(self):
-        notification = Notification.objects.first()
         business_user = BusinessUserFactory.create()
-        notification.recipient_groups = [NotificationGroup.BUSINESS_USERS.value]
-        notification.business = business_user.business
-        notification.save()
+        NotificationFactory.create(
+            business=business_user.business,
+            role=business_user.role,
+            recipient_groups = [NotificationGroup.BUSINESS_USERS.value]
+        )
         headers = {
             "authorization": f"bearer {business_user.user.token}"
         }

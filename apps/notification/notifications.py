@@ -27,6 +27,7 @@ def send_new_chat_notification(chat):
         entity_str=str(chat),
     )
     notification.recipient_users.add(*chat.users.all())
+    notification.all_recipients.add(*chat.users.all())
     notification.save()
     notification.notify()
 
@@ -50,6 +51,7 @@ def send_new_chat_message_notification(message):
     )
     recipient = message.conversation.get_recipient(message.sender)
     notification.recipient_users.add(recipient)
+    notification.all_recipients.add(recipient)
     notification.save()
     notification.notify()
 
@@ -65,6 +67,7 @@ def send_job_alert_notification(job, user_ids):
         entity_str=str(job),
     )
     notification.recipient_users.add(*User.objects.filter(id__in=user_ids))
+    notification.all_recipients.add(*User.objects.filter(id__in=user_ids))
     notification.save()
     notification.notify()
 
@@ -313,6 +316,7 @@ def send_job_post_assignment_notification(job_post, previous_recruiter=None):
             business=business
         )
         notification.recipient_users.add(previous_recruiter.user)
+        notification.all_recipients.add(previous_recruiter.user)
         notification.save()
         notification.notify()
 
@@ -329,6 +333,7 @@ def send_job_post_assignment_notification(job_post, previous_recruiter=None):
             business=job_post.recruiter.business
         )
         notification.recipient_users.add(job_post.recruiter.user)
+        notification.all_recipients.add(job_post.recruiter.user)
         notification.save()
         notification.notify()
 

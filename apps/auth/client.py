@@ -34,7 +34,6 @@ class LinkedInAPI:
         """Fetch basic profile data"""
         headers = {"Authorization": f"Bearer {access_token}"}
         response = requests.get(self.PROFILE_URL, headers=headers)
-        #print(response.json())
         response.raise_for_status()
         return from_dict(LinkedInProfile, response.json())
 

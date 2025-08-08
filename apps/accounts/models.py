@@ -87,8 +87,6 @@ class User(AbstractUser, BaseModel):
         output_field=models.CharField(),
         db_persist=True,
     )
-
-
     USERNAME_FIELD = "email"
 
     def __str__(self) -> str:
@@ -445,14 +443,8 @@ class Talent(BaseModel):
 
     def notifications(self, viewed:Optional[bool]=None):
         from notification.models import Notification
-        recipients_query = Q(recipient_users__id=self.user.id)
-        group_query = Q(
-            Q(recipient_groups__contains=[NotificationGroup.ALL_USERS.value]) |
-            Q(recipient_groups__contains=[NotificationGroup.TALENTS.value])
-        )
-        notifications = Notification.objects.filter(
-            recipients_query | group_query
-        )
+        recipients_query = Q(all_recipients__id=self.user.id)
+        notifications = Notification.objects.filter(recipients_query)
 
         if viewed is True:
             notifications = notifications.filter(

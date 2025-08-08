@@ -545,5 +545,16 @@ def get_talent_filter(request, talent_filter_uid: UUID):
 
 
 
+@router.delete("talents-filters/{talent_filter_uid}", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentFilterSchema)
+def delete_talent_filter(request, talent_filter_uid: UUID):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    talent_filter = TalentFilter.objects.filter(business_user=business_user, uid=talent_filter_uid).first()
+    if not talent_filter:
+        raise HttpError(404, "Talent filter not found")
+    talent_filter.delete()
+    return Response(status=204, data={"message": "Talent filter deleted successfully"})
+
+
 
 
