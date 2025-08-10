@@ -57,6 +57,16 @@ class TestGetChatEndpoints(TestCase):
         self.assertEqual(data["results"][0]["last_message"]["uid"], str(self.message3.uid))
         self.assertEqual(data["results"][0]["unread_messages_count"], 1)
 
+    def test_get_chats_with_search(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get("?search=glog", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(len(data["results"]), 0)
+
+
     def test_get_chat_messages(self):
         headers = {
             "authorization": f"bearer {self.user2.token}"
