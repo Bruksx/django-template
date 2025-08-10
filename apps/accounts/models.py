@@ -68,7 +68,7 @@ class User(AbstractUser, BaseModel):
     objects = CustomUserManager()
     REQUIRED_FIELDS = []
 
-    gender = models.CharField(max_length=100, choices=GenderType.choices(), default=GenderType.OTHERS.value, null=True)
+    gender = models.CharField(max_length=100, choices=GenderType.choices(), default=GenderType.OTHERS.value, blank=True)
     phone_number = models.CharField(max_length=50, null=True)
     phone_code = models.CharField(max_length=50, null=True)
     email = models.EmailField(unique=True, null=True)

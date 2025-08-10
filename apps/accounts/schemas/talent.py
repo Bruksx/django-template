@@ -110,7 +110,7 @@ class UpdateTalentProfileSchema2(Schema):
     work_models: Optional[List[WorkStructureEnum|str]] = None
     viber_number: Optional[str] = None
     address: Optional[str] = None
-    gender: Optional[GenderType] = None
+    gender: Optional[GenderType|str] = ""
     visible: Optional[bool] = None
     bio: Optional[str] = None
     notice_period: Optional[int|str] = None
