@@ -42,7 +42,7 @@ def get_chats(request, search:str=""):
         q = Q()
         for s in search.split(" "):
             if s:
-                q = q | Q(users__fullname__icontains=s) | Q(message_body__icontains=s)
+                q = q | Q(users__fullname__icontains=s) | Q(message__body__icontains=s)
         queryset = queryset.filter(q)
 
     return queryset.distinct()
