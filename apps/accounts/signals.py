@@ -3,7 +3,10 @@ from django.dispatch import receiver
 
 from accounts.enums import UserType
 from accounts.models import Experience, Talent, BusinessUser, TalentAvailableDay
+
+from accounts.services import create_business_workflows
 from helpers.utils import to_utc
+from monkeypatches.q_cluster import async_task
 
 
 @receiver(post_save, sender=Experience)
@@ -26,6 +29,8 @@ def update_business_user_type(sender, instance, created, **kwargs):
     if created:
         instance.user.type = UserType.BUSINESS.value
         instance.user.save()
+        if BusinessUser.objects.filter(business=instance.business).count() == 1:
+            async_task(create_business_workflows, instance.business.id)
 
 
 @receiver(post_save, sender=BusinessUser)
@@ -33,6 +38,7 @@ def create_notification_setting(sender, instance, created, **kwargs):
     from notification.models import BusinessUserNotificationSettings #noqa
     if created:
         BusinessUserNotificationSettings.objects.create(business_user=instance)
+
 
 
 @receiver(pre_save, sender=TalentAvailableDay)

@@ -271,7 +271,7 @@ class CreateWorkflowTest(TestCase):
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
         data = {
             "name": "Test Workflow",
-            "phase": PhaseType.HIRED.value,
+            "phase": PhaseType.ONBOARDING.value,
             "email_template": email_template.uid,
             "is_active": True
         }
@@ -280,7 +280,7 @@ class CreateWorkflowTest(TestCase):
         self.assertEqual(response.status_code, 201)
         data = {
             "name": "Test Workflow2",
-            "phase": PhaseType.REJECTED.value,
+            "phase": PhaseType.INTERVIEW.value,
             "email_template": email_template.uid,
             "is_active": True
         }
@@ -288,7 +288,7 @@ class CreateWorkflowTest(TestCase):
                                     headers=headers)
         self.assertEqual(response.status_code, 201)
         workflow = WorkFlowStage.objects.last()
-        self.assertEqual(WorkFlowStage.objects.count(), 2)
+        self.assertEqual(WorkFlowStage.objects.count(), 5)
         self.assertEqual(workflow.name, data["name"])
 
     def test_create_workflow_stage_with_same_name(self):
@@ -296,7 +296,7 @@ class CreateWorkflowTest(TestCase):
         WorkflowStageFactory.create(name="Test Workflow", phase=PhaseType.HIRED.value, created_by=self.business_user)
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
         data = {
-            "name": "Test Workflow",
+            "name": "Hired",
             "phase": PhaseType.HIRED.value,
             "email_template": email_template.uid,
             "is_active": True
@@ -325,7 +325,7 @@ class UpdateWorkflowTest(TestCase):
         response = self.client.patch(self.url(self.workflow_stage.uid), json=data,
                                      headers=headers)
         self.assertEqual(response.status_code, 200)
-        workflow = WorkFlowStage.objects.first()
+        workflow = WorkFlowStage.objects.last()
         self.assertEqual(workflow.name, str(data["name"]))
         self.assertEqual(workflow.is_active, data["is_active"])
 
@@ -516,7 +516,7 @@ class BulkDeleteWorkflowStageTest(TestCase):
         }
         response = self.client.delete(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 204)
-        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 0)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 3)
 
     def test_when_one_stage_is_active(self):
         w = WorkFlowStage.objects.last()
@@ -526,7 +526,7 @@ class BulkDeleteWorkflowStageTest(TestCase):
         }
         response = self.client.delete(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 8)
 
     def test_when_one_stage_has_job_applications(self):
         w = WorkFlowStage.objects.last()
@@ -536,7 +536,7 @@ class BulkDeleteWorkflowStageTest(TestCase):
         }
         response = self.client.delete(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 8)
 
 
     def test_by_another_business_user(self):
@@ -546,7 +546,7 @@ class BulkDeleteWorkflowStageTest(TestCase):
         }
         response = self.client.delete(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 204)
-        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 8)
 
     def test_by_talent(self):
         talent = TalentFactory.create()
@@ -555,7 +555,7 @@ class BulkDeleteWorkflowStageTest(TestCase):
         }
         response = self.client.delete(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 403)
-        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 8)
 
 
 

@@ -376,6 +376,7 @@ class TalentDashboardTests(TestCase):
         job = Job.objects.create(
             created_by=self.business_user,
             job_level=self.job_level,
+            role=self.role,
             employment_type=self.employment_type,
             hiring_company_name="Example Company",
             title="Software Engineer",

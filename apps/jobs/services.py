@@ -246,13 +246,13 @@ def validate_screening_question_options(question, data, question_type):
             new_correct_option = [option for option in new_options if option.is_accepted is True]
             changing_correct_option = [option for option in changing_options if option.is_accepted is True]
             correct_option = new_correct_option + changing_correct_option
-            if (len(correct_option) + existing_options.filter(is_accepted=True).count()) != 1:
+            if question.is_knockout is True and  (len(correct_option) + existing_options.filter(is_accepted=True).count()) != 1:
                 raise HttpError(400, "Single select question must have exactly one correct option")
         if question_type == QuestionTypeEnum.MULTI_SELECT.value:
             new_correct_options = [option for option in new_options if option.is_accepted is True]
             changing_correct_options = [option for option in changing_options if option.is_accepted is True]
             correct_options = new_correct_options + changing_correct_options
-            if (len(correct_options) + existing_options.filter(is_accepted=True).count()) < 2:
+            if question.is_knockout is True and  (len(correct_options) + existing_options.filter(is_accepted=True).count()) < 2:
                 raise HttpError(400, "Multiple select question must have at least two correct options")
         return
     except Exception as e:

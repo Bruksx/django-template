@@ -1,7 +1,12 @@
+from datetime import timedelta
+
 from django.core.cache import cache
 from django.db import models
-from django.db.models import F, Q, QuerySet, Count
+from django.db.models import F, Q, QuerySet, Count, ExpressionWrapper, IntegerField, Func, When, Case
+from django.db.models.functions import Coalesce, Now, Extract
 from django.db.models.signals import pre_save
+from django.forms import FloatField
+from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
 from future.backports.datetime import datetime
 
@@ -639,15 +644,6 @@ class JobApplication(BaseModel):
     )
     stage = models.ForeignKey("settings.WorkflowStage", on_delete=models.SET_NULL, null=True)
     match = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    posted_timeline = models.PositiveSmallIntegerField(default=0)
-    screening_timeline = models.PositiveSmallIntegerField(default=0)
-    interview_timeline = models.PositiveSmallIntegerField(default=0)
-    onboarding_timeline = models.PositiveSmallIntegerField(default=0)
-    days_to_hire = models.GeneratedField(
-        expression=F("posted_timeline") + F("screening_timeline") + F("interview_timeline") + F("onboarding_timeline"),
-        output_field=models.PositiveIntegerField(),
-        db_persist=True,
-    )
     stage_date_updated = models.DateTimeField(null=True)
 
     def other_application(self):
@@ -715,7 +711,19 @@ class TalentApplicationStageTimeline(BaseModel):
     application = models.ForeignKey(JobApplication, on_delete=models.CASCADE)
     job_role = models.ForeignKey("accounts.Role", on_delete=models.CASCADE)
     stage = models.ForeignKey("settings.WorkflowStage", on_delete=models.CASCADE)
-    timeline = models.PositiveSmallIntegerField(default=0)
+    exit_date = models.DateTimeField(null=True)
+
+    @staticmethod
+    def add_time_spent_annotation(queryset):
+        return queryset.annotate(days=Extract(Coalesce(F('exit_date'), Now()) - F('created_at')
+    , 'epoch')).annotate(time_spent=Case(When(days__isnull=True, then=0),
+    default=F('days')/86400.0, output_field=IntegerField()))
+
+    @staticmethod
+    def add_time_spent_annotation_for_stages(queryset):
+        return queryset.annotate(days=Extract(Coalesce(F('talentapplicationstagetimeline__exit_date'), Now()) - F('talentapplicationstagetimeline__created_at')
+      , 'epoch')).annotate(time_spent=Case(When(days__isnull=True, then=0),
+            default=F('days') / 86400.0, output_field=IntegerField()))
 
 
 class SavedJob(BaseModel):

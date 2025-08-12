@@ -723,11 +723,11 @@ class WithdrawJobApplicationTest(TestCase):
             job=self.job,
             status=JobStatusType.POSTED.value
         )
-
-        self.job_application = JobApplication.objects.create(
+        self.stage = WorkflowStageFactory.create(phase=PhaseType.NEW.value)
+        self.job_application = JobApplicationFactory.create(
             job_post=self.job_post,
+            stage=self.stage,
             applicant=self.talent,
-            stage=None,
             match=5
         )
 

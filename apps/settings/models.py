@@ -148,8 +148,9 @@ class WorkFlowStage(BaseModel):
         return self.jobapplication_set
 
     def average_timeline_by_talent(self):
-        return self.talentapplicationstagetimeline_set.aggregate(
-            avg_timeline=Avg("tineline")
+        from jobs.models import TalentApplicationStageTimeline
+        return TalentApplicationStageTimeline.add_time_spent_annotation(self.talentapplicationstagetimeline_set).aggregate(
+            avg_timeline=Avg("time_spent")/86400.0
         )["avg_timeline"] or 0
 
 
@@ -211,24 +212,6 @@ class WorkFlowStage(BaseModel):
     def is_after(self, stage):
         return (self.phase_order > stage.phase_order or
                 (self.phase_order == stage.phase_order and self.order > stage.order))
-
-    def update_talent_stage_timeline(self, application, days: int = None):
-        stage_timeline, created = application.talentapplicationstagetimeline_set.get_or_create(
-            stage=self,
-            job_role=application.job_post.job.role,
-            defaults={"timeline": days if days is not None else 0},
-        )
-
-        if not created and days is not None:
-            stage_timeline.timeline = days
-            stage_timeline.save()
-
-    def get_talent_stage_timeline(self, application):
-        stage_timeline, _ = application.talentapplicationstagetimeline_set.get_or_create(
-            stage=self,
-            job_role=application.job_post.job.role,
-        )
-        return stage_timeline
 
 
 
