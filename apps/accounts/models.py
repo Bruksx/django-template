@@ -13,7 +13,7 @@ from core.models import BaseModel
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
-from django.db.models import Q, Count, F, Value, Avg, IntegerField, Exists, OuterRef, Sum, When, Case
+from django.db.models import Q, Count, F, Value, Avg, IntegerField, Exists, OuterRef, Sum, When, Case, FloatField
 from django.db.models.functions import Concat, Cast
 from django.db.models.signals import pre_save
 from django.utils import timezone
@@ -21,6 +21,7 @@ from django_softdelete.managers import SoftDeleteManager
 from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
 from ninja_jwt.tokens import RefreshToken
 from notification.enums import NotificationGroup
+from reportlab.lib.testutils import outputfile
 from timezone_field import TimeZoneField
 
 from config.settings import SECRET_KEY
@@ -705,8 +706,12 @@ class Business(BaseModel):
                   filter=Q(talentapplicationstagetimeline__job_role_id=job_role_id,
                            talentapplicationstagetimeline__application__deleted_at__isnull=True)),
                  stage=F("name"))
-        graph = graph.annotate(avg_timeline=Cast(Case(
-            When(avg_timelines__isnull=True, then=float(0)), default=F("avg_timelines")/86400.0),output_field=IntegerField()))
+        graph = graph.annotate(avg_timeline_float=Cast(Case(
+            When(avg_timelines__isnull=True, then=float(0)), default=F("avg_timelines")/86400.0),output_field=FloatField()))
+        graph = graph.annotate(avg_timeline=Case(
+            When(Q(avg_timeline_float__gte=0) & Q(avg_timeline_float__lt=1), then=1), default=F("avg_timeline_float"),
+            output_field=IntegerField()
+        ))
         return {"graph": graph.values("stage", "avg_timeline"), "days_to_hire": int(graph.aggregate(Sum("avg_timeline"))["avg_timeline__sum"] or 0)}
 
     @staticmethod
@@ -715,10 +720,20 @@ class Business(BaseModel):
                                                   filter=Q(talentapplicationstagetimeline__job_role_id=job_role_id,
                                                            talentapplicationstagetimeline__stage__phase=F("phase"),
                                                            talentapplicationstagetimeline__application__deleted_at__isnull=True)))
-        graph = graph.annotate(avg_timeline=Cast(Case(
+        graph = graph.annotate(avg_timeline_float=Cast(Case(
             When(avg_timelines__isnull=True, then=float(0)), default=F("avg_timelines") / 86400.0),
             output_field=IntegerField()))
-        return {"graph": graph.values("phase", "avg_timeline"),
+        graph = graph.annotate(avg_timeline=Case(
+            When(Q(avg_timeline_float__gte=0)& Q(avg_timeline_float__lt=1), then=1), default=F("avg_timeline_float"),
+            output_field=IntegerField()
+        ))
+        actual_graph = list()
+        graph_dict = {dt["phase"]: dt["avg_timeline"] for dt in graph.values("phase", "avg_timeline")}
+        for phase in PhaseType.values():
+            if phase in (PhaseType.REJECTED.value, PhaseType.HIRED.value):
+                continue
+            actual_graph.append({"phase": phase, "avg_timeline": graph_dict.get(phase, 0)})
+        return {"graph": actual_graph,
                 "days_to_hire": int(graph.aggregate(Sum("avg_timeline"))["avg_timeline__sum"] or 0)}
 
     def time_to_hire_via_stage(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):

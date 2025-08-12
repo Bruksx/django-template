@@ -7,6 +7,7 @@ from django.db.models.functions import Extract, Coalesce, Now
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
+from accounts.models import Business
 
 # for ja in JobApplication.objects.iterator():
 #     jp = add_job_post_annotations(JobPost.objects.filter(id=ja.job_post_id), ja.applicant).first()
@@ -20,7 +21,10 @@ from jobs.enums import PhaseType
 
 
 from jobs.models import TalentApplicationStageTimeline
-
+for business in Business.objects.iterator():
+    print(business.time_to_hire_via_stage())
+    print(business.time_to_hire())
+    print("\n\n")
 for t in TalentApplicationStageTimeline.objects.order_by("?")[:2]:
     t.update(exit_date=None)
 
