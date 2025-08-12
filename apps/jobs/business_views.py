@@ -333,7 +333,11 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
         question["type"] = question["type"].value
         options = question.pop("options")
         question = ScreeningQuestion.objects.create(job=job, **question)
-        QuestionOption.objects.bulk_create([QuestionOption(**option, question=question) for option in options])
+        options_data = [MutateOptionSchema(**o) for o in options]
+        _, error = update_screening_question_options(question, options_data)
+        if error:
+            logging.critical(error, exc_info=True)
+            raise error
 
     return job
 
