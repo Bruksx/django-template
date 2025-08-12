@@ -317,6 +317,7 @@ class WorkflowStageFactory(BaseModelFactory):
 class JobApplicationFactory(BaseModelFactory):
     class Meta:
         model = JobApplication
+    stage = factory.SubFactory(WorkflowStageFactory)
     job_post = factory.SubFactory(JobPostFactory)
     applicant = factory.SubFactory(TalentFactory)
     recruiter = factory.SubFactory(BusinessUserFactory)
@@ -331,7 +332,7 @@ class JobApplicationFactory(BaseModelFactory):
         workflow_stage = WorkFlowStage.objects.filter(created_by__business=self.recruiter.business).order_by("?").first()
         if not workflow_stage:
             email_template = EmailTemplateFactory(created_by=self.recruiter)
-            workflow_stage = WorkflowStageFactory.create(created_by=self.recruiter, email_template=email_template)
+            workflow_stage = WorkflowStageFactory.create(created_by=self.recruiter, email_template=email_template, phase=PhaseType.NEW.value)
         self.stage=workflow_stage
         self.save()
         return

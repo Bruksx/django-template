@@ -20,6 +20,8 @@ from jobs.models import (
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
+from settings.models import WorkFlowStage
+
 
 class EmploymentTypeListTests(TestCase):
     def setUp(self):
@@ -568,7 +570,7 @@ class JobCreationTest(TestCase):
 
     def test_create_job_without_complete_stage(self):
         from settings.models import WorkFlowStage
-        WorkFlowStage.objects.filter(created_by__business=self.business).first().delete()
+        WorkFlowStage.objects.filter(created_by__business=self.business).delete()
         response = self.client.post("", json=self.test_data, headers=self.headers)
         self.assertEqual(response.status_code, 400)
 
@@ -1374,7 +1376,8 @@ class UpdateScreeningQuestionTest(TestCase):
         self.business_user = BusinessUserFactory.create()
         self.job = JobFactory.create(created_by=self.business_user)
         self.url = lambda question_uid: f"screening-questions/{question_uid}"
-        self.screening_question = ScreeningQuestionFactory.create(job=self.job, type=QuestionTypeEnum.SINGLE_SELECT.value)
+        self.screening_question = ScreeningQuestionFactory.create(job=self.job, type=QuestionTypeEnum.SINGLE_SELECT.value,
+                                                                  is_knockout=True)
         self.test_data = {
             "type": "single select",
             "text": "What is her name?",
@@ -1429,6 +1432,7 @@ class MutateScreeningQuestionOptionsTest(TestCase):
         self.job = JobFactory.create(created_by=self.business_user)
         self.url = lambda question_uid: f"screening-questions/{question_uid}/options"
         self.screening_question = ScreeningQuestionFactory.create(job=self.job,
+                                                                  is_knockout=True,
                                                                   type=QuestionTypeEnum.SINGLE_SELECT.value)
         self.test_data = [
                 {
@@ -1461,7 +1465,7 @@ class MutateScreeningQuestionOptionsTest(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_multi_select_question_with_only_one_correct_option(self):
-        self.screening_question.update(type=QuestionTypeEnum.MULTI_SELECT.value)
+        self.screening_question.update(type=QuestionTypeEnum.MULTI_SELECT.value, is_knockout=True)
         self.screening_question.refresh_from_db()
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
@@ -1705,8 +1709,9 @@ class UpdateJobApplicationTest(TestCase):
         self.business_user = BusinessUserFactory.create()
         self.job = JobFactory.create(created_by=self.business_user)
         self.job_post = JobPostFactory.create(job=self.job, recruiter=self.business_user)
+        self.stage = WorkFlowStage.objects.filter(created_by__business=self.business_user.business).first()
         self.application = JobApplicationFactory.create(job_post=self.job_post, recruiter=self.business_user,
-                                                        stage=None)
+                                                       stage=self.stage )
         self.url = lambda application_id: f"job-posts/applications/{application_id}"
 
 

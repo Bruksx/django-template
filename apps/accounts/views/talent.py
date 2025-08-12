@@ -128,6 +128,7 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
 
 
     if "preferred_communication" in data:
+        
         data["preferred_communication"] = data["preferred_communication"].value if type(data["preferred_communication"]) is not str else data["preferred_communication"]
     if "notice_period_type" in data:
         data["notice_period_type"] = data["notice_period_type"].value if type(data["notice_period_type"]) is not str else data["notice_period_type"]

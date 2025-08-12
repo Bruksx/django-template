@@ -81,7 +81,6 @@ def create_account(request, data: business_schema.ValidateOTPSchema):
         role=BusinessUserRoleType.OWNER.value,
     )
     business_user.save()
-    async_task(create_business_workflows, business.id)
     return user
 
 

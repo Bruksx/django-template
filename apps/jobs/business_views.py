@@ -415,7 +415,11 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
             question["type"] = question["type"].value
             options = question.pop("options")
             question = ScreeningQuestion.objects.create(job=job, **question)
-            QuestionOption.objects.bulk_create([QuestionOption(**option, question=question) for option in options])
+            options_data = [MutateOptionSchema(**o) for o in options]
+            _, error = update_screening_question_options(question, options_data)
+            if error:
+                logging.critical(error, exc_info=True)
+                raise error
 
         for question_data in old_questions:
             question = ScreeningQuestion.objects.filter(uid=question_data.get("uid")).first()
@@ -425,7 +429,7 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
                 raise error
             if "type" in question_data:
                 question_data["type"] = question_data["type"].value
-            question.update(**question_data)
+            question = question.update(**question_data)
             options_data = [MutateOptionSchema(**o) for o in question_data["options"]]
             _, error = update_screening_question_options(question, options_data)
             if error:

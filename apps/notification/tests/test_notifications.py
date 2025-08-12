@@ -13,6 +13,8 @@ from notification.notifications import send_new_chat_notification, send_job_post
     send_talents_job_matching_notification, send_job_sharing_notification, send_job_performance_notification, \
     send_business_user_notification, send_job_post_assignment_notification
 
+from apps.factories import WorkflowStageFactory
+
 
 class TestSendNewChatNotification(TestCase):
     def setUp(self):
@@ -125,7 +127,8 @@ class TestSendJobPerformanceNotification(TestCase):
         self.job_post = JobPostFactory.create()
         self.metrics = self.job_post.jobpostmetrics
         self.metrics.update(job_post=self.job_post, daily_email_shares=1)
-        JobApplicationFactory.create(job_post=self.job_post)
+        self.stage = WorkflowStageFactory.create()
+        JobApplicationFactory.create(job_post=self.job_post, stage=self.stage)
         TalentFactory.create()
 
     def test_send_job_performance_notification(self):

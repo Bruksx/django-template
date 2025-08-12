@@ -1,4 +1,4 @@
-import logging
+import random
 import random
 import secrets
 import string
@@ -6,25 +6,25 @@ from datetime import timedelta, date, datetime
 from typing import Tuple, Optional
 from uuid import UUID
 
+import jwt
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
+    BusinessSize, BusinessUserStatusType, CaseReasonType
+from core.models import BaseModel
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
-from django.db.models import Q, Count, F, Value, Avg, IntegerField, Exists, OuterRef, Sum, When, Case, FloatField
-from django.db.models.functions import Concat, Cast, Coalesce
+from django.db.models import Q, Count, F, Value, Avg, IntegerField, Exists, OuterRef, Sum, When, Case
+from django.db.models.functions import Concat, Cast
 from django.db.models.signals import pre_save
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from helpers.utils import delete_s3_item
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
 from ninja_jwt.tokens import RefreshToken
-import jwt
+from notification.enums import NotificationGroup
 from timezone_field import TimeZoneField
 
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessSize, BusinessUserStatusType, CaseReasonType
 from config.settings import SECRET_KEY
-from core.models import BaseModel
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
-from notification.enums import NotificationGroup
+from helpers.utils import delete_s3_item
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -303,7 +303,7 @@ class Talent(BaseModel):
         return int(months//12), int(months)
 
     def job_post_matches(self, job_only=False, by_talent_country=False, start_date: date=None, end_date: date=None, business=None):
-        from jobs.models import AvailableDay, JobPost, Job
+        from jobs.models import JobPost, Job
         from jobs.queries import add_job_post_annotations
 
         
@@ -539,7 +539,6 @@ class Business(BaseModel):
         return queryset.count()
 
     def total_open_roles(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
-        from jobs.models import JobPost
         # open roles are job posts that are posted
         queryset = self.job_posts(status=JobStatusType.POSTED.value)
         if start_date and not end_date:
@@ -574,24 +573,26 @@ class Business(BaseModel):
         return queryset.distinct("applicant").count()
 
     def average_days_to_hire(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
-        from jobs.models import JobApplication
-        queryset = JobApplication.objects.filter(
-            recruiter__business=self,
+        from jobs.models import TalentApplicationStageTimeline
+        queryset = TalentApplicationStageTimeline.add_time_spent_annotation(TalentApplicationStageTimeline.objects.filter(stage__created_by__business=self,
+                                application__stage__phase=PhaseType.HIRED.value).exclude(
             stage__phase=PhaseType.HIRED.value
-        )
+        ))
         # filtering based on date hired not date created
         if start_date and not end_date:
-            queryset = queryset.filter(stage_date_updated__gte=start_date)
+            queryset = queryset.filter(created_at__gte=start_date)
         elif end_date and not start_date:
-            queryset = queryset.filter(stage_date_updated__lte=end_date)
+            queryset = queryset.filter(created_at__lte=end_date)
         elif start_date and end_date:
-            queryset = queryset.filter(stage_date_updated__range=[start_date, end_date])
+            queryset = queryset.filter(created_at__range=[start_date, end_date])
         if role_id:
-            queryset = queryset.filter(job_post__job__role_id=role_id)
+            queryset = queryset.filter(job_role_id=role_id)
         if client:
-            queryset = queryset.filter(job_post__job__hiring_company_name=client)
+            queryset = queryset.filter(application__job_post__job__hiring_company_name=client)
 
-        return int(queryset.aggregate(value=Avg("days_to_hire"))["value"] or 0)
+        return queryset.values("application").annotate(total_time=Sum("time_spent")).aggregate(
+            days_to_hire=Cast(Avg("total_time"), output_field=IntegerField())
+        )["days_to_hire"] or 0
 
     def total_invitations_sent(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobInvite
@@ -698,62 +699,40 @@ class Business(BaseModel):
         return (total_hires,
                 data_list)
 
-    def time_to_hire(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
-        from jobs.models import JobApplication
-        data_list = JobApplication.objects.prefetch_related("job_post__job__role")\
-        .filter(recruiter__business=self, stage__phase=PhaseType.HIRED.value)
-
-        if start_date and not end_date:
-            data_list = data_list.filter(stage_date_updated__gte=start_date)
-        elif end_date and not start_date:
-            data_list = data_list.filter(stage_date_updated__lte=end_date)
-        elif start_date and end_date:
-            data_list = data_list.filter(stage_date_updated__range=[start_date, end_date])
-        if role_id:
-            data_list = data_list.filter(job_post__job__role_id=role_id)
-        if client:
-            data_list = data_list.filter(job_post__job__hiring_company_name=client)
-
-        data_list = (data_list.values("job_post__job__role") \
-            .annotate(
-            role=F("job_post__job__role__name"),
-            posted=Cast(Avg("posted_timeline"), output_field=IntegerField()),
-            screening=Cast(Avg("screening_timeline"), output_field=IntegerField()),
-            interview=Cast(Avg("interview_timeline"), output_field=IntegerField()),
-            onboarding=Cast(Avg("onboarding_timeline"), output_field=IntegerField()),
-        )
-        .annotate(
-            days_to_hire=F("posted") + F("screening") + F("interview") + F("onboarding")
-        )
-        .order_by("-days_to_hire")
-        .values("role", "posted",
-                "screening", "interview", "onboarding", "days_to_hire")
-         )[:5]
-        return list(data_list)
-
     @staticmethod
     def job_role_stage_timeline(job_role_id, stages):
-        graph = stages.annotate(avg_timelines=Avg("talentapplicationstagetimeline__timeline",
+        graph = stages.annotate(avg_timelines=Avg("time_spent",
                   filter=Q(talentapplicationstagetimeline__job_role_id=job_role_id,
                            talentapplicationstagetimeline__application__deleted_at__isnull=True)),
                  stage=F("name"))
         graph = graph.annotate(avg_timeline=Cast(Case(
-            When(avg_timelines__isnull=True, then=float(0)), default=F("avg_timelines")),output_field=IntegerField()))
+            When(avg_timelines__isnull=True, then=float(0)), default=F("avg_timelines")/86400.0),output_field=IntegerField()))
         return {"graph": graph.values("stage", "avg_timeline"), "days_to_hire": int(graph.aggregate(Sum("avg_timeline"))["avg_timeline__sum"] or 0)}
 
+    @staticmethod
+    def job_role_phase_timeline(job_role_id, stages):
+        graph = stages.values("phase").annotate(avg_timelines=Avg("time_spent",
+                                                  filter=Q(talentapplicationstagetimeline__job_role_id=job_role_id,
+                                                           talentapplicationstagetimeline__stage__phase=F("phase"),
+                                                           talentapplicationstagetimeline__application__deleted_at__isnull=True)))
+        graph = graph.annotate(avg_timeline=Cast(Case(
+            When(avg_timelines__isnull=True, then=float(0)), default=F("avg_timelines") / 86400.0),
+            output_field=IntegerField()))
+        return {"graph": graph.values("phase", "avg_timeline"),
+                "days_to_hire": int(graph.aggregate(Sum("avg_timeline"))["avg_timeline__sum"] or 0)}
 
     def time_to_hire_via_stage(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import TalentApplicationStageTimeline
         from settings.models import WorkFlowStage
-        stages = (
+        stages = TalentApplicationStageTimeline.add_time_spent_annotation_for_stages(
             WorkFlowStage.objects.filter(created_by__business=self)
             .order_by("phase_order", "order")
-            .exclude(phase__in=(PhaseType.ONBOARDING, PhaseType.REJECTED))
+            .exclude(phase__in=(PhaseType.REJECTED.value, PhaseType.HIRED.value))
         )
-        timelines = TalentApplicationStageTimeline.objects.prefetch_related("application").filter(
+        timelines = TalentApplicationStageTimeline.add_time_spent_annotation(TalentApplicationStageTimeline.objects.prefetch_related("application").filter(
                 stage__created_by__business=self,
                 application__stage__phase=PhaseType.HIRED.value,
-            )
+            ))
         if start_date and not end_date:
             timelines = timelines.filter(application__stage_date_updated__gte=start_date)
         elif end_date and not start_date:
@@ -770,8 +749,10 @@ class Business(BaseModel):
             .annotate(
                 role_id=F("job_role__id"),
                 role_name=F("job_role__name"),
+                avg_time_spent=Cast(Avg("time_spent"), output_field=IntegerField())
             )
-            .distinct()
+            .order_by("-avg_time_spent")
+            .distinct()[:5]
         )
         return [
             {
@@ -780,6 +761,48 @@ class Business(BaseModel):
             }
             for role in timelines
         ]
+
+    def time_to_hire(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
+        from jobs.models import TalentApplicationStageTimeline
+        from settings.models import WorkFlowStage
+        stages = TalentApplicationStageTimeline.add_time_spent_annotation_for_stages(
+            WorkFlowStage.objects.filter(created_by__business=self)
+            .order_by("phase_order", "order")
+            .exclude(phase__in=(PhaseType.REJECTED.value, PhaseType.HIRED.value))
+        )
+        timelines = TalentApplicationStageTimeline.add_time_spent_annotation(TalentApplicationStageTimeline.objects.prefetch_related("application").filter(
+                stage__created_by__business=self,
+                application__stage__phase=PhaseType.HIRED.value,
+            ))
+        if start_date and not end_date:
+            timelines = timelines.filter(application__stage_date_updated__gte=start_date)
+        elif end_date and not start_date:
+            timelines = timelines.filter(application__stage_date_updated__lte=end_date)
+        elif start_date and end_date:
+            timelines = timelines.filter(application__stage_date_updated__range=[start_date, end_date])
+        if role_id:
+            timelines = timelines.filter(application__job_post__job__role_id=role_id)
+        if client:
+            timelines = timelines.filter(application__job_post__job__hiring_company_name=client)
+        timelines = (
+            timelines
+            .values("job_role")
+            .annotate(
+                role_id=F("job_role__id"),
+                role_name=F("job_role__name"),
+                avg_time_spent=Cast(Avg("time_spent"), output_field=IntegerField())
+            )
+            .order_by("-avg_time_spent")
+            .distinct()[:5]
+        )
+        return [
+            {
+                "role": role["role_name"],
+                **self.job_role_phase_timeline(role["role_id"], stages),
+            }
+            for role in timelines
+        ]
+
 
     def withdrawal_reasons(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplicationWithdrawal
