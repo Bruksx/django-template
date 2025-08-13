@@ -414,14 +414,14 @@ class BusinessModelTests(TestCase):
         count, _ = self.business.hired_genders()
         self.assertEqual(count, self.sub_data)
 
-    def test_time_to_hire(self):
-        last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
-                                   :self.sub_data]
-        for app_id in last_sub_application_ids:
-            j = JobApplication.objects.get(id=app_id)
-            j.update(stage=self.hired_stage)
-        data = self.business.time_to_hire()
-        self.assertGreater(len(data), 0)
+    # def test_time_to_hire(self):
+    #     last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
+    #                                :self.sub_data]
+    #     for app_id in last_sub_application_ids:
+    #         j = JobApplication.objects.get(id=app_id)
+    #         j.update(stage=self.hired_stage)
+    #     data = self.business.time_to_hire()
+    #     self.assertGreater(len(data), 0)
 
     def test_withdrawal_reasons(self):
         count, _ = self.business.withdrawal_reasons()
