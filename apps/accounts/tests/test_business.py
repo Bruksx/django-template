@@ -148,7 +148,6 @@ class BusinessDashboardTestCase(TestCase):
             "recruiter_performance",
             "applicant_gender",
             "hires_location",
-            "time_to_hire",
             "stage_timelines",
             "withdrawal_reasons",
             "applicants_years_of_experience",
