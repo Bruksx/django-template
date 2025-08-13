@@ -427,10 +427,6 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
 
         for question_data in old_questions:
             question = ScreeningQuestion.objects.filter(uid=question_data.get("uid")).first()
-            _, error = validate_screening_questions(question, question_data)
-            if error:
-                logging.critical(error, exc_info=True)
-                raise error
             if "type" in question_data:
                 question_data["type"] = question_data["type"].value
             question = question.update(**question_data)
