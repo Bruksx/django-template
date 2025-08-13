@@ -17,6 +17,8 @@ from jobs.enums import LunchBreakEnum, WorkStructureEnum, PhaseType, JobStatusTy
 from jobs.models import JobLevel, EmploymentType, Job, JobPost, RequiredAttribute, BusinessModel, AvailableDay, \
     JobApplication, JobInterview, SavedJob
 
+from settings.models import WorkFlowStage
+
 
 class TalentModelTest(TestCase):
     def setUp(self):
@@ -132,7 +134,7 @@ class TalentModelTest(TestCase):
             working_hours=True,
             location=True
         )
-        stage = WorkflowStageFactory.create(phase=PhaseType.INTERVIEW.value)
+        stage = WorkflowStageFactory.create(phase=PhaseType.INTERVIEW.value, created_by=self.business_user)
         job.requiredattribute.skills.set(Skill.objects.all()[:2])
         job.requiredattribute.business_models.set(BusinessModel.objects.all()[:2])
         job.requiredattribute.save()
@@ -323,13 +325,14 @@ class BusinessModelTests(TestCase):
             )
 
         for talent in talents:
+            stage = WorkFlowStage.objects.filter(phase=PhaseType.NEW.value, created_by__business=business).first()
             for index in range(self.max_data):
                 ExperienceFactory.create(talent=talent)
-                JobApplicationFactory.create(applicant=talent, job_post=job_post_list[index])
+                JobApplicationFactory.create(applicant=talent, job_post=job_post_list[index], stage=stage)
 
 
         for talent in talents[:self.sub_data]:
-                JobApplicationWithdrawalFactory.create(job_post=job_post_list[index], talent=talent)
+            JobApplicationWithdrawalFactory.create(job_post=job_post_list[index], talent=talent)
         self.business = business
         self.country = country
         self.hired_stage = WorkflowStageFactory.create(phase=PhaseType.HIRED.value,
@@ -339,7 +342,7 @@ class BusinessModelTests(TestCase):
     def test_total_hires(self):
         last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[:self.sub_data]
         self.assertEqual(self.business.total_hires(), 0)
-        hired_stage = WorkflowStageFactory.create(phase=PhaseType.HIRED.value)
+        hired_stage = WorkFlowStage.objects.filter(phase=PhaseType.HIRED.value, created_by__business=self.business).first()
         JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=hired_stage)
         self.assertEqual(self.business.total_hires(), self.sub_data)
 
@@ -353,7 +356,8 @@ class BusinessModelTests(TestCase):
         self.assertEqual(self.business.total_applicants(), self.max_data)
         talent = TalentFactory.create(country=self.country)
         last_job_post = JobPost.objects.last()
-        JobApplicationFactory.create(applicant=talent, job_post=last_job_post)
+        stage = WorkFlowStage.objects.filter(phase=PhaseType.NEW.value, created_by__business=self.business).first()
+        JobApplicationFactory.create(applicant=talent, job_post=last_job_post, stage=stage)
         self.assertEqual(self.business.total_applicants(), self.max_data+1)
 
     def test_average_days_to_hire(self):
