@@ -716,13 +716,13 @@ class TalentApplicationStageTimeline(BaseModel):
     @staticmethod
     def add_time_spent_annotation(queryset):
         return queryset.annotate(days=Extract(Coalesce(F('exit_date'), Now()) - F('created_at')
-    , 'epoch')).annotate(time_spent=Case(When(days__isnull=True, then=0),
+    , 'epoch')).annotate(time_spent=Case(When(days__isnull=True, then=float(0)),
     default=F('days')/86400.0, output_field=IntegerField()))
 
     @staticmethod
     def add_time_spent_annotation_for_stages(queryset):
         return queryset.annotate(days=Extract(Coalesce(F('talentapplicationstagetimeline__exit_date'), Now()) - F('talentapplicationstagetimeline__created_at')
-      , 'epoch')).annotate(time_spent=Case(When(days__isnull=True, then=0),
+      , 'epoch')).annotate(time_spent=Case(When(days__isnull=True, then=float(0)),
             default=F('days') / 86400.0, output_field=IntegerField()))
 
 
