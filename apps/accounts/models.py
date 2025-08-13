@@ -708,7 +708,7 @@ class Business(BaseModel):
                            talentapplicationstagetimeline__application__deleted_at__isnull=True)),
                  stage=F("name"))
         graph = graph.annotate(avg_timeline=Case(
-            When(Q(avg_timelines__gte=0) & Q(avg_timelines__lt=1), then=round(float(1), 0)), default=Round(F("avg_timelines"), 0),
+            When(Q(Q(Q(avg_timelines__gte=0) & Q(avg_timelines__lt=1))|Q(avg_timelines__isnull=True)), then=round(float(1), 0)), default=Round(F("avg_timelines"), 0),
         ))
         return {"graph": graph.values("stage", "avg_timeline"), "days_to_hire": int(graph.aggregate(Sum("avg_timeline"))["avg_timeline__sum"] or 0)}
 
@@ -719,7 +719,7 @@ class Business(BaseModel):
                                                            talentapplicationstagetimeline__stage__phase=F("phase"),
                                                            talentapplicationstagetimeline__application__deleted_at__isnull=True)))
         graph = graph.annotate(avg_timeline=Case(
-            When(Q(avg_timelines__gte=0)& Q(avg_timelines__lt=1), then=round(float(1), 0)), default=Round(F("avg_timelines"), 0)
+            When(Q(Q(Q(avg_timelines__gte=0) & Q(avg_timelines__lt=1))|Q(avg_timelines__isnull=True)), then=round(float(1), 0)), default=Round(F("avg_timelines"), 0)
         ))
         actual_graph = list()
         graph_dict = {dt["phase"]: dt["avg_timeline"] for dt in graph.values("phase", "avg_timeline")}
