@@ -95,12 +95,12 @@ class TimeToHireSchema(Schema):
 
 class StageTimelineSchema(Schema):
     stage: str
-    avg_timeline: int
+    avg_timeline: int|float
 
 class TimeToHireViaStages(Schema):
     role: str
     graph: List[StageTimelineSchema]
-    days_to_hire: int
+    days_to_hire: int|float
 
 
 class WithdrawalReasonSchemaList(Schema):
