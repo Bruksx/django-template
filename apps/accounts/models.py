@@ -525,7 +525,7 @@ class Business(BaseModel):
 
     def total_hires(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobApplication
-        queryset = JobApplication.objects.filter(job_post__recruiter__business=self,
+        queryset = JobApplication.objects.filter(stage__created_by__business=self,
                                                  stage__phase=PhaseType.HIRED.value)
         # filtering based on date hired not date created
         if start_date and not end_date:
@@ -559,7 +559,7 @@ class Business(BaseModel):
 
         from jobs.models import JobApplication
 
-        queryset = JobApplication.objects.filter(job_post__recruiter__business=self)
+        queryset = JobApplication.objects.filter(stage__created_by__business=self)
 
         if start_date and not end_date:
             queryset = queryset.filter(created_at__gte=start_date)
@@ -654,7 +654,7 @@ class Business(BaseModel):
         from jobs.models import JobApplication
         total_location_of_hires = self.total_location_of_hires(start_date, end_date, role_id, client)
         hires_location = JobApplication.objects\
-                .filter(stage__phase=PhaseType.HIRED.value, recruiter__business=self)
+                .filter(stage__phase=PhaseType.HIRED.value, stage__created_by__business=self)
         if start_date and not end_date:
             hires_location = hires_location.filter(stage_date_updated__gte=start_date)
         elif end_date and not start_date:
@@ -681,7 +681,7 @@ class Business(BaseModel):
         total_hires = self.total_hires(start_date, end_date, role_id, client)
         genders_aggregate = JobApplication.objects\
                 .prefetch_related("applicant")\
-                .filter(stage__phase=PhaseType.HIRED.value, recruiter__business=self)
+                .filter(stage__phase=PhaseType.HIRED.value, stage__created_by__business=self)
         if start_date and not end_date:
             genders_aggregate = genders_aggregate.filter(stage_date_updated__gte=start_date)
         elif end_date and not start_date:
@@ -873,7 +873,7 @@ class Business(BaseModel):
         ranges = (0, (1,2), (2,3), (3,4), (5,6), (7,8), (8, 10), (10, 12), (12, 15), (15, 20), 20)
         data_list = list()
         application = JobApplication.objects.filter(
-            recruiter__business=self
+            stage__created_by__business=self
         )
         if start_date and not end_date:
             application = application.filter(created_at__gte=start_date)
