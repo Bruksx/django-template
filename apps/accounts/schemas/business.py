@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Optional, List, TypedDict
+from typing import Optional, List, TypedDict, AnyStr, Any
 from uuid import UUID
 
 from django.db.models import Q
@@ -91,16 +91,16 @@ class TimeToHireSchema(Schema):
     screening: Optional[int] = None
     interview: Optional[int] = None
     onboarding: Optional[int] = None
-    days_to_hire: int
+    days_to_hire: Any
 
 class StageTimelineSchema(Schema):
     stage: str
-    avg_timeline: int|float
+    avg_timeline: Any
 
 class TimeToHireViaStages(Schema):
     role: str
     graph: List[StageTimelineSchema]
-    days_to_hire: int|float
+    days_to_hire: Any
 
 
 class WithdrawalReasonSchemaList(Schema):
@@ -137,7 +137,6 @@ class DashboardSchema(ModelSchema):
     recruiter_performance:RecruiterPerformanceSchema
     applicant_gender:ApplicationGenderSchema
     hires_location:HiresByCountrySchema
-    time_to_hire:List[TimeToHireSchema]
     stage_timelines: List[TimeToHireViaStages]
     withdrawal_reasons: WithdrawalReasonSchema
     applicants_years_of_experience: List[ApplicantsYearsOfExperienceSchema]
