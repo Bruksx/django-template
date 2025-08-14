@@ -173,6 +173,7 @@ class TalentUserSchema(ModelSchema):
     additional_languages: List[LanguageSchema]
     availability:  List[TalentAvailabilitySchema]
     additional_skills: List[str]
+    address: str = Field(alias="get_address")
     years_of_experience: str = Field(alias="get_years_of_experience")
 
 
@@ -200,8 +201,8 @@ class TalentResumeSchema(ModelSchema):
     phone_number: Optional[str] = None
     phone_code: Optional[str] = None
     bio: str
-    address: str
     languages: str
+    address: str = Field(alias="get_address")
     skills: List[TalentSkillSchema]
     availability: List[TalentAvailabilitySchema]
     notice_period: Optional[str] = None
@@ -211,19 +212,6 @@ class TalentResumeSchema(ModelSchema):
     class Meta:
         model = Talent
         fields = ("bio", )
-
-    @staticmethod
-    def resolve_address(obj):
-        address_list = []
-        if obj.address:
-            address_list.append(obj.address)
-        if obj.city:
-            address_list.append(obj.city)
-        if obj.state:
-            address_list.append(obj.state)
-        if obj.country:
-            address_list.append(obj.country.name)
-        return ", ".join(address_list)
 
     @staticmethod
     def resolve_notice_period(obj):

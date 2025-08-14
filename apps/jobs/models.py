@@ -114,6 +114,7 @@ class Job(BaseModel):
         return self.role.name
 
 
+
     def get_availability(self, schema, query=None):
         data = list()
         for value in Days.values():
