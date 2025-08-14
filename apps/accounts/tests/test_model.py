@@ -19,6 +19,8 @@ from jobs.models import JobLevel, EmploymentType, Job, JobPost, RequiredAttribut
 
 from settings.models import WorkFlowStage
 
+from core.models import State
+
 
 class TalentModelTest(TestCase):
     def setUp(self):
@@ -41,6 +43,7 @@ class TalentModelTest(TestCase):
         self.employment_type = EmploymentType.objects.first()
         self.education_level = EducationLevel.objects.first()
         self.country = Country.objects.first()
+        self.province = State.objects.first()
         self.industry = BusinessIndustry.objects.first()
         self.user2 = User.objects.create_user(
             email="testuser1@example.com",
@@ -114,7 +117,7 @@ class TalentModelTest(TestCase):
             job=job,
             status=JobStatusType.CLOSED.value,  # Can be changed to True for posting
             country=self.country,
-            province="Ontario",
+            province=self.province,
             postal_code="M5V 1T6",  # Replace with actual postal code
             annual_salary_min=Decimal('80000.00'),  # Use Decimal for money fields
             annual_salary_max=Decimal('100000.00'),

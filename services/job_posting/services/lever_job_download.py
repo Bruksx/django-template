@@ -13,6 +13,7 @@ from settings.models import WorkFlowStage
 from django.db import connection, close_old_connections
 
 from apps.accounts.enums import UserType
+from apps.core.models import State, City
 from config import settings
 from helpers.utils import chunk_queryset
 
@@ -59,10 +60,12 @@ def create_job(job_data):
 
         job_title = job_data.get("text", "")
 
-        province = job_data.get("categories", {}).get("location", "").split(",")[1].strip() if "," in job_data.get(
+        province_ = job_data.get("categories", {}).get("location", "").split(",")[1].strip() if "," in job_data.get(
             "categories", {}).get("location", "") else ""
-        city = job_data.get("categories", {}).get("location", "").split(",")[0].strip()
-        timez = [tz for tz in pytz.all_timezones if city.lower() in tz.lower() or province.lower() in tz.lower()]
+        province = State.objects.filter(name__icontains=province_).first()
+        city_ = job_data.get("categories", {}).get("location", "").split(",")[0].strip()
+        city = City.objects.filter(name__icontains=city_).first()
+        timez = [tz for tz in pytz.all_timezones if city_.lower() in tz.lower() or province_.lower() in tz.lower()]
         timez = timez[0] if timez else None
 
         job, _ = Job.objects.update_or_create(

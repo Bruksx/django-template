@@ -16,7 +16,7 @@ from notification.models import BusinessUserNotificationSettings, Notification
 from settings.models import WorkFlowStage, EmailTemplate
 
 fake = Faker()
-from core.models import Currency, Language
+from core.models import Currency, Language, City, State
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, WithdrawalFeedbackType, PhaseType, QuestionTypeEnum
 from jobs.models import JobLevel, EmploymentType, JobPost, Job, JobApplication, JobApplicationWithdrawal, \
     RequiredAttribute, BusinessModel, ScreeningQuestion, Answer, QuestionOption, JobPostMetrics, SavedJob
@@ -36,6 +36,23 @@ class CountryFactory(BaseModelFactory):
 
     code = factory.Faker('country_code')
     name = factory.Faker('country')
+
+
+class StateFactory(BaseModelFactory):
+    class Meta:
+        model = State
+
+    name = factory.Faker('state')
+    country = factory.SubFactory(CountryFactory)
+
+class CityFactory(BaseModelFactory):
+    class Meta:
+        model = City
+
+    name = factory.Faker('city')
+    state = factory.SubFactory(StateFactory)
+
+
 
 
 class CurrencyFactory(BaseModelFactory):
@@ -266,7 +283,8 @@ class JobPostFactory(BaseModelFactory):
     job = factory.SubFactory(JobFactory)
     country = factory.SubFactory(CountryFactory)
     recruiter = factory.SubFactory(BusinessUserFactory)
-    province = factory.Faker('city')
+    province = factory.SubFactory(StateFactory)
+    city = factory.SubFactory(CityFactory)
     postal_code = factory.Faker('postcode')
     annual_salary_min = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
     annual_salary_max = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)

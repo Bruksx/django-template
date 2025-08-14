@@ -26,11 +26,14 @@ from jobs.models import (
 )
 from jobs.views import router
 
+from core.models import State
+
 
 class TalentJobListTests(TestCase):
     def setUp(self):
         self.client = TestClient(router)
         self.country = Country.objects.first()
+        self.province = State.objects.first()
         self.industry = Industry.objects.first()
         self.business_industry = BusinessIndustry.objects.first()
         self.user_data = dict(
@@ -105,7 +108,7 @@ class TalentJobListTests(TestCase):
             job=job,
             status=JobStatusType.POSTED.value,  # Can be changed to True for posting
             country=self.country,
-            province="Ontario",
+            province=self.province,
             postal_code="M5V 1T6",  # Replace with actual postal code
             annual_salary_min=Decimal('80000.00'),  # Use Decimal for money fields
             annual_salary_max=Decimal('100000.00'),
