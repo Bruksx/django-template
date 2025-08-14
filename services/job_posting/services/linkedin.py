@@ -33,9 +33,9 @@ def workplace_type_mapper(workplace_type):
 def get_location(job_post):
 	location = set()
 	if job_post.province:
-		location.add(job_post.province)
+		location.add(job_post.province.name if job_post.province else "")
 	if job_post.country:
-		location.add(job_post.country.name)
+		location.add(job_post.country.name if job_post.country else "")
 	return ", ".join(location)
 
 def get_compensation(job_post)->CompensationsSchema:
