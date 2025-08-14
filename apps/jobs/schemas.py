@@ -489,8 +489,7 @@ class JobListSchema2(ModelSchema):
     hiring_company_name: Optional[str] = Field(alias="hiring_company")
     class Meta:
         model = Job
-        fields = [
-            "work_structure", "office_address"]
+        fields = ["work_structure", "office_address"]
 
 
 
@@ -655,6 +654,7 @@ class JobPostListSchema(ModelSchema):
 class JobFullListSchema(ModelSchema):
     job_posts: List[JobPostListSchema]
     role: Optional[str]
+    logo_url: Optional[str]
     client:str = Field(alias="hiring_company_name")
     location: Optional[str]
     applicants:int
