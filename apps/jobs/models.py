@@ -657,8 +657,14 @@ class JobApplication(BaseModel):
     match = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     stage_date_updated = models.DateTimeField(null=True)
 
-    def other_applications(self):
-        return not JobApplication.objects.select_related("stage__created_by").\
+    def other_application(self):
+        if not self.stage:
+            return
+        if not self.stage.created_by:
+            return
+        if not self.stage.created_by.business:
+            return
+        return JobApplication.objects.select_related("stage__created_by").\
         filter(stage__created_by__business=self.stage.created_by.business, applicant=self.applicant).exclude(id=self.id).last()
 
     def get_country(self):
