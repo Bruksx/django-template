@@ -246,10 +246,8 @@ class JobPost(BaseModel):
     status = models.CharField(max_length=50, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
     date_posted = models.DateTimeField(null=True)
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
-    province = models.CharField(max_length=128, null=True)
-    state = models.ForeignKey("core.State", on_delete=models.SET_NULL, null=True)
-    suburb = models.ForeignKey("core.City", on_delete=models.SET_NULL, null=True)
-    city = models.CharField(max_length=128, null=True)
+    province = models.ForeignKey("core.State", on_delete=models.SET_NULL, null=True)
+    city = models.ForeignKey("core.City", on_delete=models.SET_NULL, null=True)
     postal_code = models.CharField(max_length=20, null=True)
     benefits = models.JSONField(default=list, blank=True)
     share_compensation = models.BooleanField(default=True)
@@ -314,6 +312,16 @@ class JobPost(BaseModel):
         if not self.country:
             return
         return self.country.name
+
+    def get_province(self):
+        if not self.province:
+            return
+        return self.province.name
+
+    def get_city(self):
+        if not self.city:
+            return
+        return self.city.name
 
     def get_talents(self):
         query = None

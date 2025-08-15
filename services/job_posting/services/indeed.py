@@ -58,8 +58,8 @@ def convert_job_object_to_job(job_post:JobPost):
             "title": job.title,
             "description": job.about,
             "location": {
-                "country": job_post.country.code,
-                "cityRegionPostal": f"{job_post.province} {job_post.postal_code}"
+                "country": job_post.country.code if job_post.country else None,
+                "cityRegionPostal": f"{job_post.get_province()} {job_post.postal_code}"
             },
             "benefits": job_post.benefits,
             "salary": {

@@ -1,13 +1,9 @@
-import pyfacebook
 import requests
-from ninja.errors import HttpError
-from pyfacebook import GraphAPI, FacebookApi
-from pyfacebook.exceptions import FacebookError
 from dacite import from_dict
-from apps.auth.schema import FacebookUser
 
+from apps.auth.schema import FacebookUser
 from config.settings import (
-    FACEBOOK_APP_ID, FACEBOOK_APP_SECRET, FACEBOOK_APP_ID_ANDROID, FACEBOOK_APP_SECRET_ANDROID, FACEBOOK_APP_ID_IOS,
+    FACEBOOK_APP_SECRET, FACEBOOK_APP_ID_ANDROID, FACEBOOK_APP_SECRET_ANDROID, FACEBOOK_APP_ID_IOS,
     FACEBOOK_APP_SECRET_IOS, FACEBOOK_APP_ID_WEB, FACEBOOK_APP_SECRET_WEB
 )
 

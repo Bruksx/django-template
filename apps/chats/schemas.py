@@ -1,7 +1,7 @@
 from typing import Optional, List, Any, Literal
 from uuid import UUID
 
-from accounts.models import User, Talent, BusinessUser
+from accounts.models import User
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, MessageAttachment, Conversation
 from jobs.models import JobPost
@@ -9,8 +9,6 @@ from ninja import ModelSchema, Schema
 from ninja.orm.fields import AnyObject
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from pydantic import Field
-
-from apps.accounts.enums import UserType
 
 
 class ChatUserSchema(ModelSchema):

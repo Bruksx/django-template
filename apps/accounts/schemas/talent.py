@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
-from apps.accounts.enums import MeetingType
+from accounts.enums import MeetingType
 from ninja import Schema, ModelSchema, PatchDict
 from pydantic import Field, EmailStr
 

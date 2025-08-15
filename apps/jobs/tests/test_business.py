@@ -22,6 +22,8 @@ from ninja_jwt.authentication import JWTAuth
 
 from settings.models import WorkFlowStage
 
+from core.models import City, State
+
 
 class EmploymentTypeListTests(TestCase):
     def setUp(self):
@@ -465,6 +467,8 @@ class JobCreationTest(TestCase):
         }
         self.country1 = Country.objects.order_by("?").first()
         self.country2 = Country.objects.order_by("?").first()  # random ordering
+        self.province = State.objects.order_by("?").first()
+        self.province2 = State.objects.order_by("?").first()
         self.currency1 = Currency.objects.order_by("?").first()
         self.currency2 = Currency.objects.order_by("?").first()
         self.test_data = {
@@ -507,7 +511,7 @@ class JobCreationTest(TestCase):
             "job_posts": [
                 {
                     "country": str(self.country1.uid),
-                    "province": "Delta State",
+                    "province": str(self.province.uid),
                     "postal_code": "500000",
                     "share_compensation": True,
                     "status": JobStatusType.POSTED.value,
@@ -527,7 +531,7 @@ class JobCreationTest(TestCase):
                 },
                 {
                     "country": str(self.country2.uid),
-                    "province": "Rivers State",
+                    "province": str(self.province.uid),
                     "postal_code": "500000",
                     "share_compensation": False,
                     "benefits": [
@@ -869,6 +873,8 @@ class JobPostCreationTest(TestCase):
         self.client = TestClient(router)
         self.url = lambda job_uid: f"{job_uid}/job-post"
         self.country = Country.objects.first()
+        self.city = City.objects.first()
+        self.province = State.objects.first()
         self.currency = Currency.objects.first()
         self.test_data = {
                   "country": str(self.country.uid),
@@ -880,7 +886,7 @@ class JobPostCreationTest(TestCase):
                   "status": JobStatusType.POSTED.value,
                   "annual_salary_currency": str(self.currency.uid),
                   "annual_bonus_currency": str(self.currency.uid),
-                  "province": "Los Angeles",
+                  "province": str(self.province.uid),
                   "postal_code": "12345",
                   "share_compensation": True,
                   "annual_salary_min": 100,
@@ -903,7 +909,7 @@ class JobPostCreationTest(TestCase):
         self.assertEqual(job_post.status, self.test_data["status"])
         self.assertEqual(job_post.annual_salary_currency, self.currency)
         self.assertEqual(job_post.annual_bonus_currency, self.currency)
-        self.assertEqual(job_post.province, self.test_data["province"])
+        self.assertEqual(job_post.province, self.province)
         self.assertEqual(job_post.postal_code, self.test_data["postal_code"])
         self.assertEqual(job_post.share_compensation, self.test_data["share_compensation"])
         self.assertEqual(job_post.annual_salary_min, self.test_data["annual_salary_min"])
