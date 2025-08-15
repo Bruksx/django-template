@@ -1670,7 +1670,8 @@ class GetScreeningAnswersTest(TestCase):
         self.business_user = BusinessUserFactory.create()
         self.job = JobFactory.create(created_by=self.business_user)
         self.job_post = JobPostFactory.create(job=self.job, recruiter=self.business_user)
-        self.application = JobApplicationFactory.create(job_post=self.job_post, recruiter=self.business_user)
+        self.stage = WorkFlowStage.objects.filter(phase=PhaseType.NEW.value, created_by__business=self.business_user.business).first()
+        self.application = JobApplicationFactory.create(job_post=self.job_post, recruiter=self.business_user, stage=self.stage)
         self.url = lambda application_id: f"applications/{application_id}/screening-answers"
         self.questions = ScreeningQuestionFactory.create_batch(5, job=self.job)
         for screening_question in self.questions:
@@ -1725,7 +1726,7 @@ class UpdateJobApplicationTest(TestCase):
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
             "stage": str(stage.uid)
         }
@@ -1740,7 +1741,7 @@ class UpdateJobApplicationTest(TestCase):
         headers = {
             "authorization": f"Bearer {business_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
             "stage": str(stage.uid)
         }
@@ -1752,7 +1753,7 @@ class UpdateJobApplicationTest(TestCase):
         headers = {
             "authorization": f"Bearer {talent_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
             "stage": str(stage.uid)
         }
@@ -1763,7 +1764,7 @@ class UpdateJobApplicationTest(TestCase):
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
             "stage": str(stage.uid)
         }

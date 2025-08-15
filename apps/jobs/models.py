@@ -658,7 +658,14 @@ class JobApplication(BaseModel):
     stage_date_updated = models.DateTimeField(null=True)
 
     def other_application(self):
-        return JobApplication.objects.filter(job_post=self.job_post, applicant=self.applicant).exclude(id=self.id).last()
+        if not self.stage:
+            return
+        if not self.stage.created_by:
+            return
+        if not self.stage.created_by.business:
+            return
+        return JobApplication.objects.select_related("stage__created_by").\
+        filter(stage__created_by__business=self.stage.created_by.business, applicant=self.applicant).exclude(id=self.id).last()
 
     def get_country(self):
         if not self.applicant:
