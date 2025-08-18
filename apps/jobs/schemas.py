@@ -936,7 +936,7 @@ class JobApplicationListSchema(ModelSchema):
     @staticmethod
     def resolve_match(obj):
         if hasattr(obj, "computed_match_score"):
-            return obj.computed_match_score
+            return int(obj.computed_match_score)
         return obj.match
 
 
@@ -1006,7 +1006,7 @@ class TalentJobPostListSchema(ModelSchema):
     invited: bool
     city: Optional[GenericNameAndUidSchema] = None
     province: Optional[GenericNameAndUidSchema] = None
-   #match_obj: Optional[MatchScoreSchema] = None
+    match_obj: Optional[MatchScoreSchema] = None
 
     class Meta:
         model = JobPost
