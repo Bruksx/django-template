@@ -1,6 +1,8 @@
 from django.db.models.query import QuerySet
 from accounts.models import Talent, SkillCategory, Experience, Education, TalentAvailableDay
-from .models import JobPost, RequiredAttribute, RequiredSecondaryLanguage, RequiredSkill, JobApplication, Job, AvailableDay
+from .models import (
+    JobPost, RequiredAttribute, RequiredSecondaryLanguage, RequiredSkill, JobApplication, Job, AvailableDay,
+)
 from django.db.models import (
     OuterRef, Exists, Case, When, Value, FloatField, Q, F, ExpressionWrapper, Count, Subquery, IntegerField, 
     BooleanField
@@ -309,6 +311,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
 
 def add_application_match_score(queryset: QuerySet[JobApplication], job_post:JobPost) -> QuerySet[JobApplication]:
     TalentSkill = Talent.skills.through
+    ApplicantAdditionalLanguage = Talent.additional_languages.through
     required_attribute = job_post.job.requiredattribute
     required_skill_ids = [i.skill.id for i in RequiredSkill.objects.filter(required_attribute=required_attribute)]
     required_skill_count = len(required_skill_ids)
@@ -496,14 +499,23 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
             output_field=FloatField()
         )
     ).annotate(
-        job_addtional_language_count=Count("job_post__job__additional_languages"),
-        matching_additional_languages=Count("applicant__additional_languages", filter=Q(applicant__additional_languages__in=job_additional_languages)),
-        additional_language_score=Case(
-            When(job_addtional_language_count=0, then=6.67),
-            default=ExpressionWrapper(
-                (F("matching_additional_languages") / F("job_addtional_language_count")) * 6.67,
-                output_field=FloatField()
+        job_additional_language_count=Count("job_post__job__additional_languages"),
+        matching_additional_languages=Subquery(
+            ApplicantAdditionalLanguage.objects
+                .filter(
+                    talent_id=OuterRef("applicant_id"),
+                    language__in=job_additional_languages,
+                )
+                .values("talent_id")        # group by applicant
+                .annotate(count=Count("id"))  # count matches
+                .values("count")[:1]        # return the count
+        ),
+        additional_language_score = Case(
+            When(
+                job_additional_language_count=0,
+                then=Value(6.67)
             ),
+            default=(F("matching_additional_languages") * Value(6.67)) / F("job_additional_language_count"),
             output_field=FloatField()
         )
     ).annotate(

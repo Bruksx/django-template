@@ -226,7 +226,7 @@ class JobMatchTests(TestCase):
         queryset = add_job_post_annotations(queryset, self.talent)
 
         job_post = queryset.first()
-        location_score = computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        location_score = Decimal(job_post.location_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
         #test non matching location
         self.assertEqual(location_score, Decimal("0.0"))

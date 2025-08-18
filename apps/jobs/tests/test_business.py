@@ -17,7 +17,7 @@ from jobs.business_views import router, job_list
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
-    BusinessModel, RequiredSkill, RequiredAttribute
+    BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage
 )
 from jobs.queries import add_application_match_score
 from ninja.testing import TestClient
@@ -1847,7 +1847,7 @@ class JobApplicationMatchTests(TestCase):
         self.level1 = JobLevel.objects.all()[0]
         self.level2 = JobLevel.objects.all()[1]
 
-        self.job_applicantion = JobApplication.objects.create(
+        self.job_application = JobApplicationFactory.create(
             applicant=self.talent,
             job_post=self.job_post
         )
@@ -1863,7 +1863,7 @@ class JobApplicationMatchTests(TestCase):
         self.talent.save()
         self.job.save()
 
-        queryset = JobApplication.objects.filter(id=self.job_applicantion.id)
+        queryset = JobApplication.objects.filter(id=self.job_application.id)
         queryset = add_application_match_score(queryset, self.job_post)
         job_post = queryset.first()
 
@@ -1871,8 +1871,8 @@ class JobApplicationMatchTests(TestCase):
         self.assertEqual(role_score, Decimal("0.0"))
 
         self.update_required_attributes(role=True)
-        queryset = JobPost.objects.filter(id=self.job_post.id)
-        queryset = add_application_match_score(queryset, self.talent)
+        queryset = JobApplication.objects.filter(id=self.job_application.id)
+        queryset = add_application_match_score(queryset, self.job_post)
         job_post = queryset.first()
 
         computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
@@ -1881,12 +1881,107 @@ class JobApplicationMatchTests(TestCase):
         experience.role =self.job.role
         experience.save()
 
-        queryset = JobPost.objects.filter(id=self.job_post.id)
-        queryset = add_application_match_score(queryset, self.talent)
+        queryset = JobApplication.objects.filter(id=self.job_application.id)
+        queryset = add_application_match_score(queryset, self.job_post)
         job_post = queryset.first()
 
         role_score = Decimal(job_post.role_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         self.assertEqual(role_score, Decimal("6.67"))
+    
+    def test_location(self):
+        self.talent.country = self.location
+        self.job_post.country = self.location
+        self.update_required_attributes(location=True)
+        self.talent.save()
+        self.job_post.save()
+
+        queryset = JobApplication.objects.filter(id=self.job_application.id)
+        queryset = add_application_match_score(queryset, self.job_post)
+
+        job_application = queryset.first()
+        location_score = Decimal(job_application.location_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        #test matching job location
+        self.assertEqual(location_score, Decimal("6.67"))
+
+        self.talent.country = self.location2
+        self.talent.save()
+
+        queryset = JobApplication.objects.filter(id=self.job_application.id)
+        queryset = add_application_match_score(queryset, self.job_post)
+
+        job_application = queryset.first()
+        location_score = Decimal(job_application.location_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        #test non matching location
+        self.assertEqual(location_score, Decimal("0.0"))
+    
+    def test_additional_language(self):
+        self.job.additional_languages.add(*self.additional_languages)
+        self.talent.additional_languages.add(*self.additional_languages2)
+        self.talent.save()
+        self.job_post.save()
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+
+        additional_language_score = Decimal(job_application.additional_language_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(additional_language_score, Decimal("2.22"))
+
+        #add compulsory language
+        RequiredSecondaryLanguage.objects.create(
+            required_attribute=self.required_attributes,
+            language=self.additional_languages[2]
+        )
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+
+        computed_match_score = Decimal(job_application.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(computed_match_score, Decimal("0.0"))
+    
+    def test_skills(self):
+        self.update_required_attributes()
+        self.job.skills.add(*self.tool_platform_skills[:0], *self.general_skills[:0], *self.methodology_skills[:0])
+        self.talent.skills.all().delete()
+        #self.talent.skills.add(*self.tool_platform_skills[:1], *self.general_skills[:2], *self.methodology_skills)
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+
+        tool_platform_score = Decimal(job_application.tools_platform_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        methodologies_score = Decimal(job_application.methodologies_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        general_skill_score = Decimal(job_application.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(tool_platform_score, Decimal("6.67"))
+        self.assertEqual(methodologies_score, Decimal("6.67"))
+        self.assertEqual(general_skill_score, Decimal("6.67"))
+    
+    def test_missing_required_skill_returns_zero_score(self):
+        self.update_required_attributes()
+        self.job.skills.add(*self.tool_platform_skills, *self.general_skills, *self.methodology_skills)
+        RequiredSkill.objects.create(
+            skill=self.job.skills.first(),
+            required_attribute=self.required_attributes,
+        )
+        self.talent.skills.all().delete()
+        self.talent.skills.add(*self.tool_platform_skills[:1], *self.general_skills[:2], *self.methodology_skills)
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_post = queryset.first()
+        #print(job_post.gen_skill_count)
+        """tool_platform_score = Decimal(job_post.tools_platform_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        methodologies_score = Decimal(job_post.methodologies_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        general_skill_score = Decimal(job_post.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(tool_platform_score, Decimal("2.22"))
+        self.assertEqual(methodologies_score, Decimal("6.67"))
+        self.assertEqual(general_skill_score, Decimal("4.45"))
+        self.assertEqual(computed_match_score, Decimal("33.35"))"""
     
     def update_required_attributes(self, *args, **kwargs):
         for field_name in self.job.required_attributes_keys:
@@ -1897,3 +1992,6 @@ class JobApplicationMatchTests(TestCase):
         for field_name in kwargs:
             setattr(self.required_attributes, field_name, kwargs[field_name])
         self.required_attributes.save()
+    
+    def get_queryset(self):
+        return JobApplication.objects.filter(id=self.job_application.id)
