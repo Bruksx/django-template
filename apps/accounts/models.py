@@ -288,10 +288,11 @@ class Talent(BaseModel):
         data = list()
         for value in Days.values():
             availability = self.talentavailableday_set.filter(day=value).first()
-            data.append({
-                "day": value,
-                "availability": TalentAvailableDaySchema.from_orm(availability) if availability else None
-            })
+            if availability:
+                data.append({
+                    "day": value,
+                    "availability": TalentAvailableDaySchema.from_orm(availability) if availability else None
+                })
         return data
 
 
