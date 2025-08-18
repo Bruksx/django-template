@@ -1999,7 +1999,6 @@ class JobApplicationMatchTests(TestCase):
         self.update_required_attributes()
         Experience.objects.filter(talent=self.talent).delete()
         level1 = JobLevel.objects.all()[0]
-        level2 = JobLevel.objects.all()[1]
         ExperienceFactory.create(talent=self.talent, level=level1)
         self.job.job_level = level1
         self.job.save()
@@ -2010,6 +2009,48 @@ class JobApplicationMatchTests(TestCase):
         job_level_score = Decimal(job_application.job_level_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
         self.assertEqual(job_level_score, Decimal("6.67"))
+
+    def test_job_level_required_or_no_score(self):
+        self.update_required_attributes(job_level=True)
+        Experience.objects.filter(talent=self.talent).delete()
+        level1 = JobLevel.objects.all()[0]
+        level2 = JobLevel.objects.all()[1]
+        ExperienceFactory.create(talent=self.talent, level=level1)
+        self.job.job_level = level2
+        self.job.save()
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        computed_match_score = Decimal(job_application.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(computed_match_score, Decimal("0.0"))
+    
+    def test_experience_score_full(self):
+        self.update_required_attributes()
+        self.talent.years_of_experience = 6
+        self.job.years_of_experience = 5
+        self.talent.save()
+        self.job.save() 
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        experience_score = Decimal(job_application.experience_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(experience_score, Decimal("6.67"))
+    
+    def test_experience_score_zero(self):
+        self.update_required_attributes()
+        self.talent.years_of_experience = 6
+        self.job.years_of_experience = 8
+        self.talent.save()
+        self.job.save() 
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        experience_score = Decimal(job_application.experience_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(experience_score, Decimal("0.0"))
     
     def update_required_attributes(self, *args, **kwargs):
         for field_name in self.job.required_attributes_keys:
