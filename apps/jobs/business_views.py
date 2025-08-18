@@ -6,6 +6,7 @@ from uuid import UUID
 from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q, Count, Exists, Subquery, OuterRef
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from helpers.utils import convert_base64_to_image_file, to_utc
 from monkeypatches.response import Response
@@ -32,6 +33,7 @@ from .schemas import (
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema
 )
+from .queries import add_application_match_score
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, send_email_on_stage_update, create_job_post_service, \
     bulk_job_posts_service, validate_screening_questions, update_screening_question_options
@@ -483,11 +485,13 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
 "match", "created_at", "stage", "phase", "experience", "invited"]]=None, asc:bool=True, search:str="", invited:Optional[bool]=None):
     IsBusinessUser.check(request)
     business = request.user.businessuser.business
+    job_post = get_object_or_404(JobPost, uid=job_post_uid)
     queryset = JobApplication.objects.select_related("stage", "applicant", "applicant__user",
                                                      "applicant__country").annotate(invited=Exists(Subquery(JobInvite.objects.filter(
             job=OuterRef('job_post__job'), talent=OuterRef('applicant')
-        )))).filter(job_post__uid=job_post_uid, stage__created_by__business=business,
-                                             applicant__deleted_at__isnull=True)
+        )))).filter(job_post=job_post, stage__created_by__business=business,
+                                         applicant__deleted_at__isnull=True)
+    queryset = add_application_match_score(queryset, job_post)
     if search:
         q = Q()
         for s in search.split(" "):

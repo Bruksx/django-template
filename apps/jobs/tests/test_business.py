@@ -345,7 +345,7 @@ class TestApplicationList(TestCase):
             "authorization": f"bearer {self.business_user.user.token}"
         }
         response = self.client.get(self.url(uuid.uuid4()), headers=headers)
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 404)
         self.assertEqual(response.data["count"], 0)
 
     def test_job_by_another_business(self):
@@ -1573,9 +1573,6 @@ class DeleteScreeningQuestionOptionsTest(TestCase):
         }
         response = self.client.delete(self.url(self.question.uid),  json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 400)
-
-
-
 
 
 class DeleteScreeningQuestionTest(TestCase):
