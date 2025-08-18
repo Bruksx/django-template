@@ -1971,17 +1971,45 @@ class JobApplicationMatchTests(TestCase):
         self.talent.skills.add(*self.tool_platform_skills[:1], *self.general_skills[:2], *self.methodology_skills)
         queryset = self.get_queryset()
         queryset = add_application_match_score(queryset, self.job_post)
-        job_post = queryset.first()
-        #print(job_post.gen_skill_count)
-        """tool_platform_score = Decimal(job_post.tools_platform_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        methodologies_score = Decimal(job_post.methodologies_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        general_skill_score = Decimal(job_post.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
-        computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        job_application = queryset.first()
+        tool_platform_score = Decimal(job_application.tools_platform_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        methodologies_score = Decimal(job_application.methodologies_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        general_skill_score = Decimal(job_application.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
         self.assertEqual(tool_platform_score, Decimal("2.22"))
         self.assertEqual(methodologies_score, Decimal("6.67"))
         self.assertEqual(general_skill_score, Decimal("4.45"))
-        self.assertEqual(computed_match_score, Decimal("33.35"))"""
+    
+    def test_job_level_no_score(self):
+        self.update_required_attributes()
+        Experience.objects.filter(talent=self.talent).delete()
+        
+        ExperienceFactory.create(talent=self.talent, level=self.level1)
+        self.job.job_level = self.level2
+        self.job.save()
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        job_level_score = Decimal(job_application.job_level_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(job_level_score, Decimal("0.0"))
+    
+    def test_job_level_full_score(self):
+        self.update_required_attributes()
+        Experience.objects.filter(talent=self.talent).delete()
+        level1 = JobLevel.objects.all()[0]
+        level2 = JobLevel.objects.all()[1]
+        ExperienceFactory.create(talent=self.talent, level=level1)
+        self.job.job_level = level1
+        self.job.save()
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        job_level_score = Decimal(job_application.job_level_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(job_level_score, Decimal("6.67"))
     
     def update_required_attributes(self, *args, **kwargs):
         for field_name in self.job.required_attributes_keys:

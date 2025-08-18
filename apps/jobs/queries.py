@@ -311,6 +311,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
 
 def add_application_match_score(queryset: QuerySet[JobApplication], job_post:JobPost) -> QuerySet[JobApplication]:
     TalentSkill = Talent.skills.through
+    JobSkill = Job.skills.through
     ApplicantAdditionalLanguage = Talent.additional_languages.through
     required_attribute = job_post.job.requiredattribute
     required_skill_ids = [i.skill.id for i in RequiredSkill.objects.filter(required_attribute=required_attribute)]
@@ -348,9 +349,16 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
             output_field=FloatField()
         )
     ).annotate(
-        talent_required_skill_count=Count(TalentSkill.objects.filter(
-            talent_id=OuterRef("applicant__id"), skill_id__in=required_skill_ids
-            )),
+        talent_required_skill_count=Subquery(
+            TalentSkill.objects
+                .filter(
+                    talent_id=OuterRef("applicant__id"),
+                    skill_id__in=required_skill_ids,
+                )
+                .values("talent_id")           # group by applicant
+                .annotate(count=Count("id"))   # count matching rows
+                .values("count")[:1]           # return the count
+        ),
         missing_required_skill=Case(
             When(
                 Q(talent_required_skill_count__lt=required_skill_count),
@@ -360,36 +368,78 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
             output_field=BooleanField()
         )
     ).annotate(
-        gen_skill_count=Count("job_post__job__skills", filter=Q(job_post__job__skills__category_id=general_skills_id)),
-        gen_skill_intercept_count=Count("applicant__skills", filter=Q(
-            applicant__skills__category_id=general_skills_id, applicant__skills__in=job_general_skills
-        )),
+        gen_skill_count=Subquery(
+            JobSkill.objects
+                .filter(
+                    job=OuterRef("job_post__job"),
+                    skill__category__id=general_skills_id,
+                )
+                .values("job_id")             # group by job
+                .annotate(count=Count("id"))  # count matching rows
+                .values("count")[:1]          # select the count
+        ),
+        gen_skill_intercept_count=Subquery(
+            TalentSkill.objects
+                .filter(
+                    talent=OuterRef("applicant"),
+                    skill__category__id=general_skills_id,
+                )
+                .values("talent_id")           # group by applicant
+                .annotate(count=Count("id"))   # count matching rows
+                .values("count")[:1]           # select just the count
+        ),
         general_skill_score=Case(
             When(Q(gen_skill_count=0), then=Value(6.67)),
-            default=ExpressionWrapper(
-                (F("gen_skill_intercept_count") / F("gen_skill_count")) * Value(6.67),
-                output_field=FloatField()
-            ),
+            default=(F("gen_skill_intercept_count") * Value(6.67) ) / F("gen_skill_count") ,
             output_field=FloatField()
         )
     ).annotate(
-        tools_platform_count=Count("job_post__job__skills", filter=Q(job_post__job__skills__category_id=tools_platform_id)),
-        tools_platform_intercept_count=Count("applicant__skills", filter=Q(
-            applicant__skills__category_id=tools_platform_id, applicant__skills__in=job_tools_skills
-        )),
+        tools_platform_count=Subquery(
+            JobSkill.objects
+                .filter(
+                    job=OuterRef("job_post__job"),
+                    skill__category__id=tools_platform_id,
+                )
+                .values("job_id")             # group by job
+                .annotate(count=Count("id"))  # count matching rows
+                .values("count")[:1]          # select the count
+        ),
+        tools_platform_intercept_count=Subquery(
+            TalentSkill.objects
+                .filter(
+                    talent=OuterRef("applicant"),
+                    skill__category__id=tools_platform_id,
+                )
+                .values("talent_id")           # group by applicant
+                .annotate(count=Count("id"))   # count matching rows
+                .values("count")[:1]           # select just the count
+        ),
         tools_platform_score=Case(
             When(Q(tools_platform_count=0), then=Value(6.67)),
-            default=ExpressionWrapper(
-                (F("tools_platform_intercept_count") / F("tools_platform_count")) * Value(6.67),
-                output_field=FloatField()
-            ),
+            default=(F("tools_platform_intercept_count") * Value(6.67) ) / F("tools_platform_count") ,
             output_field=FloatField()
         )
     ).annotate(
-        methodologies_count=Count("job_post__job__skills", filter=Q(job_post__job__skills__category_id=tools_platform_id)),
-        methodologies_intercept_count=Count("applicant__skills", filter=Q(
-            applicant__skills__category_id=general_skills_id, applicant__skills__in=job_methodology_skills
-        )),
+        methodologies_count=Subquery(
+            JobSkill.objects
+                .filter(
+                    job=OuterRef("job_post__job"),
+                    skill__category__id=methodologies_id,
+                )
+                .values("job_id")             # group by job
+                .annotate(count=Count("id"))  # count matching rows
+                .values("count")[:1]          # select the count
+        ),
+        methodologies_intercept_count=Subquery(
+            TalentSkill.objects
+                .filter(
+                    talent=OuterRef("applicant"),
+                    skill__category__id=methodologies_id,
+                )
+                .values("talent_id")           # group by applicant
+                .annotate(count=Count("id"))   # count matching rows
+                .values("count")[:1]           # select just the count
+        ),
         methodologies_score=Case(
             When(Q(methodologies_count=0), then=Value(6.67)),
             default=ExpressionWrapper(
