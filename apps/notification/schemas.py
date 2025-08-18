@@ -13,7 +13,7 @@ class NotificationSchema(ModelSchema):
 
     class Meta:
         model = Notification
-        fields = ("title", "description", "action",
+        fields = ("uid", "title", "description", "action",
                   "entity", "entity_uid", "entity_str",
                   "notification_type")
 
