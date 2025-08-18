@@ -21,7 +21,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
     JobAddtionalLanguage = Job.additional_languages.through
     JobBusinessModel = Job.business_models.through
     talent_business_models = talent.business_models.all()
-    talent_skill_ids = list(talent.skills.values_list("id", flat=True))
+    talent_skills = talent.skills.all()
     talent_additional_languages = talent.additional_languages.all()
     tools_platform_id = SkillCategory.objects.filter(name="Tools/Platforms").first().id
     methodologies_id = SkillCategory.objects.filter(name="Common Methodologies/Frameworks").first().id
@@ -55,7 +55,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         )
     ).annotate(
         missing_required_skill=Exists(
-            RequiredSkill.objects.exclude(skill__id__in=talent_skill_ids, required_attribute__job=OuterRef("job"))
+            RequiredSkill.objects.exclude(skill__id__in=talent_skills, required_attribute__job=OuterRef("job"))
         )
     ).annotate(
         gen_skill_count=Subquery(
