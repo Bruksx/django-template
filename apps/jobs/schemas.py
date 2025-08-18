@@ -72,6 +72,8 @@ class JobAvailabilitySchema(Schema):
 
 class MutateJobPostSchema(ModelSchema):
     country: Optional[UUID] = None
+    city: Optional[UUID] = None
+    province: Optional[UUID] = None
     benefits: List[str]
     recruiter: Optional[UUID] = None
     status: Optional[JobStatusType] = None
@@ -86,6 +88,8 @@ class MutateJobPostSchema(ModelSchema):
 
 class UpdateJobPostSchema(ModelSchema):
     country: Optional[UUID] = None
+    city: Optional[UUID] = None
+    province: Optional[UUID] = None
     uid: Optional[UUID] = None
     benefits: List[str]
     recruiter: Optional[UUID] = None
@@ -101,6 +105,8 @@ class UpdateJobPostSchema(ModelSchema):
 
 class MutateJobPostListSchema(ModelSchema):
     country: Optional[GenericNameAndUidSchema] = None
+    city: Optional[GenericNameAndUidSchema] = None
+    province: Optional[GenericNameAndUidSchema] = None
     recruiter: Optional[BusinessUserListSchema]
     benefits: List[str]
     status: Optional[str]
@@ -414,10 +420,12 @@ class JobPostDetailSchema(ModelSchema):
     saved: Optional[bool]
     alert: Optional[bool]
     applied: Optional[bool]
+    city: GenericNameAndUidSchema | None
+    province: GenericNameAndUidSchema | None
 
     class Meta:
         model = JobPost
-        fields = ["uid", "province", "city", "postal_code", "status", "share_compensation", "created_at", "date_posted"]
+        fields = ["uid",  "postal_code", "status", "share_compensation", "created_at", "date_posted"]
 
     @staticmethod
     def resolve_annual_bonus_currency(obj):
@@ -489,8 +497,7 @@ class JobListSchema2(ModelSchema):
     hiring_company_name: Optional[str] = Field(alias="hiring_company")
     class Meta:
         model = Job
-        fields = [
-            "work_structure", "office_address"]
+        fields = ["work_structure", "office_address"]
 
 
 
@@ -571,11 +578,13 @@ class JobPostListSchema(ModelSchema):
     applied: Optional[bool]= None
     saved: Optional[bool] = None
     recruiter: Optional[str] = None
+    city: Optional[str] = Field(None, alias="get_city")
+    province: Optional[str] = Field(None, alias="get_province")
 
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "created_at", "date_posted", "share_compensation", "last_refreshed", "province", "city"]
+        fields = ["uid", "status", "created_at", "date_posted", "share_compensation", "last_refreshed"]
 
 
     @staticmethod
@@ -655,6 +664,7 @@ class JobPostListSchema(ModelSchema):
 class JobFullListSchema(ModelSchema):
     job_posts: List[JobPostListSchema]
     role: Optional[str]
+    logo_url: Optional[str]
     client:str = Field(alias="hiring_company_name")
     location: Optional[str]
     applicants:int
@@ -789,11 +799,13 @@ class JobPostFullDetailSchema(ModelSchema):
     benefits: List[str] = list()
     saved: Optional[bool] = None
     alert: Optional[bool] = None
+    city: Optional[GenericNameAndUidSchema] = None
+    province: Optional[GenericNameAndUidSchema] = None
 
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "created_at", "province", "city", "postal_code", "date_posted",
+        fields = ["uid", "status", "created_at",  "postal_code", "date_posted",
                   "share_compensation"]
 
     @staticmethod
@@ -985,11 +997,13 @@ class TalentJobPostListSchema(ModelSchema):
     application_uid: Optional[UUID]
     stage: Optional[StageSchema]
     invited: bool
+    city: Optional[GenericNameAndUidSchema] = None
+    province: Optional[GenericNameAndUidSchema] = None
    #match_obj: Optional[MatchScoreSchema] = None
 
     class Meta:
         model = JobPost
-        fields = ("uid", "job", "country", "province", "city", "postal_code", "status", "date_posted", "created_at",
+        fields = ("uid", "job", "country", "postal_code", "status", "date_posted", "created_at",
                   "share_compensation")
 
     @staticmethod

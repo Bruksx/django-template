@@ -114,6 +114,7 @@ class Job(BaseModel):
         return self.role.name
 
 
+
     def get_availability(self, schema, query=None):
         data = list()
         for value in Days.values():
@@ -245,8 +246,8 @@ class JobPost(BaseModel):
     status = models.CharField(max_length=50, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
     date_posted = models.DateTimeField(null=True)
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
-    province = models.CharField(max_length=128, null=True)
-    city = models.CharField(max_length=128, null=True)
+    province = models.ForeignKey("core.State", on_delete=models.SET_NULL, null=True)
+    city = models.ForeignKey("core.City", on_delete=models.SET_NULL, null=True)
     postal_code = models.CharField(max_length=20, null=True)
     benefits = models.JSONField(default=list, blank=True)
     share_compensation = models.BooleanField(default=True)
@@ -311,6 +312,16 @@ class JobPost(BaseModel):
         if not self.country:
             return
         return self.country.name
+
+    def get_province(self):
+        if not self.province:
+            return
+        return self.province.name
+
+    def get_city(self):
+        if not self.city:
+            return
+        return self.city.name
 
     def get_talents(self):
         query = None
@@ -647,7 +658,14 @@ class JobApplication(BaseModel):
     stage_date_updated = models.DateTimeField(null=True)
 
     def other_application(self):
-        return JobApplication.objects.filter(job_post=self.job_post, applicant=self.applicant).exclude(id=self.id).last()
+        if not self.stage:
+            return
+        if not self.stage.created_by:
+            return
+        if not self.stage.created_by.business:
+            return
+        return JobApplication.objects.select_related("stage__created_by").\
+        filter(stage__created_by__business=self.stage.created_by.business, applicant=self.applicant).exclude(id=self.id).last()
 
     def get_country(self):
         if not self.applicant:

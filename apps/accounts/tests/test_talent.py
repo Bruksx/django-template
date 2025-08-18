@@ -2,23 +2,23 @@ from datetime import timezone, date, time
 from decimal import Decimal
 from uuid import uuid4
 
-from database_seeder import generate_data
-from django.test import TestCase
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
-
 from accounts.enums import Days, BusinessUserRoleType
 from accounts.models import User, VerificationCode, Country, Talent, EducationLevel, Industry, \
     Skill, Department, Role, Business, BusinessUser, Experience, TalentAvailableDay, BusinessIndustry
 from accounts.views.talent import router
 from chats.models import Conversation, Message
 from core.models import Currency
+from django.test import TestCase
 from factories import WorkflowStageFactory, TalentFactory, BusinessUserFactory, CountryFactory, IndustryFactory, \
     LanguageFactory, EducationFactory, EducationLevelFactory, RoleFactory, ExperienceFactory, SkillFactory, \
     BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory
 from jobs.enums import LunchBreakEnum, PhaseType, JobStatusType
 from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, AvailableDay, \
     JobApplication, JobInterview
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
+
+from core.models import State
 
 
 class CreateAccountTests(TestCase):
@@ -312,6 +312,7 @@ class TalentDashboardTests(TestCase):
     def setUp(self):
         self.client = TestClient(router)
         self.country = Country.objects.first()
+        self.province = State.objects.first()
         self.industry = Industry.objects.first()
         self.user_data = dict(
             first_name="Test",
@@ -389,7 +390,7 @@ class TalentDashboardTests(TestCase):
             job=job,
             status=JobStatusType.CLOSED.value,  # Can be changed to True for posting
             country=self.country,
-            province="Ontario",
+            province=self.province,
             postal_code="M5V 1T6",  # Replace with actual postal code
             annual_salary_min=Decimal('80000.00'),  # Use Decimal for money fields
             annual_salary_max=Decimal('100000.00'),

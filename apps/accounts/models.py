@@ -246,6 +246,18 @@ class Talent(BaseModel):
     availability_timezone = TimeZoneField(default="America/Vancouver")
     flexible_availability = models.BooleanField(default=False)
 
+    def get_address(self):
+        data = list()
+        if self.address:
+            data.append(self.address)
+        if self.city:
+            data.append(self.city)
+        if self.state:
+            data.append(self.state)
+        if self.country:
+            data.append(self.country.name)
+        return ", ".join(data)
+
     @property
     def photo_url(self):
         return self.photo.url if self.photo else None

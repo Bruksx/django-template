@@ -25,6 +25,8 @@ from ninja_jwt.authentication import JWTAuth
 
 from settings.models import WorkFlowStage
 
+from core.models import City, State
+
 
 class EmploymentTypeListTests(TestCase):
     def setUp(self):
@@ -468,6 +470,8 @@ class JobCreationTest(TestCase):
         }
         self.country1 = Country.objects.order_by("?").first()
         self.country2 = Country.objects.order_by("?").first()  # random ordering
+        self.province = State.objects.order_by("?").first()
+        self.province2 = State.objects.order_by("?").first()
         self.currency1 = Currency.objects.order_by("?").first()
         self.currency2 = Currency.objects.order_by("?").first()
         self.test_data = {
@@ -510,7 +514,7 @@ class JobCreationTest(TestCase):
             "job_posts": [
                 {
                     "country": str(self.country1.uid),
-                    "province": "Delta State",
+                    "province": str(self.province.uid),
                     "postal_code": "500000",
                     "share_compensation": True,
                     "status": JobStatusType.POSTED.value,
@@ -530,7 +534,7 @@ class JobCreationTest(TestCase):
                 },
                 {
                     "country": str(self.country2.uid),
-                    "province": "Rivers State",
+                    "province": str(self.province.uid),
                     "postal_code": "500000",
                     "share_compensation": False,
                     "benefits": [
@@ -872,6 +876,8 @@ class JobPostCreationTest(TestCase):
         self.client = TestClient(router)
         self.url = lambda job_uid: f"{job_uid}/job-post"
         self.country = Country.objects.first()
+        self.city = City.objects.first()
+        self.province = State.objects.first()
         self.currency = Currency.objects.first()
         self.test_data = {
                   "country": str(self.country.uid),
@@ -883,7 +889,7 @@ class JobPostCreationTest(TestCase):
                   "status": JobStatusType.POSTED.value,
                   "annual_salary_currency": str(self.currency.uid),
                   "annual_bonus_currency": str(self.currency.uid),
-                  "province": "Los Angeles",
+                  "province": str(self.province.uid),
                   "postal_code": "12345",
                   "share_compensation": True,
                   "annual_salary_min": 100,
@@ -906,7 +912,7 @@ class JobPostCreationTest(TestCase):
         self.assertEqual(job_post.status, self.test_data["status"])
         self.assertEqual(job_post.annual_salary_currency, self.currency)
         self.assertEqual(job_post.annual_bonus_currency, self.currency)
-        self.assertEqual(job_post.province, self.test_data["province"])
+        self.assertEqual(job_post.province, self.province)
         self.assertEqual(job_post.postal_code, self.test_data["postal_code"])
         self.assertEqual(job_post.share_compensation, self.test_data["share_compensation"])
         self.assertEqual(job_post.annual_salary_min, self.test_data["annual_salary_min"])
@@ -1664,7 +1670,8 @@ class GetScreeningAnswersTest(TestCase):
         self.business_user = BusinessUserFactory.create()
         self.job = JobFactory.create(created_by=self.business_user)
         self.job_post = JobPostFactory.create(job=self.job, recruiter=self.business_user)
-        self.application = JobApplicationFactory.create(job_post=self.job_post, recruiter=self.business_user)
+        self.stage = WorkFlowStage.objects.filter(phase=PhaseType.NEW.value, created_by__business=self.business_user.business).first()
+        self.application = JobApplicationFactory.create(job_post=self.job_post, recruiter=self.business_user, stage=self.stage)
         self.url = lambda application_id: f"applications/{application_id}/screening-answers"
         self.questions = ScreeningQuestionFactory.create_batch(5, job=self.job)
         for screening_question in self.questions:
@@ -1719,7 +1726,7 @@ class UpdateJobApplicationTest(TestCase):
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
             "stage": str(stage.uid)
         }
@@ -1734,7 +1741,7 @@ class UpdateJobApplicationTest(TestCase):
         headers = {
             "authorization": f"Bearer {business_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
             "stage": str(stage.uid)
         }
@@ -1746,7 +1753,7 @@ class UpdateJobApplicationTest(TestCase):
         headers = {
             "authorization": f"Bearer {talent_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
             "stage": str(stage.uid)
         }
@@ -1757,7 +1764,7 @@ class UpdateJobApplicationTest(TestCase):
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
             "stage": str(stage.uid)
         }
