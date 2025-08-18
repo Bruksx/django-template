@@ -27,6 +27,10 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
     methodologies_id = SkillCategory.objects.filter(name="Common Methodologies/Frameworks").first().id
     general_skills_id = SkillCategory.objects.filter(name="General Skills").first().id
 
+    talent_gen_skills = talent.skills.filter(category__id=general_skills_id)
+    talent_tools_skills = talent.skills.filter(category__id=tools_platform_id)
+    talent_methodology_skills = talent.skills.filter(category=methodologies_id)
+
     required_attribute_subquery = RequiredAttribute.objects.filter(
         job=OuterRef("job")
     )
@@ -65,12 +69,12 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
                 .values("count")[:1]          # select the count
         ),
         gen_skill_intercept_count=Subquery(
-            TalentSkill.objects
+            JobSkill.objects
                 .filter(
-                    talent=talent,
                     skill__category__id=general_skills_id,
+                    skill_id__in=talent_gen_skills,
                 )
-                .values("talent_id")           # group by applicant
+                .values("job_id")           # group by job
                 .annotate(count=Count("id"))   # count matching rows
                 .values("count")[:1]           # select just the count
         ),
@@ -91,12 +95,12 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
                 .values("count")[:1]          # select the count
         ),
         tools_platform_intercept_count=Subquery(
-            TalentSkill.objects
+            JobSkill.objects
                 .filter(
-                    talent=talent,
                     skill__category__id=tools_platform_id,
+                    skill_id__in=talent_tools_skills,
                 )
-                .values("talent_id")           # group by applicant
+                .values("job_id")           # group by applicant
                 .annotate(count=Count("id"))   # count matching rows
                 .values("count")[:1]           # select just the count
         ),
@@ -117,12 +121,12 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
                 .values("count")[:1]          # select the count
         ),
         methodologies_intercept_count=Subquery(
-            TalentSkill.objects
+            JobSkill.objects
                 .filter(
-                    talent=talent,
                     skill__category__id=methodologies_id,
+                    skill_id__in=talent_methodology_skills,
                 )
-                .values("talent_id")           # group by applicant
+                .values("job_id")           # group by applicant
                 .annotate(count=Count("id"))   # count matching rows
                 .values("count")[:1]           # select just the count
         ),
@@ -384,12 +388,13 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
     general_skills_id = SkillCategory.objects.filter(name="General Skills").first().id
     tools_platform_id = SkillCategory.objects.filter(name="Tools/Platforms").first().id
     methodologies_id = SkillCategory.objects.filter(name="Common Methodologies/Frameworks").first().id
-    job_general_skills = job_post.job.skills.filter(category__id=general_skills_id)
-    job_tools_skills = job_post.job.skills.filter(category_id=tools_platform_id)
-    job_methodology_skills = job_post.job.skills.filter(category_id=methodologies_id)
     job_work_structure = job_post.job.work_structure
     job_additional_languages = job_post.job.additional_languages.all()
     required_language_ids = [i.language.id for i in RequiredSecondaryLanguage.objects.filter(required_attribute__job=job_post.job)]
+
+    job_gen_skills = job_post.job.skills.filter(category__id=general_skills_id)
+    job_tools_skills = job_post.job.skills.filter(category__id=tools_platform_id)
+    job_methodology_skills = job_post.job.skills.filter(category=methodologies_id)
 
     required_attribute_subquery = RequiredAttribute.objects.filter(
         job=OuterRef("job_post__job")
@@ -448,6 +453,7 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
                 .filter(
                     talent=OuterRef("applicant"),
                     skill__category__id=general_skills_id,
+                    skill_id__in=job_gen_skills,
                 )
                 .values("talent_id")           # group by applicant
                 .annotate(count=Count("id"))   # count matching rows
@@ -474,6 +480,7 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
                 .filter(
                     talent=OuterRef("applicant"),
                     skill__category__id=tools_platform_id,
+                    skill_id__in=job_tools_skills,
                 )
                 .values("talent_id")           # group by applicant
                 .annotate(count=Count("id"))   # count matching rows
@@ -500,6 +507,7 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
                 .filter(
                     talent=OuterRef("applicant"),
                     skill__category__id=methodologies_id,
+                    skill__in=job_methodology_skills,
                 )
                 .values("talent_id")           # group by applicant
                 .annotate(count=Count("id"))   # count matching rows
