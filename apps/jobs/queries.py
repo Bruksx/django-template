@@ -389,7 +389,7 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
                 .values("count")[:1]           # select just the count
         ),
         general_skill_score=Case(
-            When(Q(gen_skill_count=0), then=Value(6.67)),
+            When(Q(gen_skill_count=None), then=Value(6.67)),
             default=(F("gen_skill_intercept_count") * Value(6.67) ) / F("gen_skill_count") ,
             output_field=FloatField()
         )
@@ -415,7 +415,7 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
                 .values("count")[:1]           # select just the count
         ),
         tools_platform_score=Case(
-            When(Q(tools_platform_count=0), then=Value(6.67)),
+            When(Q(tools_platform_count=None), then=Value(6.67)),
             default=(F("tools_platform_intercept_count") * Value(6.67) ) / F("tools_platform_count") ,
             output_field=FloatField()
         )
@@ -441,7 +441,7 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
                 .values("count")[:1]           # select just the count
         ),
         methodologies_score=Case(
-            When(Q(methodologies_count=0), then=Value(6.67)),
+            When(Q(methodologies_count=None), then=Value(6.67)),
             default=ExpressionWrapper(
                 (F("methodologies_intercept_count") / F("methodologies_count")) * Value(6.67),
                 output_field=FloatField()
@@ -576,7 +576,13 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
             default=Value(False)
         )
     ).annotate(
-        available_days_count=Count("job_post__job__availableday"),
+        available_days_count=Subquery(
+            AvailableDay.objects
+                .filter(job=job_post.job)
+                .values("job_id")             # group by job
+                .annotate(count=Count("id"))  # count rows
+                .values("count")[:1]          # return the count
+        ),
         matching_days_count=Subquery(
             TalentAvailableDay.objects.filter(
                 talent=OuterRef("applicant")
@@ -598,17 +604,14 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
             output_field=IntegerField()
         ),
         work_schedule_score=Case(
-            When(available_days_count=0, then=Value(6.67)),
-            default=ExpressionWrapper(
-                (F("matching_days_count")/F("available_days_count")) * Value(6.67),
-                output_field=FloatField()
-            ),
+            When(available_days_count=None, then=Value(6.67)),
+            default=(F("matching_days_count") * Value(6.67)) /F("available_days_count") ,
             output_field=FloatField()
         )
     ).annotate(
         final_work_schedule_score=Case(
             When(Q(applicant__flexible_availability=True) | Q(job_post__job__flexible_availability=True), then=Value(6.67)),
-            default=ExpressionWrapper(F("work_schedule_score"), output_field=FloatField()),
+            default=F("work_schedule_score"),
             output_field=FloatField(),
         )
     ).annotate(
