@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     EmploymentType, JobPost, JobLevel, Job, BusinessModel, ScreeningQuestion, QuestionOption, JobApplication,
-    AvailableDay
+    AvailableDay, RequiredSkill
 )
 
 # Register your models here.
@@ -12,7 +12,6 @@ admin.site.register(Job)
 admin.site.register(BusinessModel)
 admin.site.register(ScreeningQuestion)
 admin.site.register(QuestionOption)
-# admin.site.register(JobApplication)
 admin.site.register(AvailableDay)
 
 
@@ -26,3 +25,8 @@ class JobApplicationAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         return JobApplication.global_objects.all()
 
+
+@admin.register(RequiredSkill)
+class RequiredSkillAdmin(admin.ModelAdmin):
+    list_display = ("skill__name", "required_attribute__job")
+    search_fields = ("required_attribute__job__title", "required_attribute__job__role__name")
