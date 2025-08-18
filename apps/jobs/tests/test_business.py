@@ -1,22 +1,25 @@
 import uuid
 from random import choice
 from uuid import uuid4
+from decimal import Decimal, ROUND_HALF_UP
 
 from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent, \
-    EducationLevel, SkillCategory
+    EducationLevel, SkillCategory, Experience
 from core.models import Currency
 from django.test import TestCase
+from django.db import models
 from django.utils import timezone
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
     JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, SkillFactory, BusinessModelFactory, \
-    CountryFactory, ScreeningQuestionFactory, AnswerFactory, CurrencyFactory
+    CountryFactory, ScreeningQuestionFactory, AnswerFactory, CurrencyFactory, ExperienceFactory
 from future.backports.datetime import timedelta
 from jobs.business_views import router, job_list
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
-    BusinessModel, RequiredSkill
+    BusinessModel, RequiredSkill, RequiredAttribute
 )
+from jobs.queries import add_application_match_score
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
@@ -1813,3 +1816,77 @@ class JobPostBulkUpdateTest(TestCase):
         self.test_data["action"] = ActionType.DELETE.value
         response = self.client.patch(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 403)
+
+
+class JobApplicationMatchTests(TestCase):
+    def setUp(self):
+        self.talent: Talent = TalentFactory.create()
+        self.location = Country.objects.all()[0]
+        self.location2 = Country.objects.all()[1]
+        self.job: Job = JobFactory.create()
+        self.job_post: JobPost = JobPostFactory.create(
+            job=self.job,
+        )
+        self.required_attributes: RequiredAttribute = self.job.requiredattribute
+        self.additional_languages = Language.objects.all()[:3]
+        self.additional_languages2 = self.additional_languages[:1]
+        self.role = Role.objects.order_by("pk")[0]
+        self.role2 = Role.objects.order_by("pk")[1]
+
+        self.tool_platform_skills = Skill.objects.filter(category__name="Tools/Platforms")[:3]
+        self.methodology_skills = Skill.objects.filter(category__name="Common Methodologies/Frameworks")[:3]
+        self.general_skills = Skill.objects.filter(category__name="General Skills")[:3]
+
+        self.level1 = JobLevel.objects.all()[0]
+        self.level2 = JobLevel.objects.all()[1]
+
+        self.job_applicantion = JobApplication.objects.create(
+            applicant=self.talent,
+            job_post=self.job_post
+        )
+    
+    def test_role(self):
+        self.update_required_attributes(role=False)
+        self.job.role = self.role
+        experience: Experience = ExperienceFactory.create(
+            talent=self.talent,
+            role=self.role2
+        )
+        self.talent.role = self.role2
+        self.talent.save()
+        self.job.save()
+
+        queryset = JobApplication.objects.filter(id=self.job_applicantion.id)
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_post = queryset.first()
+
+        role_score = Decimal(job_post.role_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(role_score, Decimal("0.0"))
+
+        self.update_required_attributes(role=True)
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_application_match_score(queryset, self.talent)
+        job_post = queryset.first()
+
+        computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(computed_match_score, Decimal("0.0"))
+
+        experience.role =self.job.role
+        experience.save()
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_application_match_score(queryset, self.talent)
+        job_post = queryset.first()
+
+        role_score = Decimal(job_post.role_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(role_score, Decimal("6.67"))
+    
+    def update_required_attributes(self, *args, **kwargs):
+        for field_name in self.job.required_attributes_keys:
+            if hasattr(self.required_attributes, field_name):
+                field = getattr(self.required_attributes, field_name)
+                if isinstance(field, models.BooleanField):
+                    setattr(self.required_attributes, field, False)
+        for field_name in kwargs:
+            setattr(self.required_attributes, field_name, kwargs[field_name])
+        self.required_attributes.save()
