@@ -936,6 +936,13 @@ class JobApplicationListSchema(ModelSchema):
     @staticmethod
     def resolve_experience(obj):
         return int(obj.applicant.years_of_experience)
+    
+    @staticmethod
+    def resolve_match(obj):
+        if hasattr(obj, "computed_match_score"):
+            return obj.computed_match_score
+        return obj.match
+
 
 class StageSchema(GenericNameAndUidSchema):
     phase: str
