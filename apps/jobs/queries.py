@@ -21,7 +21,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
     JobAddtionalLanguage = Job.additional_languages.through
     JobBusinessModel = Job.business_models.through
     talent_business_models = talent.business_models.all()
-    talent_skill_ids = [i.skill.id for i in talent.skills.all()]
+    talent_skill_ids = [i.id for i in talent.skills.all()]
     talent_additional_languages = talent.additional_languages.all()
     tools_platform_id = SkillCategory.objects.filter(name="Tools/Platforms").first().id
     methodologies_id = SkillCategory.objects.filter(name="Common Methodologies/Frameworks").first().id
