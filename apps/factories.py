@@ -292,6 +292,7 @@ class JobPostFactory(BaseModelFactory):
     annual_bonus_min = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
     annual_bonus_max = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
     annual_bonus_currency = factory.SubFactory(CurrencyFactory)
+    last_refreshed = factory.LazyFunction(timezone.now)
 
     @factory.post_generation
     def update_date_posted(self, created, extracted, **kwargs):
