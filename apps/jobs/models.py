@@ -119,10 +119,11 @@ class Job(BaseModel):
         data = list()
         for value in Days.values():
             availability = query.filter(day=value).first()
-            data.append({
-                "day": value,
-                "availability": schema.from_orm(availability) if availability else None
-            })
+            if availability:
+                data.append({
+                    "day": value,
+                    "availability": schema.from_orm(availability) if availability else None
+                })
         return data
 
     def send_alerts(self):
@@ -182,14 +183,16 @@ class Job(BaseModel):
 
 
     def hiring_company(self):
-        if self.hiring_company_name:
-            return self.hiring_company_name
-        return self.created_by.business.name
+        return self.hiring_company_name
 
     def business_logo(self):
         return self.created_by.business.get_logo()
 
     def business_name(self):
+        if not self.created_by:
+            return
+        if not self.created_by.business:
+            return
         return self.created_by.business.name
 
     def availability_query(self):

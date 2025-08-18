@@ -495,6 +495,7 @@ class JobListSchema2(ModelSchema):
     role: Optional[GenericNameAndUidSchema]
     title: str = Field(alias="get_title")
     hiring_company_name: Optional[str] = Field(alias="hiring_company")
+    business_name: Optional[str] = None
     class Meta:
         model = Job
         fields = ["work_structure", "office_address"]
@@ -517,6 +518,7 @@ class JobDetailSchema(ModelSchema):
     additional_languages: List[GenericNameAndUidSchema]
     required_attribute: Optional[RequiredAttributeSchema]
     title:Optional[str] = Field(alias="get_title")
+    business_name : Optional[str] = None
 
     class Meta:
         model = Job
@@ -565,6 +567,7 @@ class JobMatchSchema(Schema):
 class JobPostListSchema(ModelSchema):
     role: Optional[str]
     client: str = Field(alias="job.hiring_company_name")
+    business_name : Optional[str] = Field(None, alias="job.business_name")
     location: Optional[str] = Field(None, alias="get_country")
     applicants: int
     posted_by: Optional[str]
@@ -666,6 +669,7 @@ class JobFullListSchema(ModelSchema):
     role: Optional[str]
     logo_url: Optional[str]
     client:str = Field(alias="hiring_company_name")
+    business_name : Optional[str] = None
     location: Optional[str]
     applicants:int
     posted_by: Optional[str]
