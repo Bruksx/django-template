@@ -13,21 +13,19 @@ from django.db.models.functions import Coalesce, Cast
 
 
 def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> QuerySet[JobPost]:
+    JobSkill = Job.skills.through
+    TalentSkill = Talent.skills.through
+    TalentBusinessModel = Talent.business_models.through
+    RequiredBusinessModel = RequiredAttribute.business_models.through
+    ApplicantAdditionalLanguage = Talent.additional_languages.through
+    JobAddtionalLanguage = Job.additional_languages.through
+    JobBusinessModel = Job.business_models.through
     talent_business_models = talent.business_models.all()
     talent_skill_ids = list(talent.skills.values_list("id", flat=True))
-    additional_lang_ids = list(talent.additional_languages.values_list("id", flat=True))
-    skills_tuple_str = f"({','.join(str(sid) for sid in talent_skill_ids)})" if talent_skill_ids else "(NULL)"
-    additional_languagues_tuple_str = f"({','.join(str(aid) for aid in additional_lang_ids)})" if additional_lang_ids else "(NULL)"
+    talent_additional_languages = talent.additional_languages.all()
     tools_platform_id = SkillCategory.objects.filter(name="Tools/Platforms").first().id
     methodologies_id = SkillCategory.objects.filter(name="Common Methodologies/Frameworks").first().id
     general_skills_id = SkillCategory.objects.filter(name="General Skills").first().id
-    talent_business_model_ids = f"({','.join(str(i.id)  for i in talent_business_models)})" if talent_business_models else "(NULL)"
-    talent_available_days = TalentAvailableDay.objects.filter(talent=talent)
-    talent_workdays = [i.day for i in talent_available_days]
-
-    talent_general_skills = talent.skills.filter(category__id=general_skills_id)
-    talent_tools_skills = talent.skills.filter(category_id=tools_platform_id)
-    talent_methodology_skills = talent.skills.filter(category_id=methodologies_id)
 
     required_attribute_subquery = RequiredAttribute.objects.filter(
         job=OuterRef("job")
@@ -45,7 +43,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         ),
         role_score=Case(
             When(
-                Q(matching_role=True),
+                Q(Q(matching_role=True) | Q(prev_matching_role=True)),
                 then=Value(6.67)
             ),
             default=Value(0.0),
@@ -56,38 +54,80 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             RequiredSkill.objects.exclude(skill__id__in=talent_skill_ids)
         )
     ).annotate(
-        gen_skill_count=Count("job__skills", filter=Q(job__skills__category_id=general_skills_id)),
-        gen_skill_intercept_count=Count("job__skills", filter=Q(
-            job__skills__category_id=general_skills_id, job__skills__in=talent_general_skills
-        )),
+        gen_skill_count=Subquery(
+            JobSkill.objects
+                .filter(
+                    job=OuterRef("job"),
+                    skill__category__id=general_skills_id,
+                )
+                .values("job_id")             # group by job
+                .annotate(count=Count("id"))  # count matching rows
+                .values("count")[:1]          # select the count
+        ),
+        gen_skill_intercept_count=Subquery(
+            TalentSkill.objects
+                .filter(
+                    talent=talent,
+                    skill__category__id=general_skills_id,
+                )
+                .values("talent_id")           # group by applicant
+                .annotate(count=Count("id"))   # count matching rows
+                .values("count")[:1]           # select just the count
+        ),
         general_skill_score=Case(
-            When(Q(gen_skill_count=0), then=Value(6.67)),
-            default=ExpressionWrapper(
-                (F("gen_skill_intercept_count") / F("gen_skill_count")) * Value(6.67),
-                output_field=FloatField()
-            ),
+            When(Q(gen_skill_count=None), then=Value(6.67)),
+            default=(F("gen_skill_intercept_count") * Value(6.67) ) / F("gen_skill_count") ,
             output_field=FloatField()
         )
     ).annotate(
-        tools_platform_count=Count("job__skills", filter=Q(job__skills__category_id=tools_platform_id)),
-        tools_platform_intercept_count=Count("job__skills", filter=Q(
-            job__skills__category_id=tools_platform_id, job__skills__in=talent_tools_skills
-        )),
+        tools_platform_count=Subquery(
+            JobSkill.objects
+                .filter(
+                    job=OuterRef("job"),
+                    skill__category__id=tools_platform_id,
+                )
+                .values("job_id")             # group by job
+                .annotate(count=Count("id"))  # count matching rows
+                .values("count")[:1]          # select the count
+        ),
+        tools_platform_intercept_count=Subquery(
+            TalentSkill.objects
+                .filter(
+                    talent=talent,
+                    skill__category__id=tools_platform_id,
+                )
+                .values("talent_id")           # group by applicant
+                .annotate(count=Count("id"))   # count matching rows
+                .values("count")[:1]           # select just the count
+        ),
         tools_platform_score=Case(
-            When(Q(tools_platform_count=0), then=Value(6.67)),
-            default=ExpressionWrapper(
-                (F("tools_platform_intercept_count") / F("tools_platform_count")) * Value(6.67),
-                output_field=FloatField()
-            ),
+            When(Q(tools_platform_count=None), then=Value(6.67)),
+            default=(F("tools_platform_intercept_count") * Value(6.67) ) / F("tools_platform_count") ,
             output_field=FloatField()
         )
     ).annotate(
-        methodologies_count=Count("job__skills", filter=Q(job__skills__category_id=methodologies_id)),
-        methodologies_intercept_count=Count("job__skills", filter=Q(
-            job__skills__category_id=methodologies_id, job__skills__in=talent_methodology_skills
-        )),
+        methodologies_count=Subquery(
+            JobSkill.objects
+                .filter(
+                    job=OuterRef("job"),
+                    skill__category__id=methodologies_id,
+                )
+                .values("job_id")             # group by job
+                .annotate(count=Count("id"))  # count matching rows
+                .values("count")[:1]          # select the count
+        ),
+        methodologies_intercept_count=Subquery(
+            TalentSkill.objects
+                .filter(
+                    talent=talent,
+                    skill__category__id=methodologies_id,
+                )
+                .values("talent_id")           # group by applicant
+                .annotate(count=Count("id"))   # count matching rows
+                .values("count")[:1]           # select just the count
+        ),
         methodologies_score=Case(
-            When(Q(methodologies_count=0), then=Value(6.67)),
+            When(Q(methodologies_count=None), then=Value(6.67)),
             default=ExpressionWrapper(
                 (F("methodologies_intercept_count") / F("methodologies_count")) * Value(6.67),
                 output_field=FloatField()
@@ -95,23 +135,31 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             output_field=FloatField()
         )
     ).annotate(
-        business_model_score=RawSQL(f"""
-            SELECT
-                CASE
-                    WHEN COUNT(ra_bms.id) = 0 THEN 6.67
-                    ELSE 6.67 * 
-                        COUNT(*) FILTER (
-                            WHERE bm.id IN {talent_business_model_ids}
-                        ) 
-                        / 
-                        NULLIF(COUNT(ra_bms.id) , 0)
-                END
-            FROM jobs_requiredattribute ra
-            JOIN jobs_requiredattribute_business_models ra_bms ON ra.id = ra_bms.requiredattribute_id
-            JOIN jobs_businessmodel bm ON ra_bms.businessmodel_id = bm.id
-            WHERE ra.job_id = jobs_jobpost.job_id
-            LIMIT  1            
-        """, [])
+        business_model_count=Subquery(
+            JobBusinessModel.objects.filter(
+                job=OuterRef("job")
+            )
+            .values("job_id")             # group by job
+            .annotate(count=Count("id"))  # count matching rows
+            .values("count")[:1]          # select the count
+        ),
+        matching_business_model_count=Subquery(
+            JobBusinessModel.objects.filter(
+                job=OuterRef("job"), 
+                businessmodel__in=talent_business_models
+            )
+            .values("job_id")             # group by job
+            .annotate(count=Count("id"))  # count matching rows
+            .values("count")[:1]          # select the count
+        ),
+        business_model_score=Case(
+            When(business_model_count=None, then=Value(6.67)),
+            default=(F("matching_business_model_count") * Value(6.67)) / F("business_model_count") ,
+            output_field=FloatField(),
+        ),
+        missing_required_business_model=Exists(
+            RequiredBusinessModel.objects.exclude(businessmodel__in=talent_business_models)
+        )
     ).annotate(
         requires_job_level=Exists(
         required_attribute_subquery.filter(job_level=True)
@@ -152,9 +200,10 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             required_attribute_subquery.filter(minimum_education_level=True)
         ),
         has_minimum_education_requirement=Exists(
-            Education.objects.filter(talent=talent, level__order__gte=OuterRef("job__minimum_education_level"))
+            Education.objects.filter(talent=talent, level__order__gte=OuterRef("job__minimum_education_level__order"))
         ),
         minimum_education_score=Case(
+            When(job__minimum_education_level=None, then=Value(6.67)),
             When(has_minimum_education_requirement=True, then=Value(6.67)),
             default=Value(0.0),
             output_field=FloatField()
@@ -177,8 +226,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         ),
         meets_tech_requirements=Case(
             When(
-                Q(requires_tech_requirements=True) & Q(job__technological_requirement="undetermined"),
-                then=Value(True),
+                Q(job__technological_requirement="undetermined"), then=Value(True),
             ),
             default=Value(False),
             output_field=BooleanField(),
@@ -202,53 +250,70 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             output_field=FloatField()
         )
     ).annotate(
-        additional_language_score=RawSQL(f"""
-            SELECT
-                CASE
-                    WHEN NOT EXISTS (
-                        SELECT 1
-                        FROM jobs_requiredattribute ra
-                        WHERE ra.job_id = jobs_job.id AND ra.secondary_language IS NOT NULL
-                    ) THEN 6.67
-                    WHEN COUNT(jal.language_id) = 0 THEN 0.0
-                    ELSE 6.67 * 
-                        COUNT(*) FILTER (
-                            WHERE jal.language_id IN {additional_languagues_tuple_str}
-                        ) / 
-                        NULLIF(COUNT(*), 0)
-                END
-            FROM jobs_job_additional_languages jal
-            WHERE jal.job_id = jobs_job.id
-        """, [])
+        job_additional_language_count=Subquery(
+            JobAddtionalLanguage.objects.filter(
+                job=OuterRef("job")
+            )
+            .values("job_id")             # group by job
+            .annotate(count=Count("id"))  # count matching rows
+            .values("count")[:1]          # select the count
+        ),
+        matching_additional_languages=Subquery(
+            JobAddtionalLanguage.objects.filter(
+                job=OuterRef("job"),
+                language__in=talent_additional_languages
+            )
+            .values("job_id")             # group by job
+            .annotate(count=Count("id"))  # count matching rows
+            .values("count")[:1]          # select the count
+        ),
+        additional_language_score = Case(
+            When(
+                job_additional_language_count=None,
+                then=Value(6.67)
+            ),
+            default=(F("matching_additional_languages") * Value(6.67)) / F("job_additional_language_count"),
+            output_field=FloatField()
+        )
     ).annotate(
         missing_compulsory_secondary_language=Exists(
             RequiredSecondaryLanguage.objects.filter(
                 required_attribute__job=OuterRef("job")
-            ).exclude(id__in=additional_lang_ids)
+            ).exclude(id__in=talent_additional_languages)
         )
     ).annotate(
-        work_schedule_score=RawSQL(f"""
-            SELECT 
-                CASE 
-                    WHEN NOT EXISTS (
-                        SELECT 1 FROM jobs_requiredattribute ra 
-                        WHERE ra.job_id = jobs_job.id AND ra.working_hours IS NOT NULL
-                    ) THEN 6.67
-                    WHEN COUNT(job_av.id) = 0 THEN 6.67
-                    ELSE 6.67 * (
-                        SELECT COUNT(*) 
-                        FROM jobs_availableday job_av2
-                        JOIN accounts_talentavailableday ta ON 
-                            job_av2.day = ta.day 
-                            AND job_av2.utc_start_time >= ta.utc_start_time 
-                            AND job_av2.utc_end_time <= ta.utc_end_time 
-                        WHERE job_av2.job_id = jobs_job.id
-                        AND ta.talent_id = {talent.id}
-                    ) / COUNT(job_av.id)
-                END
-            FROM jobs_availableday job_av
-            WHERE job_av.job_id = jobs_job.id
-            """, [])
+        available_days_count=Subquery(
+            AvailableDay.objects
+                .filter(job=OuterRef("job"))
+                .values("job_id")             # group by job
+                .annotate(count=Count("id"))  # count rows
+                .values("count")[:1]          # return the count
+        ),
+        matching_days_count=Subquery(
+            AvailableDay.objects.filter(
+                job=OuterRef("job")
+            )
+            .annotate(
+                day_match_exists=Exists(
+                    TalentAvailableDay.objects.filter(
+                        talent=talent,
+                        day=OuterRef("day"),
+                        utc_start_time__gte=OuterRef("utc_start_time"),
+                        utc_end_time__lte=OuterRef("utc_end_time"),
+                    )
+                )
+            )
+            .filter(day_match_exists=True)
+            .values("job_id")               # group by job
+            .annotate(cnt=Count("id"))      # count matching days
+            .values("cnt")[:1],             # only return the count column
+            output_field=IntegerField()
+        ),
+        work_schedule_score=Case(
+            When(available_days_count=None, then=Value(6.67)),
+            default=(F("matching_days_count") * Value(6.67)) /F("available_days_count") ,
+            output_field=FloatField()
+        )
     ).annotate(
         flexible_talent=Exists(Talent.objects.filter(id=talent.id, flexible_availability=True)),
         final_work_schedule_score=Case(
@@ -269,8 +334,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             JobPost.objects.filter(job=OuterRef("job"), country=talent.country)
         ),
         location_score=Case(
-            When(requires_location=False, then=Value(6.67)),
-            When(Q(requires_location=True) & Q(location_match=True), then=Value(6.67)),
+            When(Q(location_match=True), then=Value(6.67)),
             default=Value(0.0),
             output_field=FloatField()
         )
@@ -286,6 +350,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             When(Q(requires_work_structure=True) & Q(job__work_structure__in=talent.work_models), then=Value(0.0)),
             When(Q(requires_tech_requirements=True) & Q(meets_tech_requirements=False), then=Value(0.0)),
             When(Q(missing_work_schedule=True), then=Value(0.0)),
+            When(Q(missing_required_business_model=True), then=Value(0.0)),
             default=ExpressionWrapper(
                 Cast(F("role_score"), FloatField()) +
                 Cast(F("tools_platform_score"), FloatField()) +
@@ -490,9 +555,10 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
             required_attribute_subquery.filter(minimum_education_level=True)
         ),
         has_minimum_education_requirement=Exists(
-            Education.objects.filter(talent=OuterRef("applicant"), level__order__gte=OuterRef("job_post__job__minimum_education_level"))
+            Education.objects.filter(talent=OuterRef("applicant"), level__order__gte=OuterRef("job_post__job__minimum_education_level__order"))
         ),
         minimum_education_score=Case(
+            When(job_post__job__minimum_education_level=None, then=Value(6.67)),
             When(has_minimum_education_requirement=True, then=Value(6.67)),
             default=Value(0.0),
             output_field=FloatField()
