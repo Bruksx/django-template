@@ -51,7 +51,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         )
     ).annotate(
         missing_required_skill=Exists(
-            RequiredSkill.objects.exclude(skill__id__in=talent_skill_ids)
+            RequiredSkill.objects.exclude(skill__id__in=talent_skill_ids, required_attribute__job=OuterRef("job"))
         )
     ).annotate(
         gen_skill_count=Subquery(
