@@ -162,7 +162,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             output_field=FloatField(),
         ),
         missing_required_business_model=Exists(
-            RequiredBusinessModel.objects.exclude(businessmodel__in=talent_business_models)
+            RequiredBusinessModel.objects.exclude(businessmodel__in=talent_business_models, requiredattribute__job=OuterRef("job"))
         )
     ).annotate(
         requires_job_level=Exists(
