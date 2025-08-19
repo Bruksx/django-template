@@ -357,6 +357,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             When(Q(missing_required_business_model=True), then=Value(0.0)),
             default=ExpressionWrapper(
                 Cast(Coalesce(F("role_score"), 0.0), FloatField()) +
+                Cast(Coalesce(F("business_model_score"), 0.0), FloatField()) + 
                 Cast(Coalesce(F("tools_platform_score"), 0.0), FloatField()) +
                 Cast(Coalesce(F("methodologies_score"), 0.0), FloatField()) +
                 Cast(Coalesce(F("general_skill_score"), 0.0), FloatField()) +
