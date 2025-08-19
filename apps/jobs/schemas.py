@@ -989,6 +989,7 @@ class MatchScoreSchema(Schema):
     requires_work_structure: bool
     requires_tech_requirements: bool
     missing_work_schedule: bool
+    missing_required_business_model: bool
 
     class Meta:
         orm_mode = True
