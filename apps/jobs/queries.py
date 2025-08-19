@@ -356,22 +356,22 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             When(Q(missing_work_schedule=True), then=Value(0.0)),
             When(Q(missing_required_business_model=True), then=Value(0.0)),
             default=ExpressionWrapper(
-                Cast(F("role_score"), FloatField()) +
-                Cast(F("tools_platform_score"), FloatField()) +
-                Cast(F("methodologies_score"), FloatField()) +
-                Cast(F("general_skill_score"), FloatField()) +
-                Cast(F("job_level_score"), FloatField()) +
-                Cast(F("experience_score"), FloatField()) +
-                Cast(F("business_model_score"), FloatField()) +
-                Cast(F("minimum_education_score"), FloatField()) +
-                Cast(F("work_structure_score"), FloatField()) +
-                Cast(F("tech_requirement_score"), FloatField()) +
-                Cast(F("first_language_score"), FloatField()) +
-                Cast(F("additional_language_score"), FloatField()) +
-                Cast(F("final_work_schedule_score"), FloatField()) +
-                Cast(F("location_score"), FloatField()),
+                Cast(Coalesce(F("role_score"), 0.0), FloatField()) +
+                Cast(Coalesce(F("tools_platform_score"), 0.0), FloatField()) +
+                Cast(Coalesce(F("methodologies_score"), 0.0), FloatField()) +
+                Cast(Coalesce(F("general_skill_score"), 0.0), FloatField()) +
+                Cast(Coalesce(F("job_level_score"), 0.0), FloatField()) +
+                Cast(Coalesce(F("experience_score"), 0.0), FloatField()) +
+                Cast(Coalesce(F("business_model_score"), 0.0), FloatField()) + 
+                Cast(Coalesce(F("minimum_education_score"), 0.0), FloatField()) +
+                Cast(Coalesce(F("work_structure_score"), 0.0), FloatField()) +
+                Cast(Coalesce(F("tech_requirement_score"), 0.0), FloatField()) +
+                Cast(Coalesce(F("first_language_score"), 0.0), FloatField()) +
+                Cast(Coalesce(F("additional_language_score"), 0.0), FloatField()) +
+                Cast(Coalesce(F("final_work_schedule_score"), 0.0), FloatField()) +
+                Cast(Coalesce(F("location_score"), 0.0), FloatField()),
                 output_field=FloatField(),
-        ),
+            ),
         output_field=FloatField(),
     )
     )
