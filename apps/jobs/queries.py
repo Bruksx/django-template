@@ -362,7 +362,6 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
                 Cast(Coalesce(F("general_skill_score"), 0.0), FloatField()) +
                 Cast(Coalesce(F("job_level_score"), 0.0), FloatField()) +
                 Cast(Coalesce(F("experience_score"), 0.0), FloatField()) +
-                Cast(Coalesce(F("business_model_score"), 0.0), FloatField()) + 
                 Cast(Coalesce(F("minimum_education_score"), 0.0), FloatField()) +
                 Cast(Coalesce(F("work_structure_score"), 0.0), FloatField()) +
                 Cast(Coalesce(F("tech_requirement_score"), 0.0), FloatField()) +
