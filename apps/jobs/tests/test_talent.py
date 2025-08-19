@@ -353,7 +353,6 @@ class JobMatchTests(TestCase):
         self.update_required_attributes()
         Experience.objects.filter(talent=self.talent).delete()
         level1 = JobLevel.objects.all()[0]
-        level2 = JobLevel.objects.all()[1]
         ExperienceFactory.create(talent=self.talent, level=level1)
         self.job.job_level = level1
         self.job.save()
