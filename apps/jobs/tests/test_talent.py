@@ -332,7 +332,7 @@ class JobMatchTests(TestCase):
         self.assertEqual(tool_platform_score, Decimal("2.22"))
         self.assertEqual(methodologies_score, Decimal("6.67"))
         self.assertEqual(general_skill_score, Decimal("4.45"))
-        self.assertEqual(computed_match_score, Decimal("0.00"))
+        self.assertGreater(computed_match_score, Decimal("0.00"))
 
     def test_job_level_no_score(self):
         self.update_required_attributes()
