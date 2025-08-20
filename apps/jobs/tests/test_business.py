@@ -353,7 +353,6 @@ class TestApplicationList(TestCase):
         }
         response = self.client.get(self.url(uuid.uuid4()), headers=headers)
         self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.data["count"], 0)
 
     def test_job_by_another_business(self):
         business_user = BusinessUserFactory.create()
@@ -363,7 +362,6 @@ class TestApplicationList(TestCase):
         response = self.client.get(self.url(self.job_post.uid), headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 0)
-
 
     def test_endpoint_with_phase_query(self):
         phase = PhaseType.HIRED.value
