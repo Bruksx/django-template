@@ -351,7 +351,7 @@ class Talent(BaseModel):
             .order_by("-id")
         
         queryset = add_job_post_annotations(queryset, self)
-        queryset = queryset.filter(computed_match_score__gte=30, status=JobStatusType.POSTED.value)
+        queryset = queryset.filter(computed_match_score__gte=50, status=JobStatusType.POSTED.value)
         return queryset
 
     def job_match_score(self, job_post):
