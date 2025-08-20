@@ -381,6 +381,9 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
 def add_application_match_score(queryset: QuerySet[JobApplication], job_post:JobPost) -> QuerySet[JobApplication]:
     TalentSkill = Talent.skills.through
     JobSkill = Job.skills.through
+    TalentBusinessModel = Talent.business_models.through
+    RequiredBusinessModel = RequiredAttribute.business_models.through
+    JobBusinessModel = Job.business_models.through
     ApplicantAdditionalLanguage = Talent.additional_languages.through
     required_attribute = job_post.job.requiredattribute
     required_skill_ids = [i.skill.id for i in RequiredSkill.objects.filter(required_attribute=required_attribute)]
@@ -395,6 +398,9 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
     job_gen_skills = job_post.job.skills.filter(category__id=general_skills_id)
     job_tools_skills = job_post.job.skills.filter(category__id=tools_platform_id)
     job_methodology_skills = job_post.job.skills.filter(category=methodologies_id)
+
+    job_business_models = [i.id for i in job_post.job.business_models.all()]
+    job_required_business_models = [i.id for i in RequiredBusinessModel.objects.filter(requiredattribute=required_attribute)]
 
     required_attribute_subquery = RequiredAttribute.objects.filter(
         job=OuterRef("job_post__job")
@@ -522,7 +528,42 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
             output_field=FloatField()
         )
     ).annotate(
-        business_model_score=Value(6.67)
+        business_model_count=Subquery(
+            JobBusinessModel.objects.filter(
+                job=OuterRef("job_post__job")
+            )
+            .values("job_id")             # group by job
+            .annotate(count=Count("id"))  # count matching rows
+            .values("count")[:1]          # select the count
+        ),
+        matching_business_model_count=Subquery(
+            TalentBusinessModel.objects.filter(
+                talent=OuterRef("applicant"), 
+                businessmodel_id__in=job_business_models
+            )
+            .values("talent_id")          # group by talent
+            .annotate(count=Count("id"))  # count matching rows
+            .values("count")[:1]          # select the count
+        ),
+        business_model_score=Case(
+            When(business_model_count=None, then=Value(6.67)),
+            default=(F("matching_business_model_count") * Value(6.67)) / F("business_model_count") ,
+            output_field=FloatField(),
+        ),
+        matching_required_business_model_count=Subquery(
+            TalentBusinessModel.objects.filter(
+                talent=OuterRef("applicant"), 
+                businessmodel__in=job_required_business_models
+            )
+            .values("talent_id")          # group by talent
+            .annotate(count=Count("id"))  # count matching rows
+            .values("count")[:1]          # select the count
+        ),
+        missing_required_business_model=Case(
+            When(matching_required_business_model_count__lt=len(job_required_business_models), then=Value(True)),
+            default=Value(False),
+            output_field=BooleanField(),
+        )
     ).annotate(
         requires_job_level=Exists(
         required_attribute_subquery.filter(job_level=True)
@@ -714,6 +755,7 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
             When(Q(requires_work_structure=True) & Q(work_structure_match=False), then=Value(0.0)),
             When(Q(requires_tech_requirements=True) & Q(meets_tech_requirements=False), then=Value(0.0)),
             When(Q(missing_work_schedule=True), then=Value(0.0)),
+            When(Q(missing_required_business_model=True), then=Value(0.0)),
             default=ExpressionWrapper(
                 Cast(F("role_score"), FloatField()) +
                 Cast(F("tools_platform_score"), FloatField()) +
