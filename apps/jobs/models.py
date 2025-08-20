@@ -199,6 +199,8 @@ class Job(BaseModel):
         working_hours_query = Q()
 
         for availability in self.availableday_set.all():
+            if not(availability.end_time and availability.start_time):
+                continue
             day_query = Q(
                 day=availability.day,
                 start_time__lte=availability.end_time,
@@ -213,10 +215,11 @@ class Job(BaseModel):
         data = list()
         for value in Days.values():
             availability = self.availableday_set.filter(day=value).first()
-            data.append({
-                "day": value,
-                "availability": JobAvailableDaySchema.from_orm(availability) if availability else None
-            })
+            if availability:
+                data.append({
+                    "day": value,
+                    "availability": JobAvailableDaySchema.from_orm(availability) if availability else None
+                })
         return data
 
     def get_skills(self):
