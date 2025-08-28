@@ -330,7 +330,7 @@ class TalentFilterQuerySchema(ModelSchema):
         optional_fields = fields
 
     def get_queryset(self, queryset=None):
-        if not queryset:
+        if queryset is None:
             queryset = Talent.objects.all()
         if self.role:
             ids = Experience.objects.filter(role__uid=self.role).only("talent_id").distinct("talent_id").values_list(

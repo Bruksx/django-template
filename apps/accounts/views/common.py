@@ -35,7 +35,7 @@ def talent_lists(request, search="", filters:TalentFilterQuerySchema = Query(...
                 q = q | Q(user__fullname__icontains=s) | Q(user__email__icontains=s)
         talents = talents.filter(q)
 
-    return filters.get_queryset(talents).order_by("-user__last_login")
+    return filters.get_queryset(talents).order_by("-user__last_login").distinct()
 
 
 @router.get("countries", response=List[talent_schemas.CountrySchema], tags=["Common"])
