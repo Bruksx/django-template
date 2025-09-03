@@ -22,7 +22,7 @@ class ChatUserSchema(ModelSchema):
 
 class ChatJobSchema(ModelSchema):
     country: str
-    job_title: str
+    job_title: Optional[str] = None
     job_business: str
     job_business_logo: Optional[str]
     class Meta:
