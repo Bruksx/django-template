@@ -244,9 +244,6 @@ class Job(BaseModel):
                 .values("uid", "phase", "name", "applications"))
 
 
-
-
-
 class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     status = models.CharField(max_length=50, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)

@@ -941,7 +941,7 @@ class JobApplicationListSchema(ModelSchema):
     def resolve_match(obj):
         if hasattr(obj, "computed_match_score"):
             return 0 if obj.computed_match_score else int(obj.computed_match_score)
-        return obj.match
+        return obj.match or 0
 
 
 class StageSchema(GenericNameAndUidSchema):
