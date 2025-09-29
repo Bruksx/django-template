@@ -65,6 +65,13 @@ class BusinessUserAdmin(admin.ModelAdmin):
     list_display = ("business", "role","user__email", "user__first_name", "user__last_name")
 
 
+class SkillAdmin(admin.ModelAdmin):
+    list_display = ("uid", "name", "category", "department")
+    list_filter = ("category", "department")
+    search_fields = ("name", "category__name", "department__name")
+    ordering = ("name",)
+
+
 # Register your models here.
 admin.site.register(models.Business)
 admin.site.register(models.User, UserAdmin)
@@ -75,3 +82,4 @@ admin.site.register(models.Department, DepartmentAdmin)
 admin.site.register(models.SkillCategory, SkillCategoryAdmin)
 admin.site.register(models.Country)
 admin.site.register(models.EducationLevel, EducationLevelAdmin)
+admin.site.register(models.Skill, SkillAdmin)
