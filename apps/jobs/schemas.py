@@ -897,7 +897,7 @@ class JobApplicationListSchema(ModelSchema):
     location:Optional[str] = Field(None, alias="job_post.get_country")
     role:Optional[GenericNameAndUidSchema] = Field(alias="applicant.role")
     experience:int
-    match:int
+    match:Optional[int] = None
     phase:str
     stage:Optional[str] = None
     applicant_uid: UUID = Field(alias="applicant.uid")
