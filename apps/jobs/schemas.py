@@ -897,7 +897,7 @@ class JobApplicationListSchema(ModelSchema):
     location:Optional[str] = Field(None, alias="job_post.get_country")
     role:Optional[GenericNameAndUidSchema] = Field(alias="applicant.role")
     experience:int
-    match:Optional[int] = None
+    match:int
     phase:str
     stage:Optional[str] = None
     applicant_uid: UUID = Field(alias="applicant.uid")
@@ -940,7 +940,7 @@ class JobApplicationListSchema(ModelSchema):
     @staticmethod
     def resolve_match(obj):
         if hasattr(obj, "computed_match_score"):
-            return 0 if obj.computed_match_score else int(obj.computed_match_score)
+            return 0 if not obj.computed_match_score else int(obj.computed_match_score)
         return obj.match or 0
 
 
@@ -1090,7 +1090,7 @@ class TalentJobPostListSchema(ModelSchema):
     @staticmethod
     def resolve_match_score(obj, context):
         if hasattr(obj, "computed_match_score"):
-            return 0 if obj.computed_match_score else int(obj.computed_match_score)
+            return 0 if not obj.computed_match_score else int(obj.computed_match_score)
         return 0
 
     @staticmethod
