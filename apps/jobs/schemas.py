@@ -940,7 +940,7 @@ class JobApplicationListSchema(ModelSchema):
     @staticmethod
     def resolve_match(obj):
         if hasattr(obj, "computed_match_score"):
-            return 0 if obj.computed_match_score else int(obj.computed_match_score)
+            return 0 if not obj.computed_match_score else int(obj.computed_match_score)
         return obj.match or 0
 
 
@@ -1090,7 +1090,7 @@ class TalentJobPostListSchema(ModelSchema):
     @staticmethod
     def resolve_match_score(obj, context):
         if hasattr(obj, "computed_match_score"):
-            return 0 if obj.computed_match_score else int(obj.computed_match_score)
+            return 0 if not obj.computed_match_score else int(obj.computed_match_score)
         return 0
 
     @staticmethod
