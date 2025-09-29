@@ -40,9 +40,6 @@ def reject_application(application, previous_stage, job_post=None):
         created_by__business=job_post.job.created_by.business
     ).order_by("order").first()
     application.update(stage=rejected_stage)
-    email = job_post.recruiter.user.email if job_post.recruiter else None
-    if not email:
-        email = job_post.job.created_by.user.email if job_post.job.created_by else None
     send_email_on_stage_update(application=application, previous_stage=previous_stage, business_user_email="1840 GTC")
 
 @transaction.atomic

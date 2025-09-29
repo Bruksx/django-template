@@ -358,7 +358,7 @@ class Talent(BaseModel):
         jobpost = self.job_post_matches().filter(id=job_post.id).first()
         if not jobpost:
             return 0
-        return jobpost.computed_match_score
+        return jobpost.computed_match_score or 0
 
 
     def availability_query(self):
