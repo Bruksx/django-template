@@ -394,3 +394,14 @@ def read_json_generator(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
     except ijson.JSONError as e:
         raise ijson.JSONError(f"Invalid JSON format: {str(e)}")
+
+
+def capitalize_bracketed(text):
+    def replacer(match):
+        content = match.group(1)
+        # Only capitalize if no spaces inside
+        if ' ' in content:
+            return f"({content})"
+        return f"({content.upper()})"
+
+    return re.sub(r'\((.*?)\)', replacer, text)
