@@ -52,7 +52,7 @@ def create_account(request, data: talent_schemas.ValidateTalentOTPSchema):
     validate_password(password=data.password)
     user = User.objects.create_user(first_name=data.first_name,
                                     last_name=data.last_name,
-                                    email=data.email.lower(),
+                                    email=data.email.lower().strip(),
                                     password=data.password,
                                     username=None,
                                     auth_mode=AuthType.EMAIL.value,

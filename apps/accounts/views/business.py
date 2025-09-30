@@ -62,7 +62,7 @@ def create_account(request, data: business_schema.ValidateOTPSchema):
         first_name=data.first_name,
         last_name=data.last_name,
         type=UserType.BUSINESS.value,
-        email=data.email.lower(),
+        email=data.email.lower().strip(),
         username=None,
         email_verified=True,
         phone_number=data.phone_number,
