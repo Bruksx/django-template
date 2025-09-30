@@ -40,7 +40,7 @@ def initiate_account_creation(request, data: common_schemas.RegisterSchema):
 @router.post("create-account", response={200:talent_schemas.LoggedInUserSchema})
 @transaction.atomic
 def create_account(request, data: talent_schemas.ValidateTalentOTPSchema):
-    existing_user = User.objects.filter(email=data.email).exists()
+    existing_user = User.objects.filter(email__iexact=data.email).exists()
     if existing_user:
         raise HttpError(400, "An account with this email already exists")
     verification_code = VerificationCode.objects.filter(email__iexact=data.email).last()
@@ -52,7 +52,7 @@ def create_account(request, data: talent_schemas.ValidateTalentOTPSchema):
     validate_password(password=data.password)
     user = User.objects.create_user(first_name=data.first_name,
                                     last_name=data.last_name,
-                                    email=data.email.lower(),
+                                    email=data.email.lower().strip(),
                                     password=data.password,
                                     username=None,
                                     auth_mode=AuthType.EMAIL.value,
