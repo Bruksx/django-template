@@ -1069,7 +1069,7 @@ class Education(BaseModel):
     talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE, default=None, null=True)
     level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True, default=None)
     start_date = models.DateField()
-    end_date = models.DateField()
+    end_date = models.DateField(null=True, default=None)
     major = models.CharField(max_length=64)
     university = models.CharField(max_length=64)
 
