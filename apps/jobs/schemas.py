@@ -1158,7 +1158,7 @@ class TalentJobFilterQuerySchema(Schema):
     search: Optional[str] = ""
     work_structure:Optional[str] = Field("", description=f"comma separated work structure enums: {', '.join(WorkStructureEnum.values())}")
     company: Optional[str] = Field("", description="comma separated company uuids")
-    sort_by: Optional[str] = Field("", description=f"comma separated sort fields: {', '.join(['date-posted', '-date-posted'])}")
+    sort_by: Optional[str] = Field("", description=f"comma separated sort fields: {', '.join(['date-posted', '-date-posted', 'match-score', '-match-score'])}")
     location: Optional[str] = Field("", description="comma separated country uuids")
     employment_type: Optional[str] = Field("", description="comma separated employment type uuids")
     job_level: Optional[str] = Field("", description="comma separated job level uuids")
@@ -1187,7 +1187,7 @@ class TalentJobFilterSchema(Schema):
     search: Optional[str] = None
     work_structure:Optional[List[WorkStructureEnum]] = []
     company: Optional[List[UUID]] = []
-    sort_by: Optional[List[Literal['date-posted', '-date-posted']]] = []
+    sort_by: Optional[List[Literal['date-posted', '-date-posted', 'match-score', '-match-score']]] = []
     location: Optional[List[UUID]] = []
     employment_type: Optional[List[UUID]] = []
     job_level: Optional[List[UUID]] = []

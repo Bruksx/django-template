@@ -127,12 +127,12 @@ def order_job_posts(queryset, sorts:List[str]=None, *extra_sort_params:List[str]
         sorts: list of sort parameters based on API query
         *extra_sort_params: extra sort parameters based on model fields
     """
-    mapper = {"date-posted": "date_posted", "job-level": "job__job_level"}
+    mapper = {"date-posted": "date_posted", "job-level": "job__job_level", "match-score": "computed_match_score"}
     sort_values = []
     if sorts:
         sort_values = sort_params_function(sorts, mapper)
     if not sort_values:
-        sort_values = ["-created_at", *extra_sort_params]
+        sort_values = ["-last_refreshed", *extra_sort_params]
     return queryset.order_by(*sort_values)
 
 

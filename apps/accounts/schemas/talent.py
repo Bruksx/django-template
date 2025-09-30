@@ -109,7 +109,7 @@ class UpdateTalentProfileSchema2(Schema):
     whatsapp_number: Optional[str] = None
     work_models: Optional[List[WorkStructureEnum|str]] = None
     viber_number: Optional[str] = None
-    address: Optional[str] = None
+    # address: Optional[str] = None
     gender: Optional[GenderType|str] = ""
     visible: Optional[bool] = None
     bio: Optional[str] = None
