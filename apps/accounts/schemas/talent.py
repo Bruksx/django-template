@@ -40,7 +40,7 @@ class EducationSchema(ModelSchema):
 
 class MutateEducationSchema(ModelSchema):
     uid: Optional[UUID] = None
-    level: UUID
+    level: Optional[UUID] = None
     class Meta:
         model = Education
         exclude = [*MUTATE_EXCLUDE_FIELDS, "talent"]
