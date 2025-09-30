@@ -10,7 +10,7 @@ from notification.notifications import send_job_application_notification, send_j
     send_job_performance_notification
 
 from jobs.enums import JobStatusType
-from helpers.email.jobs import send_shared_job_email
+from helpers.email.jobs import send_shared_job_email, send_invite_to_apply_email
 from helpers.utils import chunk_queryset
 
 
@@ -27,6 +27,16 @@ def share_job_via_email(job_ids:List[UUID], emails: List[str]=None, language:str
     for job_post in job_posts:
         send_shared_job_email(job_post, emails, language)
         job_post.update_email_share()
+    return
+
+
+def invite_to_apply(job, talent, language="en"):
+    if not JobInvite.objects.filter(job=job, talent=talent).exists():
+        JobInvite.objects.create(job=job, talent=talent)
+    job_post = JobPost.objects.filter(job=job).first()
+    if not job_post:
+        return
+    send_invite_to_apply_email(job_post, talent.user.email, language)
     return
 
 

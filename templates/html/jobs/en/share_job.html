@@ -1,41 +1,170 @@
-{% extends "all_template.html" %}
 {% load static %}
-
-{% block content %}
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Share Job</title>
+  </head>
+  <body
+    style="
+      font-family: Arial, Helvetica, sans-serif;
+      background-color: #e7effa;
+      padding: 20px;
+      margin: 0;
+    "
+  >
+    <!-- Preheader Text -->
     <div
       style="
-        width: 100%;
-        text-align: center;
-        max-width: 41.25rem;
-        margin: auto;
-        padding: 1rem 1.44rem 5rem;
-        color: #013832;
+        display: none;
+        max-height: 0;
+        overflow: hidden;
+        color: transparent;
+        font-size: 0;
       "
     >
-      <img src="{% static 'img/invite/email-fly.png' %}"/>
-      <p>
-        You’ve been invited to apply for {{ verb }} <strong>{{role}}</strong> position on the 1840 Global Talent Cloud,
-        a centralized platform designed to streamline how we connect, collaborate, and work with
-        top professionals around the world.
-      </p>
-
-      <p>Click the link below to view the Job!</p>
-
-      <a
-        style="
-          display: inline-block;
-          border-radius: 0.25rem;
-          padding: 0.875rem 2rem;
-          color: white;
-          font-size: 1.125rem;
-          background-color: #266b5b;
-          text-decoration: none;
-          font-weight: 500;
-        "
-        href="{{ link }}"
-        >View Job</a
-      >
+      Check out this amazing job opportunity recommended for you!
     </div>
 
+    <div
+      style="
+        max-width: 660px;
+        margin: 0 auto;
+        padding: 20px 20px 80px;
+        background-color: white;
+        box-shadow: 0px 0px 15px rgba(0, 0, 3, 0.1);
+      "
+    >
+      <!-- Header Image -->
+      <img
+        alt="Job Recommendation Header"
+        src="{% static 'img/share_job/header-image.png' %}"
+        style="width: 100%; height: auto"
+      />
 
-{% endblock %}
+      <!-- Email Body -->
+      <div style="margin-top: 40px">
+        <h1 style="font-size: 24px; font-weight: 700; margin-bottom: 20px">
+          A job has been recommended to you
+        </h1>
+
+        <div
+          style="
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #eaeaea;
+            border-radius: 10px;
+            display: flex;
+            gap: 10px;
+            background-color: #fbfbfb;
+          "
+        >
+          <!-- Job Image -->
+          <img
+            alt="Job Image"
+            src="{% static 'img/share_job/job-image.png' %}"
+            style="
+              width: 100px;
+              height: 100px;
+              object-fit: cover;
+              border-radius: 4px;
+            "
+          />
+
+          <!-- Job Details -->
+          <div
+            style="
+              width: 100%;
+              display: flex;
+              gap: 10px;
+              justify-content: space-between;
+            "
+          >
+            <div
+              style="
+                padding-top: 5px;
+                display: flex;
+                gap: 7px;
+                flex-direction: column;
+                font-size: 0.75em;
+                color: #013832;
+              "
+            >
+              <h2
+                style="
+                  font-size: 18px;
+                  font-weight: 700;
+                  line-height: 20px;
+                  margin: 0;
+                  color: #323232;
+                "
+              >
+                {{ job_title }}
+              </h2>
+              <div style="display: flex; gap: 5px">
+                <img
+                  alt="Company Logo"
+                  src="{{ company_logo }}"
+                  style="width: 11px; height: 12px; object-fit: cover"
+                />
+                {{ company }}
+              </div>
+              <div style="display: flex; gap: 5px">
+                <img
+                  alt="Location Icon"
+                  src="{% static 'img/share_job/location.png' %}"
+                  style="width: 11px; height: 13px; object-fit: cover"
+                />
+                {{ location }}
+              </div>
+              <div>{{ structure }}</div>
+            </div>
+
+            <!-- Action Icons -->
+            <div style="display: flex; gap: 12px">
+              <img
+                alt="Share Icon"
+                src="{% static 'img/share_job/share.png' %}"
+                style="
+                  width: 17px;
+                  height: 13px;
+                  object-fit: cover;
+                  cursor: pointer;
+                "
+              />
+              <img
+                alt="Save Icon"
+                src="{% static 'img/share_job/save.png' %}"
+                style="
+                  width: 12px;
+                  height: 15px;
+                  object-fit: cover;
+                  cursor: pointer;
+                "
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- View Job Details Button -->
+        <div style="margin-top: 100px; text-align: center">
+          <a
+            href="{{ job_link }}"
+            style="
+              background-color: #266b5b;
+              color: white;
+              padding: 15px 40px;
+              border-radius: 5px;
+              text-decoration: none;
+              font-size: 16px;
+              font-weight: 500;
+            "
+          >
+            View Job Details
+          </a>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
