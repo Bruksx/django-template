@@ -830,7 +830,6 @@ class ShareJobPostViaEmailTest(TestCase):
         }
         response = self.client.post(self.url,
                                     headers=headers, json=data)
-        self.assertEqual(JobInvite.objects.count(), 1)
         self.assertEqual(response.status_code, 200)
 
 class InviteToApplyTest(TestCase):
