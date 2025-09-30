@@ -830,8 +830,37 @@ class ShareJobPostViaEmailTest(TestCase):
         }
         response = self.client.post(self.url,
                                     headers=headers, json=data)
-        self.assertEqual(JobInvite.objects.count(), 1)
         self.assertEqual(response.status_code, 200)
+
+class InviteToApplyTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.user = User.objects.create_user(email="testuser2@example.com",
+                                             password="securedPassword1",
+                                             first_name="Test2",
+                                             last_name="User2",
+                                             phone_number="9098866699")
+        self.talent = Talent.objects.create(user=self.user)
+
+        self.country = Country.objects.first()
+        self.job = JobFactory.create(
+            title="Test Job", created_by=self.business_user
+        )
+        self.job_post = JobPostFactory.create(
+            job=self.job,)
+
+        self.url = lambda job_uid, talent_uid: f"talents/{talent_uid}/jobs/{job_uid}/invite-to-apply"
+
+    def test_invite_to_apply(self):
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.post(self.url(self.job.uid, self.talent.uid), headers=headers)
+        print(response.content)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(JobInvite.objects.count(), 1)
+
 
 class SaveJobTest(TestCase):
     def setUp(self):

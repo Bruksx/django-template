@@ -54,7 +54,7 @@ def talent_job_recommendations(request, talent_uid:UUID, search:str=""):
     queryset = get_talent_job_recommendations(talent, business=business)
     if search:
         queryset = queryset.filter(job__role__name__icontains=search)
-    return queryset.order_by("-last_refreshed")
+    return queryset.order_by("job_id", "-last_refreshed").distinct("job_id")
 
 
 @router.get("talent/saved-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
@@ -186,6 +186,22 @@ def share_jobs_via_email(request, data: ShareJobViaEmailSchema):
         job_ids=data.jobs, emails=data.emails
     )
     return Response(status=200, data={"message": "Shared successfully"})
+
+@router.post("talents/{talent_id}/jobs/{job_id}/invite-to-apply", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
+@transaction.atomic
+def invite_to_apply(request, talent_id:UUID, job_id:UUID):
+    IsBusinessUser.check(request)
+    from jobs.models import Job
+    talent = Talent.objects.filter(uid=talent_id).first()
+    job = Job.objects.filter(uid=job_id, created_by__business=request.user.businessuser.business).first()
+    if not job:
+        raise HttpError(404, "Job not found")
+    if not talent:
+        raise HttpError(404, "Talent not found")
+    async_task(tasks.invite_to_apply,
+        job=job, talent=talent)
+    return Response(status=200, data={"message": "Invited successfully"})
+
 
 @router.post("share/via-chat", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 @transaction.atomic
