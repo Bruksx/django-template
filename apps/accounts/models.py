@@ -248,14 +248,17 @@ class Talent(BaseModel):
 
     def get_address(self):
         data = list()
-        if self.address:
-            data.append(self.address)
+        # if self.address:
+        #     data.append(self.address)
+
         if self.city:
             data.append(self.city)
         if self.state:
             data.append(self.state)
         if self.country:
             data.append(self.country.name)
+        if self.postal_code:
+            data.append(self.postal_code)
         return ", ".join(data)
 
     @property

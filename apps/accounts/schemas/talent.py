@@ -40,7 +40,7 @@ class EducationSchema(ModelSchema):
 
 class MutateEducationSchema(ModelSchema):
     uid: Optional[UUID] = None
-    level: UUID
+    level: Optional[UUID] = None
     class Meta:
         model = Education
         exclude = [*MUTATE_EXCLUDE_FIELDS, "talent"]
@@ -109,7 +109,7 @@ class UpdateTalentProfileSchema2(Schema):
     whatsapp_number: Optional[str] = None
     work_models: Optional[List[WorkStructureEnum|str]] = None
     viber_number: Optional[str] = None
-    address: Optional[str] = None
+    # address: Optional[str] = None
     gender: Optional[GenderType|str] = ""
     visible: Optional[bool] = None
     bio: Optional[str] = None

@@ -150,7 +150,7 @@ class UpdateTalentProfileTests(TestCase):
           "postal_code": "90001",
           "whatsapp_number": "+15559876543",
           "viber_number": "",
-          "address": "123 Main St",
+          # "address": "123 Main St",
           "gender": "male",
           "visible": True,
           "bio": "I am a highly motivated and results-oriented professional with [Number] years of experience in [Industry]. I am passionate about [Area of expertise] and eager to contribute to a dynamic and challenging work environment.",
@@ -224,7 +224,7 @@ class UpdateTalentProfileTests(TestCase):
         self.assertEqual(self.talent.postal_code, "90001")
         self.assertEqual(self.talent.whatsapp_number, "+15559876543")
         self.assertEqual(self.talent.viber_number, "")
-        self.assertEqual(self.talent.address, "123 Main St")
+        # self.assertEqual(self.talent.address, "123 Main St")
         self.assertEqual(self.talent.user.gender, "male")
         self.assertTrue(self.talent.visible)
         self.assertEqual(self.talent.bio,
