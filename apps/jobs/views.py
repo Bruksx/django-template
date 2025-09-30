@@ -167,8 +167,8 @@ def withdraw_job_applications(request, application_id:UUID, data: TalentJobAppli
     application = JobApplication.objects.filter(uid=application_id).first()
     if not application:
         raise HttpError(404, "Application not found")
-    if application.stage  and application.stage.phase != PhaseType.NEW.value:
-        raise HttpError(400, "The application has progressed to next stage and cannot be withdrawn")
+    if application.stage  and application.stage.phase ==  PhaseType.REJECTED.value:
+        raise HttpError(400, "Withdrawal is not allowed")
     feedback_type = JobApplicationWithdrawal.feedback_type_to_number(data.feedback_type)
     JobApplicationWithdrawal.objects.create(job_post=application.job_post,
                                             talent=user.talent, feedback_type=feedback_type, feedback=data.feedback)
