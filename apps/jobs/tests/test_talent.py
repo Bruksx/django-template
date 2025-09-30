@@ -772,7 +772,7 @@ class WithdrawJobApplicationTest(TestCase):
         self.assertEqual(self.talent.applied_jobs().count(), 0)
 
     def test_withdraw_for_job_application_with_stage(self):
-        stage = WorkflowStageFactory.create(phase=PhaseType.INTERVIEW.value)
+        stage = WorkflowStageFactory.create(phase=PhaseType.REJECTED.value)
         self.job_application.stage = stage
         self.job_application.save()
         self.job_application.refresh_from_db()
