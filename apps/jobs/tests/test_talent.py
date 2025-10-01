@@ -858,9 +858,9 @@ class InviteToApplyTest(TestCase):
         }
         response = self.client.post(
             self.url, headers=headers,
-            data=dict(
-                job_ids=[self.job.uid],
-                talents=[self.talent.uid]
+            json=dict(
+                job_ids=[str(self.job.uid)],
+                talents=[str(self.talent.uid)]
         ))
         print(response.content)
         self.assertEqual(response.status_code, 200)
