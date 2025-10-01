@@ -701,23 +701,7 @@ class JobFullListSchema(ModelSchema):
             return recruiter.user.fullname
         return "Multiple"
 
-    @staticmethod
-    def filter_job_posts(context, queryset):
-        if context.get("status"):
-            queryset = queryset.filter(status=context.get("status"))
-        if context.get("country"):
-            queryset = queryset.filter(country__uid=context.get("country"))
-        if context.get("province"):
-            queryset = queryset.filter(province__uid=context.get("province"))
-        if context.get("city"):
-            queryset = queryset.filter(city__uid=context.get("city"))
-        if context.get("statuses"):
-            queryset = queryset.filter(status__in=context.get("statuses"))
-        if context.get("recruiter"):
-            queryset = queryset.filter(recruiter__uid__in=context.get("recruiter"))
-        if context.get("posted_by"):
-            queryset = queryset.filter(posted_by__uid__in=context.get("posted_by"))
-        return queryset.order_by("-refresh_order")
+
 
 
 
@@ -728,7 +712,7 @@ class JobFullListSchema(ModelSchema):
         request = context.get("request")
         if request and hasattr(request, "context"):
             context = request.context
-        return JobFullListSchema.filter_job_posts(context, queryset)
+        return BusinessJobFilterSchema.filter_job_posts(context, queryset).order_by("-refresh_order")
 
     @staticmethod
     def resolve_role(obj):
@@ -1284,7 +1268,7 @@ class BusinessJobFilterQuerySchema(Schema):
     country: Optional[str] = Field(None, description="country uuid")
     province: Optional[str] = Field(None, description="province uuid")
     city: Optional[str] = Field(None, description="city uuid")
-
+    status: Optional[str] = Field(None, description=f"status enums:  {', '.join(JobStatusType.values())}")
     statuses: Optional[str] = Field("", description=f"comma separated status type  enums: {', '.join(JobStatusType.values())}")
     recruiter: Optional[str] = Field("", description="comma separated recruiter uuids")
     posted_by : Optional[str] = Field("", description="comma separated recruiter uuids")
@@ -1296,6 +1280,7 @@ class BusinessJobFilterQuerySchema(Schema):
             work_structure=self.work_structure.split(",") if self.work_structure else [],
             clients=self.clients.split(",") if self.clients else [],
             country=self.country,
+            status=self.status,
             province=self.province,
             city=self.city,
             statuses=self.statuses.split(",") if self.statuses else [],
@@ -1308,6 +1293,7 @@ class BusinessJobFilterSchema(Schema):
     work_structure:Optional[List[WorkStructureEnum]] = []
     statuses: Optional[List[JobStatusType]] = []
     clients: Optional[List[str]] = []
+    status: Optional[JobStatusType] = None
     country: Optional[UUID] = None
     province: Optional[UUID] = None
     city: Optional[UUID] = None
@@ -1336,6 +1322,9 @@ class BusinessJobFilterSchema(Schema):
                                        Q(hiring_company_name__icontains=self.search) |
                                        Q(created_by__business__name__icontains=self.search)
                                        ).distinct()
+
+        if self.status:
+            queryset = queryset.filter(jobpost__status=self.status.value)
 
         if self.country:
             queryset = queryset.filter(jobpost__country__uid=self.country)
@@ -1374,6 +1363,9 @@ class BusinessJobFilterSchema(Schema):
         if self.province:
             context["province"] = self.province
 
+        if self.status:
+            context["status"] = self.status.value
+
         if self.city:
             context["city"] = self.city
 
@@ -1388,6 +1380,24 @@ class BusinessJobFilterSchema(Schema):
             context["posted_by"] = self.posted_by
 
         return context
+
+    @staticmethod
+    def filter_job_posts(context, queryset):
+        if context.get("status"):
+            queryset = queryset.filter(status=context.get("status"))
+        if context.get("country"):
+            queryset = queryset.filter(country__uid=context.get("country"))
+        if context.get("province"):
+            queryset = queryset.filter(province__uid=context.get("province"))
+        if context.get("city"):
+            queryset = queryset.filter(city__uid=context.get("city"))
+        if context.get("statuses"):
+            queryset = queryset.filter(status__in=context.get("statuses"))
+        if context.get("recruiter"):
+            queryset = queryset.filter(recruiter__uid__in=context.get("recruiter"))
+        if context.get("posted_by"):
+            queryset = queryset.filter(posted_by__uid__in=context.get("posted_by"))
+        return queryset
 
 
 class TalentJobApplicationWithdrawalSchema(Schema):

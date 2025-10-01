@@ -442,16 +442,13 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
 
 
 @router.get("", response=JobWorkflowViewPaginatedSchema, auth=JWTAuth())
-def job_list(request, page_size=50, page=1,status: Optional[JobStatusType] = None, filters: BusinessJobFilterQuerySchema = Query(...)
+def job_list(request, page_size=50, page=1, filters: BusinessJobFilterQuerySchema = Query(...)
              ):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     context = dict(business=business_user.business)
     queryset = Job.objects.prefetch_related("jobpost_set").annotate(jobpost_count=Count('jobpost')).filter(created_by__business=business_user.business,
                                                                                                            jobpost_count__gt=0)
-    if status:
-        queryset = queryset.filter(jobpost__status=status.value)
-        context["status"] = status.value
     filters = filters.convert_to_schema()
     context = filters.get_context(context=context)
     request.context = context
@@ -463,8 +460,7 @@ def job_list(request, page_size=50, page=1,status: Optional[JobStatusType] = Non
         request=request,
         pagination=pagination,
         roles=queryset.count(),
-        posts= business_user.business.job_posts(status=status.value).filter(job__in=queryset).count() if status else
-        business_user.business.job_posts().filter(job__in=queryset).count()
+        posts= filters.filter_job_posts(context, business_user.business.job_posts()).filter(job__in=queryset).count()
     )
 
 
