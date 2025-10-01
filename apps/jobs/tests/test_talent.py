@@ -859,7 +859,7 @@ class InviteToApplyTest(TestCase):
         response = self.client.post(
             self.url, headers=headers,
             json=dict(
-                job_ids=[str(self.job.uid)],
+                jobs=[str(self.job.uid)],
                 talents=[str(self.talent.uid)]
         ))
         print(response.content)
