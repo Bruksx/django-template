@@ -850,13 +850,18 @@ class InviteToApplyTest(TestCase):
         self.job_post = JobPostFactory.create(
             job=self.job,)
 
-        self.url = lambda job_uid, talent_uid: f"talents/{talent_uid}/jobs/{job_uid}/invite-to-apply"
+        self.url = "talent/invite-to-apply"
 
     def test_invite_to_apply(self):
         headers = {
             "authorization": f"bearer {self.business_user.user.token}"
         }
-        response = self.client.post(self.url(self.job.uid, self.talent.uid), headers=headers)
+        response = self.client.post(
+            self.url, headers=headers,
+            data=dict(
+                job_ids=[self.job.uid],
+                talents=[self.talent.uid]
+        ))
         print(response.content)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(JobInvite.objects.count(), 1)

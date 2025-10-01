@@ -11,7 +11,7 @@ from django.utils import timezone
 from helpers.utils import convert_base64_to_image_file, to_utc
 from monkeypatches.response import Response
 from monkeypatches.q_cluster import async_task
-from ninja import Router, PatchDict
+from ninja import Router, PatchDict, Query
 from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
 
@@ -31,7 +31,7 @@ from .models import (
 from .schemas import (
     EmploymentTypeSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
-    TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema
+    TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema
 )
 from .queries import add_application_match_score
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
@@ -442,19 +442,20 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
 
 
 @router.get("", response=JobWorkflowViewPaginatedSchema, auth=JWTAuth())
-def job_list(request, page_size=50, page=1, search="", status:JobStatusType=None):
+def job_list(request, page_size=50, page=1,status: Optional[JobStatusType] = None, filters: BusinessJobFilterQuerySchema = Query(...)
+             ):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     context = dict(business=business_user.business)
     queryset = Job.objects.prefetch_related("jobpost_set").annotate(jobpost_count=Count('jobpost')).filter(created_by__business=business_user.business,
                                                                                                            jobpost_count__gt=0)
-    if search:
-        queryset = queryset.filter(Q(role__name__icontains=search)|
-                                   Q(hiring_company_name=search))
     if status:
-        queryset = queryset.filter(jobpost__status=status.value).distinct()
+        queryset = queryset.filter(jobpost__status=status.value)
         context["status"] = status.value
+    filters = filters.convert_to_schema()
+    context = filters.get_context(context=context)
     request.context = context
+    queryset = filters.get_queryset(queryset=queryset)
 
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(

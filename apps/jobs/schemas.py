@@ -701,15 +701,34 @@ class JobFullListSchema(ModelSchema):
             return recruiter.user.fullname
         return "Multiple"
 
+    @staticmethod
+    def filter_job_posts(context, queryset):
+        if context.get("status"):
+            queryset = queryset.filter(status=context.get("status"))
+        if context.get("country"):
+            queryset = queryset.filter(country__uid=context.get("country"))
+        if context.get("province"):
+            queryset = queryset.filter(province__uid=context.get("province"))
+        if context.get("city"):
+            queryset = queryset.filter(city__uid=context.get("city"))
+        if context.get("statuses"):
+            queryset = queryset.filter(status__in=context.get("statuses"))
+        if context.get("recruiter"):
+            queryset = queryset.filter(recruiter__uid__in=context.get("recruiter"))
+        if context.get("posted_by"):
+            queryset = queryset.filter(posted_by__uid__in=context.get("posted_by"))
+        return queryset.order_by("-refresh_order")
+
+
 
     @staticmethod
     def resolve_job_posts(obj, context):
+        queryset = obj.jobpost_set
+        context = dict()
         request = context.get("request")
         if request and hasattr(request, "context"):
-            status = request.context.get("status")
-            if status:
-                return obj.jobpost_set.filter(status=status).order_by("-last_refreshed")
-        return obj.jobpost_set.order_by("-last_refreshed")
+            context = request.context
+        return JobFullListSchema.filter_job_posts(context, queryset)
 
     @staticmethod
     def resolve_role(obj):
@@ -1257,6 +1276,120 @@ class TalentJobFilterSchema(Schema):
             extra_sorts = []
         return order_job_posts(queryset, self.sort_by, *extra_sorts)
 
+
+class BusinessJobFilterQuerySchema(Schema):
+    search: Optional[str] = ""
+    work_structure:Optional[str] = Field("", description=f"comma separated work structure enums: {', '.join(WorkStructureEnum.values())}")
+    clients: Optional[str] = Field("", description="comma separated clients")
+    country: Optional[str] = Field(None, description="country uuid")
+    province: Optional[str] = Field(None, description="province uuid")
+    city: Optional[str] = Field(None, description="city uuid")
+
+    statuses: Optional[str] = Field("", description=f"comma separated status type  enums: {', '.join(JobStatusType.values())}")
+    recruiter: Optional[str] = Field("", description="comma separated recruiter uuids")
+    posted_by : Optional[str] = Field("", description="comma separated recruiter uuids")
+
+
+    def convert_to_schema(self):
+        return BusinessJobFilterSchema(
+            search=self.search if self.search else None,
+            work_structure=self.work_structure.split(",") if self.work_structure else [],
+            clients=self.clients.split(",") if self.clients else [],
+            country=self.country,
+            province=self.province,
+            city=self.city,
+            statuses=self.statuses.split(",") if self.statuses else [],
+            recruiter=self.recruiter.split(",") if self.recruiter else [],
+            posted_by=self.posted_by.split(",") if self.posted_by else []
+        )
+
+class BusinessJobFilterSchema(Schema):
+    search: Optional[str] = None
+    work_structure:Optional[List[WorkStructureEnum]] = []
+    statuses: Optional[List[JobStatusType]] = []
+    clients: Optional[List[str]] = []
+    country: Optional[UUID] = None
+    province: Optional[UUID] = None
+    city: Optional[UUID] = None
+    recruiter: Optional[List[UUID]] = []
+    posted_by: Optional[List[UUID]] = []
+
+    def get_queryset(self, queryset=None, extra_sorts:List[str]=None)->QuerySet:
+        """
+         get jobs queryset based on this filter
+
+         Args:
+             business_user: talent object
+             queryset: Job post queryset
+             extra_sorts: extra sort fields based on model fields
+
+        Returns:
+            Job post queryset
+        """
+        from jobs.services import order_job_posts
+        if not queryset:
+            queryset = Job.objects.prefetch_related("jobpost_set").annotate(jobpost_count=Count('jobpost')).filter(
+                jobpost_count__gt=0)
+        if self.search:
+            queryset = queryset.select_related("role", "created_by__business").all()
+            queryset = queryset.filter(Q(role__name__icontains=self.search)|
+                                       Q(hiring_company_name__icontains=self.search) |
+                                       Q(created_by__business__name__icontains=self.search)
+                                       ).distinct()
+
+        if self.country:
+            queryset = queryset.filter(jobpost__country__uid=self.country)
+
+        if self.province:
+            queryset = queryset.filter(jobpost__province__uid=self.province)
+
+        if self.city:
+            queryset = queryset.filter(jobpost__city__uid=self.city)
+
+        if self.clients:
+            queryset = queryset.filter(hiring_company_name__in=self.clients)
+
+        if self.work_structure:
+            ws = [ws.value for ws in self.work_structure]
+            queryset = queryset.filter(work_structure__in=ws)
+
+        if self.statuses:
+            statuses = [s.value for s in self.statuses]
+            queryset = queryset.filter(jobpost__status__in=statuses)
+
+        if self.recruiter:
+            queryset = queryset.filter(jobpost__recruiter__uid__in=self.recruiter)
+
+
+        if self.posted_by:
+            queryset = queryset.filter(jobpost__posted_by__uid__in=self.posted_by)
+
+        return queryset.distinct()
+
+    def get_context(self, context)->dict:
+        if not context:
+            context = {}
+        if self.country:
+            context["country"] = self.country
+        if self.province:
+            context["province"] = self.province
+
+        if self.city:
+            context["city"] = self.city
+
+        if self.statuses:
+            statuses = [s.value for s in self.statuses]
+            context["statuses"] = statuses
+
+        if self.recruiter:
+            context["recruiter"] = self.recruiter
+
+        if self.posted_by:
+            context["posted_by"] = self.posted_by
+
+        return context
+
+
 class TalentJobApplicationWithdrawalSchema(Schema):
        feedback_type: WithdrawalFeedbackType
        feedback: str
@@ -1267,6 +1400,10 @@ class ShareJobViaEmailSchema(Schema):
 
 
 class ShareJobViaChatSchema(Schema):
+    talents: List[UUID]
+    jobs: List[UUID]
+
+class InviteToApplySchema(Schema):
     talents: List[UUID]
     jobs: List[UUID]
 

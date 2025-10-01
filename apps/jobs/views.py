@@ -3,6 +3,7 @@ from uuid import UUID
 
 from config.permissions import IsTalentUser, IsBusinessUser
 from django.db import transaction
+from django.db.models import Q
 from helpers.utils import delete_s3_item
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
@@ -16,12 +17,12 @@ from accounts.models import Talent
 from jobs import tasks
 from jobs.enums import JobStatusType, PhaseType
 from jobs.models import (
-    JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert, RequiredAttribute
+    JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert
 )
 from jobs.queries import add_job_post_annotations
 from jobs.schemas import TalentJobPostListSchema, TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, \
     ApplyToJobSchema, \
-    ShareJobViaEmailSchema, ShareJobViaChatSchema, TalentQuestionSchema, TalentJobFilterQuerySchema
+    ShareJobViaEmailSchema, ShareJobViaChatSchema, TalentQuestionSchema, TalentJobFilterQuerySchema, InviteToApplySchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service, \
     get_screening_questions_service
 from notification import notifications
@@ -54,7 +55,7 @@ def talent_job_recommendations(request, talent_uid:UUID, search:str=""):
     queryset = get_talent_job_recommendations(talent, business=business)
     if search:
         queryset = queryset.filter(job__role__name__icontains=search)
-    return queryset.order_by("job_id", "-last_refreshed").distinct("job_id")
+    return queryset.order_by("job_id", "-refresh_order").distinct("job_id")
 
 
 @router.get("talent/saved-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
@@ -77,7 +78,7 @@ def job_posts_for_talent(request, filters:TalentJobFilterQuerySchema = Query(...
     request.context = {"talent": talent}
     queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(status=JobStatusType.POSTED.value)
     queryset = add_job_post_annotations(queryset, talent)
-    return filters.get_queryset(talent=talent, queryset=queryset).order_by("-last_refreshed")
+    return filters.get_queryset(talent=talent, queryset=queryset).order_by("-refresh_order")
 
 
 @router.get("talent/applied-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
@@ -88,7 +89,7 @@ def talent_applied_jobs(request, search:str=""):
     request.context = {"talent": talent}
     queryset = talent.applied_jobs()
     if search:
-        queryset = queryset.filter(job__role__name__icontains=search)
+        queryset = queryset.filter(Q(job__role__name__icontains=search))
     return queryset.order_by("-jobapplication__created_at")
 
 @router.post("talent/job-posts/{job_post_id}/apply", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
@@ -187,19 +188,16 @@ def share_jobs_via_email(request, data: ShareJobViaEmailSchema):
     )
     return Response(status=200, data={"message": "Shared successfully"})
 
-@router.post("talents/{talent_id}/jobs/{job_id}/invite-to-apply", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
+@router.post("talent/invite-to-apply", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 @transaction.atomic
-def invite_to_apply(request, talent_id:UUID, job_id:UUID):
+def invite_to_apply(request, data: InviteToApplySchema):
     IsBusinessUser.check(request)
-    from jobs.models import Job
-    talent = Talent.objects.filter(uid=talent_id).first()
-    job = Job.objects.filter(uid=job_id, created_by__business=request.user.businessuser.business).first()
-    if not job:
-        raise HttpError(404, "Job not found")
-    if not talent:
-        raise HttpError(404, "Talent not found")
+    if not data.talents:
+        raise HttpError(400, "No talents selected")
+    if not data.jobs:
+        raise HttpError(400, "No jobs selected")
     async_task(tasks.invite_to_apply,
-        job=job, talent=talent)
+        job_ids=data.jobs, talents=data.talents)
     return Response(status=200, data={"message": "Invited successfully"})
 
 
