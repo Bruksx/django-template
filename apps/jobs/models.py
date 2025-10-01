@@ -1,15 +1,9 @@
-from datetime import timedelta
-
 from django.core.cache import cache
 from django.db import models
-from django.db.models import F, Q, QuerySet, Count, ExpressionWrapper, IntegerField, Func, When, Case
-from django.db.models.functions import Coalesce, Now, Extract
+from django.db.models import F, Q, Count, IntegerField, When, Case, Value
+from django.db.models.functions import Coalesce, Now, Extract, Cast
 from django.db.models.signals import pre_save
-from django.forms import FloatField
-from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from future.backports.datetime import datetime
-
 from monkeypatches.q_cluster import async_task
 from timezone_field import TimeZoneField
 
@@ -18,6 +12,7 @@ from accounts.models import Talent, TalentAvailableDay
 from core.models import BaseModel, Language
 from jobs.managers import JobManager
 from settings.enums import PlaceHolderType
+from .db_functions import Epoch
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
     JobStatusType
 
@@ -283,8 +278,15 @@ class JobPost(BaseModel):
         related_name="posted_by",
         blank=True
     )
-    last_refreshed = models.DateTimeField(null=True, default=datetime.now)
-
+    last_refreshed = models.DateTimeField(null=True, default=None)
+    refresh_order = models.GeneratedField(
+        expression=Coalesce(
+            Cast(Epoch("last_refreshed"), IntegerField()),
+            Value(0)
+        ),
+        output_field=models.IntegerField(),
+        db_persist=True
+    )
     def copy(self):
         return JobPost.objects.create(
             job=self.job,
@@ -536,20 +538,12 @@ class JobPost(BaseModel):
         return data
 
     def weakness(self, talent):
-        cache_key = f"job-{self.id}-weakness-{talent.id}"
-        value = cache.get(cache_key)
-        if not value:
-            value = self.get_data(talent, weak=True)
-            cache.set(cache_key, value, 60 * 60 * 2)
-        return value
+        return self.get_data(talent, weak=True)
+
 
     def strength(self, talent):
-        cache_key = f"job-{self.id}-strength-{talent.id}"
-        value = cache.get(cache_key)
-        if not value:
-            value = self.get_data(talent, weak=False)
-            cache.set(cache_key, value, 60 * 60 * 2)
-        return value
+        return self.get_data(talent, weak=False)
+
 
     def non_negotiable(self):
         from .schemas import JobAvailableDaySchema
@@ -571,10 +565,6 @@ class JobPost(BaseModel):
 
         attributes = job.requiredattribute
         non_negotiables = job.required_keys
-        cache_key = f"job-{self.id}-non_negotiable-{job.id}"
-        value = cache.get(cache_key)
-        if value:
-            return value
         data = dict()
         for attribute in non_negotiables:
             if attribute == "skills":
@@ -612,7 +602,6 @@ class JobPost(BaseModel):
 
             elif attribute == "working_hours":
                 data["working_hours"] = job.get_availability(JobAvailableDaySchema, job.availableday_set.all()) if job.availableday_set.count() > 0 else None
-        cache.set(cache_key, data, 60 * 60 * 2)
         return data
 
     def screening_questions(self):

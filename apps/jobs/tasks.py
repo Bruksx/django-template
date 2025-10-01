@@ -22,13 +22,15 @@ def share_job_via_email(job_ids:List[UUID], emails: List[str]=None, language:str
     return
 
 
-def invite_to_apply(job, talent, language="en"):
-    if not JobInvite.objects.filter(job=job, talent=talent).exists():
-        JobInvite.objects.create(job=job, talent=talent)
-    job_post = JobPost.objects.filter(job=job).first()
-    if not job_post:
-        return
-    send_invite_to_apply_email(job_post, talent.user.email, language)
+def invite_to_apply(job_ids:List[UUID], talents: List[UUID], language="en"):
+    job_posts = JobPost.objects.filter(job__uid__in=job_ids).select_related('job').distinct("job_id")
+    talents = Talent.objects.filter(uid__in=talents)
+    for talent in talents:
+        for job_post in job_posts:
+            job = job_post.job
+            if not JobInvite.objects.filter(job=job, talent=talent).exists():
+                JobInvite.objects.create(job=job, talent=talent)
+            send_invite_to_apply_email(job_post, talent.user.email, language)
     return
 
 
