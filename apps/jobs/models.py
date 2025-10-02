@@ -662,7 +662,7 @@ class JobApplication(BaseModel):
 
     @cached_property
     def match(self):
-        return self.talent.job_match_score(self.job_post)
+        return self.applicant.job_match_score(self.job_post)
 
     def get_country(self):
         if not self.applicant:

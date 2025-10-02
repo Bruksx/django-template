@@ -452,6 +452,8 @@ def job_list(request, page_size=50, page=1, filters: BusinessJobFilterQuerySchem
     filters = filters.convert_to_schema()
     context = filters.get_context(context=context)
     request.context = context
+    print("context: ", context)
+
     queryset = filters.get_queryset(queryset=queryset)
 
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)

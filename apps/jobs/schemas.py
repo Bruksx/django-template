@@ -701,17 +701,14 @@ class JobFullListSchema(ModelSchema):
             return recruiter.user.fullname
         return "Multiple"
 
-
-
-
-
     @staticmethod
     def resolve_job_posts(obj, context):
         queryset = obj.jobpost_set
-        context = dict()
         request = context.get("request")
         if request and hasattr(request, "context"):
             context = request.context
+        else:
+            context = dict()
         return BusinessJobFilterSchema.filter_job_posts(context, queryset).order_by("-refresh_order")
 
     @staticmethod
