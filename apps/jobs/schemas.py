@@ -383,6 +383,13 @@ class RoleSchema(ModelSchema):
         model = Role
         fields = ["uid", "name"]
 
+    @staticmethod
+    def resolve_name(obj, context):
+        if hasattr(obj, 'fullname'):
+            return obj.fullname
+        return obj.name
+
+
 
 class SkillCategorySchema(Schema):
     uid: UUID

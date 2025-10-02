@@ -3,9 +3,11 @@ from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
 
+from django.db.models.functions import Concat
+
 from config.permissions import IsBusinessUser
 from django.db import transaction
-from django.db.models import Q, Count, Exists, Subquery, OuterRef, Case, When, F
+from django.db.models import Q, Count, Exists, Subquery, OuterRef, Case, When, F, Value
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from helpers.utils import convert_base64_to_image_file, to_utc
@@ -63,13 +65,25 @@ def get_departments(request, search="", role:Optional[UUID]=None):
 
 @router.get("roles", response=list[RoleSchema], tags=["Common"])
 def get_roles(request, search="", department:Optional[UUID]=None):
-    queryset = Role.objects.prefetch_related("department").all()
+    queryset = Role.objects.prefetch_related("department").annotate(
+        duplicated=Exists(
+            Role.objects.filter(
+                name__iexact=OuterRef("name"),
+            ).exclude(id=OuterRef("id"))
+        )
+    ).annotate(
+        fullname=Case(
+            When(duplicated=False, then=F("name")),
+            default=Concat(F("name"), Value(' ('),  F("department__name"),  Value(')')),
+        )
+    ).all()
+
     if department:
         queryset = queryset.filter(department__uid=department)
     if search:
         queryset = queryset.filter(Q(name__icontains=search)|
                                    Q(department__name__icontains=search))
-    return queryset.distinct("name").order_by("name")
+    return queryset.order_by("fullname")
 
 
 @router.get("business-roles", auth=JWTAuth(), response=list[RoleSchema], tags=["Common"])
