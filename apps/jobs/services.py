@@ -49,8 +49,7 @@ def create_job_application(job_post, talent, data:ApplyToJobSchema):
     application = JobApplication.objects.create(job_post=job_post, applicant=talent,
                                                 recruiter=job_post.recruiter,
                                                 stage=stage,
-                                                available_for_schedule=data.available_for_schedule,
-                                                match=talent.job_match_score(job_post))
+                                                available_for_schedule=data.available_for_schedule)
     if job_post.job.min_match_score and application.match < job_post.job.min_match_score:
         reject_application(application, stage, job_post)
         return

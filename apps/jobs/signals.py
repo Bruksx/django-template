@@ -65,7 +65,6 @@ def handle_job_post_date(sender, instance, **kwargs):
 @receiver(pre_save, sender=JobApplication)
 def handle_new_application(sender, instance,  **kwargs):
     if not instance.id:
-        instance.match = instance.applicant.job_match_score(instance.job_post)
         instance.recruiter = instance.job_post.recruiter
 
 

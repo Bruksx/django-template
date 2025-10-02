@@ -145,8 +145,7 @@ class TalentJobListTests(TestCase):
         application = JobApplication.objects.create(
             job_post=self.job_post,
             applicant=self.talent,
-            stage=stage,
-            match=5
+            stage=stage
         )
         headers = {
             "authorization": f"bearer {self.user.token}"
@@ -751,8 +750,7 @@ class WithdrawJobApplicationTest(TestCase):
         self.job_application = JobApplicationFactory.create(
             job_post=self.job_post,
             stage=self.stage,
-            applicant=self.talent,
-            match=5
+            applicant=self.talent
         )
 
     def test_withdraw_job_application(self):

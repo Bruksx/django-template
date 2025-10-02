@@ -1,15 +1,14 @@
-from django.db.models.query import QuerySet
 from accounts.models import Talent, SkillCategory, Experience, Education, TalentAvailableDay
-from .models import (
-    JobPost, RequiredAttribute, RequiredSecondaryLanguage, RequiredSkill, JobApplication, Job, AvailableDay,
-)
 from django.db.models import (
-    OuterRef, Exists, Case, When, Value, FloatField, Q, F, ExpressionWrapper, Count, Subquery, IntegerField, 
+    OuterRef, Exists, Case, When, Value, FloatField, Q, F, ExpressionWrapper, Count, Subquery, IntegerField,
     BooleanField
 )
-from django.contrib.postgres.aggregates import ArrayAgg
-from django.db.models.expressions import RawSQL
 from django.db.models.functions import Coalesce, Cast
+from django.db.models.query import QuerySet
+
+from jobs.models import (
+    JobPost, RequiredAttribute, RequiredSecondaryLanguage, RequiredSkill, JobApplication, Job, AvailableDay,
+)
 
 
 def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> QuerySet[JobPost]:

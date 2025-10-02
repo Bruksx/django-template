@@ -166,8 +166,7 @@ class TalentModelTest(TestCase):
         application = JobApplication.objects.create(
             job_post=self.job_post,
             applicant = self.talent,
-        stage = stage,
-        match = 5
+        stage = stage
         )
         JobInterview.objects.create(
             application=application
@@ -241,7 +240,7 @@ class TalentModelTest(TestCase):
 
     def test_invitations_to_apply(self):
         invitations =  self.talent.invitations_to_apply()
-        self.assertEqual(invitations, 1)
+        self.assertEqual(invitations, 0)
 
     def test_job_interviews(self):
         interviews = self.talent.job_interviews()
@@ -420,6 +419,15 @@ class BusinessModelTests(TestCase):
         JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=self.hired_stage)
         count, _ = self.business.hired_genders()
         self.assertEqual(count, self.sub_data)
+
+    def test_applicants_by_gender(self):
+        last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
+                                   :self.sub_data]
+        count, _ = self.business.applicants_by_gender()
+        self.assertEqual(count, 2)
+        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=self.hired_stage)
+        count, _ = self.business.applicants_by_gender()
+        self.assertEqual(count, 2)
 
     # def test_time_to_hire(self):
     #     last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[

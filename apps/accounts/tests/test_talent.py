@@ -436,8 +436,7 @@ class TalentDashboardTests(TestCase):
         application = JobApplication.objects.create(
             job_post=self.job_post,
             applicant=self.talent,
-            stage=stage,
-            match=5
+            stage=stage
         )
         JobInterview.objects.create(
             application=application
