@@ -400,9 +400,13 @@ class SkillCategorySchema(Schema):
     @staticmethod
     def resolve_skills(obj, context):
         search = context.get("search")
+        department = context.get("department")
         queryset = obj.skill_set.all()
         if search:
             queryset = queryset.filter(name__icontains=search)
+        if department:
+            queryset = queryset.filter(department__uid=department)
+
         queryset = queryset.distinct("name").order_by("name")
         return [SkillSchema.from_orm(skill) for skill in queryset.iterator()]
 
