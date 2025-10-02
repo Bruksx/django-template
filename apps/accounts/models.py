@@ -194,6 +194,7 @@ class Department(BaseModel):
         return self.name
 
 
+
 class Role(BaseModel):
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
     name = models.CharField(max_length=128)

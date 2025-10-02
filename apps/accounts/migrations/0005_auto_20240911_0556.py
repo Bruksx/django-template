@@ -117,7 +117,7 @@ DEPARTMENT_AND_SKILLS = [
     {
         "Industry": "General Industries",
         "Department": "Administration",
-        "Roles": "Administrative Assistant\nExecutive Assistant\nOffice Manager\nAdministrative Coordinator\nReceptionist\nSecretary\nOffice Administrator\nData Entry Clerk\nPersonal Assistant\nFront Desk Coordinator\nClerical Assistant\nAdministrative Specialist\nOffice Clerk\nRecords Coordinator\nAdministrative Support Manager",
+        "Roles": "Virtual Assistant\nAdministrative Assistant\nExecutive Assistant\nOffice Manager\nAdministrative Coordinator\nReceptionist\nSecretary\nOffice Administrator\nData Entry Clerk\nPersonal Assistant\nFront Desk Coordinator\nClerical Assistant\nAdministrative Specialist\nOffice Clerk\nRecords Coordinator\nAdministrative Support Manager",
         "Tools/Platforms": "Microsoft Office Suite, Google Workspace, Slack, Zoom, Adobe Acrobat, Dropbox, Microsoft SharePoint, Salesforce, Notion, Evernote, Trello, Asana, Calendly, Monday.com, Canva, Adobe Creative Cloud",
         "Common Methodologies/Frameworks": "ISO 9001, Lean Administration, Six Sigma, ISO 27001, ITIL, COBIT, Agile Administration, Scrum, Kanban, Waterfall Model, Business Process Reengineering (BPR), Total Quality Management (TQM), Change Management, Kaizen, Continuous Improvement, Governance Frameworks, Regulatory Compliance Frameworks",
         "General Skills": "Office Management, Time Management, Calendar Management, Record Keeping, Filing Systems, Data Entry, Event Planning, Travel Coordination, Report Generation, Meeting Coordination, Vendor Management, Budget Management, Office Equipment Maintenance, Facilities Coordination, Procurement and Purchasing",
