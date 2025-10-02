@@ -5,7 +5,7 @@ from uuid import UUID
 
 from config.permissions import IsBusinessUser
 from django.db import transaction
-from django.db.models import Q, Count, Exists, Subquery, OuterRef
+from django.db.models import Q, Count, Exists, Subquery, OuterRef, Case, When, F
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from helpers.utils import convert_base64_to_image_file, to_utc
@@ -515,7 +515,11 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
         elif sort_by == "location":
             queryset = queryset.order_by(f"{sign}applicant__country__name")
         elif sort_by == "match":
-            queryset = queryset.order_by(f"{sign}match")
+            queryset = queryset.annotate(
+                match=Case(
+                    When(computed_match_score__isnull=False, then=F("computed_match_score")), default=float(0)
+                )
+            ).order_by(f"{sign}match")
         elif sort_by == "created_at":
             queryset = queryset.order_by(f"{sign}created_at")
         elif sort_by == "stage":

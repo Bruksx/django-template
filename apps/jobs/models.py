@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from django.core.cache import cache
 from django.db import models
 from django.db.models import F, Q, Count, IntegerField, When, Case, Value
@@ -646,7 +648,6 @@ class JobApplication(BaseModel):
         on_delete=models.SET_NULL
     )
     stage = models.ForeignKey("settings.WorkflowStage", on_delete=models.SET_NULL, null=True)
-    match = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     stage_date_updated = models.DateTimeField(null=True)
 
     def other_application(self):
@@ -658,6 +659,10 @@ class JobApplication(BaseModel):
             return
         return JobApplication.objects.select_related("stage__created_by").\
         filter(stage__created_by__business=self.stage.created_by.business, applicant=self.applicant).exclude(id=self.id).last()
+
+    @cached_property
+    def match(self):
+        return self.talent.job_match_score(self.job_post)
 
     def get_country(self):
         if not self.applicant:

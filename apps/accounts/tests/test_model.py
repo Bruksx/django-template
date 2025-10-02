@@ -166,8 +166,7 @@ class TalentModelTest(TestCase):
         application = JobApplication.objects.create(
             job_post=self.job_post,
             applicant = self.talent,
-        stage = stage,
-        match = 5
+        stage = stage
         )
         JobInterview.objects.create(
             application=application
@@ -241,7 +240,7 @@ class TalentModelTest(TestCase):
 
     def test_invitations_to_apply(self):
         invitations =  self.talent.invitations_to_apply()
-        self.assertEqual(invitations, 1)
+        self.assertEqual(invitations, 0)
 
     def test_job_interviews(self):
         interviews = self.talent.job_interviews()

@@ -176,8 +176,7 @@ def generate_data(password='Pass1234@now', email_recipients=None, talent_amount=
                     job_post=job_post,
                     applicant=talent,
                     recruiter=job_post.recruiter,
-                    stage=None,
-                    match=talent.job_match_score(job_post))
+                    stage=None)
                 applications.append(application.id)
 
         # save job posts
@@ -379,8 +378,8 @@ def generate_data_for_account(email, job_amount=3,
                     job_post=job_post,
                     applicant=talent,
                     recruiter=job_post.recruiter,
-                    stage=new_stage,
-                    match=talent.job_match_score(job_post))
+                    stage=new_stage
+                    )
 
 
         # save job posts
