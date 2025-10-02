@@ -408,11 +408,11 @@ class Talent(BaseModel):
         return queryset
 
     def invitations_to_apply(self, start_date:date=None, end_date:date=None)->int:
-        from chats.models import Message
-        query = Q(conversation__users__id=self.user.id, job_post__isnull=False)
+        from jobs.models import JobInvite
+        queryset = JobInvite.objects.filter(talent=self)
         if start_date and end_date:
-            query = Q(query, created_at__range=[start_date, end_date])
-        return Message.objects.select_related("conversation", "job_post").filter(query).only("job_post_id").distinct("job_post_id").count()
+            queryset = queryset.filter(created_at__range=[start_date, end_date])
+        return queryset.count()
 
     def job_interviews(self, start_date:date=None, end_date:date=None):
         from jobs.models import JobInterview
@@ -718,6 +718,33 @@ class Business(BaseModel):
         return (total_hires,
                 data_list)
 
+    def applicants_by_gender(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
+        from jobs.models import JobApplication
+        genders = GenderType.values()
+        data_list = list()
+        total_applicants = self.total_applicants(start_date, end_date, role_id, client)
+        genders_aggregate = JobApplication.objects\
+                .prefetch_related("applicant")\
+                .filter(stage__created_by__business=self)
+        if start_date and not end_date:
+            genders_aggregate = genders_aggregate.filter(stage_date_updated__gte=start_date)
+        elif end_date and not start_date:
+            genders_aggregate = genders_aggregate.filter(stage_date_updated__lte=end_date)
+        elif start_date and end_date:
+            genders_aggregate = genders_aggregate.filter(stage_date_updated__range=[start_date, end_date])
+        if role_id:
+            genders_aggregate = genders_aggregate.filter(job_post__job__role_id=role_id)
+        if client:
+            genders_aggregate = genders_aggregate.filter(job_post__job__hiring_company_name=client)
+        for gender in genders:
+            data_list.append({
+                "gender": gender,
+                "count": genders_aggregate.filter(applicant__user__gender=gender).count(),
+            })
+        data_list = sorted(data_list, key=lambda x: x["count"], reverse=True)
+        return (total_applicants,
+                data_list)
+
     @staticmethod
     def job_role_stage_timeline(job_role_id, stages):
         graph = stages.annotate(avg_timelines=Avg("time_spent",
@@ -725,7 +752,6 @@ class Business(BaseModel):
                            talentapplicationstagetimeline__application__deleted_at__isnull=True)),
                  stage=F("name"))
         graph = graph.annotate(avg_timeline=Case(
-            When(Q(avg_timelines__gte=0) & Q(avg_timelines__lt=1), then=float(1)),
             When(Q(avg_timelines__isnull=True), then=float(0)),
             default=Round(F("avg_timelines"), 0),
         ))
@@ -738,18 +764,18 @@ class Business(BaseModel):
                                                            talentapplicationstagetimeline__stage__phase=F("phase"),
                                                            talentapplicationstagetimeline__application__deleted_at__isnull=True)))
         graph = graph.annotate(avg_timeline=Case(
-            When(Q(avg_timelines__gte=0)& Q(avg_timelines__lt=1), then=float(1)),
-            When(Q(avg_timelines__isnull=True), then=float(0))
-            , default=Round(F("avg_timelines"), 0)
+            When(Q(avg_timelines__isnull=True), then=float(0)) , default=Round(F("avg_timelines"), 0)
         ))
         actual_graph = list()
+        days_to_hire = 0
         graph_dict = {dt["phase"]: dt["avg_timeline"] for dt in graph.values("phase", "avg_timeline")}
         for phase in PhaseType.values():
             if phase in (PhaseType.REJECTED.value, PhaseType.HIRED.value):
                 continue
             actual_graph.append({"phase": phase, "avg_timeline": graph_dict.get(phase, 0)})
+            days_to_hire += graph_dict.get(phase, 0)
         return {"graph": actual_graph,
-                "days_to_hire": int(graph.aggregate(Sum("avg_timeline"))["avg_timeline__sum"] or 0)}
+                "days_to_hire": days_to_hire}
 
     def time_to_hire_via_stage(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import TalentApplicationStageTimeline

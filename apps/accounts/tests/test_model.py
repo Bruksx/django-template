@@ -421,6 +421,15 @@ class BusinessModelTests(TestCase):
         count, _ = self.business.hired_genders()
         self.assertEqual(count, self.sub_data)
 
+    def test_applicants_by_gender(self):
+        last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
+                                   :self.sub_data]
+        count, _ = self.business.applicants_by_gender()
+        self.assertEqual(count, 0)
+        JobApplication.objects.filter(id__in=last_sub_application_ids).update(stage=self.hired_stage)
+        count, _ = self.business.applicants_by_gender()
+        self.assertEqual(count, self.sub_data)
+
     # def test_time_to_hire(self):
     #     last_sub_application_ids = JobApplication.objects.only("id").order_by("-id").values_list("id", flat=True)[
     #                                :self.sub_data]

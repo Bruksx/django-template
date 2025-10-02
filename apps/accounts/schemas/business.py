@@ -74,7 +74,7 @@ class ApplicationGenderListSchema(Schema):
     count: int
 
 class ApplicationGenderSchema(Schema):
-    total_hires: int
+    total_applicants: int
     data: List[ApplicationGenderListSchema]
 
 class HiresByCountryListSchema(Schema):
@@ -193,11 +193,16 @@ class DashboardSchema(ModelSchema):
 
     @staticmethod
     def resolve_applicant_gender(obj, context):
-        data = dict(total_hires=0, data=list())
-        data["total_hires"], data["data"] = obj.hired_genders(
-            **DashboardSchema.get_context(obj, context)
-        )
-        return ApplicationGenderSchema.from_orm(data)
+        data = dict(total_applicants=0, data=list())
+        try:
+            data["total_applicants"], data["data"] = obj.applicants_by_gender(
+                **DashboardSchema.get_context(obj, context)
+            )
+            print(data)
+        except Exception as e:
+            print(e)
+        finally:
+            return ApplicationGenderSchema.from_orm(data)
 
     @staticmethod
     def resolve_hires_location(obj, context):
