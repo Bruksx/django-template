@@ -9,7 +9,7 @@ def remove_duplicate_currency(apps, schema_editor):
         count = Currency.objects.filter(abbreviation__iexact=abbreviation).count()
         if count > 1:
             last_currency = Currency.objects.filter(abbreviation__iexact=abbreviation).last()
-            Currency.objects.filter(abbreviation__iexact=abbreviation).exclude(id=last_currency.id).delete()
+            Currency.objects.filter(abbreviation__iexact=abbreviation).exclude(id=last_currency.id).hard_delete()
 
 
 class Migration(migrations.Migration):
