@@ -101,7 +101,7 @@ def get_skills_categories(request, search="", category="", department:Optional[U
                                    Q(skill__name__icontains=search)).distinct("uid")
     if category:
         queryset = queryset.filter(name__iexact=category)
-    return Response(data=[SkillCategorySchema.from_orm(q, context={"search": search}) for q in queryset])
+    return Response(data=[SkillCategorySchema.from_orm(q, context={"search": search, "department": department}) for q in queryset])
 
 
 @router.get("skills", response={200: list[SkillSchema]}, tags=["Common"])
