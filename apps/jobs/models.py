@@ -245,6 +245,14 @@ class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     status = models.CharField(max_length=50, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
     date_posted = models.DateTimeField(null=True)
+    posted_order = models.GeneratedField(
+        expression=Coalesce(
+            Cast(Epoch("date_posted"), IntegerField()),
+            Value(0)
+        ),
+        output_field=models.IntegerField(),
+        db_persist=True
+    )
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     province = models.ForeignKey("core.State", on_delete=models.SET_NULL, null=True)
     city = models.ForeignKey("core.City", on_delete=models.SET_NULL, null=True)

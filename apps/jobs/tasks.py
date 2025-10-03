@@ -2,6 +2,8 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List
 from uuid import UUID
 
+from django_q.tasks import async_task
+
 from accounts.models import Talent
 from chats.models import Conversation, Message
 from django.db import connection, close_old_connections, transaction
@@ -20,19 +22,6 @@ def share_job_via_email(job_ids:List[UUID], emails: List[str]=None, language:str
         send_shared_job_email(job_post, emails, language)
         job_post.update_email_share()
     return
-
-
-def invite_to_apply(job_ids:List[UUID], talents: List[UUID], language="en"):
-    job_posts = JobPost.objects.filter(job__uid__in=job_ids).select_related('job').distinct("job_id")
-    talents = Talent.objects.filter(uid__in=talents)
-    for talent in talents:
-        for job_post in job_posts:
-            job = job_post.job
-            if not JobInvite.objects.filter(job=job, talent=talent).exists():
-                JobInvite.objects.create(job=job, talent=talent)
-            send_invite_to_apply_email(job_post, talent.user.email, language)
-    return
-
 
 def send_shared_job_chat(
     job_ids:List[UUID],
@@ -53,6 +42,22 @@ def send_shared_job_chat(
                 text = f"Hi {talent.user.fullname}, I think that you would be a great match for this {role}! Click the button below to View Job and Apply."
                 msg = Message.objects.create(conversation=chat, sender_id=sender_id, job_post=job_post, body=text)
                 msg.handle_post_save(notify=True)
+
+
+
+def invite_to_apply(sender_id:int, job_ids:List[UUID], talents: List[UUID], language="en"):
+    async_task("jobs.tasks.send_shared_job_chat", job_ids, sender_id, talents)
+    job_posts = JobPost.objects.filter(job__uid__in=job_ids).select_related('job').distinct("job_id")
+    talents = Talent.objects.filter(uid__in=talents)
+    for talent in talents:
+        for job_post in job_posts:
+            job = job_post.job
+            if not JobInvite.objects.filter(job=job, talent=talent).exists():
+                JobInvite.objects.create(job=job, talent=talent)
+            send_invite_to_apply_email(job_post, talent.user.email, language)
+    return
+
+
 
 def job_application_notification_task():
     with transaction.atomic():

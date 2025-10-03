@@ -720,7 +720,7 @@ class JobFullListSchema(ModelSchema):
             context = request.context
         else:
             context = dict()
-        return BusinessJobFilterSchema.filter_job_posts(context, queryset).order_by("-refresh_order")
+        return BusinessJobFilterSchema.filter_job_posts(context, queryset).order_by("-refresh_order", "-posted_order")
 
     @staticmethod
     def resolve_role(obj):

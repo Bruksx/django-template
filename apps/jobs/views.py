@@ -55,7 +55,7 @@ def talent_job_recommendations(request, talent_uid:UUID, search:str=""):
     queryset = get_talent_job_recommendations(talent, business=business)
     if search:
         queryset = queryset.filter(job__role__name__icontains=search)
-    return queryset.order_by("job_id", "-refresh_order").distinct("job_id")
+    return queryset.order_by("job_id", "-refresh_order", "-posted_order").distinct("job_id")
 
 
 @router.get("talent/saved-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
@@ -78,7 +78,7 @@ def job_posts_for_talent(request, filters:TalentJobFilterQuerySchema = Query(...
     request.context = {"talent": talent}
     queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(status=JobStatusType.POSTED.value)
     queryset = add_job_post_annotations(queryset, talent)
-    return filters.get_queryset(talent=talent, queryset=queryset).order_by("-refresh_order")
+    return filters.get_queryset(talent=talent, queryset=queryset).order_by("-refresh_order", "-posted_order")
 
 
 @router.get("talent/applied-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])

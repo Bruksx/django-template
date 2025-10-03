@@ -29,7 +29,7 @@ def get_talent_job_recommendations(talent, business=None, search=""):
     queryset = talent.job_post_matches(by_talent_country=False, business=business)
     if search:
         queryset = queryset.filter(job__role__name__icontains=search)
-    return queryset.order_by("-refresh_order")
+    return queryset.order_by("-refresh_order", "-posted_order")
 
 
 def reject_application(application, previous_stage, job_post=None):
@@ -131,7 +131,7 @@ def order_job_posts(queryset, sorts:List[str]=None, *extra_sort_params:List[str]
     if sorts:
         sort_values = sort_params_function(sorts, mapper)
     if not sort_values:
-        sort_values = ["-refresh_order", *extra_sort_params]
+        sort_values = ["-refresh_order", "-posted_order", *extra_sort_params]
     return queryset.order_by(*sort_values)
 
 
