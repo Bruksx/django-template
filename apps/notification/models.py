@@ -29,8 +29,15 @@ class Notification(BaseModel):
     role = models.CharField(max_length=150, choices=BusinessUserRoleType.choices, null=True)
 
     def notify(self):
-        from .schemas import NotificationSchema #noqa
-        notification = json.loads(NotificationSchema.from_orm(self).model_dump_json())
+        notification = dict(
+            title=self.title,
+            description=self.description,
+            action=self.action,
+            entity=self.entity,
+            entity_uid=str(self.entity_uid),
+            entity_str=self.entity_str,
+            notification_type=self.notification_type
+        )
         # sends to selected users
         if self.recipient_users.count() > 0:
             for user in self.recipient_users.all():
