@@ -120,14 +120,25 @@ def get_skills_categories(request, search="", category="", department:Optional[U
 
 @router.get("skills", response={200: list[SkillSchema]}, tags=["Common"])
 def get_skills(request, search="", category="", department:UUID=None):
-    queryset = Skill.objects.all()
+    queryset = Skill.objects.annotate(
+        duplicated=Exists(
+            Skill.objects.filter(
+                name__iexact=OuterRef("name"),
+            ).exclude(id=OuterRef("id"))
+        )
+    ).annotate(
+        fullname=Case(
+            When(duplicated=False, then=F("name")),
+            default=Concat(F("name"), Value(' ('),  F("department__name"),  Value(')')),
+        )
+    )
     if search:
         queryset = queryset.filter(name__icontains=search)
     if department:
         queryset = queryset.filter(department__uid=department)
     if category:
         queryset = queryset.filter(category__name__iexact=category)
-    return queryset.distinct("name").order_by("name")
+    return queryset.order_by("name")
 
 
 @router.get("business-models", response=list[GenericNameAndUidSchema], tags=["Common"])
