@@ -63,7 +63,7 @@ jobs:
     - name: Run migrations and tests
       run: |
         python manage.py migrate
-        python manage.py test accounts
+        python manage.py test accounts --parallel
 
     - name: Deploy to Staging
       run: |
