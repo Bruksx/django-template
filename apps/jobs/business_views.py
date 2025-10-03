@@ -15,14 +15,17 @@ from monkeypatches.response import Response
 from monkeypatches.q_cluster import async_task
 from ninja import Router, PatchDict, Query
 from ninja.errors import HttpError
+from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser
+from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
 from accounts.schemas.talent import SkillSchema
 from chats.schemas import ResponseSchema
 from notification.notifications import send_talents_job_matching_notification
 from paginations import CustomPageNumberPaginationExtra
+from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+
 from settings.models import WorkFlowStage
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
@@ -33,9 +36,10 @@ from .models import (
 from .schemas import (
     EmploymentTypeSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
-    TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema
+    TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
+    TalentJobFilterQuerySchema
 )
-from .queries import add_application_match_score
+from .queries import add_application_match_score, add_job_post_annotations
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, send_email_on_stage_update, create_job_post_service, \
     bulk_job_posts_service, validate_screening_questions, update_screening_question_options
@@ -693,3 +697,15 @@ def get_screening_answers(request, application_uid:UUID):
     return Answer.objects.filter(application=application)
 
 
+@router.get("talents/{talent_uid}/job-posts", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema])
+@paginate(PageNumberPaginationExtra, page_size=50)
+def job_posts_for_talent(request, talent_uid:UUID, filters:TalentJobFilterQuerySchema = Query(...)):
+    filters = filters.convert_to_schema()
+    IsBusinessUser.check(request)
+    talent: Talent = Talent.objects.filter(uid=talent_uid).first()
+    if not talent:
+        raise HttpError(404, "This talent does not exist")
+    request.context = {"talent": talent}
+    queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(status=JobStatusType.POSTED.value)
+    queryset = add_job_post_annotations(queryset, talent)
+    return filters.get_queryset(talent=talent, queryset=queryset).distinct("job").order_by("-job_id", "-refresh_order", "-posted_order")
