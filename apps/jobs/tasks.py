@@ -2,7 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List
 from uuid import UUID
 
-from django_q.tasks import async_task
+from monkeypatches.q_cluster import async_task
 
 from accounts.models import Talent
 from chats.models import Conversation, Message
