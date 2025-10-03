@@ -46,7 +46,7 @@ def send_shared_job_chat(
 
 
 def invite_to_apply(sender_id:int, job_ids:List[UUID], talents: List[UUID], language="en"):
-    async_task("jobs.tasks.send_shared_job_chat", job_ids, sender_id, talents)
+    async_task(send_shared_job_chat, job_ids, sender_id, talents)
     job_posts = JobPost.objects.filter(job__uid__in=job_ids).select_related('job').distinct("job_id")
     talents = Talent.objects.filter(uid__in=talents)
     for talent in talents:
