@@ -197,7 +197,7 @@ def invite_to_apply(request, data: InviteToApplySchema):
     if not data.jobs:
         raise HttpError(400, "No jobs selected")
     async_task(tasks.invite_to_apply,
-        job_ids=data.jobs, talents=data.talents)
+        job_ids=data.jobs, talents=data.talents, sender_id=request.user.id)
     return Response(status=200, data={"message": "Invited successfully"})
 
 
