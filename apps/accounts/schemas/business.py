@@ -321,6 +321,7 @@ class SendBulkChatSchema(Schema):
     subject: str
     body : str
 
+
 class TalentFilterQuerySchema(ModelSchema):
     role: Optional[UUID] = Field(None, description="Role UID")
     industry: Optional[UUID] = Field(None, description="Industry UID")
