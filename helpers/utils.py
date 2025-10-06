@@ -405,3 +405,10 @@ def capitalize_bracketed(text):
         return f"({content.upper()})"
 
     return re.sub(r'\((.*?)\)', replacer, text)
+
+def uppercase_first_word(text):
+    # Strip leading/trailing spaces first
+    text = text.strip()
+    # Match a single word followed by optional space and a bracketed phrase
+    pattern = r'^(\w+)\s*(\([^)]*\))$'
+    return re.sub(pattern, lambda m: m.group(1).upper() + " " + m.group(2), text)
