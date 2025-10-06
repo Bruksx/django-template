@@ -714,7 +714,7 @@ class Business(BaseModel):
         return talents.count(), agg
 
 
-     def applicants_by_gender(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
+    def applicants_by_gender(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         query = Q(jobapplication__stage__created_by__business=self)
         if start_date and not end_date:
             query = query & Q(jobapplication__stage_date_updated__gte=start_date)
