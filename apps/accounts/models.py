@@ -7,26 +7,24 @@ from typing import Tuple, Optional
 from uuid import UUID
 
 import jwt
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessSize, BusinessUserStatusType, CaseReasonType
-from core.models import BaseModel
+from config.settings import SECRET_KEY
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
-from django.db.models import Q, Count, F, Value, Avg, IntegerField, Exists, OuterRef, Sum, When, Case, FloatField, \
-    DecimalField
+from django.db.models import Q, Count, F, Value, Avg, IntegerField, Exists, OuterRef, Sum, When, Case
 from django.db.models.functions import Concat, Cast, Round
 from django.db.models.signals import pre_save
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
+from helpers.utils import delete_s3_item
 from ninja_jwt.tokens import RefreshToken
-from notification.enums import NotificationGroup
-from reportlab.lib.testutils import outputfile
 from timezone_field import TimeZoneField
 
-from config.settings import SECRET_KEY
-from helpers.utils import delete_s3_item
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
+    BusinessSize, BusinessUserStatusType, CaseReasonType
+from core.models import BaseModel
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
+from notification.enums import NotificationGroup
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -574,22 +572,21 @@ class Business(BaseModel):
 
     def total_applicants(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
 
-        from jobs.models import JobApplication
-
-        queryset = JobApplication.objects.filter(stage__created_by__business=self)
+        queryset = Q(jobapplication__stage__created_by__business=self)
 
         if start_date and not end_date:
-            queryset = queryset.filter(created_at__gte=start_date)
+            queryset = queryset & Q(jobapplication__created_at__gte=start_date)
         elif end_date and not start_date:
-            queryset = queryset.filter(created_at__lte=end_date)
+            queryset = queryset & Q(jobapplication__created_at__lte=end_date)
         elif start_date and end_date:
-            queryset = queryset.filter(created_at__range=[start_date, end_date])
+            queryset = queryset & Q(jobapplication__created_at__range=[start_date, end_date])
         if role_id:
-            queryset = queryset.filter(job_post__job__role_id=role_id)
+            queryset = queryset & Q(jobapplication__job_post__job__role_id=role_id)
         if client:
-            queryset = queryset.filter(job_post__job__hiring_company_name=client)
+            queryset = queryset & Q(jobapplication__job_post__job__hiring_company_name=client)
 
-        return queryset.distinct("applicant").count()
+        return Talent.objects.annotate(application_count=Count("jobapplication", filter=queryset)).filter(
+            application_count__gt=0).count()
 
     def average_days_to_hire(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import TalentApplicationStageTimeline
@@ -692,58 +689,56 @@ class Business(BaseModel):
 
 
     def hired_genders(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
-        from jobs.models import JobApplication
-        genders = GenderType.values()
-        data_list = list()
-        total_hires = self.total_hires(start_date, end_date, role_id, client)
-        genders_aggregate = JobApplication.objects\
-                .prefetch_related("applicant")\
-                .filter(stage__phase=PhaseType.HIRED.value, stage__created_by__business=self)
+        query = Q(jobapplication__stage__phase=PhaseType.HIRED.value, jobapplication__stage__created_by__business=self)
         if start_date and not end_date:
-            genders_aggregate = genders_aggregate.filter(stage_date_updated__gte=start_date)
+            query = query & Q(jobapplication__stage_date_updated__gte=start_date)
         elif end_date and not start_date:
-            genders_aggregate = genders_aggregate.filter(stage_date_updated__lte=end_date)
+            query = query & Q(jobapplication__stage_date_updated__lte=end_date)
         elif start_date and end_date:
-            genders_aggregate = genders_aggregate.filter(stage_date_updated__range=[start_date, end_date])
+            query = query & Q(jobapplication__stage_date_updated__range=[start_date, end_date])
         if role_id:
-            genders_aggregate = genders_aggregate.filter(job_post__job__role_id=role_id)
+            query = query & Q(jobapplication__job_post__job__role_id=role_id)
         if client:
-            genders_aggregate = genders_aggregate.filter(job_post__job__hiring_company_name=client)
-        for gender in genders:
-            data_list.append({
-                "gender": gender,
-                "count": genders_aggregate.filter(applicant__user__gender=gender).count(),
-            })
-        data_list = sorted(data_list, key=lambda x: x["count"], reverse=True)
-        return (total_hires,
-                data_list)
+            query = query & Q(jobapplication__job_post__job__hiring_company_name=client)
+        talents = Talent.objects.annotate(
+            application_count=Count("jobapplication",
+                                    filter=query),
+            gender=F("user__gender")).filter(
+            application_count__gt=0
+        )
+        agg = [dict(
+            gender=gender,
+            count=talents.filter(gender=gender).count()
+        ) for gender in GenderType.values()]
+        agg.sort(key=lambda x: x["count"], reverse=True)
+        return talents.count(), agg
 
-    def applicants_by_gender(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
-        from jobs.models import JobApplication
-        genders = GenderType.values()
-        data_list = list()
-        total_applicants = self.total_applicants(start_date, end_date, role_id, client)
-        genders_aggregate = JobApplication.objects\
-                .prefetch_related("applicant")\
-                .filter(stage__created_by__business=self)
+
+     def applicants_by_gender(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
+        query = Q(jobapplication__stage__created_by__business=self)
         if start_date and not end_date:
-            genders_aggregate = genders_aggregate.filter(stage_date_updated__gte=start_date)
+            query = query & Q(jobapplication__stage_date_updated__gte=start_date)
         elif end_date and not start_date:
-            genders_aggregate = genders_aggregate.filter(stage_date_updated__lte=end_date)
+            query = query & Q(jobapplication__stage_date_updated__lte=end_date)
         elif start_date and end_date:
-            genders_aggregate = genders_aggregate.filter(stage_date_updated__range=[start_date, end_date])
+            query = query & Q(jobapplication__stage_date_updated__range=[start_date, end_date])
         if role_id:
-            genders_aggregate = genders_aggregate.filter(job_post__job__role_id=role_id)
+            query = query & Q(jobapplication__job_post__job__role_id=role_id)
         if client:
-            genders_aggregate = genders_aggregate.filter(job_post__job__hiring_company_name=client)
-        for gender in genders:
-            data_list.append({
-                "gender": gender,
-                "count": genders_aggregate.filter(applicant__user__gender=gender).count(),
-            })
-        data_list = sorted(data_list, key=lambda x: x["count"], reverse=True)
-        return (total_applicants,
-                data_list)
+            query = query & Q(jobapplication__job_post__job__hiring_company_name=client)
+        talents = Talent.objects.annotate(
+            application_count=Count("jobapplication",
+                                    filter=query),
+            gender=F("user__gender")).filter(
+            application_count__gt=0
+        )
+        agg = [dict(
+            gender=gender,
+            count=talents.filter(gender=gender).count()
+        )for gender in GenderType.values()]
+        agg.sort(key=lambda x: x["count"], reverse=True)
+        return talents.count(), agg
+
 
     @staticmethod
     def job_role_stage_timeline(job_role_id, stages):
@@ -912,25 +907,25 @@ class Business(BaseModel):
         ).order_by("-stage_date_updated").values("role", "talent", "hired_by")
 
     def applicants_years_of_experience(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
-        from jobs.models import JobApplication
         ranges = (0, (1,2), (2,3), (3,4), (5,6), (7,8), (8, 10), (10, 12), (12, 15), (15, 20), 20)
         data_list = list()
-        application = JobApplication.objects.filter(
-            stage__created_by__business=self
-        )
+        query = Q(jobapplication__stage__phase=PhaseType.HIRED.value, jobapplication__stage__created_by__business=self)
         if start_date and not end_date:
-            application = application.filter(created_at__gte=start_date)
+            query = query & Q(jobapplication__stage_date_updated__gte=start_date)
         elif end_date and not start_date:
-            application = application.filter(created_at__lte=end_date)
+            query = query & Q(jobapplication__stage_date_updated__lte=end_date)
         elif start_date and end_date:
-            application = application.filter(created_at__range=[start_date, end_date])
+            query = query & Q(jobapplication__stage_date_updated__range=[start_date, end_date])
         if role_id:
-            application = application.filter(job_post__job__role_id=role_id)
+            query = query & Q(jobapplication__job_post__job__role_id=role_id)
         if client:
-            application = application.filter(job_post__job__hiring_company_name=client)
-        applicants_ids = application.only("applicant_id").distinct("applicant_id").values_list("applicant_id", flat=True)
-        applicants = Talent.objects.filter(id__in=applicants_ids).only("years_of_experience").distinct()
-
+            query = query & Q(jobapplication__job_post__job__hiring_company_name=client)
+        applicants = Talent.objects.annotate(
+            application_count=Count("jobapplication",
+                                    filter=query),
+            gender=F("user__gender")).filter(
+            application_count__gt=0
+        )
         for range_value in ranges:
             data = dict()
             data["years_of_experience"] = str(range_value if range_value == 0 else f"{range_value}+") if isinstance(range_value, int) else " - ".join(map(lambda x: str(x), range_value))
