@@ -909,7 +909,7 @@ class Business(BaseModel):
     def applicants_years_of_experience(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         ranges = (0, (1,2), (2,3), (3,4), (5,6), (7,8), (8, 10), (10, 12), (12, 15), (15, 20), 20)
         data_list = list()
-        query = Q(jobapplication__stage__phase=PhaseType.HIRED.value, jobapplication__stage__created_by__business=self)
+        query = Q(jobapplication__stage__created_by__business=self)
         if start_date and not end_date:
             query = query & Q(jobapplication__stage_date_updated__gte=start_date)
         elif end_date and not start_date:
