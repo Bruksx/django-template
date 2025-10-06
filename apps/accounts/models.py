@@ -930,7 +930,7 @@ class Business(BaseModel):
             data = dict()
             data["years_of_experience"] = str(range_value if range_value == 0 else f"{range_value}+") if isinstance(range_value, int) else " - ".join(map(lambda x: str(x), range_value))
             if range_value == 0:
-                data["count"] = applicants.filter(years_of_experience=0).count()
+                data["count"] = applicants.filter(years_of_experience__lt=1).count()
             elif isinstance(range_value, tuple):
                 data["count"] = applicants.filter(years_of_experience__gte=range_value[0],
                                                   years_of_experience__lt=range_value[1]).count()
