@@ -907,7 +907,7 @@ class Business(BaseModel):
         ).order_by("-stage_date_updated").values("role", "talent", "hired_by")
 
     def applicants_years_of_experience(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
-        ranges = (0, (1,2), (2,3), (3,4), (5,6), (7,8), (8, 10), (10, 12), (12, 15), (15, 20), 20)
+        ranges = (0, (1,2), (2,3), (3,4), (4,5), (5,6), (7,8), (8, 10), (10, 12), (12, 15), (15, 20), 20)
         data_list = list()
         query = Q(jobapplication__stage__created_by__business=self)
         if start_date and not end_date:
