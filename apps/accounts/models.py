@@ -3,6 +3,7 @@ import random
 import secrets
 import string
 from datetime import timedelta, date, datetime
+from functools import reduce
 from typing import Tuple, Optional
 from uuid import UUID
 
@@ -749,8 +750,10 @@ class Business(BaseModel):
         graph = graph.annotate(avg_timeline=Case(
             When(Q(avg_timelines__isnull=True), then=float(0)),
             default=Round(F("avg_timelines"), 0),
-        ))
-        return {"graph": graph.values("stage", "avg_timeline"), "days_to_hire": int(graph.aggregate(Sum("avg_timeline"))["avg_timeline__sum"] or 0)}
+        )).values("stage", "avg_timeline")
+        return {"graph": graph,
+                "days_to_hire": reduce(lambda acc, x: acc + x["avg_timeline"], graph,
+                                       0)}
 
     @staticmethod
     def job_role_phase_timeline(job_role_id, stages):
