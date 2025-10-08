@@ -1167,6 +1167,7 @@ class TalentJobPostSchema(JobPostListSchema):
 
 class TalentJobFilterQuerySchema(Schema):
     search: Optional[str] = ""
+    distinct: Optional[Literal['true', 'false']] = 'false'
     work_structure:Optional[str] = Field("", description=f"comma separated work structure enums: {', '.join(WorkStructureEnum.values())}")
     company: Optional[str] = Field("", description="comma separated company uuids")
     sort_by: Optional[str] = Field("", description=f"comma separated sort fields: {', '.join(['date-posted', '-date-posted', 'match-score', '-match-score'])}")
@@ -1181,6 +1182,7 @@ class TalentJobFilterQuerySchema(Schema):
 
     def convert_to_schema(self):
         return TalentJobFilterSchema(
+            distinct=self.distinct == 'true',
             search=self.search if self.search else None,
             work_structure=self.work_structure.split(",") if self.work_structure else [],
             company=self.company.split(",") if self.company else [],
@@ -1195,6 +1197,7 @@ class TalentJobFilterQuerySchema(Schema):
         )
 
 class TalentJobFilterSchema(Schema):
+    distinct: Optional[bool] = None
     search: Optional[str] = None
     work_structure:Optional[List[WorkStructureEnum]] = []
     company: Optional[List[UUID]] = []
@@ -1266,7 +1269,7 @@ class TalentJobFilterSchema(Schema):
             queryset = queryset.exclude(id__in=applied_jobs_id)
         if not extra_sorts:
             extra_sorts = []
-        return order_job_posts(queryset, self.sort_by, *extra_sorts)
+        return order_job_posts(queryset, self.sort_by, *extra_sorts, distinct=self.distinct)
 
 
 class BusinessJobFilterQuerySchema(Schema):
