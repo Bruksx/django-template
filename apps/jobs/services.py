@@ -1,13 +1,14 @@
-import logging
+from typing import List
 from typing import List
 from uuid import UUID
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Window, F
+from django.db.models.functions import RowNumber
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
-from django.utils.timezone import is_aware
+from helpers.utils import upload_to_s3, upload_to_server, sort_params_function
+from monkeypatches.q_cluster import async_task
 from ninja.errors import HttpError
 
 from accounts.models import Skill
@@ -17,18 +18,23 @@ from jobs.models import (
     JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job, RequiredSecondaryLanguage,
     RequiredSkill, BusinessModel, JobPost, QuestionOption
 )
-from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema, QuestionOptionSchema, MutateOptionSchema
-from ninja.errors import HttpError
+from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema, MutateOptionSchema
 from notification.notifications import send_talents_job_matching_notification
 from settings.models import WorkFlowStage
-from helpers.utils import upload_to_s3, upload_to_server, sort_params_function
-from monkeypatches.q_cluster import async_task
 
 
-def get_talent_job_recommendations(talent, business=None, search=""):
+def get_talent_job_recommendations(talent, business=None, search="", distinct=False):
     queryset = talent.job_post_matches(by_talent_country=False, business=business)
-    if search:
+    if search not in (None, ""):
         queryset = queryset.filter(job__role__name__icontains=search)
+    if distinct is True:
+        queryset = queryset.annotate(
+            row_number=Window(
+                expression=RowNumber(),
+                partition_by=[F("job_id")],
+                order_by=[F("computed_match_score").desc()]  # highest score first
+            )
+        ).filter(row_number=1)
     return queryset.order_by("-refresh_order", "-posted_order")
 
 
@@ -117,7 +123,7 @@ def set_job_required_attributes(data:dict, job: Job):
     return required_attributes
 
 
-def order_job_posts(queryset, sorts:List[str]=None, *extra_sort_params:List[str])->QuerySet:
+def order_job_posts(queryset, sorts:List[str]=None, *extra_sort_params:List[str], distinct=False)->QuerySet:
     """
     sort job posts
 
@@ -125,6 +131,7 @@ def order_job_posts(queryset, sorts:List[str]=None, *extra_sort_params:List[str]
         queryset: job posts queryset
         sorts: list of sort parameters based on API query
         *extra_sort_params: extra sort parameters based on model fields
+        distinct: distinct job posts
     """
     mapper = {"date-posted": "date_posted", "job-level": "job__job_level", "match-score": "computed_match_score"}
     sort_values = []
@@ -132,6 +139,14 @@ def order_job_posts(queryset, sorts:List[str]=None, *extra_sort_params:List[str]
         sort_values = sort_params_function(sorts, mapper)
     if not sort_values:
         sort_values = ["-refresh_order", "-posted_order", *extra_sort_params]
+    if distinct is True:
+        return queryset.annotate(
+            row_number=Window(
+                expression=RowNumber(),
+                partition_by=[F("job_id")],
+                order_by=[F("computed_match_score").desc()]  # highest score first
+            )
+        ).filter(row_number=1).order_by(*sort_values)
     return queryset.order_by(*sort_values)
 
 
