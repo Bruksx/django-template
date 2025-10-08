@@ -1004,6 +1004,9 @@ class Business(BaseModel):
             query["status"] = status
         return JobPost.objects.select_related("job__created_by__business").filter(**query)
 
+class BusinessClient(BaseModel):
+    business = models.ForeignKey("accounts.Business", on_delete=models.CASCADE)
+    name = models.CharField(max_length=225)
 
 class VerificationCode(BaseModel):
     def default_code():

@@ -3,32 +3,31 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
-from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
+from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
+    Skill, Role, BusinessClient
+from core.models import Language
+from core.schemas import GenericNameAndUidSchema
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef
 from django.shortcuts import get_object_or_404
+from jobs.models import Job, JobPost
+from jobs.schemas import BusinessUserJobSchema
+from ninja import Router, UploadedFile, PatchDict, Form
+from ninja.errors import HttpError
+from ninja_jwt.authentication import JWTAuth
+from notification import notifications
+
+from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
 from helpers.email.auth import send_verification_code
 from helpers.email.utils import send_email
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
-from ninja import Router, UploadedFile, PatchDict, Form
-from ninja.errors import HttpError
-from ninja_jwt.authentication import JWTAuth
-
-from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
-    Skill, Role
-from core.models import Language
-from core.schemas import GenericNameAndUidSchema
-from jobs.models import Job, JobPost
-from jobs.schemas import BusinessUserJobSchema
-from notification import notifications
 from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
 from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema, TalentFilterListSchema, \
     SendBulkChatSchema
-from ..services import create_business_workflows
 
 router = Router(tags=["Business Account"])
 
@@ -122,12 +121,34 @@ def business_dashboard(request, start_date: date=None, end_date: date=None, role
 
 
 @router.get("job-clients", auth=JWTAuth(), response={200: List[str]})
-def get_job_clients(request):
+def get_job_clients(request, search: Optional[str]=None):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    return Response(data=list(Job.objects.filter(created_by__business=business_user.business,
-                                                hiring_company_name__isnull=False).only("hiring_company_name")\
-                  .distinct("hiring_company_name").values_list("hiring_company_name", flat=True)))
+    queryset = BusinessClient.objects.filter(business=business_user.business).order_by("name")
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    return Response(status=200, data=list(queryset.values_list("name", flat=True)))
+
+@router.post("job-clients", auth=JWTAuth())
+def create_job_client(request, name: str):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    if BusinessClient.objects.filter(business=business_user.business, name__iexact=name).exists():
+        raise HttpError(400, "Client already exists")
+    BusinessClient.objects.create(business=business_user.business, name=name)
+    return Response(status=201, data={"message": "Client created successfully"})
+
+@router.delete("job-clients", auth=JWTAuth())
+def delete_job_client(request, name:str):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    BusinessClient.objects.filter(
+        business=business_user.business,
+        name__iexact=name
+    ).delete()
+    return Response(status=204, data={"message": "Client deleted successfully"})
+
+
 
 
 @router.post("logo", auth=JWTAuth())
