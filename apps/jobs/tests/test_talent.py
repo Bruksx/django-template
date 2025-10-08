@@ -854,15 +854,17 @@ class InviteToApplyTest(TestCase):
         headers = {
             "authorization": f"bearer {self.business_user.user.token}"
         }
+        count = self.business_user.business.total_invitations_sent()
+
         response = self.client.post(
             self.url, headers=headers,
             json=dict(
                 jobs=[str(self.job.uid)],
                 talents=[str(self.talent.uid)]
         ))
-        print(response.content)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(JobInvite.objects.count(), 1)
+        self.assertEqual(self.business_user.business.total_invitations_sent(), count + 1)
 
 
 class SaveJobTest(TestCase):

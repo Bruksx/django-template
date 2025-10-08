@@ -18,7 +18,14 @@ def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_b
     if "test" in sys.argv:
         return
     retries = 3
-    emails = [email for email in emails if email.split("@")[1].split(".")[0].lower() not in ("example", "localhost", "test")]
+    correct_emails = list()
+    for email in emails:
+        try:
+            if email.split("@")[1].split(".")[0].lower() not in ("example", "localhost", "test"):
+                correct_emails.append(email)
+        except:
+            continue
+    emails = correct_emails
     if not emails:
         return
     if from_user:
