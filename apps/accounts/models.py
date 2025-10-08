@@ -4,11 +4,13 @@ import secrets
 import string
 from datetime import timedelta, date, datetime
 from functools import reduce
-from typing import Tuple, Optional
+from typing import Tuple, Optional, List
 from uuid import UUID
 
 import jwt
-from config.settings import SECRET_KEY
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
+    BusinessSize, BusinessUserStatusType, CaseReasonType
+from core.models import BaseModel
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
@@ -17,15 +19,14 @@ from django.db.models.functions import Concat, Cast, Round
 from django.db.models.signals import pre_save
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from helpers.utils import delete_s3_item
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
 from ninja_jwt.tokens import RefreshToken
+from notification.enums import NotificationGroup
 from timezone_field import TimeZoneField
 
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessSize, BusinessUserStatusType, CaseReasonType
-from core.models import BaseModel
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
-from notification.enums import NotificationGroup
+from notification.enums import EntityType
+from config.settings import SECRET_KEY
+from helpers.utils import delete_s3_item
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -459,7 +460,7 @@ class Talent(BaseModel):
             "interviews": self.interviews_chart()
         }
 
-    def notifications(self, viewed:Optional[bool]=None):
+    def notifications(self, viewed:Optional[bool]=None, excludes:Optional[str]=None):
         from notification.models import Notification
         recipients_query = Q(all_recipients__id=self.user.id)
         notifications = Notification.objects.filter(recipients_query)
@@ -472,6 +473,9 @@ class Talent(BaseModel):
             notifications = notifications.exclude(
                 viewers__id=self.user.id
             )
+        if excludes:
+            excludes = excludes.split(",")
+            notifications = notifications.exclude(entity__in=excludes)
         return notifications.order_by("-id")
 
     def delete_account(self):
@@ -1058,10 +1062,10 @@ class BusinessUser(BaseModel):
             return self.user.last_login.date()
         return None
 
-    def notifications(self, viewed=False):
+    def notifications(self, viewed=False, excludes: Optional[str]=None):
         from notification.models import Notification
         if hasattr(self, "businessusernotificationsettings"):
-            return self.businessusernotificationsettings.notifications(viewed)
+            return self.businessusernotificationsettings.notifications(viewed, excludes=excludes)
         return Notification.objects.none()
 
     def delete_account(self):

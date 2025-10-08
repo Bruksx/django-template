@@ -160,7 +160,7 @@ class BusinessUserNotificationSettings(BaseModel):
             types.add(NotificationType.PERFORMANCE.value)
         return types
 
-    def notifications(self, viewed:Optional[bool]=None):
+    def notifications(self, viewed:Optional[bool]=None, excludes: Optional[str]=None):
        initial_query = Q(Q(
             Q(notification_type__in=self.allowed_notification_types()) |
             Q(notification_type__isnull=True)
@@ -176,6 +176,10 @@ class BusinessUserNotificationSettings(BaseModel):
             notifications = notifications.exclude(
                 viewers__id=self.business_user.user.id
             )
+
+       if excludes:
+            excludes = excludes.split(",")
+            notifications = notifications.exclude(entity__in=excludes)
        return notifications.order_by("-id")
 
     @classmethod

@@ -1,15 +1,18 @@
+from typing import List, Optional
 from uuid import UUID
 
-from config.permissions import IsBusinessUser
 from django.db import transaction
-from monkeypatches.response import Response
-from ninja import Router, PatchDict
+from ninja import Router, PatchDict, Query
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
 from notification.models import BusinessUserNotificationSettings, Notification
 from notification.schemas import NotificationSettingsSchema, NotificationSchema
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+
+from apps.notification.schemas import NotificationFilterSchema
+from config.permissions import IsBusinessUser
+from monkeypatches.response import Response
 
 # Create your views here.
 router = Router(tags=["Notifications"])
@@ -38,11 +41,11 @@ def update_notification_settings(request, data: PatchDict[NotificationSettingsSc
 
 @router.get("", auth=JWTAuth(), response=PaginatedResponseSchema[NotificationSchema])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def get_notifications(request, viewed: bool = False):
+def get_notifications(request, filters: NotificationFilterSchema = Query(...)):
     if hasattr(request.user, "businessuser"):
-        return request.user.businessuser.notifications(viewed=viewed)
+        return request.user.businessuser.notifications(viewed=filters.viewed, excludes=filters.excludes)
     elif hasattr(request.user, "talent"):
-        return request.user.talent.notifications(viewed=viewed)
+        return request.user.talent.notifications(viewed=filters.viewed, excludes=filters.excludes)
     return Notification.objects.none()
 
 @router.patch("{notification_uid}/read", auth=JWTAuth())
@@ -55,9 +58,20 @@ def read_notification(request, notification_uid: UUID):
 
 
 @router.delete("", auth=JWTAuth())
-def delete_notifications(request, notification_uids: list[UUID]):
-    notifications = Notification.objects.filter(uid__in=notification_uids).iterator()
-    for notification in notifications:
+def delete_notifications(request, notification_uids: Optional[List[UUID]]=None, all: bool=False):
+    if all is True:
+        if hasattr(request.user, "businessuser"):
+            notifications = request.user.businessuser.notifications()
+        elif hasattr(request.user, "talent"):
+            notifications =  request.user.talent.notifications()
+        else:
+            notifications  = Notification.objects.none()
+    else:
+        if not notification_uids:
+            return Response(status=400, data={"message": "notification_uids is required"})
+        notifications = Notification.objects.filter(uid__in=notification_uids)
+
+    for notification in notifications.iterator():
         notification.delete_notification(request.user)
     return Response(status=204, data={"message": "Notifications deleted successfully"})
 
