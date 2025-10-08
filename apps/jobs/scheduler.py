@@ -2,7 +2,7 @@
 tasks = [
         {
             "name": "Job Application Notification - 5 AM",
-            "func": "jobs.tasks.share_job_application_notification_task",
+            "func": "jobs.tasks.job_application_notification_task",
             "cron": "0 5 * * *",  # Every day at 5:00 AM
         },
         {
