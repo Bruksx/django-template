@@ -48,6 +48,7 @@ class Notification(BaseModel):
     def get_recipients(self):
         from accounts.models import User
         group_query = Q()
+        queryset = self.recipient_users.all()
         if len(self.recipient_groups) > 0:
             for group in self.recipient_groups:
                 if group == NotificationGroup.BUSINESS_USERS.value:
@@ -60,8 +61,9 @@ class Notification(BaseModel):
 
                 elif group == NotificationGroup.TALENTS.value:
                     group_query = group_query | Q(type=UserType.TALENT.value)
-
-        return User.objects.filter(group_query)
+        if group_query:
+            return User.objects.filter(group_query).union(queryset)
+        return queryset
 
     def view(self, user):
         if not self.can_view(user):
