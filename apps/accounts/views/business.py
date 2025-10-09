@@ -34,7 +34,7 @@ router = Router(tags=["Business Account"])
 
 @router.post("initiate-account-creation")
 def initiate_account_creation(request, data: common_schema.RegisterSchema):
-    existing_user = User.objects.filter(email=data.email).exists()
+    existing_user = User.objects.filter(email__iexact=data.email).exists()
     if existing_user:
         raise HttpError(400, "An account with this email already exists")
     verification_code = VerificationCode(email=data.email)
@@ -61,7 +61,7 @@ def create_account(request, data: business_schema.ValidateOTPSchema):
         first_name=data.first_name,
         last_name=data.last_name,
         type=UserType.BUSINESS.value,
-        email=data.email,
+        email=data.email.lower().strip(),
         username=None,
         email_verified=True,
         phone_number=data.phone_number,
