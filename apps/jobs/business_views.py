@@ -580,6 +580,18 @@ def update_application(request, application_uid:UUID, data:job_schemas.UpdateApp
     return application
 
 
+@router.patch("job-posts/applications", response=job_schemas.JobApplicationListSchema, auth=JWTAuth())
+@transaction.atomic
+def bulk_update_application(request, data:job_schemas.BulkUpdateApplicationSchema):
+    IsBusinessUser.check(request)
+    applications = JobApplication.objects.filter(uid__in=data.uids, recruiter__business=request.user.businessuser.business).iterator()
+    for application in applications:
+        previous_stage = application.stage
+        application.update(**data.dict())
+        send_email_on_stage_update(application=application, previous_stage=previous_stage, business_user_email=request.user.email)
+    return applications
+
+
 @router.post("{job_uid}/screening-questions", response=job_schemas.QuestionSchema, auth=JWTAuth(),
             tags=["Screening Test"])
 @transaction.atomic
