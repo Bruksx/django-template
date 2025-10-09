@@ -1456,6 +1456,11 @@ class UpdateApplicationSchema(ModelSchema):
         fields = ("stage",)
     stage: Optional[UUID]
 
+class BulkUpdateApplicationSchema(Schema):
+    stage: Optional[UUID]
+    uids: List[UUID]
+
+
 class ApplyToJobSchema(Schema):
     answers:Optional[List[MutateAnswerSchema]]=None
     available_for_schedule:bool

@@ -39,18 +39,9 @@ class Notification(BaseModel):
             notification_type=self.notification_type
         )
         # sends to selected users
-        if self.recipient_users.count() > 0:
-            for user in self.recipient_users.all():
+        if self.all_recipients.count() > 0:
+            for user in self.all_recipients.iterator():
                 send_ws(user.notification_group_name, notification)
-        # sends to groups or specific groups in a business
-        if len(self.recipient_groups) > 0:
-            for group in self.recipient_groups:
-                channel = f"{group}_{self.business.uid}" if self.business else group
-                send_ws(channel, notification)
-
-        # sends to specific roles in a business
-        if self.role and self.business:
-            send_ws(f"{self.role}_{self.business.uid}", notification)
         return
 
 
