@@ -1023,11 +1023,42 @@ class TalentJobPostListSchema(ModelSchema):
     city: Optional[GenericNameAndUidSchema] = None
     province: Optional[GenericNameAndUidSchema] = None
     match_obj: Optional[MatchScoreSchema] = None
+    date_saved: Optional[datetime] = None
+    date_applied: Optional[datetime] = None
 
     class Meta:
         model = JobPost
         fields = ("uid", "job", "country", "postal_code", "status", "date_posted", "created_at",
                   "share_compensation")
+
+    @staticmethod
+    def resolve_date_saved(self, context):
+        request = context.get("request")
+        if not request:
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return
+        if not hasattr(talent, "savedjob_set"):
+            return
+        saved = talent.savedjob_set.filter(job_post=self).first()
+        if not saved:
+            return
+        return saved.created_at
+
+    def resolve_date_applied(self, context):
+        request = context.get("request")
+        if not request:
+            return
+        talent = request.context.get("talent")
+        if not talent:
+            return
+        if not hasattr(talent, "jobapplication_set"):
+            return
+        applied = talent.jobapplication_set.filter(job_post=self).first()
+        if not applied:
+            return
+        return applied.created_at
 
     @staticmethod
     def resolve_alert(obj, context):
