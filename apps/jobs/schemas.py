@@ -1039,21 +1039,18 @@ class TalentJobPostListSchema(ModelSchema):
         talent = request.context.get("talent")
         if not talent:
             return
-        if not hasattr(talent, "savedjob_set"):
-            return
         saved = talent.savedjob_set.filter(job_post=self).first()
         if not saved:
             return
         return saved.created_at
 
+    @staticmethod
     def resolve_date_applied(self, context):
         request = context.get("request")
         if not request:
             return
         talent = request.context.get("talent")
         if not talent:
-            return
-        if not hasattr(talent, "jobapplication_set"):
             return
         applied = talent.jobapplication_set.filter(job_post=self).first()
         if not applied:
