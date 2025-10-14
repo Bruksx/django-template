@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     EmploymentType, JobPost, JobLevel, Job, BusinessModel, ScreeningQuestion, QuestionOption, JobApplication,
-    AvailableDay, RequiredSkill
+    AvailableDay, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage, 
 )
 
 # Register your models here.
@@ -30,3 +30,35 @@ class JobApplicationAdmin(admin.ModelAdmin):
 class RequiredSkillAdmin(admin.ModelAdmin):
     list_display = ("skill__name", "required_attribute__job")
     search_fields = ("required_attribute__job__title", "required_attribute__job__role__name")
+
+
+class RequiredSecondaryLanguageInline(admin.TabularInline):
+    model = RequiredSecondaryLanguage
+    extra = 0
+
+
+
+class RequiredSkillInline(admin.TabularInline):
+    model = RequiredSkill
+    extra = 0
+
+
+class RequiredAttributeAdmin(admin.ModelAdmin):
+    list_display = (
+        "uid",
+        "job",
+        "role",
+        "job_level",
+        "years_of_experience",
+        "minimum_education_level",
+        "work_structure",
+        "technological_requirement",
+        "first_language",
+        "working_hours",
+        "location",
+    )
+    search_fields = ("job__title", "job__uid")
+    inlines = [RequiredSecondaryLanguageInline, RequiredSkillInline]
+
+
+admin.site.register(RequiredAttribute, RequiredAttributeAdmin)

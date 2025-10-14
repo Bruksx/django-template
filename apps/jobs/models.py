@@ -798,7 +798,7 @@ class RequiredAttribute(BaseModel):
     role = models.BooleanField(default=False)
     job_level = models.BooleanField(default=False)
     years_of_experience = models.BooleanField(default=False)
-    business_models = models.ManyToManyField("BusinessModel")
+    business_models = models.ManyToManyField("BusinessModel", blank=True)
     minimum_education_level = models.BooleanField(default=False)
     work_structure = models.BooleanField(default=False)
     technological_requirement = models.BooleanField(default=False)
