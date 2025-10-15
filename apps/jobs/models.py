@@ -92,7 +92,7 @@ class Job(BaseModel):
     flexible_availability = models.BooleanField(default=False)
     department = models.ForeignKey("accounts.Department", null=True, on_delete=models.SET_NULL)
     role = models.ForeignKey("accounts.Role", null=True, on_delete=models.SET_NULL)
-    skills = models.ManyToManyField("accounts.Skill")
+    skills = models.ManyToManyField("accounts.Skill", blank=True)
     min_match_score = models.FloatField(null=True)
     objects = JobManager()
 

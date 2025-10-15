@@ -236,7 +236,7 @@ class Talent(BaseModel):
                                           default=NoticePeriodType.MONTH.value)
     native_language = models.ForeignKey("core.Language", on_delete=models.SET_NULL, null=True,
                                         related_name="native_language")
-    skills = models.ManyToManyField("accounts.Skill")
+    skills = models.ManyToManyField("accounts.Skill", blank=True)
     role = models.ForeignKey("accounts.Role", on_delete=models.SET_NULL, null=True)
     additional_skills = models.JSONField(default=list)
     additional_languages = models.ManyToManyField("core.Language", related_name="other_languages")
