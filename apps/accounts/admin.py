@@ -75,7 +75,7 @@ class SkillAdmin(admin.ModelAdmin):
 class TalentAdmin(admin.ModelAdmin):
     list_display = (
         "uid",
-        "user",
+        "user__email",
         "country",
     )
     search_fields = (
