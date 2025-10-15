@@ -4,33 +4,6 @@ from .models import (
     AvailableDay, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage, 
 )
 
-# Register your models here.
-admin.site.register(EmploymentType)
-admin.site.register(JobLevel)
-admin.site.register(JobPost)
-admin.site.register(Job)
-admin.site.register(BusinessModel)
-admin.site.register(ScreeningQuestion)
-admin.site.register(QuestionOption)
-admin.site.register(AvailableDay)
-
-
-
-@admin.register(JobApplication)
-class JobApplicationAdmin(admin.ModelAdmin):
-    list_display = ('id','uid','applicant__user__fullname', 'job_post__job__role__name', 'stage__name')
-    search_fields = ('applicant__user__email', 'applicant__user__fullname', "uid", 'job_post__uid')
-    list_filter = ('stage__phase', 'deleted_at','stage__created_by__business__name')
-
-    def get_queryset(self, request):
-        return JobApplication.global_objects.all()
-
-
-@admin.register(RequiredSkill)
-class RequiredSkillAdmin(admin.ModelAdmin):
-    list_display = ("skill__name", "required_attribute__job")
-    search_fields = ("required_attribute__job__title", "required_attribute__job__role__name")
-
 
 class RequiredSecondaryLanguageInline(admin.TabularInline):
     model = RequiredSecondaryLanguage
@@ -61,4 +34,47 @@ class RequiredAttributeAdmin(admin.ModelAdmin):
     inlines = [RequiredSecondaryLanguageInline, RequiredSkillInline]
 
 
+from django.contrib import admin
+from .models import JobPost
+
+
+class JobPostAdmin(admin.ModelAdmin):
+    list_display = (
+        "uid",
+        "job__title",
+        "status",
+        "country",
+    )
+    search_fields = (
+        "job__uid",
+        "uid",
+    )
+
+
+admin.site.register(JobPost, JobPostAdmin)
+admin.site.register(EmploymentType)
+admin.site.register(JobLevel)
+admin.site.register(Job)
+admin.site.register(BusinessModel)
+admin.site.register(ScreeningQuestion)
+admin.site.register(QuestionOption)
+admin.site.register(AvailableDay)
 admin.site.register(RequiredAttribute, RequiredAttributeAdmin)
+
+
+
+@admin.register(JobApplication)
+class JobApplicationAdmin(admin.ModelAdmin):
+    list_display = ('id','uid','applicant__user__fullname', 'job_post__job__role__name', 'stage__name')
+    search_fields = ('applicant__user__email', 'applicant__user__fullname', "uid", 'job_post__uid')
+    list_filter = ('stage__phase', 'deleted_at','stage__created_by__business__name')
+
+    def get_queryset(self, request):
+        return JobApplication.global_objects.all()
+
+
+
+@admin.register(RequiredSkill)
+class RequiredSkillAdmin(admin.ModelAdmin):
+    list_display = ("skill__name", "required_attribute__job")
+    search_fields = ("required_attribute__job__title", "required_attribute__job__role__name")
