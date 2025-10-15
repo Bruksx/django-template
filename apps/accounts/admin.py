@@ -72,11 +72,28 @@ class SkillAdmin(admin.ModelAdmin):
     ordering = ("name",)
 
 
-# Register your models here.
+class TalentAdmin(admin.ModelAdmin):
+    list_display = (
+        "uid",
+        "user",
+        "country",
+    )
+    search_fields = (
+        "user__email",
+        "user__first_name",
+        "user__last_name",
+        "country__name",
+        "uid",
+        "user__uid",
+    )
+        
+
+
+
+admin.site.register(models.Talent, TalentAdmin)
 admin.site.register(models.Business)
 admin.site.register(models.User, UserAdmin)
 admin.site.register(models.BusinessUser, BusinessUserAdmin)
-admin.site.register(models.Talent)
 admin.site.register(models.Industry, IndustryAdmin)
 admin.site.register(models.Department, DepartmentAdmin)
 admin.site.register(models.SkillCategory, SkillCategoryAdmin)
