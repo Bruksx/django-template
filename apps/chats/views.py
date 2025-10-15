@@ -17,6 +17,7 @@ from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, Conversation, MessageAttachment
 from chats.schemas import ChatListSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema, \
     ChatMessagePaginatedSchema, ChatMessageRequestSchema, ChatMessageResponseSchema, ChatMessageErrorSchema
+from core.schemas import CountSchema
 from jobs.business_views import pagination_class
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
@@ -122,14 +123,16 @@ def lock_conversation(request, conversation_uid:UUID, lock:bool):
     conversation.save()
     return conversation
 
-@router.get("messages/unread/count", auth=JWTAuth(), response={200: int})
+@router.get("messages/unread/count", auth=JWTAuth(), response={200: CountSchema})
 def get_unread_chat_count(request):
     user = request.user
-    return Message.objects.filter(
+    count = Message.objects.filter(
         conversation__users__id=user.id
     ).exclude(sender_id=user.id).exclude(
         readers__id=user.id
     ).count()
+    return dict(count=count)
+
 
 @router.post("users/{user_id}/start-conversation", auth=JWTAuth(), response={200: ChatListSchema})
 @transaction.atomic
