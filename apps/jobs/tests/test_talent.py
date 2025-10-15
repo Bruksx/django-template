@@ -337,9 +337,10 @@ class JobMatchTests(TestCase):
         self.update_required_attributes()
         self.job.skills.all().delete()
         self.talent.skills.all().delete()
-        self.job.skills.add(*self.tool_platform_skills, *self.general_skills, *self.methodology_skills)
-        self.talent.skills.add(*self.tool_platform_skills[:1], *self.general_skills[:2], *self.methodology_skills)
+        self.job.skills.add(*self.tool_platform_skills[:2], *self.general_skills, *self.methodology_skills)
+        self.talent.skills.add(*self.tool_platform_skills[:2], *self.general_skills[:2], *self.methodology_skills)
 
+        # make sure other talents and jobs with same skills dont affect scores
         random_talent: Talent = TalentFactory()
         random_job: Job = JobFactory()
         random_job.skills.add(*self.tool_platform_skills, *self.general_skills, *self.methodology_skills)
@@ -353,7 +354,7 @@ class JobMatchTests(TestCase):
         methodologies_score = Decimal(job_post.methodologies_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
         general_skill_score = Decimal(job_post.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
-        self.assertEqual(tool_platform_score, Decimal("2.22"))
+        self.assertEqual(tool_platform_score, Decimal("6.67"))
         self.assertEqual(methodologies_score, Decimal("6.67"))
         self.assertEqual(general_skill_score, Decimal("4.45"))
 
