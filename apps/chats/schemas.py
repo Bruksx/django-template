@@ -78,7 +78,7 @@ class ChatMessageListSchema(ModelSchema):
         request = context.get("request")
         user = request.user
         if user == obj.sender:
-            return None
+            return True
         return obj.readers.filter(id=user.id).exist()
 
 class ChatListSchema(ModelSchema):
