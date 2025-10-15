@@ -134,10 +134,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         ),
         methodologies_score=Case(
             When(Q(methodologies_count=None), then=Value(6.67)),
-            default=
-                (F("methodologies_intercept_count") * Value(6.67) ) / F("methodologies_count"),
-                output_field=FloatField()
-            ,
+            default=(F("methodologies_intercept_count") * Value(6.67) ) / F("methodologies_count") ,
             output_field=FloatField()
         )
     ).annotate(
