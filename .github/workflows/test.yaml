@@ -62,5 +62,4 @@ jobs:
     
     - name: Run migrations and tests
       run: |
-        python manage.py migrate
         python manage.py test --parallel
