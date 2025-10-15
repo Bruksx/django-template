@@ -1003,6 +1003,8 @@ class MatchScoreSchema(Schema):
     missing_required_business_model: bool
     tools_platform_count: Optional[int] = 0
     tools_platform_intercept_count: Optional[int] = 0
+    methodologies_count: Optional[int] = 0
+    methodologies_intercept_count: Optional[int] = 0
 
     class Meta:
         orm_mode = True
