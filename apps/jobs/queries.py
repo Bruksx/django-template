@@ -70,6 +70,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         gen_skill_intercept_count=Subquery(
             JobSkill.objects
                 .filter(
+                    job=OuterRef("job"),
                     skill__category__id=general_skills_id,
                     skill_id__in=talent_gen_skills,
                 )
@@ -96,6 +97,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         tools_platform_intercept_count=Subquery(
             JobSkill.objects
                 .filter(
+                    job=OuterRef("job"),
                     skill__category__id=tools_platform_id,
                     skill_id__in=talent_tools_skills,
                 )
@@ -122,6 +124,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         methodologies_intercept_count=Subquery(
             JobSkill.objects
                 .filter(
+                    job=OuterRef("job"),
                     skill__category__id=methodologies_id,
                     skill_id__in=talent_methodology_skills,
                 )
