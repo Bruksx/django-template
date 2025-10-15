@@ -8,6 +8,8 @@ from core.models import Currency, Language
 from accounts.models import Country, EducationLevel
 
 
+class CountSchema(Schema):
+    count: int
 
 class ErrorDetail(Schema):
     type: str
