@@ -44,7 +44,7 @@ class BusinessSchema(ModelSchema):
 
 
 class EmploymentTypeSchema(ModelSchema):
-    # sub_types: list[EmploymentTypeSchema]
+    name: str = Field(alias="fullname")
     class Meta:
         model = EmploymentType
         fields = ["uid", "name"]

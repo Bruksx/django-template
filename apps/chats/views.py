@@ -122,7 +122,14 @@ def lock_conversation(request, conversation_uid:UUID, lock:bool):
     conversation.save()
     return conversation
 
-
+@router.get("messages/unread/count", auth=JWTAuth(), response={200: int})
+def get_unread_chat_count(request):
+    user = request.user
+    return Message.objects.filter(
+        chat__users__id=user.id
+    ).exclude(sender_id=user.id).exclude(
+        readers__id=user.id
+    ).count()
 
 @router.post("users/{user_id}/start-conversation", auth=JWTAuth(), response={200: ChatListSchema})
 @transaction.atomic

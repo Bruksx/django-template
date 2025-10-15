@@ -28,6 +28,11 @@ class EmploymentType(BaseModel):
     def __str__(self) -> str:
         return self.name
 
+    def fullname(self):
+        if self.parent:
+            return f"{self.parent.name} ({self.name})"
+        return self.name
+
 
 class JobLevel(BaseModel):
     name = models.CharField(max_length=64)

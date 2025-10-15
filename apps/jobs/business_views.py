@@ -37,7 +37,7 @@ from .schemas import (
     EmploymentTypeSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
-    TalentJobFilterQuerySchema
+    TalentJobFilterQuerySchema, EmploymentParentTypeSchema
 )
 from .queries import add_application_match_score, add_job_post_annotations
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
@@ -48,7 +48,7 @@ router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
 
 
-@router.get("employment-types", response=list[EmploymentTypeSchema], tags=["Common"])
+@router.get("employment-types", response=list[EmploymentParentTypeSchema], tags=["Common"])
 def get_employment_types(request, search=""):
     queryset = EmploymentType.objects.filter(parent=None)
     if search:

@@ -362,7 +362,7 @@ class EmploymentSubTypeSchema(Schema):
     name: str
 
 
-class EmploymentTypeSchema(Schema):
+class EmploymentParentTypeSchema(Schema):
     uid: UUID
     name: str
     sub_types: List[EmploymentSubTypeSchema]
@@ -370,6 +370,12 @@ class EmploymentTypeSchema(Schema):
     @staticmethod
     def resolve_sub_types(obj):
         return EmploymentType.objects.filter(parent=obj)
+
+
+class EmploymentTypeSchema(Schema):
+    uid: UUID
+    name: str  = Field(alias="fullname")
+
 
 
 class DepartmentSchema(ModelSchema):
@@ -518,7 +524,7 @@ class JobDetailSchema(ModelSchema):
     logo_url: Optional[str]
     responsibilities: List[str]
     skills: List[JobSkillSchema]
-    employment_type: Optional[GenericNameAndUidSchema]
+    employment_type: Optional[EmploymentTypeSchema]
     department: Optional[GenericNameAndUidSchema]
     job_level: Optional[GenericNameAndUidSchema]
     role: Optional[GenericNameAndUidSchema]
