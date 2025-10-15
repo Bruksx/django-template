@@ -126,7 +126,7 @@ def lock_conversation(request, conversation_uid:UUID, lock:bool):
 def get_unread_chat_count(request):
     user = request.user
     return Message.objects.filter(
-        chat__users__id=user.id
+        conversation__users__id=user.id
     ).exclude(sender_id=user.id).exclude(
         readers__id=user.id
     ).count()
