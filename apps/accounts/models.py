@@ -209,7 +209,7 @@ class Skill(BaseModel):
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
 
     def __str__(self) -> str:
-        return f"{self.name}[{self.category}]"
+        return f"{self.name} [{self.category}]"
 
 class Talent(BaseModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
