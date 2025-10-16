@@ -37,8 +37,8 @@ class CompensationsSchema:
 @dataclass
 class JobSchema:
 	companyApplyUrl: str
-	companyApplyUrl: str
 	description: str
+	company: str
 	employmentStatus: EmploymentStatusEnum
 	externalJobPostingId: str
 	listedAt: int
@@ -53,6 +53,7 @@ class JobSchema:
 		ET.SubElement(job_elem, "partnerJobId").text = self.externalJobPostingId
 		ET.SubElement(job_elem, "title").text = self.title
 		ET.SubElement(job_elem, "description").text = self.description
+		ET.SubElement(job_elem, "company").text = self.company
 		ET.SubElement(job_elem, "location").text = self.location
 		ET.SubElement(job_elem, "applyUrl").text = self.companyApplyUrl
 		ET.SubElement(job_elem, "employmentStatus").text = self.employmentStatus

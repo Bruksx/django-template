@@ -105,6 +105,7 @@ def job_post_to_job_schema(job_post, lang="en")->JobSchema:
 				title=job_post.job.title,
 				description=description,
 				companyApplyUrl=apply_url,
+				company=job_post.job.get_company(),
 				employmentStatus=employment_status,
 				externalJobPostingId=str(job_post.uid),
 				listedAt=datetime_to_epoch_milliseconds(job_post.created_at),
