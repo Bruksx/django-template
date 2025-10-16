@@ -197,6 +197,11 @@ class Job(BaseModel):
             return
         return self.created_by.business.name
 
+    def get_company(self):
+        if not self.hiring_company_name:
+            return self.business_name()
+        return self.hiring_company()
+
     def availability_query(self):
         working_hours_query = Q()
 
@@ -728,6 +733,9 @@ class JobApplication(BaseModel):
         if not ScreeningQuestion.objects.filter(job=self.job_post.job, is_knockout=True).exists():
             return False
         return Answer.objects.filter(application=self, question__is_knockout=True, options__is_accepted=False).exists()
+
+
+
 
 
     def __str__(self) -> str:
