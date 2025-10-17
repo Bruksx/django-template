@@ -928,6 +928,7 @@ class JobApplicationListSchema(ModelSchema):
     applicant_cv_url: Optional[str]
     applicant_linkedin_url: Optional[str] = Field(alias="applicant.linkedin")
     other_application: Optional[OtherApplicationSchema]
+
     invited: bool
 
     class Meta:
@@ -958,7 +959,7 @@ class JobApplicationListSchema(ModelSchema):
     def resolve_match(obj):
         if hasattr(obj, "computed_match_score"):
             return 0 if not obj.computed_match_score else int(obj.computed_match_score)
-        return obj.match or 0
+        return int(obj.match) or 0
 
 
 class StageSchema(GenericNameAndUidSchema):
