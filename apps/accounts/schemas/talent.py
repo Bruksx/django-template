@@ -100,7 +100,7 @@ class UpdateTalentProfileSchema(Schema):
     first_name: Optional[str]
     last_name: Optional[str]
 
-class UpdateTalentProfileSchema2(Schema):
+class UpdateTalentProfileSchema2(ModelSchema):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     preferred_communication: Optional[PreferredCommunicationType|str] = None
@@ -126,6 +126,7 @@ class UpdateTalentProfileSchema2(Schema):
     facebook: Optional[str] = None
     twitter_x: Optional[str] = None
     native_language: Optional[UUID] = None
+    flexible_availability: Optional[bool] = None
     additional_languages: Optional[List[UUID]] = None
     education_history: Optional[List[PatchDict[MutateEducationSchema]]] = None
     experience_history: Optional[List[PatchDict[MutateExperienceSchema]]] = None
@@ -133,6 +134,10 @@ class UpdateTalentProfileSchema2(Schema):
     skills: Optional[List[UUID]] = None
     additional_skills: Optional[List[str]] = None
     business_models: Optional[List[UUID]] = None
+
+    class Meta:
+        model = Talent
+        fields = ("availability_timezone",)
 
 
 
@@ -185,7 +190,7 @@ class TalentUserSchema(ModelSchema):
 
     class Meta:
         model = Talent
-        exclude = (*READ_EXCLUDE_FIELDS, "cv", "photo", "months_of_experience")
+        exclude = (*READ_EXCLUDE_FIELDS, "cv", "photo", "months_of_experience", "viewers")
 
     @staticmethod
     def resolve_skills(obj):
