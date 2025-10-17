@@ -153,6 +153,7 @@ class MutateWorkFlowStageSchema(ModelSchema):
 class WorkFlowStageSchema(ModelSchema):
     email_template: Optional[EmailTemplateListSchema] = None
     can_be_deactivated:bool
+    applications: int
 
     class Meta:
         model = WorkFlowStage
