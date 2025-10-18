@@ -83,7 +83,7 @@ class EmailTemplate(BaseModel):
 
 	@staticmethod
 	def convert_key_to_placeholder(key:str):
-		return key.replace("_", " ").upper()
+		return key.replace("_", " ").title()
 
 	@staticmethod
 	def validate_placeholders(members: List[str], placeholders:List[str], raise_exception=True):
