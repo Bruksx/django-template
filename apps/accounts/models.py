@@ -914,7 +914,7 @@ class Business(BaseModel):
         ).order_by("-stage_date_updated").values("role", "talent", "hired_by") or list()
 
     def applicants_years_of_experience(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
-        ranges = (0, (1,2), (2,3), (3,4), (4,5), (5,6), (6,8), (8, 10), (10, 12), (12, 15), (15, 20), 20)
+        ranges = (0, (1,3), (4-6), (7-10), (11-15), (16-20), 20)
         data_list = list()
         query = Q(jobapplication__stage__created_by__business=self)
         if start_date and not end_date:
@@ -940,9 +940,9 @@ class Business(BaseModel):
                 data["count"] = applicants.filter(years_of_experience__lt=1).count()
             elif isinstance(range_value, tuple):
                 data["count"] = applicants.filter(years_of_experience__gte=range_value[0],
-                                                  years_of_experience__lt=range_value[1]).count()
+                                                  years_of_experience__lte=range_value[1]).count()
             else:
-                data["count"] = applicants.filter(years_of_experience__gte=range_value).count()
+                data["count"] = applicants.filter(years_of_experience__gt=range_value).count()
             data_list.append(data)
         return data_list
 
