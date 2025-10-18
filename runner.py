@@ -5,7 +5,8 @@ import django
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 django.setup()
-from accounts.models import Role
-from jobs.models import Job
-role = Role.objects.order_by("?").first()
-Job.objects.filter(role__isnull=True).update(role=role)
+from helpers.email.utils import send_template_email
+
+send_template_email("Hello", "Hello bro", ["biwiyiy557@foxroids.com",
+                                           "ohaegbulouis@gmail.com"], "1840gtc",
+                    )
