@@ -720,13 +720,18 @@ class JobApplication(BaseModel):
     def invited(self):
         return JobInvite.objects.filter(job=self.job_post.job, talent=self.applicant).exists()
 
-    def get_email_context(self):
+    def get_email_context(self)->dict:
         if not self.stage:
             return dict()
         if not self.stage.email_template:
             return dict()
+        # lets retrieve the placeholders associated with the template attached to the stage
         stage_placeholders = self.stage.email_template.placeholders
+
+        # lets get the function that converts a placeholder to a key that can be used in dictionary
         key_converter = self.stage.email_template.convert_placeholder_to_key
+
+        # lets create a dictionary where the key is the placeholder and the value is the value retrieved from the placeholders_mapper function
         return {key_converter(placeholder):self.placeholders_mapper(placeholder) for placeholder in stage_placeholders}
 
     def knockout(self):

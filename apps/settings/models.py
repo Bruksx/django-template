@@ -39,7 +39,10 @@ class EmailTemplate(BaseModel):
 		return self.created_at + timedelta(days=self.delays)
 
 	def send_email(self, context: dict, to:List[str], sender:str):
+		# we are retrieving the placeholders from the keys in the context
 		keys = map(self.convert_key_to_placeholder, context.keys())
+
+		# we want to ensure that the key is valid
 		is_valid_placeholders = self.validate_placeholders(placeholders=self.placeholders, members=list(keys), raise_exception=False)
 		if not is_valid_placeholders:
 			Logger.error(LogSchema(
@@ -47,7 +50,8 @@ class EmailTemplate(BaseModel):
 				title="Unable to send template email due to invalid placeholders",
 				description=json.dumps(dict(
 					template_uid=str(self.uid),
-					placeholders=self.placeholders
+					placeholders=self.placeholders,
+					context=context,
 				))).__dict__)
 			return
 		subject = self.convert_to_template(str(self.subject)).render(Context(context))
