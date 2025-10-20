@@ -209,7 +209,7 @@ class Skill(BaseModel):
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
 
     def __str__(self) -> str:
-        return self.name
+        return f"{self.name} [{self.category}]"
 
 class Talent(BaseModel):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -236,7 +236,7 @@ class Talent(BaseModel):
                                           default=NoticePeriodType.MONTH.value)
     native_language = models.ForeignKey("core.Language", on_delete=models.SET_NULL, null=True,
                                         related_name="native_language")
-    skills = models.ManyToManyField("accounts.Skill")
+    skills = models.ManyToManyField("accounts.Skill", blank=True)
     role = models.ForeignKey("accounts.Role", on_delete=models.SET_NULL, null=True)
     additional_skills = models.JSONField(default=list)
     additional_languages = models.ManyToManyField("core.Language", related_name="other_languages")

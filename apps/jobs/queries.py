@@ -70,6 +70,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         gen_skill_intercept_count=Subquery(
             JobSkill.objects
                 .filter(
+                    job=OuterRef("job"),
                     skill__category__id=general_skills_id,
                     skill_id__in=talent_gen_skills,
                 )
@@ -96,6 +97,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         tools_platform_intercept_count=Subquery(
             JobSkill.objects
                 .filter(
+                    job=OuterRef("job"),
                     skill__category__id=tools_platform_id,
                     skill_id__in=talent_tools_skills,
                 )
@@ -122,6 +124,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         methodologies_intercept_count=Subquery(
             JobSkill.objects
                 .filter(
+                    job=OuterRef("job"),
                     skill__category__id=methodologies_id,
                     skill_id__in=talent_methodology_skills,
                 )
@@ -131,10 +134,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
         ),
         methodologies_score=Case(
             When(Q(methodologies_count=None), then=Value(6.67)),
-            default=ExpressionWrapper(
-                (F("methodologies_intercept_count") / F("methodologies_count")) * Value(6.67),
-                output_field=FloatField()
-            ),
+            default=(F("methodologies_intercept_count") * Value(6.67) ) / F("methodologies_count") ,
             output_field=FloatField()
         )
     ).annotate(

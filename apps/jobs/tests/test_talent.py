@@ -332,6 +332,31 @@ class JobMatchTests(TestCase):
         #self.assertEqual(methodologies_score, Decimal("0.00"))
         #self.assertEqual(general_skill_score, Decimal("0.00"))
         self.assertEqual(computed_match_score, Decimal("0.00"))
+    
+    def test_skills_partial_score(self):
+        self.update_required_attributes()
+        self.job.skills.all().delete()
+        self.talent.skills.all().delete()
+        self.job.skills.add(*self.tool_platform_skills[:2], *self.general_skills, *self.methodology_skills)
+        self.talent.skills.add(*self.tool_platform_skills[:2], *self.general_skills[:2], *self.methodology_skills)
+
+        # make sure other talents and jobs with same skills dont affect scores
+        random_talent: Talent = TalentFactory()
+        random_job: Job = JobFactory()
+        random_job.skills.add(*self.tool_platform_skills, *self.general_skills, *self.methodology_skills)
+        random_talent.skills.add(*self.tool_platform_skills, *self.general_skills, *self.methodology_skills)
+
+        queryset = JobPost.objects.filter(id=self.job_post.id)
+        queryset = add_job_post_annotations(queryset, self.talent)
+        job_post = queryset.first()
+
+        tool_platform_score = Decimal(job_post.tools_platform_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        methodologies_score = Decimal(job_post.methodologies_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        general_skill_score = Decimal(job_post.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(tool_platform_score, Decimal("6.67"))
+        self.assertEqual(methodologies_score, Decimal("6.67"))
+        self.assertEqual(general_skill_score, Decimal("4.45"))
 
     def test_job_level_no_score(self):
         self.update_required_attributes()

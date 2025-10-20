@@ -97,7 +97,7 @@ class Job(BaseModel):
     flexible_availability = models.BooleanField(default=False)
     department = models.ForeignKey("accounts.Department", null=True, on_delete=models.SET_NULL)
     role = models.ForeignKey("accounts.Role", null=True, on_delete=models.SET_NULL)
-    skills = models.ManyToManyField("accounts.Skill")
+    skills = models.ManyToManyField("accounts.Skill", blank=True)
     min_match_score = models.FloatField(null=True)
     objects = JobManager()
 
@@ -816,7 +816,7 @@ class RequiredAttribute(BaseModel):
     role = models.BooleanField(default=False)
     job_level = models.BooleanField(default=False)
     years_of_experience = models.BooleanField(default=False)
-    business_models = models.ManyToManyField("BusinessModel")
+    business_models = models.ManyToManyField("BusinessModel", blank=True)
     minimum_education_level = models.BooleanField(default=False)
     work_structure = models.BooleanField(default=False)
     technological_requirement = models.BooleanField(default=False)
