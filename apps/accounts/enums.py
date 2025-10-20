@@ -39,7 +39,8 @@ class NoticePeriodType(BaseEnum):
 class GenderType(BaseEnum):
     MALE = "male"
     FEMALE = "female"
-    OTHERS = "prefer to self describe"
+    NOT_SAY = "Prefer not to say"
+    OTHERS = "others"
 
 class PreferredCommunicationType(BaseEnum):
     TEXT = "text"
