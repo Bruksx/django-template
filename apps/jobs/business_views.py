@@ -589,7 +589,7 @@ def bulk_update_application(request, data:job_schemas.BulkUpdateApplicationSchem
         previous_stage = application.stage
         application.update(stage=data.stage)
         async_task(send_email_on_stage_update, application=application, previous_stage=previous_stage, business_user_email=request.user.email)
-    return applications
+    return JobApplication.objects.filter(uid__in=data.uids)
 
 
 @router.post("{job_uid}/screening-questions", response=job_schemas.QuestionSchema, auth=JWTAuth(),
