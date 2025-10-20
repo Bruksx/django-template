@@ -587,8 +587,8 @@ def bulk_update_application(request, data:job_schemas.BulkUpdateApplicationSchem
     applications = JobApplication.objects.filter(uid__in=data.uids, recruiter__business=request.user.businessuser.business).iterator()
     for application in applications:
         previous_stage = application.stage
-        application.update(**data.dict())
-        send_email_on_stage_update(application=application, previous_stage=previous_stage, business_user_email=request.user.email)
+        application.update(stage=data.stage)
+        async_task(send_email_on_stage_update, application=application, previous_stage=previous_stage, business_user_email=request.user.email)
     return applications
 
 
