@@ -580,7 +580,7 @@ def update_application(request, application_uid:UUID, data:job_schemas.UpdateApp
     return application
 
 
-@router.patch("job-posts/applications/bulk/update", response=job_schemas.JobApplicationListSchema, auth=JWTAuth())
+@router.patch("job-posts/applications/bulk/update", response=List[job_schemas.JobApplicationListSchema], auth=JWTAuth())
 @transaction.atomic
 def bulk_update_application(request, data:job_schemas.BulkUpdateApplicationSchema):
     IsBusinessUser.check(request)
