@@ -1,19 +1,18 @@
 from functools import cached_property
 
-from django.core.cache import cache
+from accounts.enums import Days
+from accounts.models import Talent, TalentAvailableDay
+from core.models import BaseModel, Language
 from django.db import models
 from django.db.models import F, Q, Count, IntegerField, When, Case, Value
 from django.db.models.functions import Coalesce, Now, Extract, Cast
 from django.db.models.signals import pre_save
 from django_softdelete.managers import SoftDeleteManager
-from monkeypatches.q_cluster import async_task
-from timezone_field import TimeZoneField
-
-from accounts.enums import Days
-from accounts.models import Talent, TalentAvailableDay
-from core.models import BaseModel, Language
 from jobs.managers import JobManager
 from settings.enums import PlaceHolderType
+from timezone_field import TimeZoneField
+
+from monkeypatches.q_cluster import async_task
 from .db_functions import Epoch
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
     JobStatusType
@@ -454,8 +453,6 @@ class JobPost(BaseModel):
                 working_hours = None,
                 location = None,
             )
-            if weak is False:
-                data["match_score"] = 100
             return data
 
         attributes = job.requiredattribute
@@ -551,10 +548,6 @@ class JobPost(BaseModel):
                     wh_query = job.availableday_set.all()
                 if (wh_count > 0 and weak is False) or (wh_count == 0 and weak is True):
                     data["working_hours"] = job.get_availability(JobAvailableDaySchema, wh_query) if wh_query.count() > 0 else None
-        match_score = int((score/total_score) * 100)
-        if weak is False:
-            data["match_score"] = match_score
-        data["match_score"] = int(self.computed_match_score)
         return data
 
     def weakness(self, talent):
@@ -628,7 +621,11 @@ class JobPost(BaseModel):
         return self.job.screeningquestion_set.all()
 
     def match_score(self, talent):
-        return self.strength(talent).get("match_score", 0)
+        from jobs.queries import add_job_post_annotations
+        job_post = add_job_post_annotations(JobPost.objects.filter(id=self.id), talent)
+        if job_post.exists():
+            return job_post.first().computed_match_score
+        return 0
 
     def invited(self, talent):
         return JobInvite.objects.filter(job=self.job, talent=talent).exists()

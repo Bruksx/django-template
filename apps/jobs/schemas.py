@@ -574,7 +574,6 @@ class JobMatchSchema(Schema):
     minimum_education_level: Optional[EducationLevelSchema] = None
     work_structure: Optional[WorkStructureEnum] = None
     years_of_experience: Optional[int] = None
-    match_score: Optional[int] = None
     first_language: Optional[GenericNameAndUidSchema] = None
     secondary_language: Optional[List[GenericNameAndUidSchema]] = None
     location: Optional[GenericNameAndUidSchema] = None
@@ -1155,6 +1154,7 @@ class TalentJobPostSchema(JobPostListSchema):
     weakness: Optional[JobMatchSchema] = None
     non_negotiable: JobMatchSchema
     application_uid: Optional[UUID]
+    match_score: Optional[int] = 0
     stage: Optional[StageSchema]
     screening_questions: List[TalentQuestionSchema]
     country: Optional[GenericNameAndUidSchema] = None
@@ -1171,6 +1171,12 @@ class TalentJobPostSchema(JobPostListSchema):
         if not hasattr(request, "context"):
             return
         return request.context.get("talent")
+
+    @staticmethod
+    def resolve_match_score(obj, context):
+        if hasattr(obj, "computed_match_score"):
+            return 0 if not obj.computed_match_score else int(obj.computed_match_score)
+        return 0
 
     @staticmethod
     def resolve_application_uid(obj, context):
