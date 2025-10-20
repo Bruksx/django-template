@@ -1173,6 +1173,12 @@ class TalentJobPostSchema(JobPostListSchema):
         return request.context.get("talent")
 
     @staticmethod
+    def resolve_match_score(obj, context):
+        if hasattr(obj, "computed_match_score"):
+            return 0 if not obj.computed_match_score else int(obj.computed_match_score)
+        return 0
+
+    @staticmethod
     def resolve_application_uid(obj, context):
         talent = TalentJobPostSchema.get_talent(context)
         if not talent:
