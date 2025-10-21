@@ -262,8 +262,6 @@ def upload_talent_profile_picture(request, file: Optional[UploadedFile] = File(N
     return Response(status=200, data={"message": "Profile picture uploaded successfully"})
 
 
-
-
 @router.get("{talent_uid}", response=talent_schemas.TalentUserSchema, auth=JWTAuth())
 def talent_details(request, talent_uid:UUID):
     IsBusinessUser.check(request)
