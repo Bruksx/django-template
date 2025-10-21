@@ -1,6 +1,7 @@
 from datetime import timezone, date, time
 from decimal import Decimal
 from uuid import uuid4
+import io
 
 from accounts.enums import Days, BusinessUserRoleType
 from accounts.models import User, VerificationCode, Country, Talent, EducationLevel, Industry, \
@@ -576,3 +577,21 @@ class DeleteTalentUserAccountTest2(TestCase):
         self.assertFalse(Education.global_objects.filter(talent=talent_user).exists())
         self.assertFalse(Experience.global_objects.filter(talent=talent_user).exists())
 
+
+class UploadTalentProfilePictureTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.talent = TalentFactory()
+        self.url = "/profile-pic"
+        self.headers = {
+            "authorization": f"bearer {self.talent.user.token}"
+        }
+
+
+    def test_upload_valid_profile_picture(self):
+        # TODO: complete tests
+        """Should upload a valid PNG image."""
+        file = io.BytesIO(b"fake image data")
+        file.name = "profile.png"
+        response = self.client.post(self.url, {"file": file}, format="multipart", headers=self.headers)
+        self.assertEqual(response.status_code, 200)
