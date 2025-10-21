@@ -98,8 +98,8 @@ class UpdateJobPostSchema(ModelSchema):
     recruiter: Optional[UUID] = None
     status: Optional[JobStatusType] = None
     salary_currency: Optional[UUID]
-    salary_type: Optional[SalaryType] = None
-    salary_bonus_type: Optional[SalaryType] = None
+    salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
+    salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_currency: Optional[UUID]
 
     class Meta:
@@ -121,8 +121,8 @@ class MutateJobPostListSchema(ModelSchema):
     salary_max: Optional[float]
     salary_bonus_min: Optional[float]
     salary_bonus_max: Optional[float]
-    salary_type: Optional[SalaryType] = None
-    salary_bonus_type: Optional[SalaryType] = None
+    salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
+    salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
 
     class Meta:
         model = JobPost
@@ -449,7 +449,7 @@ class JobPostDetailSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid",  "postal_code", "status", "share_compensation", "created_at", "date_posted"]
+        fields = ["uid",  "postal_code", "status", "share_compensation", "created_at", "date_posted", "salary_type", "salary_bonus_type"]
 
     @staticmethod
     def resolve_salary_bonus_currency(obj):
@@ -610,7 +610,7 @@ class JobPostListSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "created_at", "date_posted", "share_compensation", "last_refreshed"]
+        fields = ["uid", "status", "created_at", "date_posted", "share_compensation", "last_refreshed", "salary_type", "salary_bonus_type"]
 
 
     @staticmethod
@@ -833,7 +833,7 @@ class JobPostFullDetailSchema(ModelSchema):
     class Meta:
         model = JobPost
         fields = ["uid", "status", "created_at",  "postal_code", "date_posted",
-                  "share_compensation"]
+                  "share_compensation", "salary_type", "salary_bonus_type"]
 
     @staticmethod
     def resolve_saved(obj, context):
