@@ -10,6 +10,7 @@ from uuid import UUID
 import jwt
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
     BusinessSize, BusinessUserStatusType, CaseReasonType
+from core.enums import SalaryType
 from core.models import BaseModel
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -1110,15 +1111,17 @@ class Experience(BaseModel):
     talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE, null=True)
     role = models.ForeignKey("accounts.Role", on_delete=models.SET_NULL, null=True)
     company = models.CharField(max_length=100, null=True)
-    annual_salary = models.FloatField(default=0, null=True)
-    annual_salary_currency = models.ForeignKey("core.Currency", on_delete=models.SET_NULL,
+    salary_type = models.CharField(max_length=50, choices=SalaryType.choices(), default=SalaryType.ANNUALLY)
+    salary = models.FloatField(default=0, null=True)
+    salary_currency = models.ForeignKey("core.Currency", on_delete=models.SET_NULL,
                                                null=True,
-                                               related_name="annual_salary_currency")
-    annual_salary_bonus = models.FloatField(default=0, null=True)
-    annual_salary_bonus_currency = models.ForeignKey("core.Currency",
+                                               related_name="salary_currency")
+    salary_bonus_type = models.CharField(max_length=50, choices=SalaryType.choices(), default=SalaryType.ANNUALLY)
+    salary_bonus = models.FloatField(default=0, null=True)
+    salary_bonus_currency = models.ForeignKey("core.Currency",
                                                      on_delete=models.SET_NULL,
                                                      null=True,
-                                                     related_name="annual_salary_bonus_currency")
+                                                     related_name="salary_bonus_currency")
     level = models.ForeignKey("jobs.JobLevel", on_delete=models.SET_NULL, null=True)
     employment_type = models.ForeignKey("jobs.EmploymentType", on_delete=models.SET_NULL, null=True)
     start_date = models.DateField(null=True)

@@ -523,13 +523,16 @@ class JobCreationTest(TestCase):
                         "Dental Insurance"
                     ],
 
-                    "annual_salary_min": 100,
-                    "annual_salary_max": 1000,
-                    "annual_salary_currency": str(self.currency1.uid),
-                    "annual_bonus_min": 100,
-                    "annual_bonus_max": 150,
+                    "salary_min": 100,
+                    "salary_max": 1000,
+                    "salary_type": "Weekly",
+                    "salary_bonus_type": "Weekly",
+                    
+                    "salary_currency": str(self.currency1.uid),
+                    "salary_bonus_min": 100,
+                    "salary_bonus_max": 150,
                     "recruiter": str(self.business_user.uid),
-                    "annual_bonus_currency": str(self.currency1.uid)
+                    "salary_bonus_currency": str(self.currency1.uid)
 
                 },
                 {
@@ -541,12 +544,14 @@ class JobCreationTest(TestCase):
                         "Health Insurance",
                         "Dental Insurance"
                     ],
-                    "annual_salary_min": 200,
-                    "annual_salary_max": 400,
-                    "annual_salary_currency": str(self.currency2.uid),
-                    "annual_bonus_min": 100,
-                    "annual_bonus_max": 150,
-                    "annual_bonus_currency": str(self.currency2.uid),
+                    "salary_min": 200,
+                    "salary_max": 400,
+                    "salary_type": "Weekly",
+                    "salary_bonus_type": "Weekly",
+                    "salary_currency": str(self.currency2.uid),
+                    "salary_bonus_min": 100,
+                    "salary_bonus_max": 150,
+                    "salary_bonus_currency": str(self.currency2.uid),
                     "recruiter": str(self.business_user.uid),
 
                 }
@@ -680,12 +685,14 @@ class JobUpdateTest(TestCase):
                         "Paid time off"
                     ],
                     "status": JobStatusType.DRAFT.value,
-                    "annual_salary_currency": str(self.currency.uid),
-                    "annual_bonus_currency": str(self.currency.uid),
-                    "annual_salary_min": 100,
-                    "annual_salary_max": 1000,
-                    "annual_bonus_min": 200,
-                    "annual_bonus_max": 2000
+                    "salary_currency": str(self.currency.uid),
+                    "salary_bonus_currency": str(self.currency.uid),
+                    "salary_min": 100,
+                    "salary_type": "Hourly",
+                    "salary_bonus_type": "Hourly",
+                    "salary_max": 1000,
+                    "salary_bonus_min": 200,
+                    "salary_bonus_max": 2000
                 }
             ],
             "additional_hours_start": "12:00:00",
@@ -724,12 +731,12 @@ class JobUpdateTest(TestCase):
         job_post.refresh_from_db()
         self.assertEqual(job_post.benefits, self.test_data["job_posts"][0]["benefits"])
         self.assertEqual(job_post.status, self.test_data["job_posts"][0]["status"])
-        self.assertEqual(str(job_post.annual_salary_currency.uid), self.test_data["job_posts"][0]["annual_salary_currency"])
-        self.assertEqual(str(job_post.annual_bonus_currency.uid), self.test_data["job_posts"][0]["annual_bonus_currency"])
-        self.assertEqual(job_post.annual_salary_min, self.test_data["job_posts"][0]["annual_salary_min"])
-        self.assertEqual(job_post.annual_salary_max, self.test_data["job_posts"][0]["annual_salary_max"])
-        self.assertEqual(job_post.annual_bonus_min, self.test_data["job_posts"][0]["annual_bonus_min"])
-        self.assertEqual(job_post.annual_bonus_max, self.test_data["job_posts"][0]["annual_bonus_max"])
+        self.assertEqual(str(job_post.salary_currency.uid), self.test_data["job_posts"][0]["salary_currency"])
+        self.assertEqual(str(job_post.salary_bonus_currency.uid), self.test_data["job_posts"][0]["salary_bonus_currency"])
+        self.assertEqual(job_post.salary_min, self.test_data["job_posts"][0]["salary_min"])
+        self.assertEqual(job_post.salary_max, self.test_data["job_posts"][0]["salary_max"])
+        self.assertEqual(job_post.salary_bonus_min, self.test_data["job_posts"][0]["salary_bonus_min"])
+        self.assertEqual(job_post.salary_bonus_max, self.test_data["job_posts"][0]["salary_bonus_max"])
 
         available_days = AvailableDay.objects.filter(job=self.job)
         self.assertEqual(available_days.count(), 2)
@@ -746,12 +753,14 @@ class JobUpdateTest(TestCase):
                     "Paid time off"
                 ],
                 "status": JobStatusType.CLOSED.value,
-                "annual_salary_currency": str(self.currency.uid),
-                "annual_bonus_currency": str(self.currency.uid),
-                "annual_salary_min": 100,
-                "annual_salary_max": 1000,
-                "annual_bonus_min": 3000,
-                "annual_bonus_max": 4000
+                "salary_currency": str(self.currency.uid),
+                "salary_bonus_currency": str(self.currency.uid),
+                "salary_min": 100,
+                "salary_max": 1000,
+                "salary_type": "Monthly",
+                "salary_bonus_type": "Monthly",
+                "salary_bonus_min": 3000,
+                "salary_bonus_max": 4000
             },
             {
                 "uid": self.job_posts[1].uid,
@@ -760,12 +769,14 @@ class JobUpdateTest(TestCase):
                     "Paid time off"
                 ],
                 "country": str(self.job_posts[0].country.uid),
-                "annual_salary_currency": str(self.currency.uid),
-                "annual_bonus_currency": str(self.currency.uid),
-                "annual_salary_min": 100,
-                "annual_salary_max": 1000,
-                "annual_bonus_min": 200,
-                "annual_bonus_max": 2000
+                "salary_currency": str(self.currency.uid),
+                "salary_bonus_currency": str(self.currency.uid),
+                "salary_min": 100,
+                "salary_max": 1000,
+                "salary_type": "Weekly",
+                "salary_bonus_type": "Weekly",
+                "salary_bonus_min": 200,
+                "salary_bonus_max": 2000
             },
             {
                 "benefits": [
@@ -773,12 +784,12 @@ class JobUpdateTest(TestCase):
                     "Paid time off"
                 ],
                 "country": str(self.country.uid),
-                "annual_salary_currency": str(self.currency.uid),
-                "annual_bonus_currency": str(self.currency.uid),
-                "annual_salary_min": 500,
-                "annual_salary_max": 1000,
-                "annual_bonus_min": 200,
-                "annual_bonus_max": 5000
+                "salary_currency": str(self.currency.uid),
+                "salary_bonus_currency": str(self.currency.uid),
+                "salary_min": 500,
+                "salary_max": 1000,
+                "salary_bonus_min": 200,
+                "salary_bonus_max": 5000
             }
         ]
 
@@ -809,23 +820,23 @@ class JobUpdateTest(TestCase):
         job_post.refresh_from_db()
         self.assertEqual(job_post.benefits, self.test_data["job_posts"][0]["benefits"])
         self.assertEqual(job_post.status, self.test_data["job_posts"][0]["status"])
-        self.assertEqual(str(job_post.annual_salary_currency.uid), self.test_data["job_posts"][0]["annual_salary_currency"])
-        self.assertEqual(str(job_post.annual_bonus_currency.uid), self.test_data["job_posts"][0]["annual_bonus_currency"])
-        self.assertEqual(job_post.annual_salary_min, self.test_data["job_posts"][0]["annual_salary_min"])
-        self.assertEqual(job_post.annual_salary_max, self.test_data["job_posts"][0]["annual_salary_max"])
-        self.assertEqual(job_post.annual_bonus_min, self.test_data["job_posts"][0]["annual_bonus_min"])
-        self.assertEqual(job_post.annual_bonus_max, self.test_data["job_posts"][0]["annual_bonus_max"])
+        self.assertEqual(str(job_post.salary_currency.uid), self.test_data["job_posts"][0]["salary_currency"])
+        self.assertEqual(str(job_post.salary_bonus_currency.uid), self.test_data["job_posts"][0]["salary_bonus_currency"])
+        self.assertEqual(job_post.salary_min, self.test_data["job_posts"][0]["salary_min"])
+        self.assertEqual(job_post.salary_max, self.test_data["job_posts"][0]["salary_max"])
+        self.assertEqual(job_post.salary_bonus_min, self.test_data["job_posts"][0]["salary_bonus_min"])
+        self.assertEqual(job_post.salary_bonus_max, self.test_data["job_posts"][0]["salary_bonus_max"])
 
         job_post = self.job_posts[1]
         job_post.refresh_from_db()
         self.assertEqual(job_post.benefits, self.test_data["job_posts"][1]["benefits"])
         self.assertEqual(str(job_post.country.uid), self.test_data["job_posts"][1]["country"])
-        self.assertEqual(str(job_post.annual_salary_currency.uid), self.test_data["job_posts"][1]["annual_salary_currency"])
-        self.assertEqual(str(job_post.annual_bonus_currency.uid), self.test_data["job_posts"][1]["annual_bonus_currency"])
-        self.assertEqual(job_post.annual_salary_min, self.test_data["job_posts"][1]["annual_salary_min"])
-        self.assertEqual(job_post.annual_salary_max, self.test_data["job_posts"][1]["annual_salary_max"])
-        self.assertEqual(job_post.annual_bonus_min, self.test_data["job_posts"][1]["annual_bonus_min"])
-        self.assertEqual(job_post.annual_bonus_max, self.test_data["job_posts"][1]["annual_bonus_max"])
+        self.assertEqual(str(job_post.salary_currency.uid), self.test_data["job_posts"][1]["salary_currency"])
+        self.assertEqual(str(job_post.salary_bonus_currency.uid), self.test_data["job_posts"][1]["salary_bonus_currency"])
+        self.assertEqual(job_post.salary_min, self.test_data["job_posts"][1]["salary_min"])
+        self.assertEqual(job_post.salary_max, self.test_data["job_posts"][1]["salary_max"])
+        self.assertEqual(job_post.salary_bonus_min, self.test_data["job_posts"][1]["salary_bonus_min"])
+        self.assertEqual(job_post.salary_bonus_max, self.test_data["job_posts"][1]["salary_bonus_max"])
 
 
         available_days = AvailableDay.objects.filter(job=self.job)
@@ -887,15 +898,15 @@ class JobPostCreationTest(TestCase):
                   ],
                   "recruiter": str(self.business_user.uid),
                   "status": JobStatusType.POSTED.value,
-                  "annual_salary_currency": str(self.currency.uid),
-                  "annual_bonus_currency": str(self.currency.uid),
+                  "salary_currency": str(self.currency.uid),
+                  "salary_bonus_currency": str(self.currency.uid),
                   "province": str(self.province.uid),
                   "postal_code": "12345",
                   "share_compensation": True,
-                  "annual_salary_min": 100,
-                  "annual_salary_max": 1000,
-                  "annual_bonus_min": 200,
-                  "annual_bonus_max": 2000
+                  "salary_min": 100,
+                  "salary_max": 1000,
+                  "salary_bonus_min": 200,
+                  "salary_bonus_max": 2000
                 }
 
     def test_create_job_post(self):
@@ -910,15 +921,15 @@ class JobPostCreationTest(TestCase):
         self.assertEqual(job_post.benefits, self.test_data["benefits"])
         self.assertEqual(job_post.recruiter, self.business_user)
         self.assertEqual(job_post.status, self.test_data["status"])
-        self.assertEqual(job_post.annual_salary_currency, self.currency)
-        self.assertEqual(job_post.annual_bonus_currency, self.currency)
+        self.assertEqual(job_post.salary_currency, self.currency)
+        self.assertEqual(job_post.salary_bonus_currency, self.currency)
         self.assertEqual(job_post.province, self.province)
         self.assertEqual(job_post.postal_code, self.test_data["postal_code"])
         self.assertEqual(job_post.share_compensation, self.test_data["share_compensation"])
-        self.assertEqual(job_post.annual_salary_min, self.test_data["annual_salary_min"])
-        self.assertEqual(job_post.annual_salary_max, self.test_data["annual_salary_max"])
-        self.assertEqual(job_post.annual_bonus_min, self.test_data["annual_bonus_min"])
-        self.assertEqual(job_post.annual_bonus_max, self.test_data["annual_bonus_max"])
+        self.assertEqual(job_post.salary_min, self.test_data["salary_min"])
+        self.assertEqual(job_post.salary_max, self.test_data["salary_max"])
+        self.assertEqual(job_post.salary_bonus_min, self.test_data["salary_bonus_min"])
+        self.assertEqual(job_post.salary_bonus_max, self.test_data["salary_bonus_max"])
 
         self.assertEqual(job_post.posted_by, self.business_user)
 
@@ -961,12 +972,14 @@ class JobPostUpdateTest(TestCase):
                 "Paid time off"
             ],
             "status": JobStatusType.DRAFT.value,
-            "annual_salary_currency": str(self.currency.uid),
-            "annual_bonus_currency": str(self.currency.uid),
-            "annual_salary_min": 100,
-            "annual_salary_max": 1000,
-            "annual_bonus_min": 200,
-            "annual_bonus_max": 2000
+            "salary_currency": str(self.currency.uid),
+            "salary_bonus_currency": str(self.currency.uid),
+            "salary_min": 100,
+            "salary_type": "Weekly",
+            "salary_bonus_type": "Weekly",
+            "salary_max": 1000,
+            "salary_bonus_min": 200,
+            "salary_bonus_max": 2000
         }
 
     def test_update_job_post(self):
@@ -975,12 +988,12 @@ class JobPostUpdateTest(TestCase):
         }
 
         self.assertNotEqual(self.job_post.status, self.test_data["status"])
-        self.assertNotEqual(self.job_post.annual_salary_currency, self.currency.abbreviation)
-        self.assertNotEqual(self.job_post.annual_bonus_currency, self.currency.abbreviation)
-        self.assertNotEqual(self.job_post.annual_salary_min, self.test_data["annual_salary_min"])
-        self.assertNotEqual(self.job_post.annual_salary_max, self.test_data["annual_salary_max"])
-        self.assertNotEqual(self.job_post.annual_bonus_min, self.test_data["annual_bonus_min"])
-        self.assertNotEqual(self.job_post.annual_bonus_max, self.test_data["annual_bonus_max"])
+        self.assertNotEqual(self.job_post.salary_currency, self.currency.abbreviation)
+        self.assertNotEqual(self.job_post.salary_bonus_currency, self.currency.abbreviation)
+        self.assertNotEqual(self.job_post.salary_min, self.test_data["salary_min"])
+        self.assertNotEqual(self.job_post.salary_max, self.test_data["salary_max"])
+        self.assertNotEqual(self.job_post.salary_bonus_min, self.test_data["salary_bonus_min"])
+        self.assertNotEqual(self.job_post.salary_bonus_max, self.test_data["salary_bonus_max"])
 
         response = self.client.patch(self.url(self.job_post.uid), json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 200)
@@ -991,12 +1004,12 @@ class JobPostUpdateTest(TestCase):
         self.assertNotEqual(str(self.job_post.uid), data["uid"])
         self.assertEqual(data["benefits"], self.test_data["benefits"])
         self.assertEqual(self.job_post.status, "closed")
-        self.assertEqual(data["annual_salary_currency"], self.currency.abbreviation)
-        self.assertEqual(data["annual_bonus_currency"], self.currency.abbreviation)
-        self.assertEqual(data["annual_salary_min"], self.test_data["annual_salary_min"])
-        self.assertEqual(data["annual_salary_max"], self.test_data["annual_salary_max"])
-        self.assertEqual(data["annual_bonus_min"], self.test_data["annual_bonus_min"])
-        self.assertEqual(data["annual_bonus_max"], self.test_data["annual_bonus_max"])
+        self.assertEqual(data["salary_currency"], self.currency.abbreviation)
+        self.assertEqual(data["salary_bonus_currency"], self.currency.abbreviation)
+        self.assertEqual(data["salary_min"], self.test_data["salary_min"])
+        self.assertEqual(data["salary_max"], self.test_data["salary_max"])
+        self.assertEqual(data["salary_bonus_min"], self.test_data["salary_bonus_min"])
+        self.assertEqual(data["salary_bonus_max"], self.test_data["salary_bonus_max"])
 
     def test_update_job_post_to_posted(self):
         self.job_post.update(status=JobStatusType.PAUSED.value, date_posted=timezone.now() - timedelta(days=6))

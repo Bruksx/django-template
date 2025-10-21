@@ -7,6 +7,7 @@ from uuid import UUID
 from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from accounts.schemas.business import BusinessUserListSchema
+from core.enums import SalaryType
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
 from django.db.models import QuerySet, Q, Count
 from django.utils import timezone
@@ -77,8 +78,10 @@ class MutateJobPostSchema(ModelSchema):
     benefits: List[str]
     recruiter: Optional[UUID] = None
     status: Optional[JobStatusType] = None
-    annual_salary_currency: Optional[UUID] = None
-    annual_bonus_currency: Optional[UUID] = None
+    salary_currency: Optional[UUID] = None
+    salary_bonus_currency: Optional[UUID] = None
+    salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
+    salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
 
 
     class Meta:
@@ -94,8 +97,10 @@ class UpdateJobPostSchema(ModelSchema):
     benefits: List[str]
     recruiter: Optional[UUID] = None
     status: Optional[JobStatusType] = None
-    annual_salary_currency: Optional[UUID]
-    annual_bonus_currency: Optional[UUID]
+    salary_currency: Optional[UUID]
+    salary_type: Optional[SalaryType] = None
+    salary_bonus_type: Optional[SalaryType] = None
+    salary_bonus_currency: Optional[UUID]
 
     class Meta:
         model = JobPost
@@ -110,12 +115,14 @@ class MutateJobPostListSchema(ModelSchema):
     recruiter: Optional[BusinessUserListSchema]
     benefits: List[str]
     status: Optional[str]
-    annual_bonus_currency: Optional[GenericNameAndUidSchema]
-    annual_salary_currency: Optional[GenericNameAndUidSchema]
-    annual_salary_min: Optional[float]
-    annual_salary_max: Optional[float]
-    annual_bonus_min: Optional[float]
-    annual_bonus_max: Optional[float]
+    salary_bonus_currency: Optional[GenericNameAndUidSchema]
+    salary_currency: Optional[GenericNameAndUidSchema]
+    salary_min: Optional[float]
+    salary_max: Optional[float]
+    salary_bonus_min: Optional[float]
+    salary_bonus_max: Optional[float]
+    salary_type: Optional[SalaryType] = None
+    salary_bonus_type: Optional[SalaryType] = None
 
     class Meta:
         model = JobPost
@@ -428,12 +435,12 @@ class JobPostDetailSchema(ModelSchema):
     country: GenericNameAndUidSchema | None
     recruiter: Optional[BusinessUserSchema]
     benefits: List[str]
-    annual_salary_min: Optional[float]
-    annual_salary_max: Optional[float]
-    annual_bonus_min: Optional[float]
-    annual_bonus_max: Optional[float]
-    annual_bonus_currency: Optional[str] = None
-    annual_salary_currency: Optional[str] = None
+    salary_min: Optional[float]
+    salary_max: Optional[float]
+    salary_bonus_min: Optional[float]
+    salary_bonus_max: Optional[float]
+    salary_bonus_currency: Optional[str] = None
+    salary_currency: Optional[str] = None
     saved: Optional[bool]
     alert: Optional[bool]
     applied: Optional[bool]
@@ -445,9 +452,9 @@ class JobPostDetailSchema(ModelSchema):
         fields = ["uid",  "postal_code", "status", "share_compensation", "created_at", "date_posted"]
 
     @staticmethod
-    def resolve_annual_bonus_currency(obj):
-        if obj.annual_bonus_currency:
-            return obj.annual_bonus_currency.abbreviation
+    def resolve_salary_bonus_currency(obj):
+        if obj.salary_bonus_currency:
+            return obj.salary_bonus_currency.abbreviation
         return
 
     @staticmethod
@@ -489,9 +496,9 @@ class JobPostDetailSchema(ModelSchema):
         return talent.savedjob_set.filter(job_post=obj).exists()
 
     @staticmethod
-    def resolve_annual_salary_currency(obj):
-        if obj.annual_salary_currency:
-            return obj.annual_salary_currency.abbreviation
+    def resolve_salary_currency(obj):
+        if obj.salary_currency:
+            return obj.salary_currency.abbreviation
         return
 
 class RequiredAttributeSchema(ModelSchema):
@@ -587,12 +594,12 @@ class JobPostListSchema(ModelSchema):
     location: Optional[str] = Field(None, alias="get_country")
     applicants: int
     posted_by: Optional[str]
-    annual_salary_min: Optional[float] = None
-    annual_salary_max: Optional[float] = None
-    annual_bonus_min: Optional[float] = None
-    annual_bonus_max: Optional[float] = None
-    annual_bonus_currency: Optional[str]
-    annual_salary_currency: Optional[str]
+    salary_min: Optional[float] = None
+    salary_max: Optional[float] = None
+    salary_bonus_min: Optional[float] = None
+    salary_bonus_max: Optional[float] = None
+    salary_bonus_currency: Optional[str]
+    salary_currency: Optional[str]
     alert: Optional[bool] = None
     applied: Optional[bool]= None
     saved: Optional[bool] = None
@@ -668,15 +675,15 @@ class JobPostListSchema(ModelSchema):
         return None
 
     @staticmethod
-    def resolve_annual_bonus_currency(obj):
-        if obj.annual_bonus_currency:
-            return obj.annual_bonus_currency.abbreviation
+    def resolve_salary_bonus_currency(obj):
+        if obj.salary_bonus_currency:
+            return obj.salary_bonus_currency.abbreviation
         return
 
     @staticmethod
-    def resolve_annual_salary_currency(obj):
-        if obj.annual_salary_currency:
-            return obj.annual_salary_currency.abbreviation
+    def resolve_salary_currency(obj):
+        if obj.salary_currency:
+            return obj.salary_currency.abbreviation
         return
 
 
@@ -807,12 +814,12 @@ class JobPostFullDetailSchema(ModelSchema):
     workflow_data: List[WorkFlowSchema]
     applicants: int
     job: JobDetailSchema
-    annual_salary_min: Optional[float] = None
-    annual_salary_max: Optional[float] = None
-    annual_bonus_min: Optional[float] = None
-    annual_bonus_max: Optional[float] = None
-    annual_bonus_currency: Optional[str] = None
-    annual_salary_currency: Optional[str] = None
+    salary_min: Optional[float] = None
+    salary_max: Optional[float] = None
+    salary_bonus_min: Optional[float] = None
+    salary_bonus_max: Optional[float] = None
+    salary_bonus_currency: Optional[str] = None
+    salary_currency: Optional[str] = None
     country: Optional[GenericNameAndUidSchema] = None
     recruiter: Optional[BusinessUserSchema]
     posted_by: Optional[BusinessUserSchema]
@@ -863,15 +870,15 @@ class JobPostFullDetailSchema(ModelSchema):
         return talent.jobalert.jobs.filter(id=obj.job_id).exists()
 
     @staticmethod
-    def resolve_annual_bonus_currency(obj):
-        if obj.annual_bonus_currency:
-            return obj.annual_bonus_currency.abbreviation
+    def resolve_salary_bonus_currency(obj):
+        if obj.salary_bonus_currency:
+            return obj.salary_bonus_currency.abbreviation
         return
 
     @staticmethod
-    def resolve_annual_salary_currency(obj):
-        if obj.annual_salary_currency:
-            return obj.annual_salary_currency.abbreviation
+    def resolve_salary_currency(obj):
+        if obj.salary_currency:
+            return obj.salary_currency.abbreviation
         return
 
 

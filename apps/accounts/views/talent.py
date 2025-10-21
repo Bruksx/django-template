@@ -121,6 +121,7 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
     if "gender" in data:
         data["gender"] = data["gender"].value if type(data["gender"]) is not str else data["gender"]
 
+
     if "work_models" in data:
         wm_func = lambda x: x.value if type(x) is not str else x
         if data["work_models"] is not None:
@@ -161,6 +162,14 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
             currently_works = experience.get("currently_works_here", False)
             start_date = experience.get("start_date", None)
             end_date = experience.get("end_date", None)
+            if experience.get("salary_type"):
+                experience["salary_type"] = experience["salary_type"].value if type(experience["salary_type"]) is not str else experience[
+                    "salary_type"]
+
+            if experience.get("salary_bonus_type"):
+                experience["salary_bonus_type"] = experience["salary_bonus_type"].value if type(
+                    experience["salary_bonus_type"]) is not str else experience["salary_bonus_type"]
+
             if not start_date:
                 raise HttpError(400, "Experience start date is required")
             if currently_works is True:

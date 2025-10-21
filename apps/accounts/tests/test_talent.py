@@ -176,13 +176,13 @@ class UpdateTalentProfileTests(TestCase):
             {
               "role": str(self.role.uid),
               "uid": str(self.experience_history.uid),
-              "annual_salary_bonus_currency": str(self.currency.uid),
-              "annual_salary_currency": str(self.currency.uid),
+              "salary_bonus_currency": str(self.currency.uid),
+              "salary_currency": str(self.currency.uid),
               "employment_type": str(self.employment_type.uid),
               "level": str(self.job_level.uid),
               "company": "Acme Corporation",
-              "annual_salary": 120000,
-              "annual_salary_bonus": 15000,
+              "salary": 120000,
+              "salary_bonus": 15000,
               "start_date": "2022-01-15",
               "end_date": "2024-12-31",
               "currently_works_here": False
@@ -245,13 +245,13 @@ class UpdateTalentProfileTests(TestCase):
         self.assertEqual(self.talent.education_set.last().university, "University of California, Los Angeles")
         # Assert experience history (check all fields)
         self.assertEqual(self.talent.experience_set.last().role, self.role)
-        self.assertEqual(self.talent.experience_set.last().annual_salary_bonus_currency, self.currency)
-        self.assertEqual(self.talent.experience_set.last().annual_salary_currency, self.currency)
+        self.assertEqual(self.talent.experience_set.last().salary_bonus_currency, self.currency)
+        self.assertEqual(self.talent.experience_set.last().salary_currency, self.currency)
         self.assertEqual(self.talent.experience_set.last().employment_type, self.employment_type)
         self.assertEqual(self.talent.experience_set.last().level, self.job_level)
         self.assertEqual(self.talent.experience_set.last().company, "Acme Corporation")
-        self.assertEqual(self.talent.experience_set.last().annual_salary, 120000)
-        self.assertEqual(self.talent.experience_set.last().annual_salary_bonus, 15000)
+        self.assertEqual(self.talent.experience_set.last().salary, 120000)
+        self.assertEqual(self.talent.experience_set.last().salary_bonus, 15000)
         self.assertEqual(self.talent.experience_set.last().start_date, date(2022, 1, 15))
         self.assertEqual(self.talent.experience_set.last().end_date, date(2024, 12, 31))
         self.assertFalse(self.talent.experience_set.last().currently_works_here)
@@ -364,10 +364,10 @@ class TalentDashboardTests(TestCase):
             talent=self.talent,
             role=self.role,
             company="TestCompany",
-            annual_salary=700,
-            annual_salary_currency=self.currency,
-            annual_salary_bonus=700,
-            annual_salary_bonus_currency=self.currency,
+            salary=700,
+            salary_currency=self.currency,
+            salary_bonus=700,
+            salary_bonus_currency=self.currency,
             level=self.job_level,
             employment_type=self.employment_type,
             start_date=date(year=2022, month=1, day=1),
@@ -392,9 +392,9 @@ class TalentDashboardTests(TestCase):
             country=self.country,
             province=self.province,
             postal_code="M5V 1T6",  # Replace with actual postal code
-            annual_salary_min=Decimal('80000.00'),  # Use Decimal for money fields
-            annual_salary_max=Decimal('100000.00'),
-            annual_salary_currency=self.currency,
+            salary_min=Decimal('80000.00'),  # Use Decimal for money fields
+            salary_max=Decimal('100000.00'),
+            salary_currency=self.currency,
             recruiter=self.business_user
         )
         job.requiredattribute.update(

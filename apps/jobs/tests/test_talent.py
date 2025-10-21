@@ -110,9 +110,9 @@ class TalentJobListTests(TestCase):
             country=self.country,
             province=self.province,
             postal_code="M5V 1T6",  # Replace with actual postal code
-            annual_salary_min=Decimal('80000.00'),  # Use Decimal for money fields
-            annual_salary_max=Decimal('100000.00'),
-            annual_salary_currency=self.currency,
+            salary_min=Decimal('80000.00'),  # Use Decimal for money fields
+            salary_max=Decimal('100000.00'),
+            salary_currency=self.currency,
             recruiter=self.business_user
         )
 

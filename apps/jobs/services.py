@@ -163,6 +163,14 @@ def create_job_post_service(business_user, job, job_posts_data:list):
             data["status"] = data["status"].value
             if data["status"] == JobStatusType.POSTED.value:
                 data["posted_by"] = business_user
+        if data.get("salary_type"):
+            data["salary_type"] = data["salary_type"].value if type(data["salary_type"]) is not str else \
+                data[
+                    "salary_type"]
+
+        if data.get("salary_bonus_type"):
+            data["salary_bonus_type"] = data["salary_bonus_type"].value if type(
+                data["salary_bonus_type"]) is not str else data["salary_bonus_type"]
 
         job_posts.append(JobPost(**data, job=job))
     if len(job_posts) == 1:
@@ -185,7 +193,14 @@ def update_job_post_service(job_post, business_user, data=None, status=None, rai
         if status == JobStatusType.DRAFT.value and job_post.status != JobStatusType.DRAFT.value:
             # you're trying to prevent editing job posts with applications
             new_job = job_post.copy()
+    if data.get("salary_type"):
+        data["salary_type"] = data["salary_type"].value if type(data["salary_type"]) is not str else \
+        data[
+            "salary_type"]
 
+    if data.get("salary_bonus_type"):
+        data["salary_bonus_type"] = data["salary_bonus_type"].value if type(
+            data["salary_bonus_type"]) is not str else data["salary_bonus_type"]
     if new_job:
         job_post.update(status=JobStatusType.CLOSED.value)
         new_job.update(**data)
