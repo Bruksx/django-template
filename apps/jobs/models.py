@@ -269,7 +269,7 @@ class JobPost(BaseModel):
     postal_code = models.CharField(max_length=20, null=True)
     benefits = models.JSONField(default=list, blank=True)
     share_compensation = models.BooleanField(default=True)
-    salary_type = models.CharField(max_length=50, choices=SalaryType.choices(), default=SalaryType.ANNUALLY)
+    salary_type = models.CharField(max_length=50, choices=SalaryType.choices(), default=SalaryType.ANNUALLY.value)
     salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     salary_currency = models.ForeignKey(
@@ -278,7 +278,7 @@ class JobPost(BaseModel):
         related_name="jobs_posts_with_salary_currency",
         null=True,
     )
-    salary_bonus_type = models.CharField(max_length=50, choices=SalaryType.choices(), default=SalaryType.ANNUALLY)
+    salary_bonus_type = models.CharField(max_length=50, choices=SalaryType.choices(), default=SalaryType.ANNUALLY.value)
     salary_bonus_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     salary_bonus_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
     salary_bonus_currency = models.ForeignKey(
