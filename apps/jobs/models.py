@@ -2,6 +2,7 @@ from functools import cached_property
 
 from accounts.enums import Days
 from accounts.models import Talent, TalentAvailableDay
+from core.enums import SalaryType
 from core.models import BaseModel, Language
 from django.db import models
 from django.db.models import F, Q, Count, IntegerField, When, Case, Value
@@ -268,17 +269,19 @@ class JobPost(BaseModel):
     postal_code = models.CharField(max_length=20, null=True)
     benefits = models.JSONField(default=list, blank=True)
     share_compensation = models.BooleanField(default=True)
-    annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_salary_currency = models.ForeignKey(
+    salary_type = models.CharField(max_length=50, choices=SalaryType.choices(), default=SalaryType.ANNUALLY)
+    salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
+    salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
+    salary_currency = models.ForeignKey(
         "core.Currency", 
         on_delete=models.SET_NULL, 
         related_name="jobs_posts_with_salary_currency",
         null=True,
     )
-    annual_bonus_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_bonus_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_bonus_currency = models.ForeignKey(
+    salary_bonus_type = models.CharField(max_length=50, choices=SalaryType.choices(), default=SalaryType.ANNUALLY)
+    salary_bonus_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
+    salary_bonus_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
+    salary_bonus_currency = models.ForeignKey(
         "core.Currency", 
         on_delete=models.SET_NULL, 
         related_name="jobs_posts_with_bonus_currency",
@@ -316,12 +319,12 @@ class JobPost(BaseModel):
             postal_code=self.postal_code,
             benefits=self.benefits,
             share_compensation=self.share_compensation,
-            annual_salary_min=self.annual_salary_min,
-            annual_salary_max=self.annual_salary_max,
-            annual_salary_currency=self.annual_salary_currency,
-            annual_bonus_min=self.annual_bonus_min,
-            annual_bonus_max=self.annual_bonus_max,
-            annual_bonus_currency=self.annual_bonus_currency,
+            salary_min=self.salary_min,
+            salary_max=self.salary_max,
+            salary_currency=self.salary_currency,
+            salary_bonus_min=self.salary_bonus_min,
+            salary_bonus_max=self.salary_bonus_max,
+            salary_bonus_currency=self.salary_bonus_currency,
             recruiter=self.recruiter,
             posted_by=self.posted_by,
         )

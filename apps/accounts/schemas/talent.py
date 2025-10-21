@@ -9,6 +9,7 @@ from pydantic import Field, EmailStr
 from accounts.enums import GenderType, PreferredCommunicationType, Days, Months, NoticePeriodType
 from accounts.models import (Talent, User, TalentAvailableDay, Education,
                              Experience, Skill, Role)
+from core.enums import SalaryType
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema, \
     EducationLevelSchema, CountrySchema
 from jobs.enums import WorkStructureEnum
@@ -49,8 +50,10 @@ class MutateEducationSchema(ModelSchema):
 class MutateExperienceSchema(ModelSchema):
     role: UUID
     uid: Optional[UUID] = None
-    annual_salary_bonus_currency: UUID
-    annual_salary_currency: UUID
+    salary_bonus_currency: UUID
+    salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
+    salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
+    salary_currency: UUID
     employment_type: UUID
     level: Optional[UUID]
     class Meta:
@@ -61,8 +64,8 @@ class ExperienceSchema(ModelSchema):
     role: Optional[RoleSchema]
     level: Optional[JobLevelSchema]
     employment_type: EmploymentTypeSchema
-    annual_salary_currency: Optional[CurrencySchema]
-    annual_salary_bonus_currency: Optional[CurrencySchema]
+    salary_currency: Optional[CurrencySchema]
+    salary_bonus_currency: Optional[CurrencySchema]
     duration: str
     class Meta:
         model = Experience

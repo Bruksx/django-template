@@ -39,3 +39,16 @@ class BaseEnum(Enum):
             if str(item).lower() == str(value).lower():
                 return item
         return None
+
+
+
+
+
+class SalaryType(BaseEnum):
+    HOURLY = "Hourly"
+    DAILY = "Daily"
+    WEEKLY = "Weekly"
+    BI_WEEKLY = "Bi-Weekly"
+    MONTHLY = "Monthly"
+    BI_MONTHLY = "Bi-Monthly"
+    ANNUALLY = "Annually"
