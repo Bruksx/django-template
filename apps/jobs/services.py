@@ -1,4 +1,4 @@
-from typing import List
+from datetime import timedelta
 from typing import List
 from uuid import UUID
 
@@ -6,7 +6,9 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import QuerySet, Window, F
 from django.db.models.functions import RowNumber
+from django.utils import timezone
 from django.shortcuts import get_object_or_404
+from django_q.tasks import schedule
 from helpers.utils import upload_to_s3, upload_to_server, sort_params_function
 from monkeypatches.q_cluster import async_task
 from ninja.errors import HttpError
@@ -71,15 +73,24 @@ def create_job_application(job_post, talent, data:ApplyToJobSchema):
             answer.options.set(answer_data.options)
         answer.save()
     if application.stage and application.stage.phase != PhaseType.REJECTED.value and application.knockout():
-        reject_application(application, stage, job_post)
+        schedule(
+            reject_application,
+            application,
+            stage,
+            job_post,
+            next_run=timezone.now() + timedelta(minutes=30)
+        )
+        #reject_application(application, stage, job_post)
         return
     send_email_on_stage_update(application=application, business_user_email="1840 GTC")
     return
+
 
 def upload_answer_files_service(files):
     if settings.USE_AWS_S3:
         return upload_to_s3(files, "answers")
     return upload_to_server(files, "answers")
+
 
 def notify_business_on_matched_talents(job):
     posts = job.jobpost_set.all()
