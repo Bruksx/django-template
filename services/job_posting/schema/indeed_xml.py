@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 from xml.etree.ElementTree import Element, SubElement, tostring
 
-
+from apps.core.enums import SalaryType
 from config import settings
 from jobs.enums import WorkStructureEnum, JobStatusType
 from jobs.models import JobPost, Job
@@ -47,16 +47,39 @@ class JobBase:
     billingId: Optional[str] = None
     apijobid: Optional[str] = None
 
+
     @staticmethod
-    def get_salary(job_post: JobPost):
-        currency = job_post.annual_salary_currency
+    def get_indeed_period(salary_type, salary_value):
+
+        period = {
+            SalaryType.HOURLY.value: "hour",
+            SalaryType.DAILY.value: "day",
+            SalaryType.BI_WEEKLY.value: "week",
+            SalaryType.BI_MONTHLY.value: "month",
+            SalaryType.WEEKLY.value: "week",
+            SalaryType.MONTHLY.value: "month",
+            SalaryType.ANNUALLY.value: "year",
+
+        }
+        if salary_type in (SalaryType.BI_WEEKLY.value, SalaryType.BI_MONTHLY.value) and salary_value:
+            if type(salary_value) == tuple:
+                salary_value = map(lambda x: x / 2, salary_value)
+            else:
+                salary_value /= 2
+        if type(salary_value) == tuple:
+            return f"{salary_value[0]}-{salary_value[1]} per {period.get(salary_type, 'mile')}"
+        return f"{salary_value} per {period.get(salary_type, 'mile')}"
+
+    @classmethod
+    def get_salary(cls, job_post: JobPost):
+        currency = job_post.salary_currency
         currency = currency.symbol if currency else "$"
-        if job_post.annual_salary_min and not job_post.annual_salary_max:
-            return f"{currency}{job_post.annual_salary_min} per year"
-        if not job_post.annual_salary_min and job_post.annual_salary_max:
-            return f"{currency}{job_post.annual_salary_max} per year"
-        if job_post.annual_salary_min and job_post.annual_salary_max:
-            return f"{currency}{job_post.annual_salary_min}-{currency}{job_post.annual_salary_max} per year"
+        if job_post.salary_min and not job_post.salary_max:
+            return f"{currency}{cls.get_indeed_period(job_post.salary_type, job_post.salary_min)}"
+        if not job_post.salary_min and job_post.salary_max:
+            return f"{currency}{cls.get_indeed_period(job_post.salary_type, job_post.salary_max)}"
+        if job_post.salary_min and job_post.salary_max:
+            return f"{currency}{cls.get_indeed_period(job_post.salary_type, (job_post.salary_min, job_post.salary_max))}"
         return f"{currency} 0 per year"
 
     @staticmethod

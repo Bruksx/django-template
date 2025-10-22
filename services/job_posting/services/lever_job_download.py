@@ -98,9 +98,9 @@ def create_job(job_data):
                 "recruiter": business_user,
                 "province": province,
                 "city": city,
-                "annual_salary_min": job_data.get("salaryRange", {}).get("min"),
-                "annual_salary_max": job_data.get("salaryRange", {}).get("max"),
-                "annual_salary_currency": currency,
+                "salary_min": job_data.get("salaryRange", {}).get("min"),
+                "salary_max": job_data.get("salaryRange", {}).get("max"),
+                "salary_currency": currency,
                 "share_compensation": False,
             }
         )

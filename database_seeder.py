@@ -139,8 +139,8 @@ def generate_data(password='Pass1234@now', email_recipients=None, talent_amount=
                             country=country,
                             recruiter=staff,
                             job=job,
-                            annual_salary_currency=get_random_data(currencies),
-                            annual_bonus_currency=get_random_data(currencies)
+                            salary_currency=get_random_data(currencies),
+                            salary_bonus_currency=get_random_data(currencies)
                         )
                 question_count = job.screeningquestion_set.all().count()
                 if question_count < question_amount:
@@ -251,7 +251,7 @@ def create_job_posts_in_all_countries(job):
         if JobPost.objects.filter(job=job, country=country).count() < 5:
 
             JobPostFactory.create_batch(5, job=job, recruiter=job.created_by, country=country,
-                                  annual_bonus_currency=dollars, annual_salary_currency=dollars)
+                                  salary_bonus_currency=dollars, salary_currency=dollars)
 
 def create_job_posts():
     jobs = Job.objects.all()
@@ -341,8 +341,8 @@ def generate_data_for_account(email, job_amount=3,
                         country=country,
                         recruiter=business_user,
                         job=job,
-                        annual_salary_currency=get_random_data(currencies),
-                        annual_bonus_currency=get_random_data(currencies)
+                        salary_currency=get_random_data(currencies),
+                        salary_bonus_currency=get_random_data(currencies)
                     )
             question_count = job.screeningquestion_set.all().count()
             if question_count < question_amount:

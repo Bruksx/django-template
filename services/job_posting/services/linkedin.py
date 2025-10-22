@@ -38,41 +38,52 @@ def get_location(job_post):
 		location.add(job_post.country.name if job_post.country else "")
 	return ", ".join(location)
 
+def get_linkedin_period(period):
+	return {
+		"Hourly": "HOURLY",
+		"Daily": "DAILY",
+		"Weekly": "WEEKLY",
+		"Bi-Weekly": "BIWEEKLY",
+		"Monthly": "MONTHLY",
+		"Bi-Monthly": "SEMIMONTHLY",
+		"Annually": "YEARLY"
+	}.get(period, "ONCE")
+
 def get_compensation(job_post)->CompensationsSchema:
 	compensation = CompensationsSchema(compensations=[])
-	if job_post.annual_salary_currency and job_post.annual_salary_min and job_post.annual_salary_max:
+	if job_post.salary_currency and job_post.salary_min and job_post.salary_max:
 		compensation.compensations.append(
 				CompensationSchema(
 					value=RangeValueSchema(
 						start=ValueSchema(
-							amount=str(job_post.annual_salary_min),
-							currencyCode=job_post.annual_salary_currency.abbreviation
+							amount=str(job_post.salary_min),
+							currencyCode=job_post.salary_currency.abbreviation
 						),
 						end=ValueSchema(
-							amount=str(job_post.annual_salary_max),
-							currencyCode=job_post.annual_salary_currency.abbreviation
+							amount=str(job_post.salary_max),
+							currencyCode=job_post.salary_currency.abbreviation
 						)
 					),
 					type="BASE_SALARY",
-					period="YEARLY"
+					period=get_linkedin_period(job_post.salary_type)
 				)
 		)
 
-	if job_post.annual_bonus_currency and job_post.annual_bonus_min and job_post.annual_bonus_max:
+	if job_post.salary_bonus_currency and job_post.salary_bonus_min and job_post.salary_bonus_max:
 		compensation.compensations.append(
 				CompensationSchema(
 					value=RangeValueSchema(
 						start=ValueSchema(
-							amount=str(job_post.annual_bonus_min),
-							currencyCode=job_post.annual_bonus_currency.abbreviation
+							amount=str(job_post.salary_bonus_min),
+							currencyCode=job_post.salary_bonus_currency.abbreviation
 						),
 						end=ValueSchema(
-							amount=str(job_post.annual_bonus_max),
-							currencyCode=job_post.annual_bonus_currency.abbreviation
+							amount=str(job_post.salary_bonus_max),
+							currencyCode=job_post.salary_bonus_currency.abbreviation
 						)
 					),
 					type="BONUS",
-					period="YEARLY"
+					period=get_linkedin_period(job_post.salary_bonus_type)
 				))
 		return compensation
 

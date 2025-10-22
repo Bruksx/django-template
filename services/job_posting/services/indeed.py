@@ -6,6 +6,8 @@ from jobs.models import JobPost, Job
 
 from jobs.enums import QuestionTypeEnum
 from jobs.models import ScreeningQuestion
+
+from core.enums import SalaryType
 from services.job_posting.indeed import CLIENT_ID
 from services.job_posting.schema.indeed import WidgetScreenerSchema, ScreenerQuestions, ScreenerQuestion, \
     TextareaQuestion, FileQuestion, MultiselectQuestion, SelectQuestion, Option
@@ -48,6 +50,33 @@ def get_job_type(job_post: JobPost):
         return ["75GKK"]
     return ["VDTG7"]
 
+def get_salary(currency, salary_type, salary_value):
+
+    period = {
+        SalaryType.HOURLY.value: "hour",
+        SalaryType.DAILY.value: "day",
+        SalaryType.BI_WEEKLY.value: "week",
+        SalaryType.BI_MONTHLY.value: "month",
+        SalaryType.WEEKLY.value: "week",
+        SalaryType.MONTHLY.value: "month",
+        SalaryType.ANNUALLY.value: "year",
+
+    }
+    if salary_type in (SalaryType.BI_WEEKLY.value, SalaryType.BI_MONTHLY.value) and salary_value:
+        if type(salary_value) == tuple:
+            salary_value = map(lambda x: x / 2, salary_value)
+        else:
+            salary_value /= 2
+    if type(salary_value) != tuple:
+        salary_value = (salary_value, salary_value)
+    return {
+        "currency": currency,
+        "maximumMinor": salary_value[1],
+        "minimumMinor": salary_value[0],
+        "period": period.get(salary_type, 'mile').upper()
+
+    }
+
 
 def convert_job_object_to_job(job_post:JobPost):
     job:Job = job_post.job
@@ -62,12 +91,7 @@ def convert_job_object_to_job(job_post:JobPost):
                 "cityRegionPostal": f"{job_post.get_province()} {job_post.postal_code}"
             },
             "benefits": job_post.benefits,
-            "salary": {
-              "currency": job_post.annual_salary_currency.abbreviation,
-              "maximumMinor": job_post.annual_salary_max,
-              "minimumMinor": job_post.annual_salary_min,
-              "period": "MONTH"
-            },
+            "salary": get_salary(job_post.salary_currency.abbreviation, job_post.salary_type, (job_post.salary_min, job_post.salary_max)),
             "hasProbationaryPeriod": "UNKNOWN"
         },
         "metadata": {
