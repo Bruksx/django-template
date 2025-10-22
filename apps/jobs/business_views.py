@@ -359,10 +359,7 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
                 raise HttpError(400, f"{day} already exists")
             AvailableDay.objects.create(**available_day, job=job)
 
-
-    for job_post in job_posts:
-        job_post["status"] = job_post["status"].value if job_post.get("status") else JobStatusType.DRAFT.value
-        JobPost.objects.create(job=job, **job_post)
+    create_job_post_service(business_user, job, job_posts)
     for question in screening_questions:
         question["type"] = question["type"].value
         options = question.pop("options")
