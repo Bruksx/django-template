@@ -49,14 +49,14 @@ class JobBase:
 
     @staticmethod
     def get_salary(job_post: JobPost):
-        currency = job_post.annual_salary_currency
+        currency = job_post.salary_currency
         currency = currency.symbol if currency else "$"
-        if job_post.annual_salary_min and not job_post.annual_salary_max:
-            return f"{currency}{job_post.annual_salary_min} per year"
-        if not job_post.annual_salary_min and job_post.annual_salary_max:
-            return f"{currency}{job_post.annual_salary_max} per year"
-        if job_post.annual_salary_min and job_post.annual_salary_max:
-            return f"{currency}{job_post.annual_salary_min}-{currency}{job_post.annual_salary_max} per year"
+        if job_post.salary_min and not job_post.salary_max:
+            return f"{currency}{job_post.salary_min} per year" # todo: create a matcher for salary type
+        if not job_post.salary_min and job_post.salary_max:
+            return f"{currency}{job_post.salary_max} per year"
+        if job_post.salary_min and job_post.salary_max:
+            return f"{currency}{job_post.salary_min}-{currency}{job_post.salary_max} per year"
         return f"{currency} 0 per year"
 
     @staticmethod

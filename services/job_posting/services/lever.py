@@ -21,7 +21,7 @@ TRIGGER_FIELDS = {
     TriggerType.BUSINESS: ("website",),
     TriggerType.JOB: ("title", "department", "about", "responsibilities", "work_structure",
                   "employment_type"),
-    TriggerType.JOB_POST: ("country", "annual_salary_max", "annual_salary_min", "annual_salary_currency",
+    TriggerType.JOB_POST: ("country", "salary_max", "salary_min", "salary_currency",
                        "benefits", "status")
 }
 
@@ -158,10 +158,10 @@ def create_job_post(job_post:JobPost):
           ],
           "salaryDescriptionHtml": "<p>This is a salary description.</p>",
           "salaryRange": {
-            "max": job_post.annual_salary_max,
-            "min": job_post.annual_bonus_min,
-            "currency": job_post.annual_salary_currency.name,
-            "interval": "per-year-salary"
+            "max": job_post.salary_max,
+            "min": job_post.salary_bonus_min,
+            "currency": job_post.salary_currency.name,
+            "interval": "per-year-salary" #todo : create a matcher for this
           },
           "state": handle_job_stage(job_post),
           "tags": [
@@ -219,10 +219,10 @@ def update_job_post(job_post):
         ],
         "salaryDescriptionHtml": "<p>This is a salary description.</p>",
         "salaryRange": {
-            "max": job_post.annual_salary_max,
-            "min": job_post.annual_salary_min,
-            "currency": job_post.annual_salary_currency.name,
-            "interval": "per-year-salary"
+            "max": job_post.salary_max,
+            "min": job_post.salary_min,
+            "currency": job_post.salary_currency.name,
+            "interval": "per-year-salary" #todo: create a matcher for this
         },
         "state": handle_job_stage(job_post),
         "tags": [

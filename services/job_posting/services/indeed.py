@@ -63,10 +63,10 @@ def convert_job_object_to_job(job_post:JobPost):
             },
             "benefits": job_post.benefits,
             "salary": {
-              "currency": job_post.annual_salary_currency.abbreviation,
-              "maximumMinor": job_post.annual_salary_max,
-              "minimumMinor": job_post.annual_salary_min,
-              "period": "MONTH"
+              "currency": job_post.salary_currency.abbreviation,
+              "maximumMinor": job_post.salary_max,
+              "minimumMinor": job_post.salary_min,
+              "period": "MONTH"        #todo: add period matcher
             },
             "hasProbationaryPeriod": "UNKNOWN"
         },
