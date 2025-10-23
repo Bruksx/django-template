@@ -22,7 +22,7 @@ from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser
 from accounts.schemas.talent import SkillSchema
 from chats.schemas import ResponseSchema
 from notification.notifications import send_talents_job_matching_notification
-from paginations import CustomPageNumberPaginationExtra
+from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
@@ -37,12 +37,13 @@ from .schemas import (
     EmploymentTypeSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
-    TalentJobFilterQuerySchema, EmploymentParentTypeSchema
+    TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2
 )
 from .queries import add_application_match_score, add_job_post_annotations
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, send_email_on_stage_update, create_job_post_service, \
-    bulk_job_posts_service, validate_screening_questions, update_screening_question_options
+    bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
+    get_talents_by_job_posts_service
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -281,24 +282,20 @@ def get_job_post_detail(request, job_post_uid):
     return job_post
 
 @router.get("job-posts/{job_post_uid}/talents", response=list[TalentListJobPostSchema], auth=JWTAuth())
+def get_talent_list_by_job_post(request, job_post_uid: UUID, search: str=None):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    job_post = JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business_user.business).first()
+    return get_talents_by_job_posts_service(request, job_post, search)
+
+
+@router.get("job-posts/{job_post_uid}/paginated-talents", response=CustomPaginatedResponseSchema[TalentListJobPostSchema2], auth=JWTAuth())
+@paginate(CustomPageNumberPaginationExtra, page_size=50)
 def get_talents_by_job_post(request, job_post_uid: UUID, search: str=None):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     job_post = JobPost.objects.filter(uid=job_post_uid, job__created_by__business=business_user.business).first()
-    if not job_post:
-        raise HttpError(404, "Job Post not found")
-    request.context = dict(job_post=job_post)
-
-    query = Q()
-    if search:
-        q = Q()
-        for s in search.split(" "):
-            if s:
-                q = q | Q(user__fullname__icontains=s) | Q(user__email__icontains=s)
-        query = query & q
-    talents = job_post.get_talents()
-    send_talents_job_matching_notification(talents.count(), job_post)
-    return talents.filter(query).order_by("-user__last_login")
+    return get_talents_by_job_posts_service(request, job_post, search)
 
 @router.post("", response=JobDetailSchema, auth=JWTAuth())
 @transaction.atomic
