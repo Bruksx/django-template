@@ -46,7 +46,7 @@ def reject_application(application, previous_stage, job_post=None):
         created_by__business=job_post.job.created_by.business
     ).order_by("order").first()
     application.update(stage=rejected_stage)
-    send_email_on_stage_update(application=application, previous_stage=previous_stage, business_user_email="1840 GTC")
+    send_email_on_stage_update(application=application, previous_stage=previous_stage)
 
 @transaction.atomic
 def create_job_application(job_post, talent, data:ApplyToJobSchema):
@@ -73,7 +73,7 @@ def create_job_application(job_post, talent, data:ApplyToJobSchema):
     if application.stage and application.stage.phase != PhaseType.REJECTED.value and application.knockout():
         reject_application(application, stage, job_post)
         return
-    send_email_on_stage_update(application=application, business_user_email="1840 GTC")
+    send_email_on_stage_update(application=application)
     return
 
 def upload_answer_files_service(files):
@@ -220,7 +220,13 @@ def update_bulk__job_posts_service(business_user, job_posts_id, action):
         update_job_post_service(job_post, business_user, status=action.value)
 
 
-def send_email_on_stage_update(application:JobApplication, business_user_email, previous_stage=None):
+def send_email_on_stage_update(application:JobApplication, business_user=None, previous_stage=None):
+    if not business_user:
+        business_user = application.recruiter
+    if business_user:
+        business_user_email = business_user.user.email
+    else:
+        business_user_email = "1840 GTC"
     if not business_user_email:
         return
     if not application:
@@ -232,7 +238,7 @@ def send_email_on_stage_update(application:JobApplication, business_user_email, 
     if not application.stage.email_template:
         return
     # retrieve email context, it should be a dictionary
-    context = application.get_email_context()
+    context = application.get_email_context(external_recruiter=business_user)
 
     application.stage.email_template.send_email(
         context=context,

@@ -704,11 +704,12 @@ class JobApplication(BaseModel):
             return
         return self.applicant.country.name
 
-    def placeholders_mapper(self, placeholder:str):
+    def placeholders_mapper(self, placeholder:str, external_recruiter=None):
+        recruiter = self.recruiter if not external_recruiter else external_recruiter
         if placeholder == PlaceHolderType.YOUR_COMPANY_NAME.value:
-            if not self.recruiter:
+            if not recruiter:
                 return ""
-            return self.recruiter.business.name
+            return recruiter.business.name
         elif placeholder == PlaceHolderType.CANDIDATE_FULLNAME.value:
             if not self.applicant:
                 return ""
@@ -722,9 +723,9 @@ class JobApplication(BaseModel):
                 return ""
             return self.applicant.user.first_name
         elif placeholder == PlaceHolderType.YOUR_FIRST_NAME.value:
-            if not self.recruiter:
+            if not recruiter:
                 return ""
-            return self.recruiter.user.first_name
+            return recruiter.user.first_name
         elif placeholder == PlaceHolderType.CANDIDATE_PHONE_NUMBER.value:
             if not self.applicant:
                 return ""
@@ -735,7 +736,7 @@ class JobApplication(BaseModel):
     def invited(self):
         return JobInvite.objects.filter(job=self.job_post.job, talent=self.applicant).exists()
 
-    def get_email_context(self)->dict:
+    def get_email_context(self, external_recruiter=None)->dict:
         if not self.stage:
             return dict()
         if not self.stage.email_template:
@@ -747,7 +748,7 @@ class JobApplication(BaseModel):
         key_converter = self.stage.email_template.convert_placeholder_to_key
 
         # lets create a dictionary where the key is the placeholder and the value is the value retrieved from the placeholders_mapper function
-        return {key_converter(placeholder):self.placeholders_mapper(placeholder) for placeholder in stage_placeholders}
+        return {key_converter(placeholder):self.placeholders_mapper(placeholder, external_recruiter) for placeholder in stage_placeholders}
 
     def knockout(self):
         if not ScreeningQuestion.objects.filter(job=self.job_post.job, is_knockout=True).exists():
