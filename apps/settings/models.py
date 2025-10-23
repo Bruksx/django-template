@@ -7,7 +7,8 @@ from django.db.models import Q, Avg
 
 from core.models import BaseModel
 from django.db import models
-from django.template import Template, Context, TemplateSyntaxError
+from settings.patch import CustomHTMLTemplate as Template
+from django.template import Context, TemplateSyntaxError
 from django_q.models import Schedule
 from jobs.enums import PhaseType
 
