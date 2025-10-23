@@ -1,14 +1,9 @@
-import os
 from datetime import timedelta
 
-from django.core.files import File
-from django.template import Template
 from django.test import TestCase
 from django_q.models import Schedule
-
 from factories import EmailTemplateFactory, WorkflowStageFactory, JobApplicationFactory
 from jobs.enums import PhaseType
-from settings.models import EmailTemplateAttachment
 
 
 class EmailTemplateModelTest(TestCase):
