@@ -24,7 +24,7 @@ def send_shared_job_email(job_post, emails: List[str]=None, lang="en"):
 	if not emails:
 		return
 	html = f'jobs/{lang}/share_job.html'
-	frontend_job_url = f"{settings.FRONTEND_URL}/job-details/"
+	frontend_job_url = f"{settings.FRONTEND_URL}job-details/"
 	context = {
 		'talent': "User",
 		'company_logo': job_post.job.logo_url(),
