@@ -31,8 +31,8 @@ def send_shared_job_email(job_post, emails: List[str]=None, lang="en"):
 		'job_link': f"{frontend_job_url}/{job_post.job.uid}",
 		'job_title': job_post.job.get_title,
 		'company': job_post.job.hiring_company(),
-		'location': job_post.country.name,
-		"structure": job_post.job.work_structure
+		'location': job_post.get_location(),
+		"structure": job_post.job.get_work_structure()
 	}
 	html_content  = render_html_email(html, context)
 	send_email(subject='Shared Job Post', emails=emails, html_body=html_content)

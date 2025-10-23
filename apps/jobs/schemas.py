@@ -20,7 +20,7 @@ from settings.models import WorkFlowStage
 
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType
-from .models import BusinessModel, JobApplication, Answer
+from .models import BusinessModel, JobApplication, Answer, JobInvite
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
 from .models import (
     RequiredAttribute
@@ -1480,6 +1480,13 @@ class InviteToApplySchema(Schema):
     talents: List[UUID]
     jobs: List[UUID]
 
+class MicroApplicationSchema(ModelSchema):
+    stage: Optional[StageSchema]
+
+    class Meta:
+        model = JobApplication
+        fields = ("uid",)
+
 class TalentListJobPostSchema(ModelSchema):
     first_name: str = Field(alias="user.first_name")
     last_name: str = Field(alias="user.last_name")
@@ -1490,10 +1497,25 @@ class TalentListJobPostSchema(ModelSchema):
     photo_url: Optional[str]
     cv_url: Optional[str]
     match_score: Optional[int]
+    invited: bool
+    application: Optional[MicroApplicationSchema]
 
     class Meta:
         model = Talent
         fields = ("uid",)
+
+
+    @staticmethod
+    def resolve_invited(obj, context)->bool:
+        request = context.get("request")
+        job_post = request.context.get("job_post")
+        return JobInvite.objects.filter(job=job_post.job, talent=obj).exists()
+
+    @staticmethod
+    def resolve_application(obj, context):
+        request = context.get("request")
+        job_post = request.context.get("job_post")
+        return JobApplication.objects.filter(job_post=job_post, applicant=obj).first()
 
     @staticmethod
     def resolve_match_score(obj, context)->Optional[int]:

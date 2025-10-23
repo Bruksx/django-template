@@ -115,6 +115,11 @@ class Job(BaseModel):
             return "" if not self.title else self.title
         return self.role.name
 
+    def get_work_structure(self):
+        if not self.work_structure:
+            return ""
+        return str(self.work_structure).title()
+
 
 
     def get_availability(self, schema, query=None):
@@ -328,6 +333,16 @@ class JobPost(BaseModel):
             recruiter=self.recruiter,
             posted_by=self.posted_by,
         )
+
+    def get_location(self):
+        data = list()
+        if self.city:
+            data.append(self.city.name)
+        if self.province:
+            data.append(self.province.name)
+        if self.country:
+            data.append(self.country.name)
+        return ", ".join(data)
 
 
 
