@@ -28,7 +28,7 @@ def send_shared_job_email(job_post, emails: List[str]=None, lang="en"):
 	context = {
 		'talent': "User",
 		'company_logo': job_post.job.logo_url(),
-		'job_link': f"{frontend_job_url}/{job_post.job.uid}",
+		'job_link': f"{frontend_job_url}/{job_post.uid}",
 		'job_title': job_post.job.get_title,
 		'company': job_post.job.hiring_company(),
 		'location': job_post.get_location(),
