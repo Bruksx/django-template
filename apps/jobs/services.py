@@ -4,7 +4,7 @@ from uuid import UUID
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import QuerySet, Window, F
+from django.db.models import QuerySet, Window, F, Q
 from django.db.models.functions import RowNumber
 from django.shortcuts import get_object_or_404
 from helpers.utils import upload_to_s3, upload_to_server, sort_params_function
@@ -299,3 +299,19 @@ def update_screening_question_options(question, data:List[MutateOptionSchema]):
         else:
             question.questionoption_set.filter(uid=option.uid).update(**option.dict())
     return question, None
+
+def get_talents_by_job_posts_service(request, job_post, search):
+    if not job_post:
+        raise HttpError(404, "Job Post not found")
+    request.context = dict(job_post=job_post)
+
+    query = Q()
+    if search:
+        q = Q()
+        for s in search.split(" "):
+            if s:
+                q = q | Q(user__fullname__icontains=s) | Q(user__email__icontains=s)
+        query = query & q
+    talents = job_post.get_talents()
+    send_talents_job_matching_notification(talents.count(), job_post)
+    return talents.filter(query).order_by("-user__last_login")

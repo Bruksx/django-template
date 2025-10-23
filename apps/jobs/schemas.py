@@ -1497,16 +1497,24 @@ class TalentListJobPostSchema(ModelSchema):
     photo_url: Optional[str]
     cv_url: Optional[str]
     match_score: Optional[int]
-    invited: bool
-    application: Optional[MicroApplicationSchema]
 
     class Meta:
         model = Talent
         fields = ("uid",)
 
+    @staticmethod
+    def resolve_match_score(obj, context)->Optional[int]:
+        request = context.get("request")
+        job_post = request.context.get("job_post")
+        score = obj.job_match_score(job_post)
+        return score
+
+class TalentListJobPostSchema2(TalentListJobPostSchema):
+    invited: bool
+    application: Optional[MicroApplicationSchema]
 
     @staticmethod
-    def resolve_invited(obj, context)->bool:
+    def resolve_invited(obj, context) -> bool:
         request = context.get("request")
         job_post = request.context.get("job_post")
         return JobInvite.objects.filter(job=job_post.job, talent=obj).exists()
@@ -1517,12 +1525,6 @@ class TalentListJobPostSchema(ModelSchema):
         job_post = request.context.get("job_post")
         return JobApplication.objects.filter(job_post=job_post, applicant=obj).first()
 
-    @staticmethod
-    def resolve_match_score(obj, context)->Optional[int]:
-        request = context.get("request")
-        job_post = request.context.get("job_post")
-        score = obj.job_match_score(job_post)
-        return score
 
 class UpdateApplicationSchema(ModelSchema):
     class Meta:
