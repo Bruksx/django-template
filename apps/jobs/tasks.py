@@ -37,6 +37,8 @@ def send_shared_job_chat(
             chat.save()
         for job_uid in job_ids:
             job_post = JobPost.objects.select_related("job", "job__role").filter(job__uid=job_uid).first()
+            if not job_post:
+                continue
             if not chat.message_set.filter(job_post=job_post).exists():
                 role = f"{job_post.job.role.name} role" if job_post.job.role else job_post.job.title
                 text = f"Hi {talent.user.fullname}, I think that you would be a great match for this {role}! Click the button below to View Job and Apply."
