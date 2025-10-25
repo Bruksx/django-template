@@ -40,6 +40,7 @@ DEBUG = True if os.environ['DEBUG'].lower() == "true" else False
 
 ALLOWED_HOSTS = [
     "gtc-staging.1840andco.com",
+    "gtc-production.1840andco.com",
     "127.0.0.1",
 ]
 
@@ -246,6 +247,10 @@ FACEBOOK_APP_SECRET_WEB = os.environ["FACEBOOK_APP_SECRET_WEB"]
 FACEBOOK_APP_ID_IOS = os.environ["FACEBOOK_APP_ID_IOS"]
 FACEBOOK_APP_SECRET_IOS = os.environ["FACEBOOK_APP_SECRET_IOS"]
 
+
+REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
+
 Q_CLUSTER = {
     'name': 'DjangoQCluster',
     'workers': 4,
@@ -258,13 +263,12 @@ Q_CLUSTER = {
     # 'orm': 'default',  # Use Django ORM as a fallback for result persistence
     # 'broker': "amqp://guest:guest@localhost:5672/",
     'redis': {
-        'host': 'localhost',
-        'port': 6379,
+        'host': REDIS_HOST,
+        'port': REDIS_PORT,
         'db': 3,
     }
 }
-REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
-REDIS_PORT = int(os.environ.get("REDIS_PORT", "6379"))
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
