@@ -1,14 +1,41 @@
 {% extends "all_template.html" %}
+{% load static %}
 
 {% block content %}
+    <div
+      style="
+        width: 100%;
+        text-align: center;
+        max-width: 41.25rem;
+        margin: auto;
+        padding: 1rem 1.44rem 5rem;
+        color: #013832;
+      "
+    >
+      <img src="{% static 'img/invite/email-fly.png' %}"/>
+      <p>
+        You’ve been invited to join <strong>{{company}}</strong> on the 1840
+        Global Talent Cloud, a centralized platform designed to streamline the
+        way we connect, collaborate, and manage talent globally.
+      </p>
 
-    <p>Dear {{user}},</p>
+      <p>Click the link below to activate your account and get started!</p>
 
-    <p>You have been invited to join {{company}}. Please click on the link below to accept the invitation.</p>
+      <a
+        style="
+          display: inline-block;
+          border-radius: 0.25rem;
+          padding: 0.875rem 2rem;
+          color: white;
+          font-size: 1.125rem;
+          background-color: #266b5b;
+          text-decoration: none;
+          font-weight: 500;
+        "
+        href="{{ link }}"
+        >Accept Invite</a
+      >
+    </div>
 
-    <a href="{{frontend_url}}/accounts/accept-invitation/{{code}}">{{frontend_url}}/accounts/accept-invitation/{{code}}</a>
-
-    <p>Best Regards,</p>
-    <p>{{company}}</p>
 
 {% endblock %}

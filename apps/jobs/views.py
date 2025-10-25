@@ -1,12 +1,13 @@
-from typing import List, Literal
+from typing import List, Literal, Union
 from uuid import UUID
 
 from config.permissions import IsTalentUser, IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
+from helpers.utils import delete_s3_item
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
-from ninja import Router, PatchDict, UploadedFile
+from ninja import Router, UploadedFile
 from ninja.errors import HttpError
 from ninja.params import Query
 from ninja_extra.pagination import paginate
@@ -15,12 +16,15 @@ from ninja_jwt.authentication import JWTAuth
 from accounts.models import Talent
 from jobs import tasks
 from jobs.enums import JobStatusType, PhaseType
-from jobs.models import JobFilter, JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert
-from jobs.schemas import TalentJobPostListSchema, TalentJobFilterSchema, MutateTalentJobFilterSchema, \
-    TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, AppliedTalentJobPostListSchema, ApplyToJobSchema, \
-    ShareJobViaEmailSchema, ShareJobViaChatSchema, JobPostFilterSchema, TalentQuestionSchema
+from jobs.models import (
+    JobApplication, JobPost, JobApplicationWithdrawal, SavedJob, JobAlert
+)
+from jobs.queries import add_job_post_annotations
+from jobs.schemas import TalentJobPostListSchema, TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, \
+    ApplyToJobSchema, \
+    ShareJobViaEmailSchema, ShareJobViaChatSchema, TalentQuestionSchema, TalentJobFilterQuerySchema, InviteToApplySchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service, \
-    order_job_posts, get_screening_questions_service
+    get_screening_questions_service
 from notification import notifications
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
@@ -29,100 +33,58 @@ router = Router()
 
 @router.get("talent/job-recommendations", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def logged_in_talent_job_recommendations(request, filters:JobPostFilterSchema = Query(...)):
+def logged_in_talent_job_recommendations(request, search:str=""):
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = {"talent": talent}
-    queryset = get_talent_job_recommendations(talent, filters.search)
-    if filters.sort_by:
-        sorts = filters.sort_by.split(",")
-        return order_job_posts(sorts, queryset)
-    return queryset
+    return get_talent_job_recommendations(talent, search=search)
+
 
 @router.get("talents/{talent_uid}/job-recommendations", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def talent_job_recommendations(request, talent_uid:UUID, filters:JobPostFilterSchema = Query(...)):
+def talent_job_recommendations(request, talent_uid:UUID, search:str=""):
     IsBusinessUser.check(request)
+    business = request.user.businessuser.business
     talent = Talent.objects.filter(uid=talent_uid).first()
     if not talent:
         raise HttpError(404, "Talent not found")
     request.context = {"talent": talent}
-    queryset = get_talent_job_recommendations(talent, filters.search)
-    if filters.sort_by:
-        sorts = filters.sort_by.split(",")
-        return order_job_posts(sorts, queryset)
-    return queryset
+    return get_talent_job_recommendations(talent, business=business, search=search, distinct=True)
+
 
 @router.get("talent/saved-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def talent_saved_jobs(request, filters:JobPostFilterSchema = Query(...)):
+def talent_saved_jobs(request, search:str=""):
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = {"talent": talent}
     queryset = talent.saved_jobs()
-    if filters.search:
-        queryset = queryset.filter(job__title__icontains=filters.search)
-    if hasattr(talent, "jobfilter"):
-           queryset = talent.jobfilter.get_queryset(queryset)
-    if filters.sort_by:
-        sorts = filters.sort_by.split(",")
-        return order_job_posts(sorts, queryset)
+    if search:
+        queryset = queryset.filter(job__role__name__icontains=search)
     return queryset.order_by("-savedjob__created_at")
 
 @router.get("talent/job-posts", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def job_posts_by_talent_country(request, filters:JobPostFilterSchema = Query(...)):
+def job_posts_for_talent(request, filters:TalentJobFilterQuerySchema = Query(...)):
+    filters = filters.convert_to_schema()
     IsTalentUser.check(request)
-    talent = request.user.talent
+    talent: Talent = request.user.talent
     request.context = {"talent": talent}
-    queryset = JobPost.objects.filter(country=talent.country, status=JobStatusType.POSTED.value)
-    if filters.search:
-        queryset = queryset.filter(Q(job__title__icontains=filters.search)|Q(job__role__name__icontains=filters.search))
-    if hasattr(talent, "jobfilter"):
-        queryset = talent.jobfilter.get_queryset(queryset)
-    if filters.sort_by:
-        sorts = filters.sort_by.split(",")
-        return order_job_posts(sorts, queryset)
-    return queryset.order_by("-created_at")
+    queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(status=JobStatusType.POSTED.value)
+    queryset = add_job_post_annotations(queryset, talent)
+    return filters.get_queryset(talent=talent, queryset=queryset)
 
-@router.get("talent/applied-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[AppliedTalentJobPostListSchema], tags=["Talent Dashboard"])
+
+@router.get("talent/applied-jobs", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def talent_applied_jobs(request, filters: JobPostFilterSchema = Query(...)):
+def talent_applied_jobs(request, search:str=""):
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = {"talent": talent}
     queryset = talent.applied_jobs()
-    if filters.search:
-        queryset = queryset.filter(job__title__icontains=filters.search)
-    if hasattr(talent, "jobfilter"):
-        queryset = talent.jobfilter.get_queryset(queryset)
-    if filters.sort_by:
-        sorts = filters.sort_by.split(",")
-        return order_job_posts(sorts, queryset)
+    if search:
+        queryset = queryset.filter(Q(job__role__name__icontains=search))
     return queryset.order_by("-jobapplication__created_at")
-
-
-@router.patch("talent/job-filter", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentJobFilterSchema)
-def update_talent_job_filter(request, data: PatchDict[MutateTalentJobFilterSchema]):
-    IsTalentUser.check(request)
-    talent = request.user.talent
-    if "location_type" in data and data.get("location_type"):
-        data["location_type"] = data["location_type"].value
-    if not hasattr(talent, "jobfilter"):
-        JobFilter.objects.create(talent=talent, **data)
-    else:
-        talent.jobfilter.update(**data)
-    talent.refresh_from_db()
-    return talent.jobfilter
-
-@router.get("talent/job-filter", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentJobFilterSchema)
-def get_talent_job_filter(request):
-    IsTalentUser.check(request)
-    talent = request.user.talent
-    if not hasattr(talent, "jobfilter"):
-        JobFilter.objects.create(talent=talent)
-    return talent.jobfilter
-
 
 @router.post("talent/job-posts/{job_post_id}/apply", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 @transaction.atomic
@@ -139,11 +101,18 @@ def apply_to_job_post(request, job_post_id:UUID, data: ApplyToJobSchema):
     create_job_application(job_post=job_post, talent=talent, data=data)
     return Response(status=200, data={"message": "Applied successfully"})
 
-@router.post("talent/job-posts/answer-files", response={200: None}, tags=["Talent Jobs"])
-def upload_answer_files(request, files:List[UploadedFile]):
-    # IsTalentUser.check(request)
-    file_urls = upload_answer_files_service(files=files)
+@router.post("talent/job-posts/answer-files", response={200: Union[List[str]|str]}, auth=JWTAuth(), tags=["Talent Jobs"])
+def upload_answer_file(request, file:UploadedFile):
+    IsTalentUser.check(request)
+    file_urls = upload_answer_files_service(files=[file])
     return Response(status=200, data=dict(message="Files uploaded successfully", data=file_urls))
+
+@router.delete("talent/job-posts/answer-files", response={204: None}, auth=JWTAuth(), tags=["Talent Jobs"])
+def delete_answer_files(request, data:List[str]):
+    IsTalentUser.check(request)
+    for file_url in data:
+        async_task(delete_s3_item, file_url)
+    return Response(status=204, data=dict(message="Files deleted successfully"))
 
 
 
@@ -154,7 +123,8 @@ def view_job_post(request, job_post_id:UUID):
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = dict(talent=talent)
-    job_post:JobPost = JobPost.objects.filter(uid=job_post_id).first()
+    job_post:JobPost = JobPost.objects.filter(uid=job_post_id)
+    job_post = add_job_post_annotations(job_post, talent).first()
     if not job_post:
         raise HttpError(404, "Job post not found")
     job_post.view()
@@ -192,8 +162,8 @@ def withdraw_job_applications(request, application_id:UUID, data: TalentJobAppli
     application = JobApplication.objects.filter(uid=application_id).first()
     if not application:
         raise HttpError(404, "Application not found")
-    if application.stage  and application.stage.phase != PhaseType.NEW.value:
-        raise HttpError(400, "The application has progressed to next stage and cannot be withdrawn")
+    if application.stage  and application.stage.phase ==  PhaseType.REJECTED.value:
+        raise HttpError(400, "Withdrawal is not allowed")
     feedback_type = JobApplicationWithdrawal.feedback_type_to_number(data.feedback_type)
     JobApplicationWithdrawal.objects.create(job_post=application.job_post,
                                             talent=user.talent, feedback_type=feedback_type, feedback=data.feedback)
@@ -211,6 +181,19 @@ def share_jobs_via_email(request, data: ShareJobViaEmailSchema):
         job_ids=data.jobs, emails=data.emails
     )
     return Response(status=200, data={"message": "Shared successfully"})
+
+@router.post("talent/invite-to-apply", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
+@transaction.atomic
+def invite_to_apply(request, data: InviteToApplySchema):
+    IsBusinessUser.check(request)
+    if not data.talents:
+        raise HttpError(400, "No talents selected")
+    if not data.jobs:
+        raise HttpError(400, "No jobs selected")
+    async_task(tasks.invite_to_apply,
+        job_ids=data.jobs, talents=data.talents, sender_id=request.user.id)
+    return Response(status=200, data={"message": "Invited successfully"})
+
 
 @router.post("share/via-chat", auth=JWTAuth(), response={200: None}, tags=["Talent Jobs"])
 @transaction.atomic
@@ -279,3 +262,4 @@ def set_job_alert(request, job_post_id:UUID, action: Literal["on", "off"]):
 def get_screening_questions(request, job_uid: UUID):
     IsTalentUser.check(request)
     return get_screening_questions_service(request, job_uid)
+

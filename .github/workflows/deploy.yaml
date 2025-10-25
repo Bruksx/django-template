@@ -1,4 +1,4 @@
-name: Test
+name: Deploy
 on:
   push:
     branches:
@@ -22,6 +22,12 @@ env:
   AWS_EC2_STAGING_PRIVATE_KEY: ${{secrets.AWS_EC2_STAGING_PRIVATE_KEY}}
   AWS_EC2_USER_NAME: ubuntu
   AWS_EC2_STAGING_HOSTNAME: ${{secrets.AWS_EC2_STAGING_HOSTNAME}}
+  FACEBOOK_APP_ID_ANDROID: ${{secrets.FACEBOOK_APP_ID_ANDROID}}
+  FACEBOOK_APP_SECRET_ANDROID: ${{secrets.FACEBOOK_APP_SECRET_ANDROID}}
+  FACEBOOK_APP_ID_WEB: ${{secrets.FACEBOOK_APP_ID_WEB}}
+  FACEBOOK_APP_SECRET_WEB: ${{secrets.FACEBOOK_APP_SECRET_WEB}}
+  FACEBOOK_APP_ID_IOS: ${{secrets.FACEBOOK_APP_ID_IOS}}
+  FACEBOOK_APP_SECRET_IOS: ${{secrets.FACEBOOK_APP_SECRET_IOS}}
 
 jobs:
   test_and_deploy:
@@ -57,7 +63,7 @@ jobs:
     - name: Run migrations and tests
       run: |
         python manage.py migrate
-        python manage.py test accounts
+        python manage.py test accounts --parallel
 
     - name: Deploy to Staging
       run: |
@@ -69,6 +75,8 @@ jobs:
             git pull
             pip install -r requirements.txt
             python manage.py migrate
+            python manage.py collectstatic --noinput
+            python runner.py
             sudo systemctl restart gunicorn
             sudo systemctl restart run_qcluster
             sudo systemctl restart daphne

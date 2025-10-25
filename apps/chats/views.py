@@ -3,7 +3,7 @@ from uuid import UUID
 
 from config.permissions import IsBusinessUser
 from django.db import transaction
-from django.db.models import Q, F
+from django.db.models import Q, F, OrderBy, Case, When, Value, IntegerField
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from ninja import Router, UploadedFile, Form
@@ -17,6 +17,7 @@ from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, Conversation, MessageAttachment
 from chats.schemas import ChatListSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema, \
     ChatMessagePaginatedSchema, ChatMessageRequestSchema, ChatMessageResponseSchema, ChatMessageErrorSchema
+from core.schemas import CountSchema
 from jobs.business_views import pagination_class
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
@@ -30,13 +31,20 @@ ws_router = Router(tags=["Websocket"])
 @paginate(PageNumberPaginationExtra, page_size=50)
 def get_chats(request, search:str=""):
     user = request.user
-    queryset = Conversation.objects.filter(users__id=user.id).order_by(F("last_message_time").desc(nulls_last=True))
+    queryset = Conversation.objects.prefetch_related("users").filter(users__id=user.id).annotate(
+        null_order=Case(
+            When(last_message_time__isnull=True, then=Value(1)),
+            default=Value(0),
+            output_field=IntegerField()
+        )
+    ).order_by('null_order', '-last_message_time')
 
     if search:
-        queryset = queryset.filter(Q(message__body__icontains=search)|
-                                   Q(users__first_name__icontains=search)|
-                                   Q(users__last_name__icontains=search)
-                                   )
+        q = Q()
+        for s in search.split(" "):
+            if s:
+                q = q | Q(users__fullname__icontains=s) | Q(message__body__icontains=s)
+        queryset = queryset.filter(q)
 
     return queryset.distinct()
 
@@ -46,7 +54,7 @@ def get_messages(request, conversation_uid:UUID, page_size=50, page=1, **kwargs)
     conversation = Conversation.objects.filter(users__id=user.id, uid=conversation_uid).first()
     if not conversation:
         raise HttpError(403, "Not allowed")
-    queryset = Message.objects.filter(conversation__uid=conversation_uid).order_by("-created_at")
+    queryset = Message.objects.prefetch_related("messageattachment_set").filter(conversation__uid=conversation_uid).order_by("-created_at")
     async_task(conversation.read_messages, message_ids=list(queryset.values_list("id", flat=True)), user_id=user.id)
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(
@@ -115,6 +123,15 @@ def lock_conversation(request, conversation_uid:UUID, lock:bool):
     conversation.save()
     return conversation
 
+@router.get("messages/unread/count", auth=JWTAuth(), response={200: CountSchema})
+def get_unread_chat_count(request):
+    user = request.user
+    count = Message.objects.filter(
+        conversation__users__id=user.id
+    ).exclude(sender_id=user.id).exclude(
+        readers__id=user.id
+    ).count()
+    return dict(count=count)
 
 
 @router.post("users/{user_id}/start-conversation", auth=JWTAuth(), response={200: ChatListSchema})
@@ -151,3 +168,4 @@ def start_conversation(request, user_id:UUID):
              tags=["Websocket"])
 def websocket_send_chat(request, conversation_uid:UUID, token: str, data: ChatMessageRequestSchema):
     return Response(status=200, data={"message": "Message sent successfully"})
+

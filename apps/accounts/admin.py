@@ -8,9 +8,15 @@ class DepartmentInline(admin.TabularInline):
     fields = ["uid", "name"]
     extra = 0
 
+class EducationLevelInline(admin.TabularInline):
+    fields = ("level", "order", )
+    model = models.EducationLevel
+    extra = 0
+    ordering = ("order", "level", )
+
 
 class IndustryAdmin(admin.ModelAdmin):
-    inlines = [DepartmentInline, ]
+    inlines = [DepartmentInline, EducationLevelInline]
 
 
 class RoleInline(admin.TabularInline):
@@ -34,7 +40,7 @@ class SkillCategoryAdmin(admin.ModelAdmin):
 
 
 class UserAdmin(admin.ModelAdmin):
-    list_display = ('email', 'first_name', 'last_name',)  # Extra columns
+    list_display = ('email', 'type', 'first_name', 'last_name',)
     search_fields = ('email', 'first_name', 'last_name',)
     ordering = ('-created_at',)
 
@@ -51,13 +57,46 @@ class UserAdmin(admin.ModelAdmin):
         return queryset.hard_delete()"""
 
 
+class EducationLevelAdmin(admin.ModelAdmin):
+    list_display = ("level", "industry")
 
-# Register your models here.
+
+class BusinessUserAdmin(admin.ModelAdmin):
+    list_display = ("business", "role","user__email", "user__first_name", "user__last_name")
+
+
+class SkillAdmin(admin.ModelAdmin):
+    list_display = ("uid", "name", "category", "department")
+    list_filter = ("category", "department")
+    search_fields = ("name", "category__name", "department__name")
+    ordering = ("name",)
+
+
+class TalentAdmin(admin.ModelAdmin):
+    list_display = (
+        "uid",
+        "user__email",
+        "country",
+    )
+    search_fields = (
+        "user__email",
+        "user__first_name",
+        "user__last_name",
+        "country__name",
+        "uid",
+        "user__uid",
+    )
+        
+
+
+
+admin.site.register(models.Talent, TalentAdmin)
 admin.site.register(models.Business)
 admin.site.register(models.User, UserAdmin)
-admin.site.register(models.BusinessUser)
-admin.site.register(models.Talent)
+admin.site.register(models.BusinessUser, BusinessUserAdmin)
 admin.site.register(models.Industry, IndustryAdmin)
 admin.site.register(models.Department, DepartmentAdmin)
 admin.site.register(models.SkillCategory, SkillCategoryAdmin)
 admin.site.register(models.Country)
+admin.site.register(models.EducationLevel, EducationLevelAdmin)
+admin.site.register(models.Skill, SkillAdmin)

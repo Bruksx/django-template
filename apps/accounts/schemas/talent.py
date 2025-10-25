@@ -2,13 +2,14 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
-from apps.accounts.enums import MeetingType
+from accounts.enums import MeetingType
 from ninja import Schema, ModelSchema, PatchDict
 from pydantic import Field, EmailStr
 
 from accounts.enums import GenderType, PreferredCommunicationType, Days, Months, NoticePeriodType
 from accounts.models import (Talent, User, TalentAvailableDay, Education,
                              Experience, Skill, Role)
+from core.enums import SalaryType
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema, \
     EducationLevelSchema, CountrySchema
 from jobs.enums import WorkStructureEnum
@@ -31,7 +32,7 @@ class RoleSchema(ModelSchema):
 
 
 class EducationSchema(ModelSchema):
-    level: EducationLevelSchema
+    level: Optional[EducationLevelSchema]
 
     class Meta:
         model = Education
@@ -40,7 +41,7 @@ class EducationSchema(ModelSchema):
 
 class MutateEducationSchema(ModelSchema):
     uid: Optional[UUID] = None
-    level: UUID
+    level: Optional[UUID] = None
     class Meta:
         model = Education
         exclude = [*MUTATE_EXCLUDE_FIELDS, "talent"]
@@ -49,8 +50,10 @@ class MutateEducationSchema(ModelSchema):
 class MutateExperienceSchema(ModelSchema):
     role: UUID
     uid: Optional[UUID] = None
-    annual_salary_bonus_currency: UUID
-    annual_salary_currency: UUID
+    salary_bonus_currency: UUID
+    salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
+    salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
+    salary_currency: UUID
     employment_type: UUID
     level: Optional[UUID]
     class Meta:
@@ -61,8 +64,8 @@ class ExperienceSchema(ModelSchema):
     role: Optional[RoleSchema]
     level: Optional[JobLevelSchema]
     employment_type: EmploymentTypeSchema
-    annual_salary_currency: Optional[CurrencySchema]
-    annual_salary_bonus_currency: Optional[CurrencySchema]
+    salary_currency: Optional[CurrencySchema]
+    salary_bonus_currency: Optional[CurrencySchema]
     duration: str
     class Meta:
         model = Experience
@@ -74,6 +77,12 @@ class SkillSchema(ModelSchema):
     class Meta:
         model = Skill
         fields = ("uid",  "name")
+
+    @staticmethod
+    def resolve_name(obj, context):
+        if hasattr(obj, "fullname"):
+            return obj.fullname
+        return obj.name
 
 
 
@@ -94,21 +103,23 @@ class UpdateTalentProfileSchema(Schema):
     first_name: Optional[str]
     last_name: Optional[str]
 
-class UpdateTalentProfileSchema2(Schema):
+class UpdateTalentProfileSchema2(ModelSchema):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     preferred_communication: Optional[PreferredCommunicationType|str] = None
+    phone_code: Optional[str] = None
     phone_number: Optional[str] = None
     country: Optional[UUID] = None
     state: Optional[str] = None
     city: Optional[str] = None
-    employment_type: Optional[UUID] = None
+    role: Optional[UUID] = None
+    employment_types: Optional[List[UUID]] = None
     postal_code: Optional[str] = None
     whatsapp_number: Optional[str] = None
-    work_model: Optional[WorkStructureEnum|str] = None
+    work_models: Optional[List[WorkStructureEnum|str]] = None
     viber_number: Optional[str] = None
-    address: Optional[str] = None
-    gender: Optional[GenderType] = None
+    # address: Optional[str] = None
+    gender: Optional[GenderType|str] = ""
     visible: Optional[bool] = None
     bio: Optional[str] = None
     notice_period: Optional[int|str] = None
@@ -118,6 +129,7 @@ class UpdateTalentProfileSchema2(Schema):
     facebook: Optional[str] = None
     twitter_x: Optional[str] = None
     native_language: Optional[UUID] = None
+    flexible_availability: Optional[bool] = None
     additional_languages: Optional[List[UUID]] = None
     education_history: Optional[List[PatchDict[MutateEducationSchema]]] = None
     experience_history: Optional[List[PatchDict[MutateExperienceSchema]]] = None
@@ -125,6 +137,10 @@ class UpdateTalentProfileSchema2(Schema):
     skills: Optional[List[UUID]] = None
     additional_skills: Optional[List[str]] = None
     business_models: Optional[List[UUID]] = None
+
+    class Meta:
+        model = Talent
+        fields = ("availability_timezone",)
 
 
 
@@ -136,9 +152,12 @@ class ValidateTalentOTPSchema(UpdateTalentProfileSchema):
 
 
 class UserSchema(ModelSchema):
+    phone_number: Optional[str] = None
+    phone_code: Optional[str] = None
+
     class Meta:
         model = User
-        fields = ["uid", "email", "first_name", "last_name", "phone_number",
+        fields = ["uid", "email", "first_name", "last_name", "phone_number", "phone_code",
                   "gender"]
 
 class LoggedInUserSchema(UserSchema):
@@ -156,7 +175,8 @@ class TalentUserSchema(ModelSchema):
     user: UserSchema
     role: Optional[RoleSchema]
     country: Optional[CountrySchema]
-    employment_type: Optional[EmploymentTypeSchema]
+    employment_types: Optional[List[EmploymentTypeSchema]]
+    work_models: Optional[List[WorkStructureEnum]]
     skills: List[TalentSkillSchema]
     business_models: List[BusinessModelSchema]
     experience_history: List[ExperienceSchema]
@@ -167,11 +187,13 @@ class TalentUserSchema(ModelSchema):
     additional_languages: List[LanguageSchema]
     availability:  List[TalentAvailabilitySchema]
     additional_skills: List[str]
+    address: str = Field(alias="get_address")
     years_of_experience: str = Field(alias="get_years_of_experience")
+
 
     class Meta:
         model = Talent
-        exclude = (*READ_EXCLUDE_FIELDS, "cv", "photo", "months_of_experience")
+        exclude = (*READ_EXCLUDE_FIELDS, "cv", "photo", "months_of_experience", "viewers")
 
     @staticmethod
     def resolve_skills(obj):
@@ -180,15 +202,21 @@ class TalentUserSchema(ModelSchema):
     @staticmethod
     def resolve_availability(obj):
         return obj.get_available_days()
+    
+    @staticmethod
+    def resolve_availability_timezone(obj):
+        return obj.availability_timezone.key
+
 
 class TalentResumeSchema(ModelSchema):
     photo_url: Optional[str]
     name: str = Field(alias="user.fullname")
     email: EmailStr = Field(alias="user.email")
-    phone_number: str = Field(alias="user.phone_number")
+    phone_number: Optional[str] = None
+    phone_code: Optional[str] = None
     bio: str
-    address: str
     languages: str
+    address: str = Field(alias="get_address")
     skills: List[TalentSkillSchema]
     availability: List[TalentAvailabilitySchema]
     notice_period: Optional[str] = None
@@ -198,19 +226,6 @@ class TalentResumeSchema(ModelSchema):
     class Meta:
         model = Talent
         fields = ("bio", )
-
-    @staticmethod
-    def resolve_address(obj):
-        address_list = []
-        if obj.address:
-            address_list.append(obj.address)
-        if obj.city:
-            address_list.append(obj.city)
-        if obj.state:
-            address_list.append(obj.state)
-        if obj.country:
-            address_list.append(obj.country.name)
-        return ", ".join(address_list)
 
     @staticmethod
     def resolve_notice_period(obj):
@@ -244,7 +259,8 @@ class TalentUserListSchema(ModelSchema):
     user_uid: UUID = Field(alias="user.uid")
     role: Optional[RoleSchema]
     country: Optional[CountrySchema]
-    phone_number: Optional[str] = Field(alias="user.phone_number")
+    phone_number: Optional[str] = None
+    phone_code: Optional[str] = None
     photo_url:Optional[str]
     cv_url:Optional[str]
     class Meta:
@@ -300,7 +316,7 @@ class TalentDashboardReport(Schema):
     def resolve_job_matches(obj, context):
         if not context:
             context = dict()
-        return obj.job_post_matches(job_only=True, **context).count()
+        return obj.job_post_matches(by_talent_country=False, **context).count()
 
     @staticmethod
     def resolve_jobs_applied(obj, context):

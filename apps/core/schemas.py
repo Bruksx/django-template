@@ -1,3 +1,4 @@
+from typing import Optional
 from uuid import UUID
 
 from ninja import Schema, ModelSchema
@@ -7,6 +8,8 @@ from core.models import Currency, Language
 from accounts.models import Country, EducationLevel
 
 
+class CountSchema(Schema):
+    count: int
 
 class ErrorDetail(Schema):
     type: str
@@ -45,16 +48,18 @@ class LanguageSchema(ModelSchema):
 class CountrySchema(ModelSchema):
     class Meta:
         model = Country
-        fields = ("uid", "name", "code")
+        fields = ("uid", "name", "code", "phone_code")
 
 class EducationLevelSchema(ModelSchema):
-    industry: str
+    industry: Optional[str]
     class Meta:
         model = EducationLevel
         fields = ("uid", "industry", "level")
 
     @staticmethod
     def resolve_industry(obj):
+        if not obj.industry:
+            return
         return obj.industry.name
 
 

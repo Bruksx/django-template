@@ -1,24 +1,33 @@
 import uuid
+from random import choice
 from uuid import uuid4
-
-from django.test import TestCase
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
+from decimal import Decimal, ROUND_HALF_UP
+from datetime import time
 
 from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent, \
-    EducationLevel, SkillCategory
-from accounts.enums import BusinessUserRoleType
+    EducationLevel, SkillCategory, Experience, TalentAvailableDay
+from accounts.enums import Days
 from core.models import Currency
+from django.test import TestCase
+from django.db import models
+from django.utils import timezone
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
     JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, SkillFactory, BusinessModelFactory, \
-    CountryFactory, ScreeningQuestionFactory, AnswerFactory
-from jobs.business_views import router
+    CountryFactory, ScreeningQuestionFactory, AnswerFactory, CurrencyFactory, ExperienceFactory
+from future.backports.datetime import timedelta
+from jobs.business_views import router, job_list
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
-    BusinessModel
+    BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage
 )
+from jobs.queries import add_application_match_score
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
 
+from settings.models import WorkFlowStage
+
+from core.models import City, State
 
 
 class EmploymentTypeListTests(TestCase):
@@ -200,17 +209,25 @@ class TestJobPostDetail(TestCase):
         response = self.client.get(self.url(self.job_post.uid), headers=headers)
         self.assertEqual(response.status_code, 404)
 
+
 class TestJobList(TestCase):
     def setUp(self):
         self.client = TestClient(router)
         country = Country.objects.first()
-        self.business = BusinessFactory.create()
+        user = UserFactory.create()
+        BusinessFactory.create()
+        self.business = Business.objects.create(name="holly", created_by=user)
         self.url = ""
         self.business_user = BusinessUserFactory.create(user=self.business.created_by, business=self.business)
-        jobs = JobFactory.create_batch(5, created_by=self.business_user)
-        for job in jobs:
-            JobPostFactory.create_batch(5, country=country, job=job, recruiter=self.business_user)
 
+        jobs = JobFactory.create_batch(5, created_by=self.business_user)
+        talents = TalentFactory.create_batch(5)
+        for job in jobs:
+            job_posts = JobPostFactory.create_batch(5, country=country, job=job, recruiter=self.business_user, status=JobStatusType.POSTED.value)
+            for talent in talents:
+                for job_post in job_posts[:choice(range(1,5))]:
+                    stage = WorkflowStageFactory.create(created_by=self.business_user)
+                    JobApplicationFactory.create(applicant=talent, job_post=job_post, stage=stage)
 
     def test_job_list_endpoint_by_business_user(self):
         headers = {
@@ -253,6 +270,7 @@ class TestJobList(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 1)
 
+
 class TestJobDetail(TestCase):
     def setUp(self):
         self.client = TestClient(router)
@@ -262,8 +280,6 @@ class TestJobDetail(TestCase):
         self.business_user = BusinessUserFactory.create(user=self.business.created_by, business=self.business)
         self.job = JobFactory.create(created_by=self.business_user)
         self.talent = TalentFactory.create(country=country)
-
-
 
     def test_job_detail_endpoint_by_business_user(self):
         headers = {
@@ -296,6 +312,7 @@ class TestJobDetail(TestCase):
         response = self.client.get(self.url(self.job.uid), headers=headers)
         self.assertEqual(response.status_code, 404)
 
+
 class TestApplicationList(TestCase):
     def setUp(self):
         self.client = TestClient(router)
@@ -305,7 +322,11 @@ class TestApplicationList(TestCase):
         self.business_user = BusinessUserFactory.create(user=self.business.created_by, business=self.business)
         self.job = JobFactory.create(created_by=self.business_user)
         self.job_post = JobPostFactory.create(country=country, job=self.job, recruiter=self.business_user)
-        JobApplicationFactory.create_batch(10, job_post=self.job_post, recruiter=self.business_user)
+        for _ in range(10):
+            stage = WorkflowStageFactory.create(created_by=self.business_user)
+            if stage.phase == PhaseType.NEW.value:
+                stage.update(phase=PhaseType.SCREENING.value)
+            JobApplicationFactory.create(job_post=self.job_post, recruiter=self.business_user, stage=stage)
 
     def test_application_list_endpoint_by_business_user(self):
         headers = {
@@ -331,8 +352,7 @@ class TestApplicationList(TestCase):
             "authorization": f"bearer {self.business_user.user.token}"
         }
         response = self.client.get(self.url(uuid.uuid4()), headers=headers)
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["count"], 0)
+        self.assertEqual(response.status_code, 404)
 
     def test_job_by_another_business(self):
         business_user = BusinessUserFactory.create()
@@ -343,7 +363,6 @@ class TestApplicationList(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 0)
 
-
     def test_endpoint_with_phase_query(self):
         phase = PhaseType.HIRED.value
         headers = {
@@ -352,7 +371,7 @@ class TestApplicationList(TestCase):
         response = self.client.get(f"{self.url(self.job_post.uid)}?phase={phase}", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 0)
-        stage = WorkflowStageFactory.create(phase=phase)
+        stage = WorkflowStageFactory.create(phase=phase, created_by=self.business_user)
         application = JobApplication.objects.first()
         application.update(stage=stage)
         response = self.client.get(f"{self.url(self.job_post.uid)}?phase={phase}", headers=headers)
@@ -360,6 +379,7 @@ class TestApplicationList(TestCase):
         self.assertEqual(response.data["count"], 1)
 
     def test_endpoint_with_new_application_query(self):
+        new_stage = WorkflowStageFactory.create(phase=PhaseType.NEW.value, created_by=self.business_user)
         headers = {
             "authorization": f"bearer {self.business_user.user.token}"
         }
@@ -367,7 +387,7 @@ class TestApplicationList(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 0)
         application = JobApplication.objects.first()
-        application.update(stage=None)
+        application.update(stage=new_stage)
         response = self.client.get(f"{self.url(self.job_post.uid)}?new_application=true", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 1)
@@ -388,6 +408,10 @@ class TestApplicationList(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 10)
         self.assertGreaterEqual(response.data["results"][0]["created_at"], response.data["results"][1]["created_at"])
+
+        response = self.client.get(f"{self.url(self.job_post.uid)}?sort_by=invited&asc=false", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 10)
 
     def test_endpoint_with_search_query(self):
         search = Talent.objects.last().user.first_name
@@ -436,6 +460,9 @@ class JobCreationTest(TestCase):
             user=self.recruiter,
             business=self.business,
         )
+        for phase in PhaseType.values():
+            WorkflowStageFactory.create(phase=phase, created_by=self.business_user)
+
         self.auth = JWTAuth()
         self.client = TestClient(router)
         self.headers = {
@@ -443,6 +470,8 @@ class JobCreationTest(TestCase):
         }
         self.country1 = Country.objects.order_by("?").first()
         self.country2 = Country.objects.order_by("?").first()  # random ordering
+        self.province = State.objects.order_by("?").first()
+        self.province2 = State.objects.order_by("?").first()
         self.currency1 = Currency.objects.order_by("?").first()
         self.currency2 = Currency.objects.order_by("?").first()
         self.test_data = {
@@ -485,7 +514,7 @@ class JobCreationTest(TestCase):
             "job_posts": [
                 {
                     "country": str(self.country1.uid),
-                    "province": "Delta State",
+                    "province": str(self.province.uid),
                     "postal_code": "500000",
                     "share_compensation": True,
                     "status": JobStatusType.POSTED.value,
@@ -494,30 +523,35 @@ class JobCreationTest(TestCase):
                         "Dental Insurance"
                     ],
 
-                    "annual_salary_min": 100,
-                    "annual_salary_max": 1000,
-                    "annual_salary_currency": str(self.currency1.uid),
-                    "annual_bonus_min": 100,
-                    "annual_bonus_max": 150,
+                    "salary_min": 100,
+                    "salary_max": 1000,
+                    "salary_type": "Weekly",
+                    "salary_bonus_type": "Weekly",
+                    
+                    "salary_currency": str(self.currency1.uid),
+                    "salary_bonus_min": 100,
+                    "salary_bonus_max": 150,
                     "recruiter": str(self.business_user.uid),
-                    "annual_bonus_currency": str(self.currency1.uid)
+                    "salary_bonus_currency": str(self.currency1.uid)
 
                 },
                 {
                     "country": str(self.country2.uid),
-                    "province": "Rivers State",
+                    "province": str(self.province.uid),
                     "postal_code": "500000",
                     "share_compensation": False,
                     "benefits": [
                         "Health Insurance",
                         "Dental Insurance"
                     ],
-                    "annual_salary_min": 200,
-                    "annual_salary_max": 400,
-                    "annual_salary_currency": str(self.currency2.uid),
-                    "annual_bonus_min": 100,
-                    "annual_bonus_max": 150,
-                    "annual_bonus_currency": str(self.currency2.uid),
+                    "salary_min": 200,
+                    "salary_max": 400,
+                    "salary_type": "Weekly",
+                    "salary_bonus_type": "Weekly",
+                    "salary_currency": str(self.currency2.uid),
+                    "salary_bonus_min": 100,
+                    "salary_bonus_max": 150,
+                    "salary_bonus_currency": str(self.currency2.uid),
                     "recruiter": str(self.business_user.uid),
 
                 }
@@ -546,6 +580,13 @@ class JobCreationTest(TestCase):
             "job_level": str(self.job_level.uid)
         }
 
+    def test_create_job_without_complete_stage(self):
+        from settings.models import WorkFlowStage
+        WorkFlowStage.objects.filter(created_by__business=self.business).delete()
+        response = self.client.post("", json=self.test_data, headers=self.headers)
+        self.assertEqual(response.status_code, 400)
+
+
     def test_create_job(self):
         response = self.client.post("", json=self.test_data, headers=self.headers)
         # Assert the job was created correctly
@@ -563,12 +604,12 @@ class JobCreationTest(TestCase):
         self.assertEqual(available_days.count(), 2)
 
         # Check job posts
-        job_posts = JobPost.objects.filter(job=job)
+        job_posts = JobPost.objects.filter(job=job).order_by("id")
         self.assertEqual(job_posts.count(), 2)
         self.assertEqual(job_posts[0].country.code, self.country1.code)
 
         # Check screening questions
-        screening_questions = ScreeningQuestion.objects.filter(job=job)
+        screening_questions = ScreeningQuestion.objects.filter(job=job).order_by("id")
         self.assertEqual(screening_questions.count(), 1)
         self.assertEqual(screening_questions[0].text, 'Are you eligible to work in the US?')
         self.assertFalse(screening_questions[0].is_knockout)
@@ -597,6 +638,8 @@ class JobCreationTest(TestCase):
 class JobUpdateTest(TestCase):
 
     def setUp(self):
+        self.currency = CurrencyFactory.create()
+        self.country = Country.objects.order_by("?").first()
         # Set up necessary data for the test
         self.user = UserFactory.create()
         self.business = BusinessFactory.create(created_by=self.user)
@@ -608,6 +651,7 @@ class JobUpdateTest(TestCase):
         self.auth = JWTAuth()
         self.client = TestClient(router)
         self.job = JobFactory.create(created_by=self.business_user)
+        self.job_posts = JobPostFactory.create_batch(2, job=self.job)
         self.test_data = {
             "availability": [
                 {
@@ -633,6 +677,24 @@ class JobUpdateTest(TestCase):
             "technological_requirement": "macbook",
             "lunch_break": "paid",
             "lunch_break_time": 30,
+            "job_posts": [
+                {
+                    "uid": self.job_posts[0].uid,
+                    "benefits": [
+                        "Holiday",
+                        "Paid time off"
+                    ],
+                    "status": JobStatusType.DRAFT.value,
+                    "salary_currency": str(self.currency.uid),
+                    "salary_bonus_currency": str(self.currency.uid),
+                    "salary_min": 100,
+                    "salary_type": "Hourly",
+                    "salary_bonus_type": "Hourly",
+                    "salary_max": 1000,
+                    "salary_bonus_min": 200,
+                    "salary_bonus_max": 2000
+                }
+            ],
             "additional_hours_start": "12:00:00",
             "additional_hours_end": "22:00:00",
         }
@@ -663,10 +725,123 @@ class JobUpdateTest(TestCase):
         self.assertEqual(self.job.lunch_break_time, self.test_data["lunch_break_time"])
         self.assertEqual(self.job.office_address, office_address)
         self.assertEqual(str(self.job.additional_hours_start), self.test_data["additional_hours_start"])
-        self.assertEqual(str(self.job.additional_hours_end), self.test_data["additional_hours_end"])
+        self.assertEqual(str(self.job.additional_hours_end), self.test_data["additional_hours_end"]),
+
+        job_post = self.job_posts[0]
+        job_post.refresh_from_db()
+        self.assertEqual(job_post.benefits, self.test_data["job_posts"][0]["benefits"])
+        self.assertEqual(job_post.status, self.test_data["job_posts"][0]["status"])
+        self.assertEqual(str(job_post.salary_currency.uid), self.test_data["job_posts"][0]["salary_currency"])
+        self.assertEqual(str(job_post.salary_bonus_currency.uid), self.test_data["job_posts"][0]["salary_bonus_currency"])
+        self.assertEqual(job_post.salary_min, self.test_data["job_posts"][0]["salary_min"])
+        self.assertEqual(job_post.salary_max, self.test_data["job_posts"][0]["salary_max"])
+        self.assertEqual(job_post.salary_bonus_min, self.test_data["job_posts"][0]["salary_bonus_min"])
+        self.assertEqual(job_post.salary_bonus_max, self.test_data["job_posts"][0]["salary_bonus_max"])
 
         available_days = AvailableDay.objects.filter(job=self.job)
         self.assertEqual(available_days.count(), 2)
+
+    def test_update_job_with_multiple_job_posts(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        self.test_data["job_posts"] = [
+            {
+                "uid": self.job_posts[0].uid,
+                "benefits": [
+                    "Holiday",
+                    "Paid time off"
+                ],
+                "status": JobStatusType.CLOSED.value,
+                "salary_currency": str(self.currency.uid),
+                "salary_bonus_currency": str(self.currency.uid),
+                "salary_min": 100,
+                "salary_max": 1000,
+                "salary_type": "Monthly",
+                "salary_bonus_type": "Monthly",
+                "salary_bonus_min": 3000,
+                "salary_bonus_max": 4000
+            },
+            {
+                "uid": self.job_posts[1].uid,
+                "benefits": [
+                    "Holiday",
+                    "Paid time off"
+                ],
+                "country": str(self.job_posts[0].country.uid),
+                "salary_currency": str(self.currency.uid),
+                "salary_bonus_currency": str(self.currency.uid),
+                "salary_min": 100,
+                "salary_max": 1000,
+                "salary_type": "Weekly",
+                "salary_bonus_type": "Weekly",
+                "salary_bonus_min": 200,
+                "salary_bonus_max": 2000
+            },
+            {
+                "benefits": [
+                    "Holiday",
+                    "Paid time off"
+                ],
+                "country": str(self.country.uid),
+                "salary_currency": str(self.currency.uid),
+                "salary_bonus_currency": str(self.currency.uid),
+                "salary_min": 500,
+                "salary_max": 1000,
+                "salary_bonus_min": 200,
+                "salary_bonus_max": 5000
+            }
+        ]
+
+        available_days = AvailableDay.objects.filter(job=self.job)
+        self.assertEqual(available_days.count(), 0)
+        title = self.job.title
+        office_address = self.job.office_address
+        self.assertNotEqual(self.job.hiring_company_name, self.test_data["hiring_company_name"])
+        self.assertNotEqual(self.job.hiring_company_description, self.test_data["hiring_company_description"])
+
+        response = self.client.patch(self.url(self.job.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
+
+        self.job.refresh_from_db()
+
+        self.assertEqual(self.job.title, title)
+        self.assertEqual(self.job.hiring_company_name, self.test_data["hiring_company_name"])
+        self.assertEqual(self.job.hiring_company_description, self.test_data["hiring_company_description"])
+        self.assertEqual(self.job.work_structure, self.test_data["work_structure"])
+        self.assertEqual(self.job.technological_requirement, self.test_data["technological_requirement"])
+        self.assertEqual(self.job.lunch_break, self.test_data["lunch_break"])
+        self.assertEqual(self.job.lunch_break_time, self.test_data["lunch_break_time"])
+        self.assertEqual(self.job.office_address, office_address)
+        self.assertEqual(str(self.job.additional_hours_start), self.test_data["additional_hours_start"])
+        self.assertEqual(str(self.job.additional_hours_end), self.test_data["additional_hours_end"]),
+
+        job_post = self.job_posts[0]
+        job_post.refresh_from_db()
+        self.assertEqual(job_post.benefits, self.test_data["job_posts"][0]["benefits"])
+        self.assertEqual(job_post.status, self.test_data["job_posts"][0]["status"])
+        self.assertEqual(str(job_post.salary_currency.uid), self.test_data["job_posts"][0]["salary_currency"])
+        self.assertEqual(str(job_post.salary_bonus_currency.uid), self.test_data["job_posts"][0]["salary_bonus_currency"])
+        self.assertEqual(job_post.salary_min, self.test_data["job_posts"][0]["salary_min"])
+        self.assertEqual(job_post.salary_max, self.test_data["job_posts"][0]["salary_max"])
+        self.assertEqual(job_post.salary_bonus_min, self.test_data["job_posts"][0]["salary_bonus_min"])
+        self.assertEqual(job_post.salary_bonus_max, self.test_data["job_posts"][0]["salary_bonus_max"])
+
+        job_post = self.job_posts[1]
+        job_post.refresh_from_db()
+        self.assertEqual(job_post.benefits, self.test_data["job_posts"][1]["benefits"])
+        self.assertEqual(str(job_post.country.uid), self.test_data["job_posts"][1]["country"])
+        self.assertEqual(str(job_post.salary_currency.uid), self.test_data["job_posts"][1]["salary_currency"])
+        self.assertEqual(str(job_post.salary_bonus_currency.uid), self.test_data["job_posts"][1]["salary_bonus_currency"])
+        self.assertEqual(job_post.salary_min, self.test_data["job_posts"][1]["salary_min"])
+        self.assertEqual(job_post.salary_max, self.test_data["job_posts"][1]["salary_max"])
+        self.assertEqual(job_post.salary_bonus_min, self.test_data["job_posts"][1]["salary_bonus_min"])
+        self.assertEqual(job_post.salary_bonus_max, self.test_data["job_posts"][1]["salary_bonus_max"])
+
+
+        available_days = AvailableDay.objects.filter(job=self.job)
+        self.assertEqual(available_days.count(), 2)
+        self.assertEqual(JobPost.objects.count(), 3)
 
     def test_update_job_by_talent(self):
         talent = TalentFactory.create()
@@ -712,6 +887,8 @@ class JobPostCreationTest(TestCase):
         self.client = TestClient(router)
         self.url = lambda job_uid: f"{job_uid}/job-post"
         self.country = Country.objects.first()
+        self.city = City.objects.first()
+        self.province = State.objects.first()
         self.currency = Currency.objects.first()
         self.test_data = {
                   "country": str(self.country.uid),
@@ -721,15 +898,15 @@ class JobPostCreationTest(TestCase):
                   ],
                   "recruiter": str(self.business_user.uid),
                   "status": JobStatusType.POSTED.value,
-                  "annual_salary_currency": str(self.currency.uid),
-                  "annual_bonus_currency": str(self.currency.uid),
-                  "province": "Los Angeles",
+                  "salary_currency": str(self.currency.uid),
+                  "salary_bonus_currency": str(self.currency.uid),
+                  "province": str(self.province.uid),
                   "postal_code": "12345",
                   "share_compensation": True,
-                  "annual_salary_min": 100,
-                  "annual_salary_max": 1000,
-                  "annual_bonus_min": 200,
-                  "annual_bonus_max": 2000
+                  "salary_min": 100,
+                  "salary_max": 1000,
+                  "salary_bonus_min": 200,
+                  "salary_bonus_max": 2000
                 }
 
     def test_create_job_post(self):
@@ -744,15 +921,15 @@ class JobPostCreationTest(TestCase):
         self.assertEqual(job_post.benefits, self.test_data["benefits"])
         self.assertEqual(job_post.recruiter, self.business_user)
         self.assertEqual(job_post.status, self.test_data["status"])
-        self.assertEqual(job_post.annual_salary_currency, self.currency)
-        self.assertEqual(job_post.annual_bonus_currency, self.currency)
-        self.assertEqual(job_post.province, self.test_data["province"])
+        self.assertEqual(job_post.salary_currency, self.currency)
+        self.assertEqual(job_post.salary_bonus_currency, self.currency)
+        self.assertEqual(job_post.province, self.province)
         self.assertEqual(job_post.postal_code, self.test_data["postal_code"])
         self.assertEqual(job_post.share_compensation, self.test_data["share_compensation"])
-        self.assertEqual(job_post.annual_salary_min, self.test_data["annual_salary_min"])
-        self.assertEqual(job_post.annual_salary_max, self.test_data["annual_salary_max"])
-        self.assertEqual(job_post.annual_bonus_min, self.test_data["annual_bonus_min"])
-        self.assertEqual(job_post.annual_bonus_max, self.test_data["annual_bonus_max"])
+        self.assertEqual(job_post.salary_min, self.test_data["salary_min"])
+        self.assertEqual(job_post.salary_max, self.test_data["salary_max"])
+        self.assertEqual(job_post.salary_bonus_min, self.test_data["salary_bonus_min"])
+        self.assertEqual(job_post.salary_bonus_max, self.test_data["salary_bonus_max"])
 
         self.assertEqual(job_post.posted_by, self.business_user)
 
@@ -795,12 +972,14 @@ class JobPostUpdateTest(TestCase):
                 "Paid time off"
             ],
             "status": JobStatusType.DRAFT.value,
-            "annual_salary_currency": str(self.currency.uid),
-            "annual_bonus_currency": str(self.currency.uid),
-            "annual_salary_min": 100,
-            "annual_salary_max": 1000,
-            "annual_bonus_min": 200,
-            "annual_bonus_max": 2000
+            "salary_currency": str(self.currency.uid),
+            "salary_bonus_currency": str(self.currency.uid),
+            "salary_min": 100,
+            "salary_type": "Weekly",
+            "salary_bonus_type": "Weekly",
+            "salary_max": 1000,
+            "salary_bonus_min": 200,
+            "salary_bonus_max": 2000
         }
 
     def test_update_job_post(self):
@@ -809,29 +988,45 @@ class JobPostUpdateTest(TestCase):
         }
 
         self.assertNotEqual(self.job_post.status, self.test_data["status"])
-        self.assertNotEqual(self.job_post.annual_salary_currency, self.currency)
-        self.assertNotEqual(self.job_post.annual_bonus_currency, self.currency)
-        self.assertNotEqual(self.job_post.annual_salary_min, self.test_data["annual_salary_min"])
-        self.assertNotEqual(self.job_post.annual_salary_max, self.test_data["annual_salary_max"])
-        self.assertNotEqual(self.job_post.annual_bonus_min, self.test_data["annual_bonus_min"])
-        self.assertNotEqual(self.job_post.annual_bonus_max, self.test_data["annual_bonus_max"])
+        self.assertNotEqual(self.job_post.salary_currency, self.currency.abbreviation)
+        self.assertNotEqual(self.job_post.salary_bonus_currency, self.currency.abbreviation)
+        self.assertNotEqual(self.job_post.salary_min, self.test_data["salary_min"])
+        self.assertNotEqual(self.job_post.salary_max, self.test_data["salary_max"])
+        self.assertNotEqual(self.job_post.salary_bonus_min, self.test_data["salary_bonus_min"])
+        self.assertNotEqual(self.job_post.salary_bonus_max, self.test_data["salary_bonus_max"])
 
         response = self.client.patch(self.url(self.job_post.uid), json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 200)
 
         self.job_post.refresh_from_db()
+        data = response.json()
+        self.assertEqual(self.test_data["status"], data["status"])
+        self.assertNotEqual(str(self.job_post.uid), data["uid"])
+        self.assertEqual(data["benefits"], self.test_data["benefits"])
+        self.assertEqual(self.job_post.status, "closed")
+        self.assertEqual(data["salary_currency"], self.currency.abbreviation)
+        self.assertEqual(data["salary_bonus_currency"], self.currency.abbreviation)
+        self.assertEqual(data["salary_min"], self.test_data["salary_min"])
+        self.assertEqual(data["salary_max"], self.test_data["salary_max"])
+        self.assertEqual(data["salary_bonus_min"], self.test_data["salary_bonus_min"])
+        self.assertEqual(data["salary_bonus_max"], self.test_data["salary_bonus_max"])
+
+    def test_update_job_post_to_posted(self):
+        self.job_post.update(status=JobStatusType.PAUSED.value, date_posted=timezone.now() - timedelta(days=6))
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        self.test_data["status"] = JobStatusType.POSTED.value
 
 
-        self.assertEqual(self.job_post.benefits, self.test_data["benefits"])
-        self.assertEqual(self.job_post.status, self.test_data["status"])
-        self.assertEqual(self.job_post.annual_salary_currency, self.currency)
-        self.assertEqual(self.job_post.annual_bonus_currency, self.currency)
-        self.assertEqual(self.job_post.annual_salary_min, self.test_data["annual_salary_min"])
-        self.assertEqual(self.job_post.annual_salary_max, self.test_data["annual_salary_max"])
-        self.assertEqual(self.job_post.annual_bonus_min, self.test_data["annual_bonus_min"])
-        self.assertEqual(self.job_post.annual_bonus_max, self.test_data["annual_bonus_max"])
+        response = self.client.patch(self.url(self.job_post.uid), json=self.test_data, headers=headers)
+        self.assertEqual(response.status_code, 200)
 
-
+        self.job_post.refresh_from_db()
+        data = response.json()
+        self.assertEqual(self.test_data["status"], data["status"])
+        self.assertEqual(str(self.job_post.uid), data["uid"])
+        self.assertEqual(self.job_post.date_posted.date(), timezone.now().date())
 
     def test_update_job_post_with_invalid_uuid(self):
         headers = {
@@ -853,6 +1048,7 @@ class JobPostUpdateTest(TestCase):
         headers = {"Authorization": f"Bearer {talent.user.token}"}
         response = self.client.patch(self.url(self.job_post.uid), json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 403)
+
 
 
 class JobPostDeleteTest(TestCase):
@@ -907,13 +1103,14 @@ class SetJobRequirementTest(TestCase):
         self.job.requiredattribute.hard_delete()
         self.job.refresh_from_db()
         self.url = lambda job_uid : f"{job_uid}/required-attributes"
-        self.skills = SkillFactory.create_batch(5)
-        self.business_models = BusinessModelFactory.create_batch(5)
+        self.skills = Skill.objects.all()[:1]
+        self.business_models = BusinessModel.objects.all()[:1]
+        self.languages = Language.objects.all()[:1]
         self.test_data = {
             "skills": list(map(lambda x: str(x.uid), self.skills)),
             "business_models": list(map(lambda x:str(x.uid), self.business_models)),
             "role": False,
-            "job_level": True,
+            "job_level": False,
             "years_of_experience": False,
             "minimum_education_level": False,
             "work_structure": False,
@@ -921,7 +1118,8 @@ class SetJobRequirementTest(TestCase):
             "first_language": True,
             "secondary_language": False,
             "working_hours": False,
-            "location": False
+            "location": False,
+            "secondary_languages": list(map(lambda x: str(x.uid), self.languages)),
         }
 
     def test_set_job_required_attributes(self):
@@ -960,7 +1158,10 @@ class SetJobRequirementTest(TestCase):
         self.assertTrue(hasattr(self.job, "requiredattribute"))
         required_attributes = self.job.requiredattribute
         self.assertEqual(_required_attributes.uid, required_attributes.uid)
-        self.assertTrue(required_attributes.skills.filter(uid__in=self.test_data["skills"]).exists())
+        self.assertEqual(
+            RequiredSkill.objects.filter(skill__uid__in=self.test_data["skills"]).count(), 
+            len(self.test_data["skills"])
+        )
         self.assertTrue(required_attributes.skills.count(), len(self.test_data["skills"]))
         self.assertTrue(required_attributes.business_models.filter(uid__in=self.test_data["business_models"]).exists())
         self.assertTrue(required_attributes.business_models.count(), len(self.test_data["business_models"]))
@@ -997,6 +1198,7 @@ class SetJobRequirementTest(TestCase):
         }
         response = self.client.patch(self.url(self.job.uid), headers=headers, json=self.test_data)
         self.assertEqual(response.status_code, 404)
+
 
 class GetJobRequirementTest(TestCase):
     def setUp(self):
@@ -1196,7 +1398,8 @@ class UpdateScreeningQuestionTest(TestCase):
         self.business_user = BusinessUserFactory.create()
         self.job = JobFactory.create(created_by=self.business_user)
         self.url = lambda question_uid: f"screening-questions/{question_uid}"
-        self.screening_question = ScreeningQuestionFactory.create(job=self.job, type=QuestionTypeEnum.SINGLE_SELECT.value)
+        self.screening_question = ScreeningQuestionFactory.create(job=self.job, type=QuestionTypeEnum.SINGLE_SELECT.value,
+                                                                  is_knockout=True)
         self.test_data = {
             "type": "single select",
             "text": "What is her name?",
@@ -1226,7 +1429,7 @@ class UpdateScreeningQuestionTest(TestCase):
             "authorization": f"Bearer {self.business_user.user.token}"
         }
         response = self.client.patch(self.url(self.screening_question.uid), json=self.test_data, headers=headers)
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
 
     def test_update_with_invalid_uid(self):
         headers = {
@@ -1251,6 +1454,7 @@ class MutateScreeningQuestionOptionsTest(TestCase):
         self.job = JobFactory.create(created_by=self.business_user)
         self.url = lambda question_uid: f"screening-questions/{question_uid}/options"
         self.screening_question = ScreeningQuestionFactory.create(job=self.job,
+                                                                  is_knockout=True,
                                                                   type=QuestionTypeEnum.SINGLE_SELECT.value)
         self.test_data = [
                 {
@@ -1283,7 +1487,7 @@ class MutateScreeningQuestionOptionsTest(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_multi_select_question_with_only_one_correct_option(self):
-        self.screening_question.update(type=QuestionTypeEnum.MULTI_SELECT.value)
+        self.screening_question.update(type=QuestionTypeEnum.MULTI_SELECT.value, is_knockout=True)
         self.screening_question.refresh_from_db()
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
@@ -1393,9 +1597,6 @@ class DeleteScreeningQuestionOptionsTest(TestCase):
         self.assertEqual(response.status_code, 400)
 
 
-
-
-
 class DeleteScreeningQuestionTest(TestCase):
     def setUp(self):
         self.client = TestClient(router)
@@ -1482,7 +1683,8 @@ class GetScreeningAnswersTest(TestCase):
         self.business_user = BusinessUserFactory.create()
         self.job = JobFactory.create(created_by=self.business_user)
         self.job_post = JobPostFactory.create(job=self.job, recruiter=self.business_user)
-        self.application = JobApplicationFactory.create(job_post=self.job_post, recruiter=self.business_user)
+        self.stage = WorkFlowStage.objects.filter(phase=PhaseType.NEW.value, created_by__business=self.business_user.business).first()
+        self.application = JobApplicationFactory.create(job_post=self.job_post, recruiter=self.business_user, stage=self.stage)
         self.url = lambda application_id: f"applications/{application_id}/screening-answers"
         self.questions = ScreeningQuestionFactory.create_batch(5, job=self.job)
         for screening_question in self.questions:
@@ -1527,8 +1729,9 @@ class UpdateJobApplicationTest(TestCase):
         self.business_user = BusinessUserFactory.create()
         self.job = JobFactory.create(created_by=self.business_user)
         self.job_post = JobPostFactory.create(job=self.job, recruiter=self.business_user)
+        self.stage = WorkFlowStage.objects.filter(created_by__business=self.business_user.business).first()
         self.application = JobApplicationFactory.create(job_post=self.job_post, recruiter=self.business_user,
-                                                        stage=None)
+                                                       stage=self.stage )
         self.url = lambda application_id: f"job-posts/applications/{application_id}"
 
 
@@ -1536,7 +1739,7 @@ class UpdateJobApplicationTest(TestCase):
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
             "stage": str(stage.uid)
         }
@@ -1551,7 +1754,7 @@ class UpdateJobApplicationTest(TestCase):
         headers = {
             "authorization": f"Bearer {business_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
             "stage": str(stage.uid)
         }
@@ -1563,7 +1766,7 @@ class UpdateJobApplicationTest(TestCase):
         headers = {
             "authorization": f"Bearer {talent_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
             "stage": str(stage.uid)
         }
@@ -1574,7 +1777,7 @@ class UpdateJobApplicationTest(TestCase):
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
+        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
             "stage": str(stage.uid)
         }
@@ -1633,3 +1836,430 @@ class JobPostBulkUpdateTest(TestCase):
         self.test_data["action"] = ActionType.DELETE.value
         response = self.client.patch(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 403)
+
+
+class JobApplicationMatchTests(TestCase):
+    def setUp(self):
+        self.talent: Talent = TalentFactory.create()
+        self.location = Country.objects.all()[0]
+        self.location2 = Country.objects.all()[1]
+        self.job: Job = JobFactory.create()
+        self.job_post: JobPost = JobPostFactory.create(
+            job=self.job,
+        )
+        self.required_attributes: RequiredAttribute = self.job.requiredattribute
+        self.additional_languages = Language.objects.all()[:3]
+        self.additional_languages2 = self.additional_languages[:1]
+        self.role = Role.objects.order_by("pk")[0]
+        self.role2 = Role.objects.order_by("pk")[1]
+
+        self.tool_platform_skills = Skill.objects.filter(category__name="Tools/Platforms")[:3]
+        self.methodology_skills = Skill.objects.filter(category__name="Common Methodologies/Frameworks")[:3]
+        self.general_skills = Skill.objects.filter(category__name="General Skills")[:3]
+
+        self.level1 = JobLevel.objects.all()[0]
+        self.level2 = JobLevel.objects.all()[1]
+
+        self.job_application = JobApplicationFactory.create(
+            applicant=self.talent,
+            job_post=self.job_post
+        )
+    
+    def test_role(self):
+        self.update_required_attributes(role=False)
+        self.job.role = self.role
+        experience: Experience = ExperienceFactory.create(
+            talent=self.talent,
+            role=self.role2
+        )
+        self.talent.role = self.role2
+        self.talent.save()
+        self.job.save()
+
+        queryset = JobApplication.objects.filter(id=self.job_application.id)
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_post = queryset.first()
+
+        role_score = Decimal(job_post.role_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(role_score, Decimal("0.0"))
+
+        self.update_required_attributes(role=True)
+        queryset = JobApplication.objects.filter(id=self.job_application.id)
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_post = queryset.first()
+
+        computed_match_score = Decimal(job_post.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(computed_match_score, Decimal("0.0"))
+
+        experience.role =self.job.role
+        experience.save()
+
+        queryset = JobApplication.objects.filter(id=self.job_application.id)
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_post = queryset.first()
+
+        role_score = Decimal(job_post.role_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(role_score, Decimal("6.67"))
+    
+    def test_location(self):
+        self.talent.country = self.location
+        self.job_post.country = self.location
+        self.update_required_attributes(location=True)
+        self.talent.save()
+        self.job_post.save()
+
+        queryset = JobApplication.objects.filter(id=self.job_application.id)
+        queryset = add_application_match_score(queryset, self.job_post)
+
+        job_application = queryset.first()
+        location_score = Decimal(job_application.location_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        #test matching job location
+        self.assertEqual(location_score, Decimal("6.67"))
+
+        self.talent.country = self.location2
+        self.talent.save()
+
+        queryset = JobApplication.objects.filter(id=self.job_application.id)
+        queryset = add_application_match_score(queryset, self.job_post)
+
+        job_application = queryset.first()
+        location_score = Decimal(job_application.location_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        #test non matching location
+        self.assertEqual(location_score, Decimal("0.0"))
+    
+    def test_additional_language(self):
+        self.job.additional_languages.add(*self.additional_languages)
+        self.talent.additional_languages.add(*self.additional_languages2)
+        self.talent.save()
+        self.job_post.save()
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+
+        additional_language_score = Decimal(job_application.additional_language_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(additional_language_score, Decimal("2.22"))
+
+        #add compulsory language
+        RequiredSecondaryLanguage.objects.create(
+            required_attribute=self.required_attributes,
+            language=self.additional_languages[2]
+        )
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+
+        computed_match_score = Decimal(job_application.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(computed_match_score, Decimal("0.0"))
+    
+    def test_skills(self):
+        self.update_required_attributes()
+        self.job.skills.add(*self.tool_platform_skills[:0], *self.general_skills[:0], *self.methodology_skills[:0])
+        self.talent.skills.all().delete()
+        #self.talent.skills.add(*self.tool_platform_skills[:1], *self.general_skills[:2], *self.methodology_skills)
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+
+        tool_platform_score = Decimal(job_application.tools_platform_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        methodologies_score = Decimal(job_application.methodologies_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        general_skill_score = Decimal(job_application.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(tool_platform_score, Decimal("6.67"))
+        self.assertEqual(methodologies_score, Decimal("6.67"))
+        self.assertEqual(general_skill_score, Decimal("6.67"))
+    
+    def test_missing_required_skill_returns_zero_score(self):
+        self.update_required_attributes()
+        self.job.skills.add(*self.tool_platform_skills, *self.general_skills, *self.methodology_skills)
+        RequiredSkill.objects.create(
+            skill=self.job.skills.first(),
+            required_attribute=self.required_attributes,
+        )
+        self.talent.skills.all().delete()
+        self.talent.skills.add(*self.tool_platform_skills[:1], *self.general_skills[:2], *self.methodology_skills)
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        tool_platform_score = Decimal(job_application.tools_platform_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        methodologies_score = Decimal(job_application.methodologies_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        general_skill_score = Decimal(job_application.general_skill_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(tool_platform_score, Decimal("2.22"))
+        self.assertEqual(methodologies_score, Decimal("6.67"))
+        self.assertEqual(general_skill_score, Decimal("4.45"))
+    
+    def test_job_level_no_score(self):
+        self.update_required_attributes()
+        Experience.objects.filter(talent=self.talent).delete()
+        
+        ExperienceFactory.create(talent=self.talent, level=self.level1)
+        self.job.job_level = self.level2
+        self.job.save()
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        job_level_score = Decimal(job_application.job_level_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(job_level_score, Decimal("0.0"))
+    
+    def test_job_level_full_score(self):
+        self.update_required_attributes()
+        Experience.objects.filter(talent=self.talent).delete()
+        level1 = JobLevel.objects.all()[0]
+        ExperienceFactory.create(talent=self.talent, level=level1)
+        self.job.job_level = level1
+        self.job.save()
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        job_level_score = Decimal(job_application.job_level_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(job_level_score, Decimal("6.67"))
+
+    def test_job_level_required_or_no_score(self):
+        self.update_required_attributes(job_level=True)
+        Experience.objects.filter(talent=self.talent).delete()
+        level1 = JobLevel.objects.all()[0]
+        level2 = JobLevel.objects.all()[1]
+        ExperienceFactory.create(talent=self.talent, level=level1)
+        self.job.job_level = level2
+        self.job.save()
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        computed_match_score = Decimal(job_application.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+        self.assertEqual(computed_match_score, Decimal("0.0"))
+    
+    def test_experience_score_full(self):
+        self.update_required_attributes()
+        self.talent.years_of_experience = 6
+        self.job.years_of_experience = 5
+        self.talent.save()
+        self.job.save() 
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        experience_score = Decimal(job_application.experience_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(experience_score, Decimal("6.67"))
+    
+    def test_experience_score_zero(self):
+        self.update_required_attributes()
+        self.talent.years_of_experience = 6
+        self.job.years_of_experience = 8
+        self.talent.save()
+        self.job.save() 
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        experience_score = Decimal(job_application.experience_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(experience_score, Decimal("0.0"))
+    
+    def test_working_hours_complete_match_full_score(self):
+        available_days = [
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        talent_available_days = [
+            TalentAvailableDay(
+                talent=self.talent,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        TalentAvailableDay.objects.bulk_create(talent_available_days)
+        AvailableDay.objects.bulk_create(available_days)
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        final_work_schedule_score = Decimal(job_application.final_work_schedule_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(final_work_schedule_score, Decimal("6.67"))
+    
+    def test_working_hours_incomplete_match_partial_score(self):
+        self.job.flexible_availability = False
+        self.talent.flexible_availability = False
+        self.job.save()
+        self.talent.save()
+        available_days = [
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.TUESDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        talent_available_days = [
+            TalentAvailableDay(
+                talent=self.talent,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        TalentAvailableDay.objects.bulk_create(talent_available_days)
+        AvailableDay.objects.bulk_create(available_days)
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        final_work_schedule_score = Decimal(job_application.final_work_schedule_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(final_work_schedule_score, Decimal("3.33"))
+    
+    def test_working_hours_no_job_hours_full_score(self):
+        available_days = []
+        talent_available_days = [
+            TalentAvailableDay(
+                talent=self.talent,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        TalentAvailableDay.objects.bulk_create(talent_available_days)
+        AvailableDay.objects.bulk_create(available_days)
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        final_work_schedule_score = Decimal(job_application.final_work_schedule_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(final_work_schedule_score, Decimal("6.67"))
+    
+    def test_working_hours_flexible_talent_full_score(self):
+        self.talent.flexible_availability = True
+        self.talent.save()
+        available_days = [
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.TUESDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        talent_available_days = []
+        TalentAvailableDay.objects.bulk_create(talent_available_days)
+        AvailableDay.objects.bulk_create(available_days)
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        final_work_schedule_score = Decimal(job_application.final_work_schedule_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(final_work_schedule_score, Decimal("6.67"))
+    
+    def test_working_hours_flexible_job_full_score(self):
+        self.talent.flexible_availability = True
+        self.job.flexible_availability = True
+        self.talent.save()
+        available_days = []
+        talent_available_days = []
+        TalentAvailableDay.objects.bulk_create(talent_available_days)
+        AvailableDay.objects.bulk_create(available_days)
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        final_work_schedule_score = Decimal(job_application.final_work_schedule_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(final_work_schedule_score, Decimal("6.67"))
+    
+    def test_working_hours_required_incomplete_match_zero_computed_score(self):
+        self.update_required_attributes(working_hours=True)
+        available_days = [
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.TUESDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        talent_available_days = [
+            TalentAvailableDay(
+                talent=self.talent,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(4, 0)
+            ),
+        ]
+        TalentAvailableDay.objects.bulk_create(talent_available_days)
+        AvailableDay.objects.bulk_create(available_days)
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        computed_match_score = Decimal(job_application.computed_match_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(computed_match_score, Decimal("0.00"))
+    
+    def test_working_hours_match_accross_timezones(self):
+        self.job.availability_timezone = "America/Los_Angeles"
+        self.talent.availability_timezone = "America/New_York" #3hrs ahead
+        self.talent.save()
+        self.job.save()
+        available_days = [
+            AvailableDay(
+                job=self.job_post.job,
+                day=Days.MONDAY.value,
+                start_time=time(8, 0),
+                end_time=time(10, 0)
+            ),
+        ]
+        talent_available_days = [
+            TalentAvailableDay(
+                talent=self.talent,
+                day=Days.MONDAY.value,
+                start_time=time(11, 0),
+                end_time=time(13, 0)
+            ),
+        ]
+        TalentAvailableDay.objects.bulk_create(talent_available_days)
+        AvailableDay.objects.bulk_create(available_days)
+
+        queryset = self.get_queryset()
+        queryset = add_application_match_score(queryset, self.job_post)
+        job_application = queryset.first()
+        final_work_schedule_score = Decimal(job_application.final_work_schedule_score).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+        self.assertEqual(final_work_schedule_score, Decimal("6.67"))
+    
+    def update_required_attributes(self, *args, **kwargs):
+        for field_name in self.job.required_attributes_keys:
+            if hasattr(self.required_attributes, field_name):
+                field = getattr(self.required_attributes, field_name)
+                if isinstance(field, models.BooleanField):
+                    setattr(self.required_attributes, field, False)
+        for field_name in kwargs:
+            setattr(self.required_attributes, field_name, kwargs[field_name])
+        self.required_attributes.save()
+    
+    def get_queryset(self):
+        return JobApplication.objects.filter(id=self.job_application.id)

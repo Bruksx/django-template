@@ -17,7 +17,7 @@ from accounts.enums import MeetingType
 from config.permissions import IsBusinessUser
 from config.permissions import IsTalentUser
 from helpers.email.auth import send_verification_code
-from helpers.utils import convert_base64_to_image_file, validate_password, delete_s3_item
+from helpers.utils import convert_base64_to_image_file, validate_password, delete_s3_item, to_utc
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from services import meeting
@@ -26,9 +26,6 @@ router = Router(tags=["Account"])
 
 @router.post("initiate-account-creation")
 def initiate_account_creation(request, data: common_schemas.RegisterSchema):
-    if User.deleted_objects.filter(email__iexact=data.email).exists():
-        raise HttpError(400, "Reach out to get your account restored")
-
     existing_user = User.objects.filter(email__iexact=data.email).exists()
     if existing_user:
         raise HttpError(400, "An account with this email already exists")
@@ -43,7 +40,7 @@ def initiate_account_creation(request, data: common_schemas.RegisterSchema):
 @router.post("create-account", response={200:talent_schemas.LoggedInUserSchema})
 @transaction.atomic
 def create_account(request, data: talent_schemas.ValidateTalentOTPSchema):
-    existing_user = User.objects.filter(email=data.email).exists()
+    existing_user = User.objects.filter(email__iexact=data.email).exists()
     if existing_user:
         raise HttpError(400, "An account with this email already exists")
     verification_code = VerificationCode.objects.filter(email__iexact=data.email).last()
@@ -55,7 +52,7 @@ def create_account(request, data: talent_schemas.ValidateTalentOTPSchema):
     validate_password(password=data.password)
     user = User.objects.create_user(first_name=data.first_name,
                                     last_name=data.last_name,
-                                    email=data.email.lower(),
+                                    email=data.email.lower().strip(),
                                     password=data.password,
                                     username=None,
                                     auth_mode=AuthType.EMAIL.value,
@@ -120,14 +117,19 @@ def talent_dashboard_chart(request):
 @transaction.atomic
 def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentProfileSchema2]):
     IsTalentUser.check(request)
-    talent_user = request.user.talent
+    talent_user: Talent = request.user.talent
     if "gender" in data:
         data["gender"] = data["gender"].value if type(data["gender"]) is not str else data["gender"]
 
-    if "work_model" in data:
-        data["work_model"] = data["work_model"].value if type(data["work_model"]) is not str else data["work_model"]
+
+    if "work_models" in data:
+        wm_func = lambda x: x.value if type(x) is not str else x
+        if data["work_models"] is not None:
+            data["work_models"] = list(map(wm_func, data["work_models"]))
+
 
     if "preferred_communication" in data:
+        
         data["preferred_communication"] = data["preferred_communication"].value if type(data["preferred_communication"]) is not str else data["preferred_communication"]
     if "notice_period_type" in data:
         data["notice_period_type"] = data["notice_period_type"].value if type(data["notice_period_type"]) is not str else data["notice_period_type"]
@@ -147,6 +149,8 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
         data["photo"] = convert_base64_to_image_file(data["photo"])
     if "phone_number" in data:
         user_data["phone_number"] = data.pop("phone_number")
+    if "phone_code" in data:
+        user_data["phone_code"] = data.pop("phone_code")
     if "skills" in data and data["skills"]:
         talent_user.skills.set(data.pop("skills"))
     if "business_models" in data and data["business_models"]:
@@ -158,6 +162,14 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
             currently_works = experience.get("currently_works_here", False)
             start_date = experience.get("start_date", None)
             end_date = experience.get("end_date", None)
+            if experience.get("salary_type"):
+                experience["salary_type"] = experience["salary_type"].value if type(experience["salary_type"]) is not str else experience[
+                    "salary_type"]
+
+            if experience.get("salary_bonus_type"):
+                experience["salary_bonus_type"] = experience["salary_bonus_type"].value if type(
+                    experience["salary_bonus_type"]) is not str else experience["salary_bonus_type"]
+
             if not start_date:
                 raise HttpError(400, "Experience start date is required")
             if currently_works is True:
@@ -188,9 +200,19 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
                 education  = Education.objects.create(**education, talent=talent_user)
                 uids.append(education.uid)
         talent_user.education_set.exclude(uid__in=uids).hard_delete()
-    if "additional_languages" in data and data["additional_languages"]:
-        additional_languages = data.pop("additional_languages")
-        talent_user.additional_languages.set(additional_languages)
+    if "additional_languages" in data:
+        additional_languages = data.pop("additional_languages", list())
+        if additional_languages:
+            talent_user.additional_languages.set(additional_languages)
+        else:
+            talent_user.additional_languages.clear()
+    if "employment_types" in data:
+        employment_types = data.pop("employment_types", list())
+        if employment_types:
+            talent_user.employment_types.set(employment_types)
+        else:
+            talent_user.employment_types.clear()
+
     if "availability" in data and data["availability"]:
         for available_day in data.pop("availability"):
             available_day["day"] = available_day["day"].value
@@ -225,7 +247,7 @@ def upload_talent_cv(request, file: Optional[UploadedFile] = File(None)):
     talent_user = request.user.talent
     if not file:
         if talent_user.cv:
-            delete_s3_item(talent_user.cv)
+            delete_s3_item(talent_user.cv.url)
         talent_user.update(cv=None)
         return Response(status=200, data={"message": "CV cleared successfully"})
     if file.name.split(".")[-1] != "pdf":
@@ -239,16 +261,14 @@ def upload_talent_profile_picture(request, file: Optional[UploadedFile] = File(N
     talent_user = request.user.talent
     if not file:
         if talent_user.photo_url:
-            delete_s3_item(talent_user.photo_url)
-        talent_user.update(photo=None)
+            async_task(delete_s3_item, talent_user.photo_url)
+        async_task(talent_user.update, photo=None)
         return Response(status=200, data={"message": "Profile picture cleared successfully"})
     extension = str(file.name.split(".")[-1]).lower()
     if extension not in ["jpg", "jpeg", "png"]:
         raise HttpError(400, "This file type is not supported. Only JPG/JPEG/PNG files")
-    talent_user.update(photo=file)
+    async_task(talent_user.update, photo=file)
     return Response(status=200, data={"message": "Profile picture uploaded successfully"})
-
-
 
 
 @router.get("{talent_uid}", response=talent_schemas.TalentUserSchema, auth=JWTAuth())

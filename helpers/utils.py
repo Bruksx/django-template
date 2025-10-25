@@ -4,12 +4,14 @@ import random
 import re
 import string
 import uuid
-from datetime import timezone
+from datetime import timezone, time, datetime
 from io import BytesIO
 from sys import getsizeof
 from typing import Optional, List
+from zoneinfo import ZoneInfo
 
 import boto3
+import ijson
 import pdfkit
 import psutil
 from botocore.exceptions import NoCredentialsError
@@ -21,6 +23,38 @@ from ninja.errors import HttpError
 from helpers.loggers import Logger
 from monkeypatches.response import Response
 
+from urllib.parse import urlencode, urljoin
+
+def create_url_with_params(base_url: str, params: dict, doseq: bool = False) -> str:
+    """
+    Constructs a URL by appending URL-encoded parameters to a base URL.
+
+    Args:
+        base_url (str): The base URL (e.g., "https://api.example.com/data").
+        params (dict): A dictionary of parameters where keys are parameter names
+                       and values are the parameter values. Values can be single
+                       items or lists/tuples if doseq is True.
+        doseq (bool): If True, and a parameter's value is a sequence (e.g., list),
+                      multiple key=value pairs will be generated (e.g., param=a&param=b).
+                      If False, sequences will be treated as a single string.
+                      Defaults to False.
+
+    Returns:
+        str: The full URL with correctly encoded parameters.
+    """
+    if not isinstance(base_url, str):
+        raise TypeError("base_url must be a string.")
+    if not isinstance(params, dict):
+        raise TypeError("params must be a dictionary.")
+
+    # Encode the parameters
+    encoded_params = urlencode(params, doseq=doseq)
+
+    # Combine the base URL and the encoded query string
+    # urljoin is robust for correctly adding '?' and handling existing query strings
+    full_url = urljoin(base_url, '?' + encoded_params)
+
+    return full_url
 
 def success_response(message="successful", data=None, status=200):
     return Response(data={"message": message, "data": data|dict()}, status=status)
@@ -87,17 +121,45 @@ def html_to_pdf3(source_html):
 
 def delete_s3_item(key):
     from boto3.session import Session
+
     if not settings.USE_AWS_S3:
+        Logger.info(msg=dict(sender="Helper Utils", title="AWS S3 DELETE Info",
+                             description='AWS S3 not enabled in settings, skipping delete'))
         return
+
     try:
+        region = settings.AWS_S3_REGION_NAME
         session = Session(
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            region_name=region
         )
         s3 = session.resource("s3")
-        s3.Object(settings.AWS_STORAGE_BUCKET_NAME, f"media/{key}").delete()
+        bucket = settings.AWS_STORAGE_BUCKET_NAME
+        url = f"https://{bucket}.s3.amazonaws.com/"
+        if str(key).startswith(url):
+            key = key.split(url)[-1]
+
+        obj = s3.Object(bucket, key)
+
+        # Verify object exists before deleting
+        try:
+            obj.load()
+        except Exception as load_error:
+            Logger.error(msg=dict(sender="Helper Utils", title="AWS S3 DELETE Error",
+                                 description=f"Object not found: {key}. Error: {str(load_error)}"))
+            return False
+
+        # Perform deletion
+        obj.delete()
+        Logger.info(msg=dict(sender="Helper Utils", title="AWS S3 DELETE Info",
+                             description=f"Successfully deleted S3 object: {key}"))
+        return True
+
     except Exception as e:
-        Logger.error(msg=dict(sender="Helper Utils", title="AWS DELETE Error", description=str(e)), exc_info=True)
+        Logger.error(msg=dict(sender="Helper Utils", title="AWS S3 DELETE Error",
+                              description=f"Failed to delete S3 object {key}: {str(e)}"), exc_info=True)
+        raise  # Just 'raise' to preserve stack trace
 
 def upload_to_s3(files, folder_name):
     if not settings.USE_AWS_S3:
@@ -275,3 +337,78 @@ def sort_params_function(sorts:List[str], mapper:dict[str, str])->List[str]:
         if sort_value:
             sort_values.append(f"{sort_sign}{sort_value}")
     return sort_values
+
+
+def to_utc(time_: str|time , tzinfo="America/Vancouver"):
+    """
+    Converts a local time string to a UTC time object.
+
+    Args:
+        time_str (str): Time string in "HH:MM:SS" format (24-hour clock).
+        tzinfo (str, optional): IANA timezone name representing the local time zone.
+            Defaults to "America/Vancouver".
+
+    Returns:
+        datetime.time: The equivalent UTC time as a time object (without date).
+    
+    Example:
+        >>> to_utc("08:00:00", tzinfo="America/Vancouver")
+        datetime.time(15, 0)  # (e.g. if DST is in effect)
+
+    Notes:
+        - The conversion is based on the current date.
+        - The output is a naive `time` object in UTC.
+    """
+    today = datetime.now().date()
+    if isinstance(time_, str):
+        time_obj = datetime.strptime(time_, "%H:%M:%S").time()
+    else:
+        time_obj = time_
+    date_time = datetime.combine(today, time_obj, tzinfo=ZoneInfo(tzinfo))
+    utc_dt = date_time.astimezone(ZoneInfo("UTC"))
+    return utc_dt.time()
+
+
+def read_json_generator(file_path):
+    """
+    Generator function to read a JSON file and yield each object one at a time without loading the entire file into memory.
+
+    Args:
+        file_path (str): Path to the JSON file
+
+    Yields:
+        dict: Individual JSON object from the file
+
+    Raises:
+        FileNotFoundError: If the specified file doesn't exist
+        ijson.JSONError: If the JSON is invalid
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as file:
+            # Parse JSON objects iteratively
+            parser = ijson.items(file, 'item')
+            for item in parser:
+                yield item
+
+    except FileNotFoundError:
+        raise FileNotFoundError(f"File not found: {file_path}")
+    except ijson.JSONError as e:
+        raise ijson.JSONError(f"Invalid JSON format: {str(e)}")
+
+
+def capitalize_bracketed(text):
+    def replacer(match):
+        content = match.group(1)
+        # Only capitalize if no spaces inside
+        if ' ' in content:
+            return f"({content})"
+        return f"({content.upper()})"
+
+    return re.sub(r'\((.*?)\)', replacer, text)
+
+def uppercase_first_word(text):
+    # Strip leading/trailing spaces first
+    text = text.strip()
+    # Match a single word followed by optional space and a bracketed phrase
+    pattern = r'^(\w+)\s*(\([^)]*\))$'
+    return re.sub(pattern, lambda m: m.group(1).upper() + " " + m.group(2), text)

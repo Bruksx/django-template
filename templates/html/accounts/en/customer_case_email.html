@@ -1,0 +1,24 @@
+{% extends "all_template.html" %}
+
+{% block content %}
+    <div style="width: 100%;">
+    <p>Dear Admin</p>
+
+    <p>This is a customer contact email.</p>
+
+     <p>Below is the detail of this email</p>
+      <br/>
+
+    <p>Sender Name:  {{sender}}</p>
+      <p>Sender Email: {{email}}</p>
+      <p>Sender Account Type: {{account_type}}</p>
+      <p>Reason: {{reason}}</p>
+      <div>Description: {{description}}</div>
+
+
+    <p>Best Regards,</p>
+    <p>{{sender}}</p>
+    </div>
+
+
+{% endblock %}

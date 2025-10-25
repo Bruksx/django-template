@@ -33,46 +33,57 @@ def workplace_type_mapper(workplace_type):
 def get_location(job_post):
 	location = set()
 	if job_post.province:
-		location.add(job_post.province)
+		location.add(job_post.province.name if job_post.province else "")
 	if job_post.country:
-		location.add(job_post.country.name)
+		location.add(job_post.country.name if job_post.country else "")
 	return ", ".join(location)
+
+def get_linkedin_period(period):
+	return {
+		"Hourly": "HOURLY",
+		"Daily": "DAILY",
+		"Weekly": "WEEKLY",
+		"Bi-Weekly": "BIWEEKLY",
+		"Monthly": "MONTHLY",
+		"Bi-Monthly": "SEMIMONTHLY",
+		"Annually": "YEARLY"
+	}.get(period, "ONCE")
 
 def get_compensation(job_post)->CompensationsSchema:
 	compensation = CompensationsSchema(compensations=[])
-	if job_post.annual_salary_currency and job_post.annual_salary_min and job_post.annual_salary_max:
+	if job_post.salary_currency and job_post.salary_min and job_post.salary_max:
 		compensation.compensations.append(
 				CompensationSchema(
 					value=RangeValueSchema(
 						start=ValueSchema(
-							amount=str(job_post.annual_salary_min),
-							currencyCode=job_post.annual_salary_currency.code
+							amount=str(job_post.salary_min),
+							currencyCode=job_post.salary_currency.abbreviation
 						),
 						end=ValueSchema(
-							amount=str(job_post.annual_salary_max),
-							currencyCode=job_post.annual_salary_currency.code
+							amount=str(job_post.salary_max),
+							currencyCode=job_post.salary_currency.abbreviation
 						)
 					),
 					type="BASE_SALARY",
-					period="YEARLY"
+					period=get_linkedin_period(job_post.salary_type)
 				)
 		)
 
-	if job_post.annual_bonus_currency and job_post.annual_bonus_min and job_post.annual_bonus_max:
+	if job_post.salary_bonus_currency and job_post.salary_bonus_min and job_post.salary_bonus_max:
 		compensation.compensations.append(
 				CompensationSchema(
 					value=RangeValueSchema(
 						start=ValueSchema(
-							amount=str(job_post.annual_bonus_min),
-							currencyCode=job_post.annual_bonus_currency.code
+							amount=str(job_post.salary_bonus_min),
+							currencyCode=job_post.salary_bonus_currency.abbreviation
 						),
 						end=ValueSchema(
-							amount=str(job_post.annual_bonus_max),
-							currencyCode=job_post.annual_bonus_currency.code
+							amount=str(job_post.salary_bonus_max),
+							currencyCode=job_post.salary_bonus_currency.abbreviation
 						)
 					),
 					type="BONUS",
-					period="YEARLY"
+					period=get_linkedin_period(job_post.salary_bonus_type)
 				))
 		return compensation
 
@@ -92,22 +103,25 @@ def experience_level_mapper(experience_level):
 	).get(experience_level, ExperienceLevelEnum.NOT_APPLICABLE.value)
 
 
-def job_post_to_job_schema(job_post)->JobSchema:
-	description = render_text_email("jobs/job_description.txt", {
-		"responsibilities": job_post.job.responsibilities,
-		"benefits": job_post.benefits
-	})
-	apply_url = f"{settings.FRONTEND_URL}/job-posts/{job_post.uid}"
+def job_post_to_job_schema(job_post, lang="en")->JobSchema:
+	responsibilities = job_post.job.responsibilities
+	benefits = job_post.benefits
+	description = render_text_email(f"jobs/{lang}/job_description.txt", {
+		"responsibilities": responsibilities,
+		"benefits": benefits
+	}) if responsibilities or benefits else ""
+	apply_url = f"{settings.FRONTEND_URL}job-details/{job_post.uid}"
 	employment_status = employment_type_mapper(job_post.job.employment_type.name if job_post.job.employment_type else "")
 	return JobSchema(
 				title=job_post.job.title,
 				description=description,
 				companyApplyUrl=apply_url,
+				company=job_post.job.get_company(),
 				employmentStatus=employment_status,
 				externalJobPostingId=str(job_post.uid),
 				listedAt=datetime_to_epoch_milliseconds(job_post.created_at),
 				location=get_location(job_post),
-				workplaceTypes=workplace_type_mapper(job_post.job.work_structure),
+				workplaceTypes=[workplace_type_mapper(job_post.job.work_structure)],
 				compensation=get_compensation(job_post),
 				experienceLevel=experience_level_mapper(job_post.job.job_level.name if job_post.job.job_level else ""),
 			)

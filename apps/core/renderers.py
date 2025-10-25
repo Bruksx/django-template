@@ -1,7 +1,9 @@
-from ninja.renderers import BaseRenderer
+from io import StringIO
+
 import orjson
-import json
-from core.schemas import FieldErrorSchema, StringDetailSchema, MessageSchema, StringSchema
+from core.schemas import FieldErrorSchema, StringDetailSchema, MessageSchema
+from django.utils.xmlutils import SimplerXMLGenerator
+from ninja.renderers import BaseRenderer
 from pydantic_core import ValidationError
 
 
@@ -60,18 +62,31 @@ def get_message(data, response_status):
     return ""
 
 
-"""def get_message(data, response_status):
-    schemas = [FieldErrorSchema, StringDetailSchema, MessageSchema]
-    for schema in schemas:
-        try:
-            res = schema(**data)
-            # Handle the specific field based on the schema
-            if hasattr(res, 'detail'):
-                return res.detail
-            elif hasattr(res, 'message'):
-                return res.message
-            elif hasattr(res, 'errors'):
-                return format_errors(data)
-        except ValidationError:
-            continue
-    return """""
+
+# renderers.py
+
+class XMLRenderer(BaseRenderer):
+    media_type = "application/xml"
+
+    def render(self, request, data, *, response_status):
+        stream = StringIO()
+        xml = SimplerXMLGenerator(stream, "utf-8")
+        xml.startDocument()
+        xml.startElement("data", {})
+
+        def _to_xml(parent_xml, value):
+            if isinstance(value, dict):
+                for key, val in value.items():
+                    parent_xml.startElement(key, {})
+                    _to_xml(parent_xml, val)
+                    parent_xml.endElement(key)
+            elif isinstance(value, list):
+                for item in value:
+                    _to_xml(parent_xml, item)
+            else:
+                parent_xml.characters(str(value))
+
+        _to_xml(xml, data)
+        xml.endElement("data")
+        xml.endDocument()
+        return stream.getvalue()

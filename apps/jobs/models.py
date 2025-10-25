@@ -1,15 +1,20 @@
 from functools import cached_property
 
-from django.db import models
-from django.db.models import F, Q
-from monkeypatches.q_cluster import async_task
-from timezone_field import TimeZoneField
-
 from accounts.enums import Days
 from accounts.models import Talent, TalentAvailableDay
+from core.enums import SalaryType
 from core.models import BaseModel, Language
+from django.db import models
+from django.db.models import F, Q, Count, IntegerField, When, Case, Value
+from django.db.models.functions import Coalesce, Now, Extract, Cast
+from django.db.models.signals import pre_save
+from django_softdelete.managers import SoftDeleteManager
 from jobs.managers import JobManager
 from settings.enums import PlaceHolderType
+from timezone_field import TimeZoneField
+
+from monkeypatches.q_cluster import async_task
+from .db_functions import Epoch
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
     JobStatusType
 
@@ -23,6 +28,11 @@ class EmploymentType(BaseModel):
     def __str__(self) -> str:
         return self.name
 
+    def fullname(self):
+        if self.parent:
+            return f"{self.parent.name} ({self.name})"
+        return self.name
+
 
 class JobLevel(BaseModel):
     name = models.CharField(max_length=64)
@@ -30,11 +40,26 @@ class JobLevel(BaseModel):
     def __str__(self) -> str:
         return self.name
 
+class AvailableDayManager(SoftDeleteManager):
+    def bulk_create(self, objs, **kwargs):
+        for obj in objs:
+            pre_save.send(sender=self.model, instance=obj, created=False ,raw=False, using=self.db)
+        return super().bulk_create(objs, **kwargs)
+    
+    def bulk_update(self, objs, *args, **kwargs):
+        for obj in objs:
+            pre_save.send(sender=self.model, instance=obj, created=True, raw=False, using=self.db)
+        return super().bulk_update(objs, *args, **kwargs)
+    
+
 class AvailableDay(BaseModel):
     job = models.ForeignKey("Job", on_delete=models.CASCADE)
     day = models.CharField(max_length=32, choices=Days.choices())
     end_time = models.TimeField(null=True)
     start_time = models.TimeField(null=True)
+    utc_start_time = models.TimeField(null=True)
+    utc_end_time = models.TimeField(null=True)
+    objects = AvailableDayManager()
 
 
 class Job(BaseModel):
@@ -49,7 +74,7 @@ class Job(BaseModel):
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     hiring_company_name = models.CharField(max_length=64, null=True)
     hiring_company_description = models.TextField(null=True)
-    title = models.CharField(max_length=100, null=True)
+    title = models.CharField(max_length=100, null=True, blank=True)
     about = models.TextField(null=True)
     years_of_experience = models.IntegerField(null=True)
     minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
@@ -58,22 +83,22 @@ class Job(BaseModel):
     qualification = models.TextField(null=True, blank=True)
     work_structure = models.CharField(choices=WorkStructureEnum.choices(), null=True, blank=True)
     first_language = models.ForeignKey(Language, on_delete=models.SET_NULL, null=True)
-    additional_languages = models.ManyToManyField(Language, related_name="jobs")
-    office_address = models.CharField(max_length=128)
-    lunch_break = models.CharField(max_length=50, choices=LunchBreakEnum.choices())
+    additional_languages = models.ManyToManyField(Language, related_name="jobs", blank=True)
+    office_address = models.CharField(max_length=128, null=True)
+    lunch_break = models.CharField(max_length=50, choices=LunchBreakEnum.choices(), null=True)
     lunch_break_time = models.PositiveSmallIntegerField(default=0)
     responsibilities = models.JSONField(default=list, blank=True)
     additional_hours_description = models.TextField(null=True)
-    additional_hours_start = models.TimeField(null=True)
-    additional_hours_end = models.TimeField(null=True)
+    additional_skills = models.TextField(null=True)
+    additional_hours_start = models.CharField(max_length=100, null=True, blank=True)
+    additional_hours_end = models.CharField(max_length=100, null=True, blank=True)
     technological_requirement = models.CharField(max_length=100, null=True, blank=True)
     availability_timezone = TimeZoneField(default="America/Vancouver")
     flexible_availability = models.BooleanField(default=False)
     department = models.ForeignKey("accounts.Department", null=True, on_delete=models.SET_NULL)
     role = models.ForeignKey("accounts.Role", null=True, on_delete=models.SET_NULL)
-    skills = models.ManyToManyField("accounts.Skill")
+    skills = models.ManyToManyField("accounts.Skill", blank=True)
     min_match_score = models.FloatField(null=True)
-
     objects = JobManager()
 
     required_attributes_keys = (
@@ -84,14 +109,28 @@ class Job(BaseModel):
             "location"
         )
 
+    @property
+    def get_title(self):
+        if not self.role:
+            return "" if not self.title else self.title
+        return self.role.name
+
+    def get_work_structure(self):
+        if not self.work_structure:
+            return ""
+        return str(self.work_structure).title()
+
+
+
     def get_availability(self, schema, query=None):
         data = list()
         for value in Days.values():
             availability = query.filter(day=value).first()
-            data.append({
-                "day": value,
-                "availability": schema.from_orm(availability) if availability else None
-            })
+            if availability:
+                data.append({
+                    "day": value,
+                    "availability": schema.from_orm(availability) if availability else None
+                })
         return data
 
     def send_alerts(self):
@@ -134,26 +173,46 @@ class Job(BaseModel):
 
 
     def __str__(self) -> str:
-        return f"{self.title}({self.uid})"
+        return f"{self.get_title}({self.uid})"
 
     def logo_url(self):
-        return self.logo.url if self.logo else self.created_by.business.get_logo()
+        if self.logo:
+            return self.logo.url
+        if not self.created_by:
+            return
+        if not self.created_by.business:
+            return
+        logo = self.created_by.business.get_logo()
+        if not logo:
+            return
+        return logo
+
+
 
     def hiring_company(self):
-        if self.hiring_company_name:
-            return self.hiring_company_name
-        return self.created_by.business.name
+        return self.hiring_company_name
 
     def business_logo(self):
         return self.created_by.business.get_logo()
 
     def business_name(self):
+        if not self.created_by:
+            return
+        if not self.created_by.business:
+            return
         return self.created_by.business.name
+
+    def get_company(self):
+        if not self.hiring_company_name:
+            return self.business_name()
+        return self.hiring_company()
 
     def availability_query(self):
         working_hours_query = Q()
 
         for availability in self.availableday_set.all():
+            if not(availability.end_time and availability.start_time):
+                continue
             day_query = Q(
                 day=availability.day,
                 start_time__lte=availability.end_time,
@@ -168,10 +227,11 @@ class Job(BaseModel):
         data = list()
         for value in Days.values():
             availability = self.availableday_set.filter(day=value).first()
-            data.append({
-                "day": value,
-                "availability": JobAvailableDaySchema.from_orm(availability) if availability else None
-            })
+            if availability:
+                data.append({
+                    "day": value,
+                    "availability": JobAvailableDaySchema.from_orm(availability) if availability else None
+                })
         return data
 
     def get_skills(self):
@@ -187,28 +247,46 @@ class Job(BaseModel):
         return data
 
 
+    def workflow_stage_data(self):
+        from settings.models import WorkFlowStage
+        business = self.created_by.business
+        return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
+                annotate(applications=Count('jobapplication', filter=Q(jobapplication__job_post__job=self, jobapplication__deleted_at__isnull=True),
+                                            distinct=True)).order_by('phase_order', 'order')
+                .values("uid", "phase", "name", "applications"))
 
 
 class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     status = models.CharField(max_length=50, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
     date_posted = models.DateTimeField(null=True)
+    posted_order = models.GeneratedField(
+        expression=Coalesce(
+            Cast(Epoch("date_posted"), IntegerField()),
+            Value(0)
+        ),
+        output_field=models.IntegerField(),
+        db_persist=True
+    )
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
-    province = models.CharField(max_length=64, null=True)
+    province = models.ForeignKey("core.State", on_delete=models.SET_NULL, null=True)
+    city = models.ForeignKey("core.City", on_delete=models.SET_NULL, null=True)
     postal_code = models.CharField(max_length=20, null=True)
     benefits = models.JSONField(default=list, blank=True)
     share_compensation = models.BooleanField(default=True)
-    annual_salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_salary_currency = models.ForeignKey(
+    salary_type = models.CharField(max_length=50, choices=SalaryType.choices(), default=SalaryType.ANNUALLY.value, null=True)
+    salary_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
+    salary_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
+    salary_currency = models.ForeignKey(
         "core.Currency", 
         on_delete=models.SET_NULL, 
         related_name="jobs_posts_with_salary_currency",
         null=True,
     )
-    annual_bonus_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_bonus_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
-    annual_bonus_currency = models.ForeignKey(
+    salary_bonus_type = models.CharField(max_length=50, choices=SalaryType.choices(), default=SalaryType.ANNUALLY.value, null=True)
+    salary_bonus_min = models.DecimalField(max_digits=12, decimal_places=2, null=True)
+    salary_bonus_max = models.DecimalField(max_digits=12, decimal_places=2, null=True)
+    salary_bonus_currency = models.ForeignKey(
         "core.Currency", 
         on_delete=models.SET_NULL, 
         related_name="jobs_posts_with_bonus_currency",
@@ -227,11 +305,65 @@ class JobPost(BaseModel):
         related_name="posted_by",
         blank=True
     )
+    last_refreshed = models.DateTimeField(null=True, default=None)
+    refresh_order = models.GeneratedField(
+        expression=Coalesce(
+            Cast(Epoch("last_refreshed"), IntegerField()),
+            Value(0)
+        ),
+        output_field=models.IntegerField(),
+        db_persist=True
+    )
+    def copy(self):
+        return JobPost.objects.create(
+            job=self.job,
+            status=JobStatusType.DRAFT.value,
+            country=self.country,
+            province=self.province,
+            city=self.city,
+            postal_code=self.postal_code,
+            benefits=self.benefits,
+            share_compensation=self.share_compensation,
+            salary_min=self.salary_min,
+            salary_max=self.salary_max,
+            salary_currency=self.salary_currency,
+            salary_bonus_min=self.salary_bonus_min,
+            salary_bonus_max=self.salary_bonus_max,
+            salary_bonus_currency=self.salary_bonus_currency,
+            recruiter=self.recruiter,
+            posted_by=self.posted_by,
+        )
+
+    def get_location(self):
+        data = list()
+        if self.city:
+            data.append(self.city.name)
+        if self.province:
+            data.append(self.province.name)
+        if self.country:
+            data.append(self.country.name)
+        return ", ".join(data)
 
 
 
     def __str__(self) -> str:
         return f"{self.job}({self.country})"
+
+
+    def get_country(self):
+        if not self.country:
+            return
+        return self.country.name
+
+    def get_province(self):
+        if not self.province:
+            return
+        return self.province.name
+
+    def get_city(self):
+        if not self.city:
+            return
+        return self.city.name
 
     def get_talents(self):
         query = None
@@ -265,7 +397,7 @@ class JobPost(BaseModel):
             query = get_query(Q(education__level=job.minimum_education_level))
 
         if required_attribute.work_structure and job.work_structure:
-            query = get_query(Q(work_model=job.work_structure))
+            query = get_query(Q(work_models__contains=[job.work_structure]))
 
         if required_attribute.first_language:
             query = get_query(Q(native_language=job.first_language))
@@ -301,6 +433,15 @@ class JobPost(BaseModel):
             })
         return data
 
+    def workflow_stage_data(self):
+        from settings.models import WorkFlowStage
+        business = self.job.created_by.business
+        return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
+                annotate(applications=Count("jobapplication", filter=Q(jobapplication__job_post=self, jobapplication__deleted_at__isnull=True),
+                                            distinct=True)).order_by('phase_order', 'order')
+                .values("uid", "phase", "name", "applications")
+                )
+
     def view(self):
         metric, _ = JobPostMetrics.objects.get_or_create(job_post=self)
         metric.weekly_views = F("weekly_views") + 1
@@ -330,8 +471,6 @@ class JobPost(BaseModel):
                 working_hours = None,
                 location = None,
             )
-            if weak is False:
-                data["match_score"] = 100
             return data
 
         attributes = job.requiredattribute
@@ -385,7 +524,7 @@ class JobPost(BaseModel):
                 if (education > 0 and weak is False) or (education == 0 and weak is True):
                     data["minimum_education_level"] = job.minimum_education_level
             elif attribute == "work_structure":
-                fits = talent.work_model == job.work_structure
+                fits = job.work_structure in talent.work_models
                 if not fits:
                     score -= 1
                 if (fits and weak is False) or (not fits and weak is True):
@@ -427,16 +566,15 @@ class JobPost(BaseModel):
                     wh_query = job.availableday_set.all()
                 if (wh_count > 0 and weak is False) or (wh_count == 0 and weak is True):
                     data["working_hours"] = job.get_availability(JobAvailableDaySchema, wh_query) if wh_query.count() > 0 else None
-        match_score = int((score/total_score) * 100)
-        if weak is False:
-            data["match_score"] = match_score
         return data
 
     def weakness(self, talent):
         return self.get_data(talent, weak=True)
 
+
     def strength(self, talent):
         return self.get_data(talent, weak=False)
+
 
     def non_negotiable(self):
         from .schemas import JobAvailableDaySchema
@@ -501,7 +639,15 @@ class JobPost(BaseModel):
         return self.job.screeningquestion_set.all()
 
     def match_score(self, talent):
-        return self.strength(talent).get("match_score", 0)
+        from jobs.queries import add_job_post_annotations
+        job_post = add_job_post_annotations(JobPost.objects.filter(id=self.id), talent)
+        if job_post.exists():
+            return job_post.first().computed_match_score
+        return 0
+
+    def invited(self, talent):
+        return JobInvite.objects.filter(job=self.job, talent=talent).exists()
+
 
 
 
@@ -521,6 +667,9 @@ class JobPostMetrics(BaseModel):
         self.weekly_views = 0
         self.save()
 
+class JobInvite(BaseModel):
+    job = models.ForeignKey(Job, on_delete=models.CASCADE)
+    talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE)
 
 class JobApplication(BaseModel):
     job_post = models.ForeignKey(JobPost, on_delete=models.CASCADE, null=True)
@@ -532,27 +681,35 @@ class JobApplication(BaseModel):
         on_delete=models.SET_NULL
     )
     stage = models.ForeignKey("settings.WorkflowStage", on_delete=models.SET_NULL, null=True)
-    match = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    posted_timeline = models.PositiveSmallIntegerField(default=0)
-    screening_timeline = models.PositiveSmallIntegerField(default=0)
-    interview_timeline = models.PositiveSmallIntegerField(default=0)
-    onboarding_timeline = models.PositiveSmallIntegerField(default=0)
-    days_to_hire = models.GeneratedField(
-        expression=F("posted_timeline") + F("screening_timeline") + F("interview_timeline") + F("onboarding_timeline"),
-        output_field=models.PositiveIntegerField(),
-        db_persist=True,
-    )
     stage_date_updated = models.DateTimeField(null=True)
 
     def other_application(self):
-        return JobApplication.objects.filter(job_post=self.job_post, applicant=self.applicant).exclude(id=self.id).last()
+        if not self.stage:
+            return
+        if not self.stage.created_by:
+            return
+        if not self.stage.created_by.business:
+            return
+        return JobApplication.objects.select_related("stage__created_by").\
+        filter(stage__created_by__business=self.stage.created_by.business, applicant=self.applicant).exclude(id=self.id).last()
 
+    @cached_property
+    def match(self):
+        return self.applicant.job_match_score(self.job_post)
 
-    def placeholders_mapper(self, placeholder:str):
+    def get_country(self):
+        if not self.applicant:
+            return
+        if not self.applicant.country:
+            return
+        return self.applicant.country.name
+
+    def placeholders_mapper(self, placeholder:str, external_recruiter=None):
+        recruiter = self.recruiter if not external_recruiter else external_recruiter
         if placeholder == PlaceHolderType.YOUR_COMPANY_NAME.value:
-            if not self.recruiter:
+            if not recruiter:
                 return ""
-            return self.recruiter.business.name
+            return recruiter.business.name
         elif placeholder == PlaceHolderType.CANDIDATE_FULLNAME.value:
             if not self.applicant:
                 return ""
@@ -560,36 +717,46 @@ class JobApplication(BaseModel):
         elif placeholder == PlaceHolderType.JOB_APPLIED_TO.value:
             if not self.job_post:
                 return ""
-            return self.job_post.job.title
+            return self.job_post.job.get_title
         elif placeholder == PlaceHolderType.CANDIDATE_FIRST_NAME.value:
             if not self.applicant:
                 return ""
             return self.applicant.user.first_name
         elif placeholder == PlaceHolderType.YOUR_FIRST_NAME.value:
-            if not self.recruiter:
+            if not recruiter:
                 return ""
-            return self.recruiter.user.first_name
+            return recruiter.user.first_name
         elif placeholder == PlaceHolderType.CANDIDATE_PHONE_NUMBER.value:
             if not self.applicant:
                 return ""
-            return self.applicant.user.phone_number
+            return self.applicant.user.get_phone()
         else:
             return ""
 
+    def invited(self):
+        return JobInvite.objects.filter(job=self.job_post.job, talent=self.applicant).exists()
 
-    def get_email_context(self):
+    def get_email_context(self, external_recruiter=None)->dict:
         if not self.stage:
             return dict()
         if not self.stage.email_template:
             return dict()
+        # lets retrieve the placeholders associated with the template attached to the stage
         stage_placeholders = self.stage.email_template.placeholders
+
+        # lets get the function that converts a placeholder to a key that can be used in dictionary
         key_converter = self.stage.email_template.convert_placeholder_to_key
-        return {key_converter(placeholder):self.placeholders_mapper(placeholder) for placeholder in stage_placeholders}
+
+        # lets create a dictionary where the key is the placeholder and the value is the value retrieved from the placeholders_mapper function
+        return {key_converter(placeholder):self.placeholders_mapper(placeholder, external_recruiter) for placeholder in stage_placeholders}
 
     def knockout(self):
         if not ScreeningQuestion.objects.filter(job=self.job_post.job, is_knockout=True).exists():
             return False
         return Answer.objects.filter(application=self, question__is_knockout=True, options__is_accepted=False).exists()
+
+
+
 
 
     def __str__(self) -> str:
@@ -601,7 +768,19 @@ class TalentApplicationStageTimeline(BaseModel):
     application = models.ForeignKey(JobApplication, on_delete=models.CASCADE)
     job_role = models.ForeignKey("accounts.Role", on_delete=models.CASCADE)
     stage = models.ForeignKey("settings.WorkflowStage", on_delete=models.CASCADE)
-    timeline = models.PositiveSmallIntegerField(default=0)
+    exit_date = models.DateTimeField(null=True)
+
+    @staticmethod
+    def add_time_spent_annotation(queryset):
+        return queryset.annotate(days=Extract(Coalesce(F('exit_date'), Now()) - F('created_at')
+    , 'epoch')).annotate(time_spent=Case(When(days__isnull=True, then=float(0)),
+    default=F('days')/86400.0, output_field=IntegerField()))
+
+    @staticmethod
+    def add_time_spent_annotation_for_stages(queryset):
+        return queryset.annotate(days=Extract(Coalesce(F('talentapplicationstagetimeline__exit_date'), Now()) - F('talentapplicationstagetimeline__created_at')
+      , 'epoch')).annotate(time_spent=Case(When(days__isnull=True, then=float(0)),
+            default=F('days') / 86400.0, output_field=IntegerField()))
 
 
 class SavedJob(BaseModel):
@@ -615,42 +794,6 @@ class SavedJob(BaseModel):
 class JobDraft(BaseModel):
     user = models.OneToOneField("accounts.BusinessUser", on_delete=models.CASCADE)
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
-
-
-class JobFilter(BaseModel):
-    talent = models.OneToOneField("accounts.Talent", on_delete=models.CASCADE, null=True)
-    role = models.CharField(max_length=100, default="", blank=True)
-    years_of_experience = models.PositiveSmallIntegerField(default=1, null=True)
-    office_location = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
-    employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
-    department = models.ForeignKey("accounts.Department", on_delete=models.SET_NULL, null=True)
-    minimum_education_level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True)
-    job_level = models.ForeignKey(JobLevel, on_delete=models.SET_NULL, null=True)
-    location_type = models.CharField(choices=WorkStructureEnum.choices(), default=WorkStructureEnum.IN_OFFICE.value, null=True)
-    remove_applied_jobs = models.BooleanField(default=False)
-
-
-    def get_queryset(self, queryset):
-        # queryset for job posts
-        if self.years_of_experience and self.years_of_experience > 0:
-            queryset = queryset.filter(job__years_of_experience=self.years_of_experience)
-        if self.office_location:
-            queryset = queryset.filter(country=self.office_location)
-        if self.employment_type:
-            queryset = queryset.filter(job__employment_type=self.employment_type)
-        if self.department:
-            queryset = queryset.filter(job__department=self.department)
-        if self.minimum_education_level:
-            queryset = queryset.filter(job__minimum_education_level=self.minimum_education_level)
-        if self.job_level:
-            queryset = queryset.filter(job__job_level=self.job_level)
-        if self.location_type:
-            queryset = queryset.filter(job__work_structure=self.location_type)
-        if self.remove_applied_jobs:
-            queryset = queryset.exclude(jobapplication__applicant=self.talent)
-        if self.role:
-            queryset = queryset.filter(job__role__name__icontains=self.role)
-        return queryset
 
 class ScreeningQuestion(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
@@ -673,13 +816,23 @@ class Answer(BaseModel):
     text = models.TextField(null=True)
     files = models.JSONField(default=list, null=True)
 
+
+class RequiredSecondaryLanguage(BaseModel):
+    required_attribute = models.ForeignKey("RequiredAttribute", on_delete=models.CASCADE)
+    language = models.ForeignKey(Language, on_delete=models.CASCADE)
+
+
+class RequiredSkill(BaseModel):
+    required_attribute = models.ForeignKey("RequiredAttribute", on_delete=models.CASCADE, related_name="required_skills")
+    skill = models.ForeignKey("accounts.Skill", on_delete=models.CASCADE)
+
+
 class RequiredAttribute(BaseModel):
     job = models.OneToOneField(Job, on_delete=models.CASCADE)
-    skills = models.ManyToManyField("accounts.Skill")
     role = models.BooleanField(default=False)
     job_level = models.BooleanField(default=False)
     years_of_experience = models.BooleanField(default=False)
-    business_models = models.ManyToManyField("BusinessModel")
+    business_models = models.ManyToManyField("BusinessModel", blank=True)
     minimum_education_level = models.BooleanField(default=False)
     work_structure = models.BooleanField(default=False)
     technological_requirement = models.BooleanField(default=False)
@@ -687,6 +840,8 @@ class RequiredAttribute(BaseModel):
     secondary_language = models.BooleanField(default=False)
     working_hours = models.BooleanField(default=False)
     location = models.BooleanField(default=False)
+    secondary_languages = models.ManyToManyField(Language, through=RequiredSecondaryLanguage)
+    skills = models.ManyToManyField("accounts.Skill", through=RequiredSkill, related_name="required_attribute")
 
     def __str__(self) -> str:
         return f"{self.job}({self.uid})"
@@ -718,13 +873,14 @@ class RequiredAttribute(BaseModel):
     @staticmethod
     def format_skills_under_category(skills):
         from jobs.schemas import SkillSchema, JobSkillSchema
-        from accounts.models import SkillCategory
+        from accounts.models import SkillCategory, Skill
         categories = SkillCategory.objects.only("id", "name")
+        skill_ids = skills.values_list("id", flat=True)
         data = list()
         for category in categories:
             data.append(JobSkillSchema(
                 category=category.name,
-                skills=[SkillSchema.from_orm(skill) for skill in skills.filter(category_id=category.id)]
+                skills=[SkillSchema.from_orm(skill) for skill in Skill.objects.filter(id__in=skill_ids, category_id=category.id)]
             ))
         return data
 
@@ -778,8 +934,9 @@ class JobAlert(BaseModel):
 
     @classmethod
     def send_alerts(cls, job):
+
         from notification.notifications import send_job_alert_notification
-        user_ids = (cls.objects.filter(
+        user_ids = (cls.objects.filter(jobs__jobpost__status=JobStatusType.POSTED.value).filter(
             Q(jobs__employment_type=job.employment_type)|
             Q(jobs__years_of_experience=job.years_of_experience)|
             Q(jobs__minimum_education_level=job.minimum_education_level)|

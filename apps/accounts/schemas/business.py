@@ -1,12 +1,13 @@
 from datetime import date
-from typing import Optional, List, TypedDict
+from typing import Optional, List, TypedDict, AnyStr, Any
 from uuid import UUID
 
+from django.db.models import Q
 from ninja import ModelSchema, Schema
 from pydantic import EmailStr, Field
 
 from accounts.enums import BusinessUserRoleType
-from accounts.models import Business, BusinessUser, TalentFilter
+from accounts.models import Business, BusinessUser, TalentFilter, Talent, Experience, Education
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, GenericNameAndUidSchema, EducationLevelSchema
 from jobs.enums import WorkStructureEnum
 from jobs.models import EmploymentType
@@ -20,6 +21,8 @@ class ValidateOTPSchema(Schema):
     role: str
     company_name: str
     password: str
+    phone_code: Optional[str] = None
+    phone_number: Optional[str] = None
 
 
 class CompleteBusinessProfileSchema(ModelSchema):
@@ -28,7 +31,7 @@ class CompleteBusinessProfileSchema(ModelSchema):
 
     class Meta:
         model = Business
-        fields = ["size", "description", "website", "address", "logo", "instagram", "linkedin", "facebook",
+        fields = ["size", "description", "website", "address", "instagram", "linkedin", "facebook",
                   "twitter_x"]
 
 class BusinessSchema(ModelSchema):
@@ -41,7 +44,7 @@ class BusinessSchema(ModelSchema):
 
 
 class EmploymentTypeSchema(ModelSchema):
-    # sub_types: list[EmploymentTypeSchema]
+    name: str = Field(alias="fullname")
     class Meta:
         model = EmploymentType
         fields = ["uid", "name"]
@@ -71,7 +74,7 @@ class ApplicationGenderListSchema(Schema):
     count: int
 
 class ApplicationGenderSchema(Schema):
-    total_hires: int
+    total_applicants: int
     data: List[ApplicationGenderListSchema]
 
 class HiresByCountryListSchema(Schema):
@@ -84,20 +87,20 @@ class HiresByCountrySchema(Schema):
 
 class TimeToHireSchema(Schema):
     role: str
-    posted: int
-    screening: int
-    interview: int
-    onboarding: int
-    days_to_hire: int
+    posted: Optional[int] = None
+    screening: Optional[int] = None
+    interview: Optional[int] = None
+    onboarding: Optional[int] = None
+    days_to_hire: Any
 
 class StageTimelineSchema(Schema):
     stage: str
-    avg_timeline: int
+    avg_timeline: Any
 
 class TimeToHireViaStages(Schema):
     role: str
     graph: List[StageTimelineSchema]
-    days_to_hire: int
+    days_to_hire: Any
 
 
 class WithdrawalReasonSchemaList(Schema):
@@ -134,7 +137,6 @@ class DashboardSchema(ModelSchema):
     recruiter_performance:RecruiterPerformanceSchema
     applicant_gender:ApplicationGenderSchema
     hires_location:HiresByCountrySchema
-    time_to_hire:List[TimeToHireSchema]
     stage_timelines: List[TimeToHireViaStages]
     withdrawal_reasons: WithdrawalReasonSchema
     applicants_years_of_experience: List[ApplicantsYearsOfExperienceSchema]
@@ -191,11 +193,16 @@ class DashboardSchema(ModelSchema):
 
     @staticmethod
     def resolve_applicant_gender(obj, context):
-        data = dict(total_hires=0, data=list())
-        data["total_hires"], data["data"] = obj.hired_genders(
-            **DashboardSchema.get_context(obj, context)
-        )
-        return ApplicationGenderSchema.from_orm(data)
+        data = dict(total_applicants=0, data=list())
+        try:
+            data["total_applicants"], data["data"] = obj.applicants_by_gender(
+                **DashboardSchema.get_context(obj, context)
+            )
+            print(data)
+        except Exception as e:
+            print(e)
+        finally:
+            return ApplicationGenderSchema.from_orm(data)
 
     @staticmethod
     def resolve_hires_location(obj, context):
@@ -300,7 +307,7 @@ class MutateBusinessUserSchema(Schema):
 
 
 class AcceptBusinessUserInviteSchema(Schema):
-    code: UUID
+    code: str
     password: str
 
 class SendEmailSchema(Schema):
@@ -309,9 +316,15 @@ class SendEmailSchema(Schema):
     body : str
     from_email: str
 
-class MutateTalentFilterSchema(ModelSchema):
-    role: Optional[UUID] = None
-    industry: Optional[UUID] = None
+class SendBulkChatSchema(Schema):
+    talent_uids: List[str] = Field(description="List of talent UIDs")
+    subject: str
+    body : str
+
+
+class TalentFilterQuerySchema(ModelSchema):
+    role: Optional[UUID] = Field(None, description="Role UID")
+    industry: Optional[UUID] = Field(None, description="Industry UID")
     languages: Optional[List[UUID]] = None
     educational_level: Optional[UUID] = None
     work_structure: Optional[WorkStructureEnum] = None
@@ -322,6 +335,66 @@ class MutateTalentFilterSchema(ModelSchema):
         fields = ["location", "maximum_notice_period"]
         optional_fields = fields
 
+    def get_queryset(self, queryset=None):
+        if queryset is None:
+            queryset = Talent.objects.all()
+        if self.role:
+            ids = Experience.objects.filter(role__uid=self.role).only("talent_id").distinct("talent_id").values_list(
+                "talent_id", flat=True)
+            queryset = queryset.filter(id__in=ids)
+        if self.industry:
+            queryset = queryset.filter(skills__department__industry__uid=self.industry)
+        if self.location:
+            queryset = queryset.filter(Q(country__name__icontains=self.location) |
+                                       Q(state__icontains=self.location) | Q(city__icontains=self.location))
+        if self.languages:
+            queryset = queryset.filter(Q(native_language__uid__in=self.languages) |
+                                       Q(additional_languages__uid__in=self.languages))
+        if self.educational_level:
+            ids = Education.objects.filter(level__uid=self.educational_level).only("talent_id").distinct(
+                "talent_id").values_list("talent_id", flat=True)
+            queryset = queryset.filter(id__in=ids)
+        if self.work_structure:
+            queryset = queryset.filter(work_models__contains=[self.work_structure.value])
+        if self.skills:
+            queryset = queryset.filter(skills__uid__in=self.skills)
+        if self.maximum_notice_period:
+            queryset = queryset.filter(notice_period__lte=self.maximum_notice_period)
+        return queryset
+
+    def to_url_params(self, start=True):
+        params = ""
+        get_sign =  lambda : "&" if "?" in params else "?" if start is True else "&"
+        if self.role :
+            params += f"{get_sign()}role={self.role}"
+        if self.industry:
+            params += f"{get_sign()}industry={self.industry}"
+        if self.languages:
+            params += f"{get_sign()}languages={','.join(map(str,self.languages))}"
+        if self.educational_level:
+            params += f"{get_sign()}educational_level={self.educational_level}"
+        if self.work_structure:
+            params += f"{get_sign()}work_structure={self.work_structure.value}"
+        if self.skills:
+            params += f"{get_sign()}skills={','.join(map(str, self.skills))}"
+        if self.maximum_notice_period:
+           params += f"{get_sign()}maximum_notice_period={self.maximum_notice_period}"
+        return params
+
+class MutateTalentFilterSchema(ModelSchema):
+    role: Optional[UUID] = Field(None, description="Role UID")
+    industry: Optional[UUID] = Field(None, description="Industry UID")
+    languages: Optional[List[UUID]] = None
+    educational_level: Optional[UUID] = None
+    work_structure: Optional[WorkStructureEnum] = None
+    skills: Optional[List[UUID]] = None
+
+    class Meta:
+        model = TalentFilter
+        fields = ["name", "location", "maximum_notice_period"]
+        optional_fields = fields
+
+
 
 class TalentFilterSchema(ModelSchema):
     role: Optional[GenericNameAndUidSchema]
@@ -329,17 +402,20 @@ class TalentFilterSchema(ModelSchema):
     languages: Optional[List[GenericNameAndUidSchema]]
     educational_level: Optional[EducationLevelSchema]
     skills: Optional[List[GenericNameAndUidSchema]]
-    results: int
 
     class Meta:
         model = TalentFilter
-        fields = ["location", "maximum_notice_period", "work_structure"]
+        fields = ["uid","name", "location", "maximum_notice_period", "work_structure"]
         optional_fields = fields
+
+class TalentFilterListSchema(ModelSchema):
+    class Meta:
+        model = TalentFilter
+        fields = ["uid", "name", ]
 
 class TransferRoleSchema(Schema):
     from_business_user: UUID
     to_business_user: UUID
-
 
 
 class ReassignJobPostInputSchema(Schema):

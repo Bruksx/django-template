@@ -264,14 +264,14 @@ class CreateWorkflowTest(TestCase):
         self.client = self.client
         self.client = TestClient(router)
         self.url = "workflows/stages"
-        self.business_user = BusinessUserFactory.create()
+        self.business_user = BusinessUserFactory.create(role=BusinessUserRoleType.ADMIN.value)
 
     def test_create_workflow_stage(self):
-        email_template = EmailTemplateFactory.create(created_by=self.business_user)
+        email_template = EmailTemplateFactory.create(created_by=self.business_user, personal=False)
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
         data = {
             "name": "Test Workflow",
-            "phase": PhaseType.HIRED.value,
+            "phase": PhaseType.ONBOARDING.value,
             "email_template": email_template.uid,
             "is_active": True
         }
@@ -280,7 +280,7 @@ class CreateWorkflowTest(TestCase):
         self.assertEqual(response.status_code, 201)
         data = {
             "name": "Test Workflow2",
-            "phase": PhaseType.HIRED.value,
+            "phase": PhaseType.INTERVIEW.value,
             "email_template": email_template.uid,
             "is_active": True
         }
@@ -288,15 +288,15 @@ class CreateWorkflowTest(TestCase):
                                     headers=headers)
         self.assertEqual(response.status_code, 201)
         workflow = WorkFlowStage.objects.last()
-        self.assertEqual(WorkFlowStage.objects.count(), 2)
+        self.assertEqual(WorkFlowStage.objects.count(), 5)
         self.assertEqual(workflow.name, data["name"])
 
     def test_create_workflow_stage_with_same_name(self):
-        email_template = EmailTemplateFactory.create(created_by=self.business_user)
+        email_template = EmailTemplateFactory.create(created_by=self.business_user, personal=True)
         WorkflowStageFactory.create(name="Test Workflow", phase=PhaseType.HIRED.value, created_by=self.business_user)
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
         data = {
-            "name": "Test Workflow",
+            "name": "Hired",
             "phase": PhaseType.HIRED.value,
             "email_template": email_template.uid,
             "is_active": True
@@ -310,8 +310,11 @@ class UpdateWorkflowTest(TestCase):
         self.client = self.client
         self.client = TestClient(router)
         self.url = lambda uid : f"workflows/stages/{uid}"
-        self.business_user = BusinessUserFactory.create()
-        self.workflow_stage = WorkflowStageFactory.create(created_by=self.business_user, is_active=True)
+        self.business_user = BusinessUserFactory.create(role=BusinessUserRoleType.ADMIN.value)
+        email_template = EmailTemplateFactory.create(created_by=self.business_user, personal=False)
+        self.workflow_stage = WorkflowStageFactory.create(created_by=self.business_user, is_active=True,
+                                                       email_template=email_template,
+                                                          phase=PhaseType.INTERVIEW.value)
 
     def test_update_workflow_stage(self):
         headers = {"authorization": f"bearer {self.business_user.user.token}"}
@@ -322,8 +325,8 @@ class UpdateWorkflowTest(TestCase):
         response = self.client.patch(self.url(self.workflow_stage.uid), json=data,
                                      headers=headers)
         self.assertEqual(response.status_code, 200)
-        workflow = WorkFlowStage.objects.first()
-        self.assertEqual(workflow.name, data["name"])
+        workflow = WorkFlowStage.objects.last()
+        self.assertEqual(workflow.name, str(data["name"]))
         self.assertEqual(workflow.is_active, data["is_active"])
 
     def test_update_workflow_stage_with_same_name(self):
@@ -338,7 +341,7 @@ class UpdateWorkflowTest(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_update_workflow_stage_by_another_business(self):
-        business_user = BusinessUserFactory.create()
+        business_user = BusinessUserFactory.create(role=BusinessUserRoleType.ADMIN.value)
         headers = {"authorization": f"bearer {business_user.user.token}"}
         data = {
             "name": "Test Workflow II"
@@ -430,7 +433,7 @@ class ReArrangeWorkflowTest(TestCase):
     def setUp(self):
         self.client = TestClient(router)
         self.url = "workflows/re-arrange-stages"
-        self.business_user = BusinessUserFactory.create()
+        self.business_user = BusinessUserFactory.create(role=BusinessUserRoleType.ADMIN.value)
         self.stage1 = WorkflowStageFactory.create(created_by=self.business_user, phase=PhaseType.HIRED.value, order=1)
         self.stage2 = WorkflowStageFactory.create(created_by=self.business_user, phase=PhaseType.HIRED.value, order=2)
 
@@ -459,7 +462,7 @@ class BulkDeleteEmailTemplatesTest(TestCase):
     def setUp(self):
         self.url = "email-templates"
         self.client = TestClient(router)
-        self.business_user = BusinessUserFactory.create()
+        self.business_user = BusinessUserFactory.create(role=BusinessUserRoleType.ADMIN.value)
         templates = EmailTemplateFactory.create_batch(5, created_by=self.business_user)
         self.test_data = [
             str(template.uid) for template in templates
@@ -475,7 +478,7 @@ class BulkDeleteEmailTemplatesTest(TestCase):
         self.assertEqual(EmailTemplate.objects.filter(created_by=self.business_user).count(), 0)
 
     def test_by_another_business_user(self):
-        business_user = BusinessUserFactory.create()
+        business_user = BusinessUserFactory.create(role=BusinessUserRoleType.ADMIN.value)
         headers = {
             "authorization": f"Bearer {business_user.user.token}"
         }
@@ -501,7 +504,7 @@ class BulkDeleteWorkflowStageTest(TestCase):
     def setUp(self):
         self.url = "workflows/stages"
         self.client = TestClient(router)
-        self.business_user = BusinessUserFactory.create()
+        self.business_user = BusinessUserFactory.create(role=BusinessUserRoleType.ADMIN.value)
         stages = WorkflowStageFactory.create_batch(5, created_by=self.business_user, is_active=False)
         self.test_data = [
             str(stage.uid) for stage in stages
@@ -513,7 +516,7 @@ class BulkDeleteWorkflowStageTest(TestCase):
         }
         response = self.client.delete(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 204)
-        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 0)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 3)
 
     def test_when_one_stage_is_active(self):
         w = WorkFlowStage.objects.last()
@@ -523,7 +526,7 @@ class BulkDeleteWorkflowStageTest(TestCase):
         }
         response = self.client.delete(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 8)
 
     def test_when_one_stage_has_job_applications(self):
         w = WorkFlowStage.objects.last()
@@ -533,17 +536,17 @@ class BulkDeleteWorkflowStageTest(TestCase):
         }
         response = self.client.delete(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 8)
 
 
     def test_by_another_business_user(self):
-        business_user = BusinessUserFactory.create()
+        business_user = BusinessUserFactory.create(role=BusinessUserRoleType.ADMIN.value)
         headers = {
             "authorization": f"Bearer {business_user.user.token}"
         }
         response = self.client.delete(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 204)
-        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 8)
 
     def test_by_talent(self):
         talent = TalentFactory.create()
@@ -552,7 +555,7 @@ class BulkDeleteWorkflowStageTest(TestCase):
         }
         response = self.client.delete(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 403)
-        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 5)
+        self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 8)
 
 
 

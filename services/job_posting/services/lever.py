@@ -5,6 +5,8 @@ import requests
 from accounts.models import Business
 from jobs.enums import JobStatusType, WorkStructureEnum
 from jobs.models import JobPost, Job
+
+from core.enums import SalaryType
 from helpers.loggers import Logger, LogSchema
 
 BASE_URL = "https://api.lever.co/v1"
@@ -21,7 +23,7 @@ TRIGGER_FIELDS = {
     TriggerType.BUSINESS: ("website",),
     TriggerType.JOB: ("title", "department", "about", "responsibilities", "work_structure",
                   "employment_type"),
-    TriggerType.JOB_POST: ("country", "annual_salary_max", "annual_salary_min", "annual_salary_currency",
+    TriggerType.JOB_POST: ("country", "salary_max", "salary_min", "salary_currency",
                        "benefits", "status")
 }
 
@@ -126,6 +128,34 @@ def deploy_jobs(previous_object, new_object, trigger_type: TriggerType):
     return
 
 
+def get_salary(currency, salary_type, salary_value):
+
+    period = {
+        SalaryType.HOURLY.value: "hour",
+        SalaryType.DAILY.value: "day",
+        SalaryType.BI_WEEKLY.value: "week",
+        SalaryType.BI_MONTHLY.value: "month",
+        SalaryType.WEEKLY.value: "week",
+        SalaryType.MONTHLY.value: "month",
+        SalaryType.ANNUALLY.value: "year",
+
+    }
+    if salary_type in (SalaryType.BI_WEEKLY.value, SalaryType.BI_MONTHLY.value) and salary_value:
+        if type(salary_value) == tuple:
+            salary_value = map(lambda x: x / 2, salary_value)
+        else:
+            salary_value /= 2
+    if type(salary_value) != tuple:
+        salary_value = (salary_value, salary_value)
+    return {
+        "currency": currency,
+        "max": salary_value[1],
+        "min": salary_value[0],
+        "interval": f"per-{period.get(salary_type, 'year')}-salary"
+
+    }
+
+
 def create_job_post(job_post:JobPost):
     url = f"{BASE_URL}/postings"
     headers = {
@@ -157,12 +187,8 @@ def create_job_post(job_post:JobPost):
             "public"
           ],
           "salaryDescriptionHtml": "<p>This is a salary description.</p>",
-          "salaryRange": {
-            "max": job_post.annual_salary_max,
-            "min": job_post.annual_bonus_min,
-            "currency": job_post.annual_salary_currency.name,
-            "interval": "per-year-salary"
-          },
+          "salaryRange": get_salary(job_post.salary_currency.name, job_post.salary_type,
+                                    (job_post.salary_min, job_post.salary_max)),
           "state": handle_job_stage(job_post),
           "tags": [
             "engineering",
@@ -218,12 +244,8 @@ def update_job_post(job_post):
             "public"
         ],
         "salaryDescriptionHtml": "<p>This is a salary description.</p>",
-        "salaryRange": {
-            "max": job_post.annual_salary_max,
-            "min": job_post.annual_salary_min,
-            "currency": job_post.annual_salary_currency.name,
-            "interval": "per-year-salary"
-        },
+        "salaryRange": get_salary(job_post.salary_currency.name, job_post.salary_type,
+                                    (job_post.salary_min, job_post.salary_max)),
         "state": handle_job_stage(job_post),
         "tags": [
             "engineering",

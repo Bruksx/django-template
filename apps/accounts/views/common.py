@@ -3,41 +3,39 @@ from typing import List
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
+
+from helpers.email.accounts import send_customer_case_email
 from helpers.email.auth import send_verification_code
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
-from ninja import Router
+from ninja import Router, Query
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode, TalentFilter, \
-    Industry
+from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode, Industry, Business
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
+from accounts.schemas.business import TalentFilterQuerySchema
+from accounts.schemas.common import CompanyListSchema
 from core.schemas import GenericNameAndUidSchema
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 
 router = Router(tags=["Common Account APIs"])
 
 
-@router.get("talents", response=CustomPaginatedResponseSchema[talent_schemas.TalentUserListSchema], auth=JWTAuth())
+@router.get("talents", auth=JWTAuth(), response=CustomPaginatedResponseSchema[talent_schemas.TalentUserListSchema], )
 @paginate(CustomPageNumberPaginationExtra, page_size=50)
-def talent_lists(request, search="", apply_filter=False):
+def talent_lists(request, search="", filters:TalentFilterQuerySchema = Query(...)):
     talents = Talent.objects.prefetch_related("user").filter(visible=True)
     if search:
-        talents = talents.filter(Q(user__first_name__icontains=search)|
-                                 Q(user__last_name__icontains=search)|
-                                 Q(user__email__icontains=search)
-                                 )
-    if apply_filter is True and hasattr(request.user, "businessuser"):
-        if not hasattr(request.user.businessuser, "talentfilter"):
-            talent_filter = TalentFilter.objects.create(business_user=request.user.businessuser)
-        else:
-            talent_filter = request.user.businessuser.talentfilter
-        talents = talent_filter.get_queryset(talents)
+        q = Q()
+        for s in search.split(" "):
+            if s:
+                q = q | Q(user__fullname__icontains=s) | Q(user__email__icontains=s)
+        talents = talents.filter(q)
 
-    return talents.order_by("-user__last_login")
+    return filters.get_queryset(talents).order_by("-user__created_at").distinct()
 
 
 @router.get("countries", response=List[talent_schemas.CountrySchema], tags=["Common"])
@@ -45,16 +43,16 @@ def country_list(request, search:str=""):
     queryset = Country.objects.all()
     if search:
         queryset = queryset.filter(name__icontains=search)
-    return queryset
+    return queryset.distinct("name").order_by("name")
 
 
 @router.get("educational-levels", response=List[talent_schemas.EducationLevelSchema], 
             tags=["Common"])
 def educational_levels(request, search=""):
-    queryset = EducationLevel.objects.all()
+    queryset = EducationLevel.objects.select_related("industry").all()
     if search:
-        queryset = queryset.filter(name__icontains=search)
-    return queryset
+        queryset = queryset.filter(level__icontains=search)
+    return queryset.order_by("level")
 
 @router.post("customer-cases", auth=JWTAuth())
 def create_customer_case(request, data:common_schemas.MutateCustomerCaseSchema):
@@ -64,6 +62,9 @@ def create_customer_case(request, data:common_schemas.MutateCustomerCaseSchema):
     if user.customercase_set.filter(**data).exists():
         raise HttpError(400, "Case already exists")
     CustomerCase.objects.create(**data, user=user).save()
+    async_task(send_customer_case_email, user, data["reason"],
+               data["subject"], data["description"])
+
     return Response(status=200, data={"message": "Case created successfully"})
 
 @router.get("customer-cases", auth=JWTAuth(), response=List[common_schemas.CustomerCaseSchema])
@@ -121,6 +122,7 @@ def phone_number_change(request, data: common_schemas.ChangePhoneSchema):
     if not user.check_password(data.password):
         raise HttpError(400, "Incorrect password")
     user.phone_number = data.phone_number
+    user.phone_code  = data.phone_code
     user.save()
     return Response(data={"message": "phone number changed successfully"})
 
@@ -139,6 +141,14 @@ def send_otp_to_email(request, data: common_schemas.SendEmailOtpSchema):
 
 @router.get("industries", response=list[GenericNameAndUidSchema], tags=["Common"])
 def get_industries(request, search=""):
+    queryset = Industry.objects.all()
     if search:
-        return Industry.objects.filter(name__icontains=search)
-    return Industry.objects.all()
+        queryset = queryset.filter(name__icontains=search)
+    return queryset.distinct("name").order_by("name")
+
+@router.get("companies", response=List[CompanyListSchema], tags=["Common"])
+def get_companies(request, search=""):
+    queryset = Business.objects.all()
+    if search:
+        queryset = queryset.filter(name__icontains=search)
+    return queryset.distinct("name").order_by("name")

@@ -1,3 +1,5 @@
+import logging
+import time
 from urllib.parse import parse_qsl
 
 from channels.db import database_sync_to_async
@@ -44,3 +46,75 @@ class QueryAuthMiddleware:
             user = await self.get_user_with_token(token) or AnonymousUser
             scope["user"] = user
         return await self.app(scope, receive, send)
+
+
+class RequestTimingMiddleware:
+    """
+    A Django middleware designed to calculate the elapsed time
+    required to process each incoming HTTP request. This helps in
+    identifying performance bottlenecks and optimizing your application.
+    """
+
+    def __init__(self, get_response):
+        """
+        The constructor, receiving the next callable in the middleware chain.
+        """
+        self.get_response = get_response
+        # Additional initialization logic could be added here if needed.
+
+    def __call__(self, request):
+        """
+        This method is invoked for every request and wraps the response
+        generation with our timing mechanism.
+
+        Args:
+            request: The HTTP request object.
+
+        Returns:
+            The HTTP response object.
+        """
+        # Record the start time of the request processing.
+        start_time = time.time()
+
+        # Allow the request to proceed to the view, or the next middleware,
+        # and wait for the response.
+        response = self.get_response(request)
+
+        # Record the end time of the request processing.
+        end_time = time.time()
+
+        # Calculate the duration in milliseconds.
+        duration = (end_time - start_time) * 1000
+
+        # Log the request path and the duration.
+        logging.info(
+            "Request to '%s' processed in %.2f ms.",
+            request.path,
+            duration
+        )
+
+        # Return the response to continue the request-response cycle.
+        return response
+
+
+from django.db import connections, close_old_connections
+
+class DatabaseConnectionMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Process the request (view execution, including any transaction.atomic)
+        response = self.get_response(request)
+
+        # After the view: Close all connections or old connections
+        try:
+            close_old_connections()  # Preferred: Closes only stale connections
+
+        except Exception as e:
+            # Log any errors during connection closure
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error closing connections: {e}")
+
+        return response

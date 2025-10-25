@@ -22,6 +22,8 @@ class BusinessUserRoleType(BaseEnum):
     OWNER = "owner"
     ADMIN = "admin"
     TEAM_MEMBER = "team_member"
+    TALENT_MANAGER = "talent_manager"
+    RECRUITER = "recruiter"
 
 class BusinessUserStatusType(BaseEnum):
     ACTIVE = "active"
@@ -37,8 +39,8 @@ class NoticePeriodType(BaseEnum):
 class GenderType(BaseEnum):
     MALE = "male"
     FEMALE = "female"
-    NON_BINARY = "non-binary"
-    OTHERS = "prefer to self describe"
+    NOT_SAY = "Prefer not to say"
+    OTHERS = "others"
 
 class PreferredCommunicationType(BaseEnum):
     TEXT = "text"
@@ -87,4 +89,5 @@ class CaseReasonType(BaseEnum):
     TECHNICAL_ISSUES = "Technical Issues"
     SYSTEM_HELP = "System Help"
     REPORT_BUSINESS = "Report a Business"
-    OTHERS = "Others"
+    REPORT_TALENT = "Report a Talent"
+    OTHERS = "Other"

@@ -64,12 +64,14 @@ class UpdateNotificationSettingsTest(TestCase):
 class GetNotificationsTest(TestCase):
     def setUp(self):
         self.client = TestClient(router)
+        self.talent = TalentFactory.create()
         self.business_user = BusinessUserFactory.create()
         self.user = self.business_user.user
         self.url = ""
         NotificationFactory.create_batch(5,
             business=self.business_user.business,
-            role=self.business_user.role
+            role=self.business_user.role,
+            recipient_groups=[NotificationGroup.BUSINESS_USERS.value]
         )
 
     def test_get_notifications(self):
@@ -90,9 +92,8 @@ class GetNotificationsTest(TestCase):
         self.assertEqual(response.json()["count"], 0)
 
     def test_by_talent(self):
-        talent = TalentFactory.create()
         headers = {
-            "authorization": f"bearer {talent.user.token}"
+            "authorization": f"bearer {self.talent.user.token}"
         }
         response = self.client.get(self.url, headers=headers)
         self.assertEqual(response.status_code, 200)
@@ -100,11 +101,11 @@ class GetNotificationsTest(TestCase):
 
     def test_when_talent_is_recipient(self):
         notification = Notification.objects.first()
-        talent = TalentFactory.create()
-        notification.recipient_users.add(talent.user)
+        notification.recipient_users.add(self.talent.user)
+        notification.all_recipients.add(self.talent.user)
         notification.save()
         headers = {
-            "authorization": f"bearer {talent.user.token}"
+            "authorization": f"bearer {self.talent.user.token}"
         }
         response = self.client.get(self.url, headers=headers)
         self.assertEqual(response.status_code, 200)
@@ -114,6 +115,7 @@ class GetNotificationsTest(TestCase):
         notification = Notification.objects.first()
         business_user = BusinessUserFactory.create()
         notification.recipient_users.add(business_user.user)
+        notification.all_recipients.add(business_user.user)
         notification.save()
         headers = {
             "authorization": f"bearer {business_user.user.token}"
@@ -123,9 +125,56 @@ class GetNotificationsTest(TestCase):
         self.assertEqual(response.json()["count"], 1)
 
     def test_when_recipient_group_is_for_talent(self):
+        Notification.objects.create(
+            recipient_groups=[NotificationGroup.TALENTS.value]
+        )
+        headers = {
+            "authorization": f"bearer {self.talent.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+
+    def test_when_recipient_group_is_for_business_user(self):
+        business_user = BusinessUserFactory.create()
+        NotificationFactory.create(
+            business=business_user.business,
+            role=business_user.role,
+            recipient_groups = [NotificationGroup.BUSINESS_USERS.value]
+        )
+        headers = {
+            "authorization": f"bearer {business_user.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+
+class DeleteNotificationsTest(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business_user = BusinessUserFactory.create()
+        self.user = self.business_user.user
+        self.url = ""
+        NotificationFactory.create_batch(5,
+            business=self.business_user.business,
+            role=self.business_user.role
+        )
+
+    def delete_notifications(self,user, notification_ids):
+        headers = {
+            "authorization": f"bearer {user.token}"
+        }
+        response = self.client.delete(self.url, headers=headers, json=notification_ids)
+        self.assertEqual(response.status_code, 204)
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 0)
+
+    def test_when_talent_is_recipient(self):
         notification = Notification.objects.first()
         talent = TalentFactory.create()
-        notification.recipient_groups = [NotificationGroup.TALENTS.value]
+        notification.recipient_users.add(talent.user)
+        notification.all_recipients.add(talent.user)
         notification.save()
         headers = {
             "authorization": f"bearer {talent.user.token}"
@@ -134,11 +183,13 @@ class GetNotificationsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
 
-    def test_when_recipient_group_is_for_business_user(self):
+        self.delete_notifications(talent.user, [str(notification.uid)])
+
+    def test_when_business_user_is_recipient(self):
         notification = Notification.objects.first()
         business_user = BusinessUserFactory.create()
-        notification.recipient_groups = [NotificationGroup.BUSINESS_USERS.value]
-        notification.business = business_user.business
+        notification.recipient_users.add(business_user.user)
+        notification.all_recipients.add(business_user.user)
         notification.save()
         headers = {
             "authorization": f"bearer {business_user.user.token}"
@@ -147,6 +198,37 @@ class GetNotificationsTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["count"], 1)
 
+        self.delete_notifications(business_user.user, [str(notification.uid)])
+
+    def test_when_recipient_group_is_for_talent(self):
+        talent = TalentFactory.create()
+        notification = Notification.objects.create(
+            recipient_groups=[NotificationGroup.TALENTS.value]
+        )
+        headers = {
+            "authorization": f"bearer {talent.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+
+        self.delete_notifications(talent.user, [str(notification.uid)])
+
+    def test_when_recipient_group_is_for_business_user(self):
+        business_user = BusinessUserFactory.create()
+        notification = NotificationFactory.create(
+            business=business_user.business,
+            role=business_user.role,
+            recipient_groups = [NotificationGroup.BUSINESS_USERS.value]
+        )
+        headers = {
+            "authorization": f"bearer {business_user.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+
+        self.delete_notifications(business_user.user, [str(notification.uid)])
 
 
 

@@ -1,27 +1,28 @@
 from typing import Optional, List, Any, Literal
 from uuid import UUID
 
-from ninja import ModelSchema, Schema
-from ninja.orm.fields import AnyObject
-from pydantic import Field
-
 from accounts.models import User
 from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, MessageAttachment, Conversation
 from jobs.models import JobPost
+from ninja import ModelSchema, Schema
+from ninja.orm.fields import AnyObject
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+from pydantic import Field
 
 
 class ChatUserSchema(ModelSchema):
     photo_url:Optional[str] = None
+    user_type_uid:Optional[UUID] = Field(None, alias="user_type_uid")
 
     class Meta:
         model = User
         fields = ("uid", "email", "first_name", "last_name", "type")
 
+
 class ChatJobSchema(ModelSchema):
     country: str
-    job_title: str
+    job_title: Optional[str] = None
     job_business: str
     job_business_logo: Optional[str]
     class Meta:
@@ -37,6 +38,10 @@ class ChatJobSchema(ModelSchema):
     @staticmethod
     def resolve_job_business(obj):
         if not obj.job or not obj.job.created_by:
+            return ""
+        if not obj.job.created_by.business:
+            return ""
+        if not obj.job.created_by.business.name:
             return ""
         return obj.job.created_by.business.name
 
@@ -73,7 +78,7 @@ class ChatMessageListSchema(ModelSchema):
         request = context.get("request")
         user = request.user
         if user == obj.sender:
-            return None
+            return True
         return obj.readers.filter(id=user.id).exist()
 
 class ChatListSchema(ModelSchema):

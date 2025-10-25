@@ -1,11 +1,7 @@
 from datetime import timezone, date, time
 from decimal import Decimal
 from uuid import uuid4
-
-from database_seeder import generate_data
-from django.test import TestCase
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
+import io
 
 from accounts.enums import Days, BusinessUserRoleType
 from accounts.models import User, VerificationCode, Country, Talent, EducationLevel, Industry, \
@@ -13,12 +9,17 @@ from accounts.models import User, VerificationCode, Country, Talent, EducationLe
 from accounts.views.talent import router
 from chats.models import Conversation, Message
 from core.models import Currency
+from django.test import TestCase
 from factories import WorkflowStageFactory, TalentFactory, BusinessUserFactory, CountryFactory, IndustryFactory, \
     LanguageFactory, EducationFactory, EducationLevelFactory, RoleFactory, ExperienceFactory, SkillFactory, \
-    BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory, SavedJobFactory, JobFilterFactory
-from jobs.enums import LunchBreakEnum, PhaseType, JobStatusType, WorkStructureEnum
-from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, RequiredAttribute, AvailableDay, \
+    BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory
+from jobs.enums import LunchBreakEnum, PhaseType, JobStatusType
+from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, AvailableDay, \
     JobApplication, JobInterview
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
+
+from core.models import State
 
 
 class CreateAccountTests(TestCase):
@@ -150,7 +151,7 @@ class UpdateTalentProfileTests(TestCase):
           "postal_code": "90001",
           "whatsapp_number": "+15559876543",
           "viber_number": "",
-          "address": "123 Main St",
+          # "address": "123 Main St",
           "gender": "male",
           "visible": True,
           "bio": "I am a highly motivated and results-oriented professional with [Number] years of experience in [Industry]. I am passionate about [Area of expertise] and eager to contribute to a dynamic and challenging work environment.",
@@ -176,13 +177,13 @@ class UpdateTalentProfileTests(TestCase):
             {
               "role": str(self.role.uid),
               "uid": str(self.experience_history.uid),
-              "annual_salary_bonus_currency": str(self.currency.uid),
-              "annual_salary_currency": str(self.currency.uid),
+              "salary_bonus_currency": str(self.currency.uid),
+              "salary_currency": str(self.currency.uid),
               "employment_type": str(self.employment_type.uid),
               "level": str(self.job_level.uid),
               "company": "Acme Corporation",
-              "annual_salary": 120000,
-              "annual_salary_bonus": 15000,
+              "salary": 120000,
+              "salary_bonus": 15000,
               "start_date": "2022-01-15",
               "end_date": "2024-12-31",
               "currently_works_here": False
@@ -224,7 +225,7 @@ class UpdateTalentProfileTests(TestCase):
         self.assertEqual(self.talent.postal_code, "90001")
         self.assertEqual(self.talent.whatsapp_number, "+15559876543")
         self.assertEqual(self.talent.viber_number, "")
-        self.assertEqual(self.talent.address, "123 Main St")
+        # self.assertEqual(self.talent.address, "123 Main St")
         self.assertEqual(self.talent.user.gender, "male")
         self.assertTrue(self.talent.visible)
         self.assertEqual(self.talent.bio,
@@ -245,13 +246,13 @@ class UpdateTalentProfileTests(TestCase):
         self.assertEqual(self.talent.education_set.last().university, "University of California, Los Angeles")
         # Assert experience history (check all fields)
         self.assertEqual(self.talent.experience_set.last().role, self.role)
-        self.assertEqual(self.talent.experience_set.last().annual_salary_bonus_currency, self.currency)
-        self.assertEqual(self.talent.experience_set.last().annual_salary_currency, self.currency)
+        self.assertEqual(self.talent.experience_set.last().salary_bonus_currency, self.currency)
+        self.assertEqual(self.talent.experience_set.last().salary_currency, self.currency)
         self.assertEqual(self.talent.experience_set.last().employment_type, self.employment_type)
         self.assertEqual(self.talent.experience_set.last().level, self.job_level)
         self.assertEqual(self.talent.experience_set.last().company, "Acme Corporation")
-        self.assertEqual(self.talent.experience_set.last().annual_salary, 120000)
-        self.assertEqual(self.talent.experience_set.last().annual_salary_bonus, 15000)
+        self.assertEqual(self.talent.experience_set.last().salary, 120000)
+        self.assertEqual(self.talent.experience_set.last().salary_bonus, 15000)
         self.assertEqual(self.talent.experience_set.last().start_date, date(2022, 1, 15))
         self.assertEqual(self.talent.experience_set.last().end_date, date(2024, 12, 31))
         self.assertFalse(self.talent.experience_set.last().currently_works_here)
@@ -275,16 +276,16 @@ class UpdateTalentProfileTests(TestCase):
         data = {
             "visible": False,
             "bio": "hello",
-            "work_model": "hybrid",
-            "employment_type": str(employment_type)
+            "work_models": ["hybrid"],
+            "employment_types": [str(employment_type)]
         }
         response = self.client.patch(path=self.url, json=data, headers=headers)
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
         self.assertFalse(self.talent.visible)
         self.assertEqual(self.talent.bio, "hello")
-        self.assertEqual(self.talent.work_model, "hybrid")
-        self.assertEqual(self.talent.employment_type.uid, employment_type)
+        self.assertIn("hybrid", self.talent.work_models)
+        self.assertEqual(self.talent.employment_types.first().uid, employment_type)
         data = {
             "visible": False,
             "bio": ""
@@ -312,6 +313,7 @@ class TalentDashboardTests(TestCase):
     def setUp(self):
         self.client = TestClient(router)
         self.country = Country.objects.first()
+        self.province = State.objects.first()
         self.industry = Industry.objects.first()
         self.user_data = dict(
             first_name="Test",
@@ -363,10 +365,10 @@ class TalentDashboardTests(TestCase):
             talent=self.talent,
             role=self.role,
             company="TestCompany",
-            annual_salary=700,
-            annual_salary_currency=self.currency,
-            annual_salary_bonus=700,
-            annual_salary_bonus_currency=self.currency,
+            salary=700,
+            salary_currency=self.currency,
+            salary_bonus=700,
+            salary_bonus_currency=self.currency,
             level=self.job_level,
             employment_type=self.employment_type,
             start_date=date(year=2022, month=1, day=1),
@@ -376,6 +378,7 @@ class TalentDashboardTests(TestCase):
         job = Job.objects.create(
             created_by=self.business_user,
             job_level=self.job_level,
+            role=self.role,
             employment_type=self.employment_type,
             hiring_company_name="Example Company",
             title="Software Engineer",
@@ -388,11 +391,11 @@ class TalentDashboardTests(TestCase):
             job=job,
             status=JobStatusType.CLOSED.value,  # Can be changed to True for posting
             country=self.country,
-            province="Ontario",
+            province=self.province,
             postal_code="M5V 1T6",  # Replace with actual postal code
-            annual_salary_min=Decimal('80000.00'),  # Use Decimal for money fields
-            annual_salary_max=Decimal('100000.00'),
-            annual_salary_currency=self.currency,
+            salary_min=Decimal('80000.00'),  # Use Decimal for money fields
+            salary_max=Decimal('100000.00'),
+            salary_currency=self.currency,
             recruiter=self.business_user
         )
         job.requiredattribute.update(
@@ -434,8 +437,7 @@ class TalentDashboardTests(TestCase):
         application = JobApplication.objects.create(
             job_post=self.job_post,
             applicant=self.talent,
-            stage=stage,
-            match=5
+            stage=stage
         )
         JobInterview.objects.create(
             application=application
@@ -548,18 +550,14 @@ class TalentDetailTest(TestCase):
 
 class DeleteTalentUserAccountTest2(TestCase):
     def setUp(self):
-        generate_data("PASSWORD", [],
-                      talent_amount=5,
-                      silent=True
-                      )
         self.url = "/"
         self.client = TestClient(router)
 
-        self.talent = Talent.objects.order_by("?").first()
+        self.talent = TalentFactory.create()
         self.business_user = BusinessUser.objects.order_by("?").first()
 
     def test_delete_talent_user_account(self):
-        from jobs.models import SavedJob, JobFilter #noqa
+        from jobs.models import SavedJob #noqa
         from accounts.models import Experience, Education #noqa
 
         headers = {
@@ -574,35 +572,26 @@ class DeleteTalentUserAccountTest2(TestCase):
         self.assertIsNone(talent_user)
         user = User.deleted_objects.filter(id=self.talent.user.id).first()
         talent_user = Talent.deleted_objects.filter(id=self.talent.id).first()
-        self.assertEqual(user.first_name, "deleted")
-        self.assertEqual(user.last_name, "user")
-        self.assertEqual(user.email, f"deleted_user_{user.id}@example.com")
-        self.assertIsNone(user.phone_number)
-        self.assertIsNone(user.facebook_id)
-        self.assertIsNone(user.linkedin_id)
-        self.assertIsNone(user.google_id)
-        self.assertIsNone(user.apple_id)
-        self.assertEqual(user.username, f"user-{user.id}")
-        self.assertFalse(user.is_active)
 
         self.assertFalse(SavedJob.global_objects.filter(talent=talent_user).exists())
-        self.assertFalse(JobFilter.global_objects.filter(talent=talent_user).exists())
         self.assertFalse(Education.global_objects.filter(talent=talent_user).exists())
         self.assertFalse(Experience.global_objects.filter(talent=talent_user).exists())
 
-        self.assertIsNone(talent_user.whatsapp_number)
-        self.assertIsNone(talent_user.viber_number)
-        self.assertIsNone(talent_user.country)
-        self.assertIsNone(talent_user.state)
-        self.assertIsNone(talent_user.city)
-        self.assertIsNone(talent_user.address)
-        self.assertIsNone(talent_user.postal_code)
-        self.assertIsNone(talent_user.bio)
-        self.assertIsNone(talent_user.instagram)
-        self.assertIsNone(talent_user.linkedin)
-        self.assertIsNone(talent_user.twitter_x)
-        self.assertIsNone(talent_user.notice_period)
-        self.assertEqual(talent_user.additional_skills, [])
-        self.assertEqual(talent_user.skills.count(), 0)  # Check if ManyToMany is cleared
-        self.assertEqual(talent_user.business_models.count(), 0)  # Check if ManyToMany is cleared
 
+class UploadTalentProfilePictureTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.talent = TalentFactory()
+        self.url = "/profile-pic"
+        self.headers = {
+            "authorization": f"bearer {self.talent.user.token}"
+        }
+
+
+    def test_upload_valid_profile_picture(self):
+        # TODO: complete tests
+        """Should upload a valid PNG image."""
+        file = io.BytesIO(b"fake image data")
+        file.name = "profile.png"
+        response = self.client.post(self.url, {"file": file}, format="multipart", headers=self.headers)
+        self.assertEqual(response.status_code, 200)

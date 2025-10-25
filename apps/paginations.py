@@ -17,6 +17,8 @@ from pydantic import Field
 class CustomBasePaginatedResponseSchema(BasePaginatedResponseSchema):
     next_page: Optional[int]
     previous_page: Optional[int]
+    number_of_pages:Optional[int]
+
 
 
 class CustomPaginatedResponseSchema(CustomBasePaginatedResponseSchema, Generic[T]):
@@ -39,6 +41,7 @@ class CustomPageNumberPaginationExtra(PageNumberPaginationExtra):
                 ("previous_page", page.previous_page_number() if page.has_previous() else None),
                 ("next", self.get_next_link(base_url, page=page)),
                 ("previous", self.get_previous_link(base_url, page=page)),
+                ('number_of_pages', page.paginator.num_pages),
                 ("results", list(page)),
                 *added_fields
             ]

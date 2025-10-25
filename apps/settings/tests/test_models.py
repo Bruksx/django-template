@@ -1,13 +1,9 @@
-import os
 from datetime import timedelta
 
-from django.core.files import File
-from django.template import Template
 from django.test import TestCase
 from django_q.models import Schedule
-
 from factories import EmailTemplateFactory, WorkflowStageFactory, JobApplicationFactory
-from settings.models import EmailTemplateAttachment
+from jobs.enums import PhaseType
 
 
 class EmailTemplateModelTest(TestCase):
@@ -24,7 +20,7 @@ class EmailTemplateModelTest(TestCase):
         scheduled_task = Schedule.objects.first()
         self.assertIsNone(scheduled_task)
         emails = ["a@b.com", "c@d.com"]
-        self.template.send_email(context, emails)
+        self.template.send_email(context, emails, self.template.sender)
         scheduled_task = Schedule.objects.first()
         self.assertIsNotNone(scheduled_task)
 
@@ -88,7 +84,7 @@ class EmailTemplateModelTest(TestCase):
 
 class WorkFlowStageModelTest(TestCase):
     def setUp(self):
-        self.stage = WorkflowStageFactory.create()
+        self.stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value)
 
     def test_can_be_deactivated(self):
         self.stage.is_active = True

@@ -24,7 +24,7 @@ class ChatWebsocketSchema:
 @dataclass
 class NotificationWebsocketSchema:
     title: str
-    description: str
+    description: Optional[str] = None
     action: Optional[Literal["new", "update", "delete"]]=None
     entity_uid: Optional[str] = None # UUID string
     entity_str: Optional[str] = None

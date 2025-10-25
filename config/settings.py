@@ -12,7 +12,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 
-from django.conf.global_settings import EMAIL_BACKEND
+from django.conf.global_settings import EMAIL_BACKEND, APPEND_SLASH
 from dotenv import load_dotenv
 import os
 import sys
@@ -72,13 +72,15 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
     "corsheaders.middleware.CorsMiddleware",
+    'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'config.middlewares.RequestTimingMiddleware',
+    'config.middlewares.DatabaseConnectionMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -104,16 +106,34 @@ ASGI_APPLICATION = 'config.asgi.application'
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+# # cors settings
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:3000",
+#     "https://localhost:3000",
+#     "http://127.0.0.1:3000",
+#      "https://1840gtc.netlify.app"
+# ]
+#
+# CORS_ORIGIN_WHITELIST = [
+#     "http://localhost:3000",
+#     "https://localhost:3000",
+#     "http://127.0.0.1:3000",
+#      "https://1840gtc.netlify.app"
+# ]
+
+CORS_ALLOW_CREDENTIALS = True
+
+
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 
 DATABASES = {
-    'default': dj_database_url.config(
+    'default': {**dj_database_url.config(
         conn_max_age=600,
         conn_health_checks=True,
-    ),
+    )}
 }
 
 
@@ -282,3 +302,42 @@ if USE_SENTRY:
             "continuous_profiling_auto_start": True,
         },
     )
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'unique-snowflake', # A UNIQUE NAME FOR THE CACHE
+    }
+}
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        '': {  # Root logger, capturing all messages.
+            'handlers': ['console'],
+            'level': 'INFO' if DEBUG else 'CRITICAL',
+            'propagate': False,
+        },
+        'config.middlewares.RequestTimingMiddleware': { # Specifically for our middleware.
+            'handlers': ['console'],
+            'level': 'INFO' if DEBUG else 'CRITICAL',
+            'propagate': False,
+        },
+    },
+}
+
+EIGHTEEN_FORTY_EMAIL = os.environ.get("EIGHTEEN_FORTY_EMAIL", None)
+EIGHTEEN_FORTY_PASSWORD = os.environ.get("EIGHTEEN_FORTY_PASSWORD", None)
+
+INDEED_CLIENT_ID = os.environ.get("INDEED_CLIENT_ID", None)
+INDEED_CLIENT_SECRET = os.environ.get("INDEED_CLIENT_SECRET", None)
+INDEED_REDIRECT_URI = os.environ.get("INDEED_REDIRECT_URI", None)
+
+BACKEND_URL = os.environ.get("BACKEND_URL", None)
+INDEED_EMAIL=os.environ.get("INDEED_EMAIL", "contact@1840andco.com")
