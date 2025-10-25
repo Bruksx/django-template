@@ -100,7 +100,7 @@ jobs:
     - name: Setup SSH key
       if: github.ref == 'refs/heads/master'
       run: |
-          echo "${{ secrets.PRIVATE_KEY }}" > private_key
+          echo "${{ secrets.AWS_EC2_PRIVATE_KEY }}" > private_key
           chmod 600 private_key
 
     - name: Deploy to AWS EC2
