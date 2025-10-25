@@ -93,29 +93,4 @@ jobs:
             sudo systemctl restart nginx
           EOF
   
-  deploy-production:
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-    - name: Setup SSH key
-      run: |
-          echo "${{ secrets.PRIVATE_KEY }}" > private_key
-          chmod 600 private_key
-
-    - name: Deploy to AWS EC2
-      if: github.ref == 'refs/heads/master'
-      run: | 
-        echo "$AWS_EC2_PRIVATE_KEY" > private_key && chmod 600 private_key
-          ssh -o StrictHostKeyChecking=no -i private_key ${AWS_EC2_USER_NAME}@${AWS_EC2_PRODUCTION_HOSTNAME} << 'EOF'
-            cd /home
-            source environment/venv/bin/activate
-            cd code/GTC-backend
-            git pull
-            pip install -r requirements.txt
-            python manage.py migrate
-            python manage.py collectstatic --noinput
-            sudo systemctl restart gunicorn
-            sudo systemctl restart run_qcluster
-            sudo systemctl restart daphne
-            sudo systemctl restart nginx
-          EOF
+  
