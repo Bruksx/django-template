@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - '**'
+      
 env:
   DEBUG: true
   SECRET_KEY: ${{ secrets.SECRET_KEY }}
