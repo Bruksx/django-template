@@ -40,6 +40,7 @@ DEBUG = True if os.environ['DEBUG'].lower() == "true" else False
 
 ALLOWED_HOSTS = [
     "gtc-staging.1840andco.com",
+    "gtc-production.1840andco.com",
     "127.0.0.1",
 ]
 
