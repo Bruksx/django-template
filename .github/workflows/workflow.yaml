@@ -1,8 +1,8 @@
-name: Deploy
+name: Workflow
 on:
   push:
     branches:
-      - 'staging'
+      - '**'
 env:
   DEBUG: true
   SECRET_KEY: ${{ secrets.SECRET_KEY }}
@@ -19,9 +19,10 @@ env:
   AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY}}
   AWS_STORAGE_BUCKET_NAME: ${{secrets.AWS_STORAGE_BUCKET_NAME}}
   USE_AWS_S3: False
-  AWS_EC2_STAGING_PRIVATE_KEY: ${{secrets.AWS_EC2_STAGING_PRIVATE_KEY}}
+  AWS_EC2_PRIVATE_KEY: ${{secrets.AWS_EC2_PRIVATE_KEY}}
   AWS_EC2_USER_NAME: ubuntu
   AWS_EC2_STAGING_HOSTNAME: ${{secrets.AWS_EC2_STAGING_HOSTNAME}}
+  AWS_EC2_PRODUCTION_HOSTNAME: ${{secrets.AWS_EC2_PRODUCTION_HOSTNAME}}
   FACEBOOK_APP_ID_ANDROID: ${{secrets.FACEBOOK_APP_ID_ANDROID}}
   FACEBOOK_APP_SECRET_ANDROID: ${{secrets.FACEBOOK_APP_SECRET_ANDROID}}
   FACEBOOK_APP_ID_WEB: ${{secrets.FACEBOOK_APP_ID_WEB}}
@@ -30,7 +31,7 @@ env:
   FACEBOOK_APP_SECRET_IOS: ${{secrets.FACEBOOK_APP_SECRET_IOS}}
 
 jobs:
-  test_and_deploy:
+  test:
     runs-on: ubuntu-latest
 
     services:
@@ -62,12 +63,21 @@ jobs:
     
     - name: Run migrations and tests
       run: |
-        python manage.py migrate
         python manage.py test accounts --parallel
 
-    - name: Deploy to Staging
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - name: Setup SSH key
       run: |
-          echo "$AWS_EC2_STAGING_PRIVATE_KEY" > private_key && chmod 600 private_key
+          echo "${{ secrets.AWS_EC2_PRIVATE_KEY }}" > private_key
+          chmod 600 private_key
+
+    - name: Deploy to AWS EC2
+      if: github.ref == 'refs/heads/staging'
+      run: | 
           ssh -o StrictHostKeyChecking=no -i private_key ${AWS_EC2_USER_NAME}@${AWS_EC2_STAGING_HOSTNAME} << 'EOF'
             cd /home
             source environment/venv/bin/activate
@@ -76,7 +86,33 @@ jobs:
             pip install -r requirements.txt
             python manage.py migrate
             python manage.py collectstatic --noinput
-            python runner.py
+            sudo systemctl restart gunicorn
+            sudo systemctl restart run_qcluster
+            sudo systemctl restart daphne
+            sudo systemctl restart nginx
+          EOF
+  
+  deploy-production:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+    - name: Setup SSH key
+      if: github.ref == 'refs/heads/master'
+      run: |
+          echo "${{ secrets.AWS_EC2_PRIVATE_KEY }}" > private_key
+          chmod 600 private_key
+
+    - name: Deploy to AWS EC2
+      if: github.ref == 'refs/heads/master'
+      run: | 
+          ssh -o StrictHostKeyChecking=no -i private_key ${AWS_EC2_USER_NAME}@${AWS_EC2_PRODUCTION_HOSTNAME} << 'EOF'
+            cd /home
+            source environment/venv/bin/activate
+            cd code/GTC-backend
+            git pull
+            pip install -r requirements.txt
+            python manage.py migrate
+            python manage.py collectstatic --noinput
             sudo systemctl restart gunicorn
             sudo systemctl restart run_qcluster
             sudo systemctl restart daphne
