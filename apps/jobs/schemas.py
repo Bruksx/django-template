@@ -1504,10 +1504,8 @@ class TalentListJobPostSchema(ModelSchema):
 
     @staticmethod
     def resolve_match_score(obj, context)->Optional[int]:
-        request = context.get("request")
-        job_post = request.context.get("job_post")
-        score = obj.job_match_score(job_post)
-        return score
+       return int(obj.computed_match_score) if obj.computed_match_score else 0
+
 
 class TalentListJobPostSchema2(TalentListJobPostSchema):
     invited: bool
