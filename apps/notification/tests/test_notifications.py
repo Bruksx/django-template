@@ -13,7 +13,7 @@ from notification.notifications import send_new_chat_notification, send_job_post
     send_talents_job_matching_notification, send_job_sharing_notification, send_job_performance_notification, \
     send_business_user_notification, send_job_post_assignment_notification
 
-from apps.factories import WorkflowStageFactory
+from apps.factories import WorkflowStageFactory, JobFactory, UserFactory, BusinessFactory
 
 
 class TestSendNewChatNotification(TestCase):
@@ -36,7 +36,12 @@ class TestSendNewChatNotification(TestCase):
 
 class TestSendJobApplicationNotification(TestCase):
     def setUp(self):
-        self.job_post = JobPostFactory.create()
+        self.country = CountryFactory.create()
+        self.user = UserFactory(email="test_x_@example.com")
+        self.business = BusinessFactory.create(created_by=self.user)
+        self.business_user = BusinessUserFactory(user=self.user)
+        job = JobFactory(created_by=self.business_user)
+        self.job_post = JobPostFactory.create(job=job, country=self.country)
 
     def test_send_job_application_notification(self):
         notification_count = Notification.objects.all().count()
@@ -57,7 +62,11 @@ class TestSendJobApplicationNotification(TestCase):
 class TestSendTalentJobMatchingNotification(TestCase):
     def setUp(self):
         self.country = CountryFactory.create()
-        self.job_post = JobPostFactory.create(country=self.country)
+        self.user = UserFactory(email="test_x_@example.com")
+        self.business = BusinessFactory.create(created_by=self.user)
+        self.business_user = BusinessUserFactory(user=self.user)
+        job = JobFactory(created_by=self.business_user)
+        self.job_post = JobPostFactory.create(job=job, country=self.country)
         self.talent = TalentFactory.create(country=self.country)
         self.job_post.job.requiredattribute.update(location=True,
                                         working_hours=False, years_of_experience=False,
@@ -92,7 +101,11 @@ class TestSendTalentJobMatchingNotification(TestCase):
 
 class TestSendTalentsJobMatchingNotification(TestCase):
     def setUp(self):
-        self.job_post = JobPostFactory.create()
+        self.user = UserFactory(email="test_x_@example.com")
+        self.business = BusinessFactory.create(created_by=self.user)
+        self.business_user = BusinessUserFactory(user=self.user)
+        job = JobFactory(created_by=self.business_user)
+        self.job_post = JobPostFactory.create(job=job)
 
     def test_send_talents_job_matching_notification(self):
         notification_count = Notification.objects.all().count()
@@ -106,7 +119,9 @@ class TestSendTalentsJobMatchingNotification(TestCase):
 
 class TestSendJobSharingNotification(TestCase):
     def setUp(self):
-        self.job_post = JobPostFactory.create()
+        self.business_user = BusinessUserFactory(user=UserFactory(email="test_x_@example.com"))
+        job = JobFactory(created_by=self.business_user)
+        self.job_post = JobPostFactory.create(job=job)
         self.metrics = self.job_post.jobpostmetrics
         self.metrics.update(daily_email_shares=1, weekly_views=1)
 
@@ -124,12 +139,17 @@ class TestSendJobSharingNotification(TestCase):
 
 class TestSendJobPerformanceNotification(TestCase):
     def setUp(self):
-        self.job_post = JobPostFactory.create()
+        self.user = UserFactory(email="test_x_@example.com")
+        self.business = BusinessFactory.create(created_by=self.user)
+        self.business_user = BusinessUserFactory(user=self.user)
+        job = JobFactory(created_by=self.business_user)
+        self.job_post = JobPostFactory.create(job=job)
         self.metrics = self.job_post.jobpostmetrics
         self.metrics.update(job_post=self.job_post, daily_email_shares=1)
         self.stage = WorkflowStageFactory.create()
-        JobApplicationFactory.create(job_post=self.job_post, stage=self.stage)
-        TalentFactory.create()
+        self.talent = TalentFactory.create(user=UserFactory(email="test_y_@example.com"))
+        JobApplicationFactory.create(job_post=self.job_post, stage=self.stage, applicant=self.talent)
+
 
     def test_send_job_performance_notification(self):
         notification_count = Notification.objects.all().count()
@@ -154,7 +174,9 @@ class TestSendJobPerformanceNotification(TestCase):
 
 class TestSendBusinessUserNotification(TestCase):
     def setUp(self):
-        self.business_user = BusinessUserFactory.create()
+        self.user = UserFactory(email="test_x_@example.com")
+        self.business = BusinessFactory.create(created_by=self.user)
+        self.business_user = BusinessUserFactory(user=self.user)
 
     def test_send_business_user_notification(self):
         self.assertEqual(Notification.objects.all().count(), 0)
@@ -172,7 +194,9 @@ class TestSendBusinessUserNotification(TestCase):
 
 class TestSendJobPostAssignmentNotification(TestCase):
     def setUp(self):
-        self.job_post = JobPostFactory.create()
+        self.business_user = BusinessUserFactory(user=UserFactory(email="test_x_@example.com"))
+        job = JobFactory(created_by=self.business_user)
+        self.job_post = JobPostFactory.create(job=job)
         self.settings = self.job_post.recruiter.businessusernotificationsettings
         self.settings.update(assignment_notification=True)
 
