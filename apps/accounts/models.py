@@ -360,10 +360,11 @@ class Talent(BaseModel):
         return queryset
 
     def job_match_score(self, job_post):
-        jobpost = self.job_post_matches().filter(id=job_post.id).first()
-        if not jobpost:
+        from jobs.queries import add_talent_match_score
+        talent = add_talent_match_score(Talent.objects.filter(id=self.id), job_post).first()
+        if not talent:
             return 0
-        return int(jobpost.computed_match_score) or 0
+        return int(talent.computed_match_score) or 0
 
 
     def availability_query(self):
