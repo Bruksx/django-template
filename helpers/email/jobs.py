@@ -12,7 +12,7 @@ def send_invite_to_apply_email(job_post, emails: List[str]=None, lang="en"):
 	html = f'jobs/{lang}/invite.html'
 	frontend_job_url = f"{settings.FRONTEND_URL}job-details"
 	context = {
-		'link': f"{frontend_job_url}/{job_post.job.uid}",
+		'link': f"{frontend_job_url}/{job_post.uid}",
 		'role': job_post.job.get_title,
 		"verb": 'an' if job_post.job.get_title[0] in ['a', 'e', 'i', 'o', 'u'] else 'a'
 	}
@@ -24,14 +24,15 @@ def send_indeed_apply_email(job_post, email, first_name, last_name, lang="en"):
 		return
 	html = f'jobs/{lang}/indeed_apply.html'
 	frontend_job_url = f"{settings.FRONTEND_URL}job-details"
+	role = job_post.job.get_title
 	context = {
-		'link': f"{frontend_job_url}/{job_post.job.uid}",
-		'role': job_post.job.get_title,
+		'link': f"{frontend_job_url}/{job_post.uid}",
+		'role': role,
 		"verb": 'an' if job_post.job.get_title[0] in ['a', 'e', 'i', 'o', 'u'] else 'a',
 		'talent': f"{first_name} {last_name}"
 	}
 	html_content  = render_html_email(html, context)
-	send_email(subject='Welcome to 1840 GTC', emails=[email], html_body=html_content)
+	send_email(subject=f'1840 GTC: Apply to the {role} position', emails=[email], html_body=html_content)
 
 
 def send_shared_job_email(job_post, emails: List[str]=None, lang="en"):
