@@ -21,6 +21,8 @@ from ninja_jwt.authentication import JWTAuth
 
 from core.models import State
 
+from apps.factories import CityFactory, StateFactory
+
 
 class CreateAccountTests(TestCase):
     def setUp(self):
@@ -126,6 +128,8 @@ class UpdateTalentProfileTests(TestCase):
         self.client = TestClient(router)
         self.url = "profile"
         self.country = CountryFactory.create()
+        self.city = CityFactory.create()
+        self.state = StateFactory.create()
         self.industry = IndustryFactory.create()
         self.talent = TalentFactory.create()
         self.native_language = LanguageFactory.create()
@@ -146,8 +150,8 @@ class UpdateTalentProfileTests(TestCase):
           "preferred_communication": "text",
           "phone_number": "+15551234567",
           "country": str(self.country.uid),
-          "state": "California",
-          "city": "Los Angeles",
+          "state": str(self.state.uid),
+          "city": str(self.city.uid),
           "postal_code": "90001",
           "whatsapp_number": "+15559876543",
           "viber_number": "",
@@ -220,8 +224,8 @@ class UpdateTalentProfileTests(TestCase):
         self.assertEqual(self.talent.preferred_communication, "text")
         self.assertEqual(self.talent.user.phone_number, "+15551234567")
         self.assertEqual(self.talent.country, self.country)
-        self.assertEqual(self.talent.state, "California")
-        self.assertEqual(self.talent.city, "Los Angeles")
+        self.assertEqual(self.talent.state, self.state)
+        self.assertEqual(self.talent.city, self.city)
         self.assertEqual(self.talent.postal_code, "90001")
         self.assertEqual(self.talent.whatsapp_number, "+15559876543")
         self.assertEqual(self.talent.viber_number, "")
