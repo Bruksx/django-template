@@ -20,8 +20,6 @@ SCREENING_QUESTIONS_URL = lambda job_uid: f"{BASE_BACKEND_URL}/business/jobs/{jo
 INDEED_EMAIL = settings.INDEED_EMAIL
 INDEED_APPLY_API_TOKEN = settings.INDEED_APPLY_API_TOKEN
 INDEED_APPLY_POST_URL = lambda job_post_uid: f"{BASE_BACKEND_URL}/api/business/jobs/indeed/jobs/{job_post_uid}/apply"
-INDEED_APPLY_QUESTION_URL = f"{BASE_BACKEND_URL}/api/business/jobs/indeed/apply-questions"
-
 
 @dataclass
 class JobBase:
@@ -61,8 +59,7 @@ class JobBase:
             indeed_apply_jobCompanyName=self.company,
             indeed_apply_jobLocation=self.location,
             indeed_apply_jobUrl=self.url,
-            indeed_apply_postUrl=INDEED_APPLY_POST_URL(self.apijobid),
-            indeed_apply_questions=INDEED_APPLY_QUESTION_URL
+            indeed_apply_postUrl=INDEED_APPLY_POST_URL(self.apijobid)
         )
         params = []
 
