@@ -182,4 +182,76 @@ class IndeedApplicationData(Schema):
     screenerQuestionsAndAnswers: List[ScreenerQuestionsAndAnswersSchema] = []
     demographicQuestionsAndAnswers: List[ScreenerQuestionsAndAnswersSchema] = []
 
-    schemaVersion: str  # Version of the questions and answers schema deli
+    schemaVersion: str  # Version of the questions and answers schema
+
+
+# Patch versions - All fields optional for PATCH operations
+
+class JobSchemaPatch(Schema):
+    jobId: Optional[str] = None
+    jobKey: Optional[str] = None
+    jobUrl: Optional[str] = None
+    jobMeta: Optional[str] = None
+    jobTitle: Optional[str] = None
+    jobCompany: Optional[str] = None
+    jobLocation: Optional[str] = None
+
+
+class ResumeSchemaPatch(Schema):
+    file: Optional[str] = None
+    text: Optional[str] = None
+    html: Optional[str] = None
+    json: Optional[dict] = None
+
+
+class ApplicantSchemaPatch(Schema):
+    fullName: Optional[str] = None
+    firstName: Optional[str] = None
+    lastName: Optional[str] = None
+    email: Optional[str] = None
+    phoneNumber: Optional[str] = None
+    coverletter: Optional[str] = None
+    resume: Optional[ResumeSchemaPatch] = None
+    verified: Optional[bool] = None
+
+
+class SourceAttributionSchemaPatch(Schema):
+    enumKey: Optional[str] = None
+    name: Optional[str] = None
+
+
+class AnalyticsSchemaPatch(Schema):
+    ip: Optional[str] = None
+    referer: Optional[str] = None
+    targetedApplyAd: Optional[bool] = None
+    trackingUid: Optional[str] = None
+    sponsored: Optional[bool] = None
+    advNum: Optional[str] = None
+    userAgent: Optional[str] = None
+    device: Optional[str] = None
+    completeApplicationSourceAttribution: Optional[List[SourceAttributionSchemaPatch]] = None
+
+
+class QuestionAnswerSchemaPatch(Schema):
+    question: Optional[ScreenerQuestion] = None
+    answer: Optional[Union[str, list, dict]] = None
+
+
+class ScreenerQuestionsAndAnswersSchemaPatch(Schema):
+    url: Optional[str] = None
+    retrievedOnMillis: Optional[int] = None
+    questionsAndAnswers: Optional[List[QuestionAnswerSchemaPatch]] = None
+    schemaVersion: Optional[str] = None
+
+
+class IndeedApplicationDataPatch(Schema):
+    """Patch version of IndeedApplicationData - all fields are optional for partial updates"""
+    id: Optional[str] = None
+    appliedOnMillis: Optional[int] = None
+    job: Optional[JobSchemaPatch] = None
+    applicant: Optional[ApplicantSchemaPatch] = None
+    analytics: Optional[AnalyticsSchemaPatch] = None
+    locale: Optional[str] = None
+    screenerQuestionsAndAnswers: Optional[List[ScreenerQuestionsAndAnswersSchemaPatch]] = None
+    demographicQuestionsAndAnswers: Optional[List[ScreenerQuestionsAndAnswersSchemaPatch]] = None
+    schemaVersion: Optional[str] = None
