@@ -19,3 +19,5 @@ def get_linkedin_job_posts_xml_pool(request, *args, **kwargs):
             tags=["Job Posts"])
 def get_indeed_job_posts_xml_pool(request, *args, **kwargs):
     return StreamingHttpResponse(Source.to_xml_stream(), content_type="application/xml")
+
+

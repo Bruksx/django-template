@@ -10,7 +10,7 @@ from jobs.models import ScreeningQuestion
 from core.enums import SalaryType
 from services.job_posting.indeed import CLIENT_ID
 from services.job_posting.schema.indeed import WidgetScreenerSchema, ScreenerQuestions, ScreenerQuestion, \
-    TextareaQuestion, FileQuestion, MultiselectQuestion, SelectQuestion, Option
+    TextareaQuestion, FileQuestion, MultiselectQuestion, SelectQuestion, Option, TextQuestion
 
 BASE_FRONTEND_URL = settings.FRONTEND_URL
 BASE_BACKEND_URL = settings.BACKEND_URL
@@ -19,6 +19,29 @@ JOB_POST_URL = lambda job_post_uid: f"{BASE_FRONTEND_URL}/job-details/{job_post_
 
 SCREENING_QUESTIONS_URL = lambda job_uid: f"{BASE_BACKEND_URL}/business/jobs/{job_uid}/indeed/screener-questions"
 
+
+def get_basic_screening_questions() -> WidgetScreenerSchema:
+    return WidgetScreenerSchema(
+        screenerQuestions=ScreenerQuestions(
+            questions=[
+                TextQuestion(
+                    id="firstName",
+                    question="First Name",
+                    required=True
+                ),
+                TextQuestion(
+                    id="lastName",
+                    question="Last Name",
+                    required=True
+                ),
+                TextQuestion(
+                    id="email",
+                    question="Email",
+                    required=True
+                )
+            ]
+        )
+    )
 
 def get_remote_type(work_structure: WorkStructureEnum):
     if work_structure == WorkStructureEnum.REMOTE.value:
