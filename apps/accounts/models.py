@@ -11,7 +11,7 @@ import jwt
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
     BusinessSize, BusinessUserStatusType, CaseReasonType
 from core.enums import SalaryType
-from core.models import BaseModel
+from core.models import BaseModel, City, State
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
@@ -218,7 +218,9 @@ class Talent(BaseModel):
     viber_number = models.CharField(max_length=50, null=True)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
     state = models.CharField(max_length=64, null=True)
+    state_obj = models.ForeignKey(State, on_delete=models.SET_NULL, null=True)
     city = models.CharField(max_length=64, null=True)
+    city_obj = models.ForeignKey(City, on_delete=models.SET_NULL, null=True)
     address = models.CharField(max_length=128, null=True)
     postal_code = models.CharField(max_length=20, null=True)
     employment_types = models.ManyToManyField('jobs.EmploymentType', blank=True)
