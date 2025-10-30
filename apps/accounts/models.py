@@ -217,10 +217,8 @@ class Talent(BaseModel):
     whatsapp_number = models.CharField(max_length=50, null=True)
     viber_number = models.CharField(max_length=50, null=True)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
-    state = models.CharField(max_length=64, null=True)
-    state_obj = models.ForeignKey(State, on_delete=models.SET_NULL, null=True)
-    city = models.CharField(max_length=64, null=True)
-    city_obj = models.ForeignKey(City, on_delete=models.SET_NULL, null=True)
+    state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True)
+    city = models.ForeignKey(City, on_delete=models.SET_NULL, null=True)
     address = models.CharField(max_length=128, null=True)
     postal_code = models.CharField(max_length=20, null=True)
     employment_types = models.ManyToManyField('jobs.EmploymentType', blank=True)
@@ -256,9 +254,9 @@ class Talent(BaseModel):
         #     data.append(self.address)
 
         if self.city:
-            data.append(self.city)
+            data.append(self.city.name)
         if self.state:
-            data.append(self.state)
+            data.append(self.state.name)
         if self.country:
             data.append(self.country.name)
         if self.postal_code:
