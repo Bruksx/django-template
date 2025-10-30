@@ -25,7 +25,7 @@ from helpers.email.jobs import send_indeed_apply_email
 from helpers.utils import convert_base64_to_image_file
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
-from services.job_posting.schema.indeed import IndeedApplicationData
+from services.job_posting.schema.indeed import IndeedApplicationData, IndeedApplicationDataPatch
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
@@ -718,8 +718,9 @@ def job_posts_for_talent(request, talent_uid:UUID, filters:TalentJobFilterQueryS
 
 
 @router.post("indeed/jobs/{job_post_uid}/apply", tags=['ATS'])
-def handle_indeed_application(request, job_post_uid:UUID, data: IndeedApplicationData):
+def handle_indeed_application(request, job_post_uid:UUID, data: IndeedApplicationDataPatch):
     job_post = JobPost.objects.filter(uid=job_post_uid).first()
-    if job_post:
-        async_task(send_indeed_apply_email, job_post, data.applicant.email, data.applicant.firstName, data.applicant.lastName)
+    if job_post and data.applicant and data.applicant.email:
+        async_task(send_indeed_apply_email, job_post, data.applicant.email,
+                   data.applicant.firstName or "", data.applicant.lastName or "")
     return Response(status=200, data=dict(message="Application is successful"))
