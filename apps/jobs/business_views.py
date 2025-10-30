@@ -10,6 +10,8 @@ from django.db import transaction
 from django.db.models import Q, Count, Exists, Subquery, OuterRef, Case, When, F, Value
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+
+from helpers.email.jobs import send_indeed_apply_email
 from helpers.utils import convert_base64_to_image_file, to_utc
 from monkeypatches.response import Response
 from monkeypatches.q_cluster import async_task
@@ -27,6 +29,9 @@ from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationE
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
 from settings.models import WorkFlowStage
+
+from services.job_posting.schema.indeed import ScreenerQuestions, WidgetScreenerSchema
+from services.job_posting.services.indeed import get_basic_screening_questions
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
@@ -37,7 +42,7 @@ from .schemas import (
     EmploymentTypeSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
-    TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2
+    TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2, IndeedApplySchema
 )
 from .queries import add_application_match_score, add_job_post_annotations
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
@@ -716,3 +721,17 @@ def job_posts_for_talent(request, talent_uid:UUID, filters:TalentJobFilterQueryS
     queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(status=JobStatusType.POSTED.value)
     queryset = add_job_post_annotations(queryset, talent)
     return filters.get_queryset(talent=talent, queryset=queryset)
+
+
+@router.get("indeed/apply-questions", response=WidgetScreenerSchema,
+            summary="Get indeed screening questions for job applications",
+            tags=["ATS"])
+def get_indeed_screening_questions2(request, *args, **kwargs):
+    return get_basic_screening_questions().dict()
+
+@router.post("indeed/jobs/{job_post_uid}/apply", tags=['ATS'])
+def handle_indeed_application(request, job_post_uid:UUID, data: IndeedApplySchema):
+    job_post = JobPost.objects.filter(uid=job_post_uid).first()
+    if job_post:
+        async_task(send_indeed_apply_email, job_post, data.email, data.firstName, data.lastName)
+    return Response(status=200, data=dict(message="Application is successful"))

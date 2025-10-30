@@ -1551,3 +1551,9 @@ class BusinessUserJobSchema(ModelSchema):
     class Meta:
         model = Job
         fields = ["uid"]
+
+
+class IndeedApplySchema(Schema):
+    firstName: str
+    lastName: str
+    email: str

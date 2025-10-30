@@ -341,3 +341,5 @@ INDEED_REDIRECT_URI = os.environ.get("INDEED_REDIRECT_URI", None)
 
 BACKEND_URL = os.environ.get("BACKEND_URL", None)
 INDEED_EMAIL=os.environ.get("INDEED_EMAIL", "contact@1840andco.com")
+
+INDEED_APPLY_API_TOKEN=os.environ.get('INDEED_APPLY_API_TOKEN', None)

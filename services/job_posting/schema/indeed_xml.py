@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
+from urllib.parse import quote_plus
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 from apps.core.enums import SalaryType
@@ -17,7 +18,9 @@ JOB_POST_URL = lambda job_post_uid: f"{BASE_FRONTEND_URL}/job-details/{job_post_
 
 SCREENING_QUESTIONS_URL = lambda job_uid: f"{BASE_BACKEND_URL}/business/jobs/{job_uid}/indeed/screener-questions"
 INDEED_EMAIL = settings.INDEED_EMAIL
-
+INDEED_APPLY_API_TOKEN = settings.INDEED_APPLY_API_TOKEN
+INDEED_APPLY_POST_URL = lambda job_post_uid: f"{BASE_BACKEND_URL}/api/business/jobs/indeed/jobs/{job_post_uid}/apply"
+INDEED_APPLY_QUESTION_URL = f"{BASE_BACKEND_URL}/api/business/jobs/indeed/apply-questions"
 
 
 @dataclass
@@ -46,6 +49,29 @@ class JobBase:
     remotetype: Optional[str] = None
     billingId: Optional[str] = None
     apijobid: Optional[str] = None
+    location: Optional[str] =   None
+
+
+    def get_indeed_apply_data(self):
+
+        data = dict(
+            indeed_apply_apiToken=INDEED_APPLY_API_TOKEN,
+            indeed_apply_jobTitle=self.title,
+            indeed_apply_jobId=self.apijobid,
+            indeed_apply_jobCompanyName=self.company,
+            indeed_apply_jobLocation=self.location,
+            indeed_apply_jobUrl=self.url,
+            indeed_apply_postUrl=INDEED_APPLY_POST_URL(self.apijobid),
+            indeed_apply_questions=INDEED_APPLY_QUESTION_URL
+        )
+        params = []
+
+        for key, value in data.items():
+            key = key.replace('_', '-')
+            encoded_value = quote_plus(value)  # URL encode the value
+            params.append(f"{key}={encoded_value}")
+
+        return "&".join(params)
 
 
     @staticmethod
@@ -103,6 +129,7 @@ class JobBase:
                 url=JOB_POST_URL(job_post.uid),
                 company=job.business_name(),
                 sourcename=job.business_name(),
+                location=job_post.get_location(),
                 city=job_post.get_city(),
                 state=job_post.get_province(),
                 country=job_post.get_country(),
@@ -158,6 +185,7 @@ class JobBase:
             self.add_element(job_el, "billingId", self.billingId)
         if self.apijobid:
             self.add_element(job_el, "apijobid", self.apijobid)
+        self.add_element(job_el, "indeed-apply-data", self.get_indeed_apply_data())
         return job_el
 
 
