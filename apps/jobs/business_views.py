@@ -30,7 +30,7 @@ from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
 from settings.models import WorkFlowStage
 
-from services.job_posting.schema.indeed import ScreenerQuestions, WidgetScreenerSchema
+from services.job_posting.schema.indeed import ScreenerQuestions, WidgetScreenerSchema, IndeedApplicationData
 from services.job_posting.services.indeed import get_basic_screening_questions
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
@@ -730,8 +730,8 @@ def get_indeed_screening_questions2(request, *args, **kwargs):
     return get_basic_screening_questions().dict()
 
 @router.post("indeed/jobs/{job_post_uid}/apply", tags=['ATS'])
-def handle_indeed_application(request, job_post_uid:UUID, data: IndeedApplySchema):
+def handle_indeed_application(request, job_post_uid:UUID, data: IndeedApplicationData):
     job_post = JobPost.objects.filter(uid=job_post_uid).first()
     if job_post:
-        async_task(send_indeed_apply_email, job_post, data.email, data.firstName, data.lastName)
+        async_task(send_indeed_apply_email, job_post, data.applicant.email, data.applicant.firstName, data.applicant.lastName)
     return Response(status=200, data=dict(message="Application is successful"))
