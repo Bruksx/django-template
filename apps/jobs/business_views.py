@@ -10,6 +10,8 @@ from django.db import transaction
 from django.db.models import Q, Count, Exists, Subquery, OuterRef, Case, When, F, Value
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+
+from helpers.email.jobs import send_indeed_apply_email
 from helpers.utils import convert_base64_to_image_file, to_utc
 from monkeypatches.response import Response
 from monkeypatches.q_cluster import async_task
@@ -27,6 +29,8 @@ from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationE
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
 from settings.models import WorkFlowStage
+
+from services.job_posting.schema.indeed import IndeedApplicationDataPatch
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
@@ -716,3 +720,12 @@ def job_posts_for_talent(request, talent_uid:UUID, filters:TalentJobFilterQueryS
     queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(status=JobStatusType.POSTED.value)
     queryset = add_job_post_annotations(queryset, talent)
     return filters.get_queryset(talent=talent, queryset=queryset)
+
+
+@router.post("indeed/jobs/{job_post_uid}/apply", tags=['ATS'])
+def handle_indeed_application(request, job_post_uid:UUID, data: IndeedApplicationDataPatch):
+    job_post = JobPost.objects.filter(uid=job_post_uid).first()
+    if job_post and data.applicant and data.applicant.email:
+        async_task(send_indeed_apply_email, job_post, data.applicant.email,
+                   data.applicant.firstName or "", data.applicant.lastName or "")
+    return Response(status=200, data=dict(message="Application is successful"))
