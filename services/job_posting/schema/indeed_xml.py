@@ -24,7 +24,7 @@ INDEED_APPLY_POST_URL = lambda job_post_uid: f"{BASE_BACKEND_URL}/api/business/j
 @dataclass
 class JobBase:
     title: str
-    date: str
+    date: datetime
     referencenumber: str
     requisitionid: str
     url: str
@@ -120,7 +120,7 @@ class JobBase:
         job: Job = job_post.job
         return JobBase(
                 title=job_post.job.get_title,
-                date=str(job_post.date_posted),
+                date=job_post.date_posted or job_post.created_at,
                 referencenumber=str(job_post.uid),
                 requisitionid=str(job_post.uid),
                 url=JOB_POST_URL(job_post.uid),
@@ -138,7 +138,7 @@ class JobBase:
                 education=JobBase.get_education(job_post),
                 jobtype="".join((job.employment_type.name,)) if job.employment_type else "",
                 experience=f"{job.years_of_experience} years" if job.years_of_experience else job.years_of_experience,
-                lastactivitydate=job_post.date_posted or job_post.created_at,
+                lastactivitydate=job_post.last_refreshed or job_post.created_at,
                 remotetype="Fully remote" if job_post.job.work_structure == WorkStructureEnum.REMOTE else "Hybrid remote",
                 apijobid=str(job_post.uid)
             )
@@ -152,7 +152,7 @@ class JobBase:
     def to_xml(self):
         job_el = Element( "job")
         self.add_element(job_el, "title", self.title)
-        self.add_element(job_el, "date", self.date)
+        self.add_element(job_el, "date", self.date.isoformat())
         self.add_element(job_el, "referencenumber", self.referencenumber)
         self.add_element(job_el, "requisitionid", self.requisitionid)
         self.add_element(job_el, "url", self.url)
