@@ -278,45 +278,48 @@ DEPARTMENT_AND_SKILLS = [
         "Industry": "Healthcare",
         "Department": "Nursing",
         "Roles": "Registered Nurse (RN)\nNurse Practitioner (NP)\nLicensed Practical Nurse (LPN)\nNurse Manager",
-        "Tools/Platforms": "Nursing Documentation Software, Telehealth Platforms, Healthcare Management Systems, Clinical Workflow Tools",
-        "Common Methodologies/Frameworks": "Evidence-Based Practice Guidelines, Nursing Care Plans, Preventive Health Guidelines, Risk Management Procedures",
-        "General Skills": "",
-        "Soft Skills": ""
+        "Tools/Platforms": "Electronic Health Records (EHR), Patient Monitoring Systems, Clinical Decision Support Systems (CDSS), Medication Administration Systems, Nursing Documentation Software, Telehealth Platforms, Patient Portals, Scheduling Software, Healthcare Management Systems, Clinical Workflow Tools",
+        "Common Methodologies/Frameworks": "Evidence-Based Practice Guidelines, Nursing Care Plans, Patient Safety Protocols, Standard Operating Procedures (SOPs), Quality Improvement Frameworks, Care Coordination Models, Preventive Health Guidelines, Risk Management Procedures, Clinical Pathways, Accreditation Standards",
+        "General Skills": "Patient Care, Clinical Assessment, Medication Management, Documentation, Coordination of Care, Diagnosis and Treatment Planning, Patient Education, Critical Thinking, Time Management, Data Analysis",
+        "Soft Skills": "Communication, Empathy, Adaptability, Teamwork, Emotional Intelligence, Stress Management, Problem-Solving, Leadership, Interpersonal Skills, Decision-Making"
     },
     {
         "Industry": "Healthcare",
         "Department": "Physical Therapy",
         "Roles": "Physical Therapist (PT)\nPhysical Therapy Assistant (PTA)\nRehabilitation Aide",
-        "Tools/Platforms": "Rehabilitation Management Software, Patient Assessment Tools, Exercise Equipment, Manual Therapy Tools, Gait Analysis Systems, Treatment Planning Software, Modalities Equipment (eg, TENS units)",
-        "Common Methodologies/Frameworks": "Rehabilitation Protocols, Patient-Centered Care Models, Functional Independence Measure (FIM), Outcome Measurement Tools, Therapeutic Exercise Guidelines",
-        "General Skills": "Patient Assessment, Exercise Therapy, Manual Therapy Techniques, Rehabilitation Techniques",
-        "Soft Skills": "Motivation"
+        "Tools/Platforms": "Electronic Health Records (EHR), Rehabilitation Management Software, Patient Assessment Tools, Exercise Equipment, Manual Therapy Tools, Patient Portals, Gait Analysis Systems, Treatment Planning Software, Modalities Equipment (e.g., TENS units), Telehealth Platforms",
+        "Common Methodologies/Frameworks": "Evidence-Based Practice Guidelines, Rehabilitation Protocols, Patient-Centered Care Models, Standard Operating Procedures (SOPs), Functional Independence Measure (FIM), Outcome Measurement Tools, Therapeutic Exercise Guidelines, Pain Management Protocols, Quality Improvement Frameworks",
+        "General Skills": "Patient Assessment, Treatment Planning, Exercise Therapy, Manual Therapy Techniques, Documentation, Coordination of Care, Rehabilitation Techniques, Patient Education, Data Analysis, Equipment Operation",
+        "Soft Skills": "Communication, Empathy, Adaptability, Problem-Solving, Attention to Detail, Teamwork, Emotional Intelligence, Stress Management, Interpersonal Skills, Motivation"
     },
     {
         "Industry": "Healthcare",
         "Department": "Psychiatry",
         "Roles": "Psychiatrist\nClinical Psychologist\nMental Health Nurse\nPsychiatric Social Worker",
-        "Tools/Platforms": "Psychological Assessment Tools, Mental Health Management Software, Cognitive Behavioral Therapy (CBT) Tools, Diagnostic and Statistical Manual of Mental Disorders (DSM), Psychotherapy Documentation Software",
-        "Common Methodologies/Frameworks": "Cognitive Behavioral Therapy (CBT) Protocols, Psychotherapy Techniques, Mental Health Assessment Frameworks, Crisis Intervention Models",
-        "General Skills": "Psychotherapy, Crisis Intervention, Therapeutic Techniques",
-        "Soft Skills": ""
+        "Tools/Platforms": "Electronic Health Records (EHR), Psychological Assessment Tools, Telehealth Platforms, Mental Health Management Software, Patient Portals, Cognitive Behavioral Therapy (CBT) Tools, Diagnostic and Statistical Manual of Mental Disorders (DSM), Psychotherapy Documentation Software",
+        "Common Methodologies/Frameworks": "Evidence-Based Practice Guidelines, Cognitive Behavioral Therapy (CBT) Protocols, Psychotherapy Techniques, Standard Operating Procedures (SOPs), Mental Health Assessment Frameworks, Crisis Intervention Models, Quality Improvement Frameworks, Patient Safety Protocols",
+        "General Skills": "Patient Assessment, Diagnosis and Treatment Planning, Psychotherapy, Crisis Intervention, Documentation, Coordination of Care, Patient Education, Clinical Assessment, Data Analysis, Therapeutic Techniques",
+        "Soft Skills": "Communication, Empathy, Adaptability, Active Listening, Emotional Intelligence, Stress Management, Problem-Solving, Interpersonal Skills, Compassion, Patience"
     },
     {
         "Industry": "Healthcare",
         "Department": "Public Health",
         "Roles": "Public Health Administrator\nEpidemiologist\nHealth Educator\nCommunity Health Worker",
-        "Tools/Platforms": "Public Health Management Software, Epidemiology Data Analysis Tools, Health Information Systems, Community Health Platforms, Survey and Data Collection Tools, Health Promotion Software, Geographic Information Systems (GIS), Statistical Analysis Software",
-        "Common Methodologies/Frameworks": "Evidence-Based Public Health Guidelines, Epidemiological Methods, Community Health Assessment Frameworks, Health Promotion Models, Risk Assessment Frameworks, Preventive Health Protocols",
-        "General Skills": "Community Health Assessment, Health Education, Program Development, Epidemiological Research, Public Health Policy, Patient and Community Engagement, Health Promotion",
-        "Soft Skills": ""
+        "Tools/Platforms": "Public Health Management Software, Epidemiology Data Analysis Tools, Health Information Systems, Community Health Platforms, Survey and Data Collection Tools, Health Promotion Software, Geographic Information Systems (GIS), Statistical Analysis Software, Patient Portals, Telehealth Platforms",
+        "Common Methodologies/Frameworks": "Evidence-Based Public Health Guidelines, Epidemiological Methods, Community Health Assessment Frameworks, Standard Operating Procedures (SOPs), Health Promotion Models, Risk Assessment Frameworks, Quality Improvement Frameworks, Preventive Health Protocols",
+        "General Skills": "Data Analysis, Community Health Assessment, Health Education, Program Development, Epidemiological Research, Public Health Policy, Patient and Community Engagement, Documentation, Coordination of Care, Health Promotion",
+        "Soft Skills": "Communication, Empathy, Adaptability, Problem-Solving, Teamwork, Emotional Intelligence, Organizational Skills, Stress Management, Interpersonal Skills, Leadership"
     },
     {
         "Industry": "Healthcare",
         "Department": "Administration",
-        "Roles": "Healthcare Administrator\nHealthcare Office Manager\nMedical Secretary\nHealthcare Executive Director",
-        "Tools/Platforms": "Practice Management Systems, Financial Management Software, Human Resources Systems, Compliance and Regulatory Tools, Communication Platforms",
-        "Common Methodologies/Frameworks": "Healthcare Management Protocols, Financial Management Standards, Human Resources Policies, Compliance Guidelines, Operational Efficiency Models",
-        "General Skills": "Financial Management, Patient and Staff Coordination, Scheduling",
-        "Soft Skills": ""
+        "Roles": "Healthcare Administrator\nOffice Manager\nMedical Secretary\nExecutive Director",
+        "Tools/Platforms": "Healthcare Management Software, Electronic Health Records (EHR), Practice Management Systems, Scheduling Software, Financial Management Software, Human Resources Systems, Compliance and Regulatory Tools, Data Analysis Software, Patient Portals, Communication Platforms",
+        "Common Methodologies/Frameworks": "Healthcare Management Protocols, Quality Improvement Frameworks, Financial Management Standards, Human Resources Policies, Compliance Guidelines, Operational Efficiency Models, Risk Management Frameworks, Strategic Planning",
+        "General Skills": "Office Management, Financial Management, Patient and Staff Coordination, Documentation, Strategic Planning, Regulatory Compliance, Data Analysis, Scheduling, Resource Allocation, Communication",
+        "Soft Skills": "Leadership, Communication, Organizational Skills, Problem-Solving, Adaptability, Teamwork, Decision-Making, Emotional Intelligence, Stress Management, Interpersonal Skills"
     }
 ]
+
+
+
