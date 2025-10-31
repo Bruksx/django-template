@@ -138,7 +138,7 @@ class JobBase:
                 education=JobBase.get_education(job_post),
                 jobtype="".join((job.employment_type.name,)) if job.employment_type else "",
                 experience=f"{job.years_of_experience} years" if job.years_of_experience else job.years_of_experience,
-                lastactivitydate=job_post.date_posted,
+                lastactivitydate=job_post.date_posted or job_post.created_at,
                 remotetype="Fully remote" if job_post.job.work_structure == WorkStructureEnum.REMOTE else "Hybrid remote",
                 apijobid=str(job_post.uid)
             )
