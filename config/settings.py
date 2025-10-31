@@ -19,6 +19,8 @@ import sys
 import dj_database_url
 from datetime import timedelta
 import sentry_sdk
+from sentry_sdk.integrations.logging import LoggingIntegration
+import logging
 
 load_dotenv()
 
@@ -294,6 +296,10 @@ TEAMS_CLIENT_SECRET = os.environ.get("TEAMS_CLIENT_SECRET")
 USE_SENTRY = True if os.environ.get('USE_SENTRY', "false").lower() == "true" else False
 
 if USE_SENTRY:
+    sentry_logging = LoggingIntegration(
+        level=logging.INFO,        # Capture INFO and above as breadcrumbs
+        event_level=logging.ERROR  # Send ERROR and CRITICAL as full events
+    )
     sentry_sdk.init(
         dsn=os.environ.get("SENTRY_DSN"),
         # Set traces_sample_rate to 1.0 to capture 100%
