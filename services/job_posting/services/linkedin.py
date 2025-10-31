@@ -113,13 +113,13 @@ def job_post_to_job_schema(job_post, lang="en")->JobSchema:
 	apply_url = f"{settings.FRONTEND_URL}job-details/{job_post.uid}"
 	employment_status = employment_type_mapper(job_post.job.employment_type.name if job_post.job.employment_type else "")
 	return JobSchema(
-				title=job_post.job.title,
+				title=job_post.job.get_title,
 				description=description,
 				companyApplyUrl=apply_url,
 				company=job_post.job.get_company(),
 				employmentStatus=employment_status,
 				externalJobPostingId=str(job_post.uid),
-				listedAt=datetime_to_epoch_milliseconds(job_post.created_at),
+				listedAt=datetime_to_epoch_milliseconds(job_post.date_posted or job_post.created_at),
 				location=get_location(job_post),
 				workplaceTypes=[workplace_type_mapper(job_post.job.work_structure)],
 				compensation=get_compensation(job_post),
