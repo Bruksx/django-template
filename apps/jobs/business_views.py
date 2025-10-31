@@ -63,13 +63,24 @@ def get_employment_types(request, search=""):
 
 @router.get("departments", response=list[DepartmentSchema], tags=["Common"])
 def get_departments(request, search="", role:Optional[UUID]=None):
-    queryset = Department.objects.prefetch_related("industry").all()
+    queryset = Department.objects.prefetch_related("industry").annotate(
+        duplicated=Exists(
+            Department.objects.filter(
+                name__iexact=OuterRef("name"),
+            ).exclude(id=OuterRef("id"))
+        )
+    ).annotate(
+        fullname=Case(
+            When(duplicated=False, then=F("name")),
+            default=Concat(F("name"), Value(' ('), F("industry__name"), Value(')')),
+        )
+    ).all()
     if role:
         queryset = queryset.filter(role__uid=role)
     if search:
         queryset = queryset.filter(Q(name__icontains=search)|
                                    Q(industry__name__icontains=search))
-    return queryset.distinct("name").order_by("name")
+    return queryset.order_by("name")
 
 
 @router.get("roles", response=list[RoleSchema], tags=["Common"])
