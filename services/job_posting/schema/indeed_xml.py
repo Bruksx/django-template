@@ -119,7 +119,7 @@ class JobBase:
     def convert_to_job(cls, job_post):
         job: Job = job_post.job
         return JobBase(
-                title=job_post.job.title,
+                title=job_post.job.get_title,
                 date=str(job_post.date_posted),
                 referencenumber=str(job_post.uid),
                 requisitionid=str(job_post.uid),
