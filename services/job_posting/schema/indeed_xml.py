@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Optional
 from urllib.parse import quote_plus
 from xml.etree.ElementTree import Element, SubElement, tostring
+from xml.sax.saxutils import escape
 
 from core.enums import SalaryType
 from django.template.loader import render_to_string
@@ -199,9 +200,7 @@ class JobBase:
 	def add_element(parent, tag: str, text: str):
 		if text:
 			el = SubElement(parent, tag)
-			# Mark for CDATA wrapping (will be handled during serialization)
-			el.text = text
-			el.set('__cdata__', 'true')  # Internal marker for CDATA
+			el.text = f"<![CDATA[{text}]]>"
 
 	def to_xml(self):
 		job_el = Element( "job")
@@ -240,6 +239,8 @@ class JobBase:
 		return job_el
 
 
+
+
 @dataclass
 class Source:
 	publisher: Optional[str] = None
@@ -253,31 +254,11 @@ class Source:
 		)
 
 	@staticmethod
-	def add_element(parent, tag: str, text: str):
-		"""Adds an XML element with CDATA wrapping for safe HTML content."""
+	def add_element(parent, tag: str, text: Optional[str]):
+		"""Adds a safe XML element, escaping special characters."""
 		if text:
 			el = SubElement(parent, tag)
-			el.text = f"<![CDATA[{text}]]>"
-
-	@staticmethod
-	def _wrap_cdata_elements(xml_string: str) -> str:
-		"""
-		Post-process XML string to properly wrap CDATA content.
-		Replaces elements marked with __cdata__ attribute with proper CDATA sections.
-		"""
-		import re
-
-		# Pattern to match elements with __cdata__="true" attribute
-		# Example: <title __cdata__="true">text</title>
-		pattern = r'<(\w+(?:-\w+)*)\s+__cdata__="true">([^<]*)</\1>'
-
-		def replace_with_cdata(match):
-			tag = match.group(1)
-			content = match.group(2)
-			return f'<{tag}><![CDATA[{content}]]></{tag}>'
-
-		result = re.sub(pattern, replace_with_cdata, xml_string, flags=re.DOTALL)
-		return result
+			el.text = escape(text)
 
 	@staticmethod
 	def to_xml_stream(page=None, page_size=None):
@@ -290,12 +271,8 @@ class Source:
 
 		try:
 			# Write publisher details
-			yield '<publisher>1840 GTC</publisher>\n'
-			yield f'<publisherurl>{BASE_FRONTEND_URL}</publisherurl>\n'
-
-			job_post = JobPost.objects.select_related("job")\
-					.filter(status=JobStatusType.POSTED.value)\
-					.order_by("-refresh_order").first()
+			yield '  <publisher>1840 GTC</publisher>\n'
+			yield f'  <publisherurl>{escape(BASE_FRONTEND_URL)}</publisherurl>\n'
 
 			# Stream job posts
 			queryset = JobPost.objects.select_related("job")\
@@ -316,12 +293,7 @@ class Source:
 				try:
 					job_base = JobBase.convert_to_job(job_post)
 					job_xml = job_base.to_xml()  # returns an Element
-					xml_string = tostring(job_xml, encoding="unicode")
-
-					# Post-process to wrap CDATA-marked elements
-					xml_string = Source._wrap_cdata_elements(xml_string)
-
-					yield xml_string + "\n"
+					yield tostring(job_xml, encoding="unicode") + "\n"
 				except Exception as e:
 					Logger.critical(
 						msg={
