@@ -263,58 +263,29 @@ class Source:
 	@staticmethod
 	def to_xml_stream(page=None, page_size=None):
 		"""
-		Streams a valid XML document safely.
-		This approach ensures the closing </source> tag is always written.
+		the pagination is for debugging
 		"""
 		yield '<?xml version="1.0" encoding="UTF-8"?>\n'
 		yield '<source>\n'
+		yield '<publisher>1840 GTC</publisher>\n'
+		yield f'<publisherurl>{escape(BASE_FRONTEND_URL)}</publisherurl>\n'
 
-		try:
-			# Write publisher details
-			yield '  <publisher>1840 GTC</publisher>\n'
-			yield f'  <publisherurl>{escape(BASE_FRONTEND_URL)}</publisherurl>\n'
-
-			# Stream job posts
-			queryset = JobPost.objects.select_related("job")\
-					.filter(status=JobStatusType.POSTED.value)\
-					.order_by("-refresh_order")
-			if page and page_size:
-				pagination = CustomPageNumberPaginationExtra(page_size)
-				queryset = pagination.get_paginated_queryset(
-					queryset=queryset,
-					pagination=pagination.Input(page=page, page_size=page_size)
-				)
-			else:
-				queryset = queryset.iterator()
-
-
-			for job_post in queryset:
-
-				try:
-					job_base = JobBase.convert_to_job(job_post)
-					job_xml = job_base.to_xml()  # returns an Element
-					yield tostring(job_xml, encoding="unicode") + "\n"
-				except Exception as e:
-					Logger.critical(
-						msg={
-							"sender": "Indeed Job Posting service",
-							"title": "Job Conversion Error",
-							"description": str(e),
-						},
-						exc_info=True
-					)
-
-		except Exception as e:
-			# General fail-safe log
-			Logger.critical(
-				msg={
-					"sender": "Source.to_xml_stream",
-					"title": "XML Stream Generation Error",
-					"description": str(e),
-				},
-				exc_info=True
+		if page and page_size:
+			pagination = CustomPageNumberPaginationExtra(page_size)
+			queryset = pagination.get_paginated_queryset(
+				queryset=JobPost.objects.select_related("job")\
+				.filter(status=JobStatusType.POSTED.value)\
+				.order_by("-refresh_order"),
+				pagination=pagination.Input(page=page, page_size=page_size)
 			)
+		else:
+			queryset = JobPost.objects.select_related("job")\
+				.filter(status=JobStatusType.POSTED.value)\
+				.order_by("-refresh_order").iterator(chunk_size=30)
 
-		finally:
-			# Ensure the XML document is properly closed
-			yield '</source>\n'
+
+		for job_post in queryset:
+			job_base = JobBase.convert_to_job(job_post)
+			yield tostring(job_base.to_xml(), encoding="unicode") + "\n"
+
+		yield '</source>\n'
