@@ -41,7 +41,7 @@ def get_random_list(data, count):
 
 @transaction.atomic
 def generate_data(password='Pass1234@now', email_recipients=None, talent_amount=50,
-                  business_amount=5, staff_amount=5, job_amount=3,
+                  business_amount=5, staff_amount=5, job_amount=11,
                   question_amount=3, max_applied_jobs=10, max_withdrawals=10,
                   max_saved_jobs=7, silent=True
 
@@ -138,6 +138,7 @@ def generate_data(password='Pass1234@now', email_recipients=None, talent_amount=
                         JobPostFactory(
                             country=country,
                             recruiter=staff,
+	                        status=JobStatusType.POSTED.value,
                             job=job,
                             salary_currency=get_random_data(currencies),
                             salary_bonus_currency=get_random_data(currencies)
@@ -176,7 +177,7 @@ def generate_data(password='Pass1234@now', email_recipients=None, talent_amount=
                     job_post=job_post,
                     applicant=talent,
                     recruiter=job_post.recruiter,
-                    stage=None)
+                    stage=WorkFlowStage.objects.filter(created_by__business=business, phase=PhaseType.NEW.value).first())
                 applications.append(application.id)
 
         # save job posts
@@ -402,3 +403,4 @@ def generate_data_for_account(email, job_amount=3,
             if question.answer_set.all().count() == 0:
                 AnswerFactory.create(application=job_application,
                                      question=question)
+
