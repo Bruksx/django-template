@@ -18,6 +18,8 @@ def get_linkedin_job_posts_xml_pool(request, *args, **kwargs):
 @router.get("job-posts/indeed-pool.xml", summary="fetch job posts for linkedin in xml format",
             tags=["Job Posts"])
 def get_indeed_job_posts_xml_pool(request, *args, **kwargs):
-    return StreamingHttpResponse(Source.to_xml_stream(), content_type="application/xml")
+    page = request.GET.get("page")
+    page_size = request.GET.get("page-size")
+    return StreamingHttpResponse(Source.to_xml_stream(page, page_size), content_type="application/xml")
 
 
