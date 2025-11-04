@@ -4,11 +4,13 @@ from typing import Optional
 from urllib.parse import quote_plus
 from xml.etree.ElementTree import Element, SubElement, tostring
 
-from apps.core.enums import SalaryType
-from config import settings
+from core.enums import SalaryType
+from django.template.loader import render_to_string
 from jobs.enums import WorkStructureEnum, JobStatusType
 from jobs.models import JobPost, Job
+from jobs.schemas import JobAvailabilitySchema
 
+from config import settings
 from helpers.loggers import Logger
 
 BASE_FRONTEND_URL = settings.FRONTEND_URL
@@ -64,8 +66,10 @@ class JobBase:
         params = []
 
         for key, value in data.items():
+            if value is None:
+                value = ""
             key = key.replace('_', '-')
-            encoded_value = quote_plus(value)  # URL encode the value
+            encoded_value = quote_plus(str(value))  # URL encode the value
             params.append(f"{key}={encoded_value}")
 
         return "&".join(params)
@@ -106,8 +110,55 @@ class JobBase:
         return f"{currency} 0 per year"
 
     @staticmethod
+    def _format_working_hours(job: Job):
+        """Format working hours/available days for display in Indeed description"""
+        from jobs.schemas import JobAvailableDaySchema
+        
+        available_days = job.availableday_set.all().order_by('id')
+        if not available_days:
+            return None
+        
+        formatted_hours = []
+        for availability in available_days:
+            if availability.start_time and availability.end_time:
+                # Format time as HH:MM
+                start = availability.start_time.strftime('%H:%M')
+                end = availability.end_time.strftime('%H:%M')
+                formatted_hours.append(f"{availability.day}: {start} - {end}")
+            else:
+                formatted_hours.append(f"{availability.day}: Available")
+        
+        return formatted_hours if formatted_hours else None
+    
+    @staticmethod
     def get_description(job_post: JobPost):
-        return f"""<h2 id="job_description">Job Description: <br><p>{job_post.job.about}</p></h2>"""
+        context = {
+		"job_title": job_post.job.get_title,
+		"company_name": job_post.job.business_name(),
+		"about_company": job_post.job.hiring_company_description,
+		"about_job": job_post.job.about,
+		"employment_type": job_post.job.employment_type.name if job_post.job.employment_type else None,
+		"department": job_post.job.department.name if job_post.job.department else None,
+		"job_level": job_post.job.job_level.name if job_post.job.job_level else None,
+		"years_experience": f"{job_post.job.years_of_experience} Years" if job_post.job.years_of_experience else None,
+		"business_model": ", ".join(job_post.job.business_models.values_list("name", flat=True)) if job_post.job.business_models.count() > 0 else None,
+		"education_level": job_post.job.minimum_education_level.level if job_post.job.minimum_education_level else None,
+		"qualification": job_post.job.qualification,
+		"tools_platform": ", ".join(job_post.job.skills.filter(category__name="Tools/Platform").values_list("name", flat=True)) or None,
+		"methodologies": ", ".join(job_post.job.skills.filter(category__name="Methodologies/Frameworks").values_list("name", flat=True)) or None,
+		"general_skills": ", ".join(job_post.job.skills.filter(category__name="General Skills").values_list("name", flat=True)) or None,
+		"soft_skills": ", ".join(job_post.job.skills.filter(category__name="Soft Skills").values_list("name", flat=True)) or None,
+		"additional_skills": ", ".join(job_post.job.additional_skills or []) or None,
+		"responsibilities": job_post.job.responsibilities,
+		"payment_structure": f"{job_post.salary_type} • {job_post.salary_currency.symbol if job_post.salary_currency else '$'} {job_post.salary_min} – {job_post.salary_max}" if job_post.salary_min and job_post.salary_max else None,
+		"bonus_structure": f"{job_post.salary_bonus_type} • {job_post.salary_bonus_currency.symbol if job_post.salary_bonus_currency else '$'} {job_post.salary_bonus_min} – {job_post.salary_bonus_max}" if job_post.salary_bonus_min and job_post.salary_bonus_max else None,
+		"additional_benefits": ", ".join(job_post.benefits) if job_post.benefits and isinstance(job_post.benefits, list) else job_post.benefits if job_post.benefits else None,
+		"break_info": f"{job_post.job.lunch_break} • {job_post.job.lunch_break_time} mins" if job_post.job.lunch_break and job_post.job.lunch_break_time else None,
+		"working_hours": JobBase._format_working_hours(job_post.job),
+		"tech_requirements": job_post.job.technological_requirement,
+		"language": job_post.job.first_language.name if job_post.job.first_language else None,
+		}
+        return render_to_string("jobs/en/indeed_desc.html", context)
 
     @staticmethod
     def get_education(job_post: JobPost):
@@ -139,7 +190,7 @@ class JobBase:
                 jobtype="".join((job.employment_type.name,)) if job.employment_type else "",
                 experience=f"{job.years_of_experience} years" if job.years_of_experience else job.years_of_experience,
                 lastactivitydate=job_post.last_refreshed or job_post.created_at,
-                remotetype="Fully remote" if job_post.job.work_structure == WorkStructureEnum.REMOTE else "Hybrid remote",
+                remotetype="Fully remote" if job_post.job.work_structure == WorkStructureEnum.REMOTE.value else "Hybrid remote",
                 apijobid=str(job_post.uid)
             )
 
