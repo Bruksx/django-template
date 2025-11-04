@@ -237,6 +237,15 @@ class JobBase:
         return job_el
 
 
+from dataclasses import dataclass
+from typing import Optional
+from xml.etree.ElementTree import Element, SubElement, tostring
+from xml.sax.saxutils import escape
+
+# assuming these exist in your codebase
+# from yourapp.models import JobPost, JobStatusType
+# from yourapp.utils import Logger, JobBase, BASE_FRONTEND_URL
+
 @dataclass
 class Source:
     publisher: Optional[str] = None
@@ -249,29 +258,57 @@ class Source:
             publisherurl="https://1840gtc.netlify.app",
         )
 
-
     @staticmethod
-    def add_element(parent, tag: str, text: str):
+    def add_element(parent, tag: str, text: Optional[str]):
+        """Adds a safe XML element, escaping special characters."""
         if text:
             el = SubElement(parent, tag)
-            el.text = f"<![CDATA[{text}]]>"
+            el.text = escape(text)
 
     @staticmethod
     def to_xml_stream():
+        """
+        Streams a valid XML document safely.
+        This approach ensures the closing </source> tag is always written.
+        """
         yield '<?xml version="1.0" encoding="UTF-8"?>\n'
         yield '<source>\n'
-        yield '<publisher>1840 GTC</publisher>\n'
-        yield f'<publisherurl>{BASE_FRONTEND_URL}</publisherurl>\n'
 
-        for job_post in JobPost.objects.select_related("job").\
-            filter(status=JobStatusType.POSTED.value).order_by("-refresh_order").iterator():
-            try:
-                job_base = JobBase.convert_to_job(job_post)
-                yield tostring(job_base.to_xml(), encoding="unicode") + "\n"
-            except Exception as e:
-                Logger.critical(msg={"sender": "Indeed Job Posting service", "title": "Indeed Job Posting service Error", "description": str(e)},
-                                exc_info=True)
+        try:
+            # Write publisher details
+            yield '  <publisher>1840 GTC</publisher>\n'
+            yield f'  <publisherurl>{escape(BASE_FRONTEND_URL)}</publisherurl>\n'
 
+            # Stream job posts
+            for job_post in JobPost.objects.select_related("job")\
+                    .filter(status=JobStatusType.POSTED.value)\
+                    .order_by("-refresh_order").iterator():
 
-        yield '</source>\n'
+                try:
+                    job_base = JobBase.convert_to_job(job_post)
+                    job_xml = job_base.to_xml()  # returns an Element
+                    yield tostring(job_xml, encoding="unicode") + "\n"
+                except Exception as e:
+                    Logger.critical(
+                        msg={
+                            "sender": "Indeed Job Posting service",
+                            "title": "Job Conversion Error",
+                            "description": str(e),
+                        },
+                        exc_info=True
+                    )
 
+        except Exception as e:
+            # General fail-safe log
+            Logger.critical(
+                msg={
+                    "sender": "Source.to_xml_stream",
+                    "title": "XML Stream Generation Error",
+                    "description": str(e),
+                },
+                exc_info=True
+            )
+
+        finally:
+            # Ensure the XML document is properly closed
+            yield '</source>\n'
