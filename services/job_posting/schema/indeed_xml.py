@@ -237,15 +237,6 @@ class JobBase:
         return job_el
 
 
-from dataclasses import dataclass
-from typing import Optional
-from xml.etree.ElementTree import Element, SubElement, tostring
-from xml.sax.saxutils import escape
-
-# assuming these exist in your codebase
-# from yourapp.models import JobPost, JobStatusType
-# from yourapp.utils import Logger, JobBase, BASE_FRONTEND_URL
-
 @dataclass
 class Source:
     publisher: Optional[str] = None
@@ -259,11 +250,11 @@ class Source:
         )
 
     @staticmethod
-    def add_element(parent, tag: str, text: Optional[str]):
-        """Adds a safe XML element, escaping special characters."""
+    def add_element(parent, tag: str, text: str):
+        """Adds an XML element with CDATA wrapping for safe HTML content."""
         if text:
             el = SubElement(parent, tag)
-            el.text = escape(text)
+            el.text = f"<![CDATA[{text}]]>"
 
     @staticmethod
     def to_xml_stream():
@@ -276,8 +267,8 @@ class Source:
 
         try:
             # Write publisher details
-            yield '  <publisher>1840 GTC</publisher>\n'
-            yield f'  <publisherurl>{escape(BASE_FRONTEND_URL)}</publisherurl>\n'
+            yield '<publisher>1840 GTC</publisher>\n'
+            yield f'<publisherurl>{BASE_FRONTEND_URL}</publisherurl>\n'
 
             # Stream job posts
             for job_post in JobPost.objects.select_related("job")\

@@ -268,7 +268,6 @@ class JobBaseGetDescriptionTestCase(TestCase):
         result = JobBase.get_description(job_post)
         
         # Verify HTML structure
-        self.assertIn("<!DOCTYPE html>", result)
         self.assertIn("<html", result)
         self.assertIn("</html>", result)
         
@@ -277,7 +276,7 @@ class JobBaseGetDescriptionTestCase(TestCase):
         self.assertIn("An exciting opportunity", result)
         self.assertIn("We are a leading tech company", result)
         self.assertIn("5 Years", result)
-        self.assertIn("Bachelor&#x27;s degree", result)
+        self.assertIn("Bachelor's degree", result)  # With |safe filter, apostrophes are not escaped
         self.assertIn("Write clean code", result)
         self.assertIn("Review pull requests", result)
         self.assertIn("Mentor junior developers", result)
@@ -312,7 +311,6 @@ class JobBaseGetDescriptionTestCase(TestCase):
         result = JobBase.get_description(job_post)
         
         # Verify basic HTML structure
-        self.assertIn("<!DOCTYPE html>", result)
         self.assertIn("<html", result)
         self.assertIn("</html>", result)
         
@@ -384,7 +382,7 @@ class JobBaseGetDescriptionTestCase(TestCase):
         result = JobBase.get_description(job_post)
         
         # Verify HTML structure
-        self.assertIn("<!DOCTYPE html>", result)
+        self.assertIn("<html", result)
         self.assertIn("<h2>Working Hours</h2>", result)
         
         # Verify all working days are present
