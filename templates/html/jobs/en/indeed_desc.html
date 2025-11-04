@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ job_title|default:"Job Opportunity" }} | {{ company_name|default:"Company" }}</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 40px;
+            color: #222;
+            background: #fff;
+        }
+        h1 { font-size: 24px; margin-bottom: 10px; }
+        h2 {
+            font-size: 18px;
+            border-bottom: 2px solid #ccc;
+            padding-bottom: 6px;
+            margin-top: 30px;
+            margin-bottom: 12px;
+        }
+        p { line-height: 1.6; margin: 10px 0; }
+        .section {
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 6px;
+            margin-bottom: 25px;
+            background: #fafafa;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 40px;
+        }
+        .grid div {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+        .grid strong { color: #555; }
+        ul { margin: 10px 0 0 20px; }
+        li { margin-bottom: 6px; }
+        .salary-benefits, .additional-req {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 40px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>{{ job_title|default:"Untitled Role" }}</h1>
+
+    {% if about_company %}
+    <div class="section">
+        <h2>About the Company</h2>
+        <p>{{ about_company }}</p>
+    </div>
+    {% endif %}
+
+    {% if about_job %}
+    <div class="section">
+        <h2>About the Job</h2>
+        <p>{{ about_job }}</p>
+    </div>
+    {% endif %}
+
+    {% if employment_type or department or job_level %}
+    <div class="section">
+        <h2>Job Overview</h2>
+        <div class="grid">
+            {% if employment_type %}<div><strong>Employment Type:</strong> <span>{{ employment_type }}</span></div>{% endif %}
+            {% if department %}<div><strong>Department:</strong> <span>{{ department }}</span></div>{% endif %}
+            {% if job_level %}<div><strong>Job Level:</strong> <span>{{ job_level }}</span></div>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if years_experience or business_model or education_level or qualification %}
+    <div class="section">
+        <h2>Education & Experience</h2>
+        <div class="grid">
+            {% if years_experience %}<div><strong>Years of Experience:</strong> <span>{{ years_experience }}</span></div>{% endif %}
+            {% if business_model %}<div><strong>Business Model:</strong> <span>{{ business_model }}</span></div>{% endif %}
+            {% if education_level %}<div><strong>Minimum Education Level:</strong> <span>{{ education_level }}</span></div>{% endif %}
+            {% if qualification %}<div><strong>Qualification:</strong> <span>{{ qualification }}</span></div>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if tools_platform or methodologies or general_skills or soft_skills or additional_skills %}
+    <div class="section">
+        <h2>Skills</h2>
+        <div class="grid">
+            {% if tools_platform %}<div><strong>Tools/Platform:</strong> <span>{{ tools_platform }}</span></div>{% endif %}
+            {% if methodologies %}<div><strong>Methodologies/Frameworks:</strong> <span>{{ methodologies }}</span></div>{% endif %}
+            {% if general_skills %}<div><strong>General Skills:</strong> <span>{{ general_skills }}</span></div>{% endif %}
+            {% if soft_skills %}<div><strong>Soft Skills:</strong> <span>{{ soft_skills }}</span></div>{% endif %}
+            {% if additional_skills %}<div><strong>Additional Skills:</strong> <span>{{ additional_skills }}</span></div>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if responsibilities %}
+    <div class="section">
+        <h2>Responsibilities</h2>
+        <ul>
+            {% for responsibility in responsibilities %}
+            {% if responsibility %}<li>{{ responsibility }}</li>{% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% if payment_structure or bonus_structure or additional_benefits or break_info %}
+    <div class="section">
+        <h2>Salary & Benefits</h2>
+        <div class="salary-benefits">
+            {% if payment_structure %}<div><strong>Payment Structure:</strong> <span>{{ payment_structure }}</span></div>{% endif %}
+            {% if bonus_structure %}<div><strong>Bonus Structure:</strong> <span>{{ bonus_structure }}</span></div>{% endif %}
+            {% if additional_benefits %}<div><strong>Additional Benefits:</strong> <span>{{ additional_benefits }}</span></div>{% endif %}
+            {% if break_info %}<div><strong>Break:</strong> <span>{{ break_info }}</span></div>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+   {% if working_hours %}
+    <div class="section">
+        <h2>Working Hours</h2>
+        <ul>
+            {% for hour in working_hours %}
+            {% if hour %}<li>{{ hour }}</li>{% endif %}
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+
+    {% if tech_requirements or language %}
+    <div class="section">
+        <h2>Additional Requirements</h2>
+        <div class="additional-req">
+            {% if tech_requirements %}<div><strong>Technological Requirements:</strong> <span>{{ tech_requirements }}</span></div>{% endif %}
+            {% if language %}<div><strong>Language:</strong> <span>{{ language }}</span></div>{% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+</body>
+</html>
