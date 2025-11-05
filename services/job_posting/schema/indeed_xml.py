@@ -284,7 +284,8 @@ class Source:
 				.order_by("-refresh_order").iterator(chunk_size=30)
 
 		for job_post in queryset:
-			job_base = JobBase.convert_to_job(job_post=job_post)
-			yield tostring(job_base.to_xml(), encoding="unicode") + "\n"
+			job_base = alert_bug_via_email(JobBase.convert_to_job, job_post=job_post, default=None)
+			if job_base:
+				yield tostring(job_base.to_xml(), encoding="unicode") + "\n"
 
 		yield '</source>\n'
