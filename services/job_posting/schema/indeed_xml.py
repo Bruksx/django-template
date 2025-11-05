@@ -6,14 +6,13 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.sax.saxutils import escape
 
 from core.enums import SalaryType
-from django.template.loader import render_to_string
 from jobs.enums import WorkStructureEnum, JobStatusType
 from jobs.models import JobPost, Job
 from jobs.schemas import JobAvailabilitySchema
 
 from apps.paginations import CustomPageNumberPaginationExtra
 from config import settings
-from helpers.loggers import Logger
+from helpers.email.utils import render_html_email
 
 BASE_FRONTEND_URL = settings.FRONTEND_URL
 BASE_BACKEND_URL = settings.BACKEND_URL
@@ -160,7 +159,7 @@ class JobBase:
 		"tech_requirements": job_post.job.technological_requirement,
 		"language": job_post.job.first_language.name if job_post.job.first_language else None,
 		}
-		return render_to_string("jobs/en/indeed_desc.html", context)
+		return render_html_email("jobs/en/indeed_desc.html", context)
 
 	@staticmethod
 	def get_education(job_post: JobPost):
