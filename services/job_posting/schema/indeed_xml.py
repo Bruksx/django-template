@@ -286,6 +286,7 @@ class Source:
 		for job_post in queryset:
 			job_base = alert_bug_via_email(JobBase.convert_to_job, job_post=job_post, default=None)
 			if job_base:
-				yield tostring(job_base.to_xml(), encoding="unicode") + "\n"
-
+				xml = alert_bug_via_email(job_base.to_xml, default=None)
+				if xml:
+					yield tostring(xml, encoding="unicode") + "\n"
 		yield '</source>\n'
