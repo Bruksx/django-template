@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 from urllib.parse import quote_plus
-from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.sax.saxutils import escape
 
 from core.enums import SalaryType
@@ -10,10 +9,11 @@ from django.template.loader import render_to_string
 from jobs.enums import WorkStructureEnum, JobStatusType
 from jobs.models import JobPost, Job
 from jobs.schemas import JobAvailabilitySchema
+from lxml.etree import Element, SubElement, tostring
 
 from apps.paginations import CustomPageNumberPaginationExtra
 from config import settings
-from helpers.loggers import Logger
+from helpers.utils import alert_bug_via_email
 
 BASE_FRONTEND_URL = settings.FRONTEND_URL
 BASE_BACKEND_URL = settings.BACKEND_URL
@@ -76,7 +76,119 @@ class JobBase:
 
 		return "&".join(params)
 
+	@staticmethod
+	def _build_description(job_post: JobPost, job: Job) -> str:
+		parts = []
 
+		# Title
+		parts.append(f"{job.get_title or 'Untitled Role'} at {job.business_name() or 'Company'}\n")
+
+		# About Company
+		if job.hiring_company_description:
+			parts.append("ABOUT THE COMPANY\n")
+			parts.append(f"{job.hiring_company_description.strip()}\n\n")
+
+		# About Job
+		if job.about:
+			parts.append("ABOUT THE JOB\n")
+			parts.append(f"{job.about.strip()}\n\n")
+
+		# Job Details
+		details = []
+		if job.employment_type: details.append(f"Employment Type: {job.employment_type.name}")
+		if job.department: details.append(f"Department: {job.department.name}")
+		if job.job_level: details.append(f"Job Level: {job.job_level.name}")
+		if job.years_of_experience: details.append(f"Experience: {job.years_of_experience} Years")
+		if job.business_models.exists():
+			details.append(f"Business Model: {', '.join(bm.name for bm in job.business_models.all())}")
+		if job.minimum_education_level: details.append(f"Education: {job.minimum_education_level.level}")
+		if job.qualification: details.append(f"Qualification: {job.qualification}")
+
+		if details:
+			parts.append("JOB DETAILS\n")
+			for d in details:
+				parts.append(f"  • {d}\n")
+			parts.append("\n")
+
+		# Skills (cached in prefetch)
+		skill_map = {"Tools/Platform": [], "Methodologies/Frameworks": [], "General Skills": [], "Soft Skills": []}
+		for skill in job.skills.all():
+			cat = skill.category.name if skill.category else ""
+			if cat in skill_map:
+				skill_map[cat].append(skill.name)
+
+		skills_lines = []
+		if skill_map["Tools/Platform"]: skills_lines.append(
+			f"Tools/Platforms: {', '.join(skill_map['Tools/Platform'])}")
+		if skill_map["Methodologies/Frameworks"]: skills_lines.append(
+			f"Methodologies/Frameworks: {', '.join(skill_map['Methodologies/Frameworks'])}")
+		if skill_map["General Skills"]: skills_lines.append(f"General Skills: {', '.join(skill_map['General Skills'])}")
+		if skill_map["Soft Skills"]: skills_lines.append(f"Soft Skills: {', '.join(skill_map['Soft Skills'])}")
+		if job.additional_skills:
+			skills_lines.append(f"Additional Skills: {', '.join(job.additional_skills)}")
+
+		if skills_lines:
+			parts.append("REQUIRED SKILLS\n")
+			for s in skills_lines:
+				parts.append(f"  • {s}\n")
+			parts.append("\n")
+
+		# Responsibilities
+		if job.responsibilities:
+			parts.append("RESPONSIBILITIES\n")
+			for r in job.responsibilities:
+				if r := r.strip():
+					parts.append(f"  - {r}\n")
+			parts.append("\n")
+
+		# Salary & Benefits
+		salary_parts = []
+		if job_post.salary_min and job_post.salary_max:
+			cur = job_post.salary_currency.symbol if job_post.salary_currency else "$"
+			salary_parts.append(f"Pay: {job_post.salary_type} • {cur} {job_post.salary_min}–{job_post.salary_max}")
+		if job_post.salary_bonus_min and job_post.salary_bonus_max:
+			cur = job_post.salary_bonus_currency.symbol if job_post.salary_bonus_currency else "$"
+			salary_parts.append(
+				f"Bonus: {job_post.salary_bonus_type} • {cur} {job_post.salary_bonus_min}–{job_post.salary_bonus_max}")
+		if job_post.benefits:
+			benefits = ", ".join(job_post.benefits) if isinstance(job_post.benefits, list) else job_post.benefits
+			salary_parts.append(f"Benefits: {benefits}")
+		if job.lunch_break and job.lunch_break_time:
+			salary_parts.append(f"Break: {job.lunch_break} • {job.lunch_break_time} mins")
+
+		if salary_parts:
+			parts.append("SALARY & BENEFITS\n")
+			for s in salary_parts:
+				parts.append(f"  • {s}\n")
+			parts.append("\n")
+
+		# Working Hours
+		if hasattr(job, 'availableday_set') and job.availableday_set.exists():
+			parts.append("WORKING HOURS\n")
+			for day in job.availableday_set.all().order_by('id'):
+				if day.start_time and day.end_time:
+					parts.append(
+						f"  - {day.day}: {day.start_time.strftime('%H:%M')} - {day.end_time.strftime('%H:%M')}\n")
+				else:
+					parts.append(f"  - {day.day}: Available\n")
+			parts.append("\n")
+
+		# Tech + Language
+		extra = []
+		if job.technological_requirement:
+			extra.append(f"Tech Requirements: {job.technological_requirement}")
+		if job.first_language:
+			extra.append(f"Language: {job.first_language.name}")
+		if extra:
+			parts.append("ADDITIONAL REQUIREMENTS\n")
+			for e in extra:
+				parts.append(f"  • {e}\n")
+			parts.append("\n")
+
+		# Apply Link
+		parts.append(f"APPLY NOW: {JOB_POST_URL(job_post.uid)}")
+
+		return "".join(parts)
 	@staticmethod
 	def get_indeed_period(salary_type, salary_value):
 
@@ -133,35 +245,115 @@ class JobBase:
 		return formatted_hours if formatted_hours else None
 
 	@staticmethod
-	def get_description(job_post: JobPost):
-		context = {
-		"job_title": job_post.job.get_title,
-		"company_name": job_post.job.business_name(),
-		"about_company": job_post.job.hiring_company_description,
-		"about_job": job_post.job.about,
-		"employment_type": job_post.job.employment_type.name if job_post.job.employment_type else None,
-		"department": job_post.job.department.name if job_post.job.department else None,
-		"job_level": job_post.job.job_level.name if job_post.job.job_level else None,
-		"years_experience": f"{job_post.job.years_of_experience} Years" if job_post.job.years_of_experience else None,
-		"business_model": ", ".join(job_post.job.business_models.values_list("name", flat=True)) if job_post.job.business_models.count() > 0 else None,
-		"education_level": job_post.job.minimum_education_level.level if job_post.job.minimum_education_level else None,
-		"qualification": job_post.job.qualification,
-		"tools_platform": ", ".join(job_post.job.skills.filter(category__name="Tools/Platform").values_list("name", flat=True)) or None,
-		"methodologies": ", ".join(job_post.job.skills.filter(category__name="Methodologies/Frameworks").values_list("name", flat=True)) or None,
-		"general_skills": ", ".join(job_post.job.skills.filter(category__name="General Skills").values_list("name", flat=True)) or None,
-		"soft_skills": ", ".join(job_post.job.skills.filter(category__name="Soft Skills").values_list("name", flat=True)) or None,
-		"additional_skills": ", ".join(job_post.job.additional_skills or []) or None,
-		"responsibilities": job_post.job.responsibilities,
-		"payment_structure": f"{job_post.salary_type} • {job_post.salary_currency.symbol if job_post.salary_currency else '$'} {job_post.salary_min} – {job_post.salary_max}" if job_post.salary_min and job_post.salary_max else None,
-		"bonus_structure": f"{job_post.salary_bonus_type} • {job_post.salary_bonus_currency.symbol if job_post.salary_bonus_currency else '$'} {job_post.salary_bonus_min} – {job_post.salary_bonus_max}" if job_post.salary_bonus_min and job_post.salary_bonus_max else None,
-		"additional_benefits": ", ".join(job_post.benefits) if job_post.benefits and isinstance(job_post.benefits, list) else job_post.benefits if job_post.benefits else None,
-		"break_info": f"{job_post.job.lunch_break} • {job_post.job.lunch_break_time} mins" if job_post.job.lunch_break and job_post.job.lunch_break_time else None,
-		"working_hours": JobBase._format_working_hours(job_post.job),
-		"tech_requirements": job_post.job.technological_requirement,
-		"language": job_post.job.first_language.name if job_post.job.first_language else None,
-		}
-		return render_to_string("jobs/en/indeed_desc.html", context)
+	def get_description(job_post: JobPost, job: Job) -> str:
+		parts = []
 
+		# Title
+		parts.append(f"{job.get_title or 'Untitled Role'} at {job.business_name() or 'Company'}\n")
+
+		# About Company
+		if job.hiring_company_description:
+			parts.append("ABOUT THE COMPANY\n")
+			parts.append(f"{job.hiring_company_description.strip()}\n\n")
+
+		# About Job
+		if job.about:
+			parts.append("ABOUT THE JOB\n")
+			parts.append(f"{job.about.strip()}\n\n")
+
+		# Job Details
+		details = []
+		if job.employment_type: details.append(f"Employment Type: {job.employment_type.name}")
+		if job.department: details.append(f"Department: {job.department.name}")
+		if job.job_level: details.append(f"Job Level: {job.job_level.name}")
+		if job.years_of_experience: details.append(f"Experience: {job.years_of_experience} Years")
+		if job.business_models.exists():
+			details.append(f"Business Model: {', '.join(bm.name for bm in job.business_models.all())}")
+		if job.minimum_education_level: details.append(f"Education: {job.minimum_education_level.level}")
+		if job.qualification: details.append(f"Qualification: {job.qualification}")
+
+		if details:
+			parts.append("JOB DETAILS\n")
+			for d in details:
+				parts.append(f"  • {d}\n")
+			parts.append("\n")
+
+		# Skills (cached in prefetch)
+		skill_map = {"Tools/Platform": [], "Methodologies/Frameworks": [], "General Skills": [], "Soft Skills": []}
+		for skill in job.skills.all():
+			cat = skill.category.name if skill.category else ""
+			if cat in skill_map:
+				skill_map[cat].append(skill.name)
+
+		skills_lines = []
+		if skill_map["Tools/Platform"]: skills_lines.append(
+			f"Tools/Platforms: {', '.join(skill_map['Tools/Platform'])}")
+		if skill_map["Methodologies/Frameworks"]: skills_lines.append(
+			f"Methodologies/Frameworks: {', '.join(skill_map['Methodologies/Frameworks'])}")
+		if skill_map["General Skills"]: skills_lines.append(f"General Skills: {', '.join(skill_map['General Skills'])}")
+		if skill_map["Soft Skills"]: skills_lines.append(f"Soft Skills: {', '.join(skill_map['Soft Skills'])}")
+		if job.additional_skills:
+			skills_lines.append(f"Additional Skills: {', '.join(job.additional_skills)}")
+
+		if skills_lines:
+			parts.append("REQUIRED SKILLS\n")
+			for s in skills_lines:
+				parts.append(f"  • {s}\n")
+			parts.append("\n")
+
+		# Responsibilities
+		if job.responsibilities:
+			parts.append("RESPONSIBILITIES\n")
+			for r in job.responsibilities:
+				if r := r.strip():
+					parts.append(f"  - {r}\n")
+			parts.append("\n")
+
+		# Salary & Benefits
+		salary_parts = []
+		if job_post.salary_min and job_post.salary_max:
+			cur = job_post.salary_currency.symbol if job_post.salary_currency else "$"
+			salary_parts.append(f"Pay: {job_post.salary_type} • {cur} {job_post.salary_min}–{job_post.salary_max}")
+		if job_post.salary_bonus_min and job_post.salary_bonus_max:
+			cur = job_post.salary_bonus_currency.symbol if job_post.salary_bonus_currency else "$"
+			salary_parts.append(
+				f"Bonus: {job_post.salary_bonus_type} • {cur} {job_post.salary_bonus_min}–{job_post.salary_bonus_max}")
+		if job_post.benefits:
+			benefits = ", ".join(job_post.benefits) if isinstance(job_post.benefits, list) else job_post.benefits
+			salary_parts.append(f"Benefits: {benefits}")
+		if job.lunch_break and job.lunch_break_time:
+			salary_parts.append(f"Break: {job.lunch_break} • {job.lunch_break_time} mins")
+
+		if salary_parts:
+			parts.append("SALARY & BENEFITS\n")
+			for s in salary_parts:
+				parts.append(f"  • {s}\n")
+			parts.append("\n")
+
+		# Working Hours
+		if hasattr(job, 'availableday_set') and job.availableday_set.exists():
+			parts.append("WORKING HOURS\n")
+			for day in job.availableday_set.all().order_by('id'):
+				if day.start_time and day.end_time:
+					parts.append(
+						f"  - {day.day}: {day.start_time.strftime('%H:%M')} - {day.end_time.strftime('%H:%M')}\n")
+				else:
+					parts.append(f"  - {day.day}: Available\n")
+			parts.append("\n")
+
+		# Tech + Language
+		extra = []
+		if job.technological_requirement:
+			extra.append(f"Tech Requirements: {job.technological_requirement}")
+		if job.first_language:
+			extra.append(f"Language: {job.first_language.name}")
+		if extra:
+			parts.append("ADDITIONAL REQUIREMENTS\n")
+			for e in extra:
+				parts.append(f"  • {e}\n")
+			parts.append("\n")
+
+		return "".join(parts)
 	@staticmethod
 	def get_education(job_post: JobPost):
 		if not job_post.job.minimum_education_level:
@@ -186,7 +378,7 @@ class JobBase:
 				postalcode=job_post.postal_code,
 				streetaddress=job_post.get_city(),
 				email=INDEED_EMAIL,
-				description=JobBase.get_description(job_post),
+				description=cls.get_description(job_post, job),
 				salary=JobBase.get_salary(job_post),
 				education=JobBase.get_education(job_post),
 				jobtype="".join((job.employment_type.name,)) if job.employment_type else "",
@@ -197,10 +389,13 @@ class JobBase:
 			)
 
 	@staticmethod
-	def add_element(parent, tag: str, text: str):
-		if text:
+	def add_element(parent, tag: str, text: str, escape_text: bool = True):
+		if text and str(text).strip():
 			el = SubElement(parent, tag)
-			el.text = f"<![CDATA[{text}]]>"
+			content = str(text).strip()
+			if escape_text:
+				content = escape(content)
+			el.text = f"<![CDATA[{content}]]>"
 
 	def to_xml(self):
 		job_el = Element( "job")
@@ -217,7 +412,7 @@ class JobBase:
 		self.add_element(job_el, "postalcode", self.postalcode)
 		self.add_element(job_el, "streetaddress", self.streetaddress)
 		self.add_element(job_el, "email", self.email)
-		self.add_element(job_el, "description", self.description)
+		self.add_element(job_el, "description", self.description, escape_text=False)
 		self.add_element(job_el, "salary", self.salary)
 		self.add_element(job_el, "education", self.education)
 		self.add_element(job_el, "jobtype", self.jobtype)
@@ -256,9 +451,9 @@ class Source:
 	@staticmethod
 	def add_element(parent, tag: str, text: Optional[str]):
 		"""Adds a safe XML element, escaping special characters."""
-		if text:
+		if text and str(text).strip():
 			el = SubElement(parent, tag)
-			el.text = escape(text)
+			el.text = f"<![CDATA[{text.strip()}]]>"
 
 	@staticmethod
 	def to_xml_stream(page=None, page_size=None):
@@ -273,19 +468,54 @@ class Source:
 		if page and page_size:
 			pagination = CustomPageNumberPaginationExtra(page_size)
 			queryset = pagination.get_paginated_queryset(
-				queryset=JobPost.objects.select_related("job")\
-				.filter(status=JobStatusType.POSTED.value)\
-				.order_by("-refresh_order"),
-				pagination=pagination.Input(page=page, page_size=page_size)
+				queryset=(
+				JobPost.objects
+				.select_related(
+					'job',
+					'job__employment_type',
+					'job__department',
+					'job__job_level',
+					'job__minimum_education_level',
+					'job__first_language',
+					'salary_currency',
+					'salary_bonus_currency',
+				)
+				.prefetch_related(
+					'job__business_models',
+					'job__skills',
+					'job__availableday_set',
+				)
+				.filter(status=JobStatusType.POSTED.value)
+				.order_by("-refresh_order")
+			), pagination=pagination.Input(page=page, page_size=page_size)
 			)
 		else:
-			queryset = JobPost.objects.select_related("job")\
-				.filter(status=JobStatusType.POSTED.value)\
-				.order_by("-refresh_order").iterator(chunk_size=30)
-
+			queryset = (
+				JobPost.objects
+				.select_related(
+					'job',
+					'job__employment_type',
+					'job__department',
+					'job__job_level',
+					'job__minimum_education_level',
+					'job__first_language',
+					'salary_currency',
+					'salary_bonus_currency',
+				)
+				.prefetch_related(
+					'job__business_models',
+					'job__skills',
+					'job__availableday_set',
+				)
+				.filter(status=JobStatusType.POSTED.value)
+				.order_by("-refresh_order")
+				.iterator(chunk_size=500)  # DB-level chunking
+			)
 
 		for job_post in queryset:
-			job_base = JobBase.convert_to_job(job_post)
-			yield tostring(job_base.to_xml(), encoding="unicode") + "\n"
-
+			job_base = alert_bug_via_email(JobBase.convert_to_job, job_post=job_post, default=None)
+			if job_base:
+				xml = alert_bug_via_email(job_base.to_xml, default=None)
+				if xml:
+					yield tostring(xml, encoding="unicode") + "\n"
 		yield '</source>\n'
