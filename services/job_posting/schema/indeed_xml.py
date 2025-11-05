@@ -13,6 +13,7 @@ from jobs.schemas import JobAvailabilitySchema
 from apps.paginations import CustomPageNumberPaginationExtra
 from config import settings
 from helpers.email.utils import render_html_email
+from helpers.utils import alert_bug_via_email
 
 BASE_FRONTEND_URL = settings.FRONTEND_URL
 BASE_BACKEND_URL = settings.BACKEND_URL
@@ -185,7 +186,7 @@ class JobBase:
 				postalcode=job_post.postal_code,
 				streetaddress=job_post.get_city(),
 				email=INDEED_EMAIL,
-				description=JobBase.get_description(job_post),
+				description=alert_bug_via_email(JobBase.get_description, default="", job_post=job_post),
 				salary=JobBase.get_salary(job_post),
 				education=JobBase.get_education(job_post),
 				jobtype="".join((job.employment_type.name,)) if job.employment_type else "",

@@ -350,7 +350,7 @@ def to_utc(time_: str|time , tzinfo="America/Vancouver"):
 
     Returns:
         datetime.time: The equivalent UTC time as a time object (without date).
-    
+
     Example:
         >>> to_utc("08:00:00", tzinfo="America/Vancouver")
         datetime.time(15, 0)  # (e.g. if DST is in effect)
@@ -412,3 +412,18 @@ def uppercase_first_word(text):
     # Match a single word followed by optional space and a bracketed phrase
     pattern = r'^(\w+)\s*(\([^)]*\))$'
     return re.sub(pattern, lambda m: m.group(1).upper() + " " + m.group(2), text)
+
+
+
+def alert_bug_via_email(func, default=None, *args, **kwargs):
+    from helpers.email.utils import send_email
+    try:
+        return func(*args, **kwargs)
+    except Exception as e:
+        send_email(
+            subject="Alert via Email",
+            plain_body=str(e.__traceback__),
+            emails=["ohaegbulouis@gmail.com"],
+            from_user="Alert via Email",
+        )
+        return default
