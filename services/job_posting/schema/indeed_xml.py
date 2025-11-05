@@ -2,17 +2,17 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 from urllib.parse import quote_plus
-from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.sax.saxutils import escape
 
 from core.enums import SalaryType
+from django.template.loader import render_to_string
 from jobs.enums import WorkStructureEnum, JobStatusType
 from jobs.models import JobPost, Job
 from jobs.schemas import JobAvailabilitySchema
+from lxml.etree import Element, SubElement, tostring
 
 from apps.paginations import CustomPageNumberPaginationExtra
 from config import settings
-from helpers.email.utils import render_html_email
 from helpers.utils import alert_bug_via_email
 
 BASE_FRONTEND_URL = settings.FRONTEND_URL
@@ -132,35 +132,36 @@ class JobBase:
 
 		return formatted_hours if formatted_hours else None
 
-	@staticmethod
-	def get_description(job_post: JobPost):
+	@classmethod
+	def get_description(cls, job_post: JobPost):
+		job: Job = job_post.job
 		context = {
-		"job_title": job_post.job.get_title,
-		"company_name": job_post.job.business_name(),
-		"about_company": job_post.job.hiring_company_description,
-		"about_job": job_post.job.about,
-		"employment_type": job_post.job.employment_type.name if job_post.job.employment_type else None,
-		"department": job_post.job.department.name if job_post.job.department else None,
-		"job_level": job_post.job.job_level.name if job_post.job.job_level else None,
-		"years_experience": f"{job_post.job.years_of_experience} Years" if job_post.job.years_of_experience else None,
-		"business_model": ", ".join(job_post.job.business_models.values_list("name", flat=True)) if job_post.job.business_models.count() > 0 else None,
-		"education_level": job_post.job.minimum_education_level.level if job_post.job.minimum_education_level else None,
-		"qualification": job_post.job.qualification,
-		"tools_platform": ", ".join(job_post.job.skills.filter(category__name="Tools/Platform").values_list("name", flat=True)) or None,
-		"methodologies": ", ".join(job_post.job.skills.filter(category__name="Methodologies/Frameworks").values_list("name", flat=True)) or None,
-		"general_skills": ", ".join(job_post.job.skills.filter(category__name="General Skills").values_list("name", flat=True)) or None,
-		"soft_skills": ", ".join(job_post.job.skills.filter(category__name="Soft Skills").values_list("name", flat=True)) or None,
-		"additional_skills": ", ".join(job_post.job.additional_skills or []) or None,
-		"responsibilities": job_post.job.responsibilities,
+		"job_title": job.get_title,
+		"company_name": job.business_name(),
+		"about_company": job.hiring_company_description,
+		"about_job": job.about,
+		"employment_type": job.employment_type.name if job.employment_type else None,
+		"department": job.department.name if job.department else None,
+		"job_level": job.job_level.name if job.job_level else None,
+		"years_experience": f"{job.years_of_experience} Years" if job.years_of_experience else None,
+		"business_model": ", ".join(job.business_models.values_list("name", flat=True)) if job.business_models.count() > 0 else None,
+		"education_level": job.minimum_education_level.level if job.minimum_education_level else None,
+		"qualification": job.qualification,
+		"tools_platform": ", ".join(job.skills.filter(category__name="Tools/Platform").values_list("name", flat=True)) or None,
+		"methodologies": ", ".join(job.skills.filter(category__name="Methodologies/Frameworks").values_list("name", flat=True)) or None,
+		"general_skills": ", ".join(job.skills.filter(category__name="General Skills").values_list("name", flat=True)) or None,
+		"soft_skills": ", ".join(job.skills.filter(category__name="Soft Skills").values_list("name", flat=True)) or None,
+		"additional_skills": ", ".join(job.additional_skills or []) or None,
+		"responsibilities": job.responsibilities,
 		"payment_structure": f"{job_post.salary_type} • {job_post.salary_currency.symbol if job_post.salary_currency else '$'} {job_post.salary_min} – {job_post.salary_max}" if job_post.salary_min and job_post.salary_max else None,
 		"bonus_structure": f"{job_post.salary_bonus_type} • {job_post.salary_bonus_currency.symbol if job_post.salary_bonus_currency else '$'} {job_post.salary_bonus_min} – {job_post.salary_bonus_max}" if job_post.salary_bonus_min and job_post.salary_bonus_max else None,
 		"additional_benefits": ", ".join(job_post.benefits) if job_post.benefits and isinstance(job_post.benefits, list) else job_post.benefits if job_post.benefits else None,
-		"break_info": f"{job_post.job.lunch_break} • {job_post.job.lunch_break_time} mins" if job_post.job.lunch_break and job_post.job.lunch_break_time else None,
+		"break_info": f"{job.lunch_break} • {job.lunch_break_time} mins" if job.lunch_break and job.lunch_break_time else None,
 		"working_hours": JobBase._format_working_hours(job_post.job),
-		"tech_requirements": job_post.job.technological_requirement,
-		"language": job_post.job.first_language.name if job_post.job.first_language else None,
+		"tech_requirements": job.technological_requirement,
+		"language": job.first_language.name if job.first_language else None,
 		}
-		return render_html_email("jobs/en/indeed_desc.html", context)
+		return render_to_string("jobs/en/indeed_desc.txt", context).strip()
 
 	@staticmethod
 	def get_education(job_post: JobPost):
@@ -186,7 +187,7 @@ class JobBase:
 				postalcode=job_post.postal_code,
 				streetaddress=job_post.get_city(),
 				email=INDEED_EMAIL,
-				description="",
+				description=cls.get_description(job_post),
 				salary=JobBase.get_salary(job_post),
 				education=JobBase.get_education(job_post),
 				jobtype="".join((job.employment_type.name,)) if job.employment_type else "",
@@ -197,10 +198,13 @@ class JobBase:
 			)
 
 	@staticmethod
-	def add_element(parent, tag: str, text: str):
-		if text:
+	def add_element(parent, tag: str, text: str, escape_text: bool = True):
+		if text and str(text).strip():
 			el = SubElement(parent, tag)
-			el.text = f"<![CDATA[{text}]]>"
+			content = str(text).strip()
+			if escape_text:
+				content = escape(content)
+			el.text = f"<![CDATA[{content}]]>"
 
 	def to_xml(self):
 		job_el = Element( "job")
@@ -217,7 +221,7 @@ class JobBase:
 		self.add_element(job_el, "postalcode", self.postalcode)
 		self.add_element(job_el, "streetaddress", self.streetaddress)
 		self.add_element(job_el, "email", self.email)
-		self.add_element(job_el, "description", self.title)
+		self.add_element(job_el, "description", self.description, escape_text=False)
 		self.add_element(job_el, "salary", self.salary)
 		self.add_element(job_el, "education", self.education)
 		self.add_element(job_el, "jobtype", self.jobtype)
@@ -256,9 +260,9 @@ class Source:
 	@staticmethod
 	def add_element(parent, tag: str, text: Optional[str]):
 		"""Adds a safe XML element, escaping special characters."""
-		if text:
+		if text and str(text).strip():
 			el = SubElement(parent, tag)
-			el.text = f"<![CDATA[{escape(text)}]]>"
+			el.text = f"<![CDATA[{text.strip()}]]>"
 
 	@staticmethod
 	def to_xml_stream(page=None, page_size=None):
