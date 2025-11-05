@@ -217,7 +217,7 @@ class JobBase:
 		self.add_element(job_el, "postalcode", self.postalcode)
 		self.add_element(job_el, "streetaddress", self.streetaddress)
 		self.add_element(job_el, "email", self.email)
-		self.add_element(job_el, "description", self.description)
+		self.add_element(job_el, "description", self.title)
 		self.add_element(job_el, "salary", self.salary)
 		self.add_element(job_el, "education", self.education)
 		self.add_element(job_el, "jobtype", self.jobtype)
@@ -283,10 +283,8 @@ class Source:
 				.filter(status=JobStatusType.POSTED.value)\
 				.order_by("-refresh_order").iterator(chunk_size=30)
 
-
 		for job_post in queryset:
-			job_base = alert_bug_via_email(JobBase.convert_to_job, job_post=job_post, default=None)
-			if job_base:
-				yield tostring(job_base.to_xml(), encoding="unicode") + "\n"
+			job_base = JobBase.convert_to_job(job_post=job_post)
+			yield tostring(job_base.to_xml(), encoding="unicode") + "\n"
 
 		yield '</source>\n'
