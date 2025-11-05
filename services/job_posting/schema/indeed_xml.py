@@ -186,7 +186,7 @@ class JobBase:
 				postalcode=job_post.postal_code,
 				streetaddress=job_post.get_city(),
 				email=INDEED_EMAIL,
-				description=alert_bug_via_email(JobBase.get_description, default="", job_post=job_post),
+				description=JobBase.get_description(job_post),
 				salary=JobBase.get_salary(job_post),
 				education=JobBase.get_education(job_post),
 				jobtype="".join((job.employment_type.name,)) if job.employment_type else "",
@@ -285,7 +285,8 @@ class Source:
 
 
 		for job_post in queryset:
-			job_base = JobBase.convert_to_job(job_post)
-			yield tostring(job_base.to_xml(), encoding="unicode") + "\n"
+			job_base = alert_bug_via_email(JobBase.convert_to_job, job_post=job_post, default=None)
+			if job_base:
+				yield tostring(job_base.to_xml(), encoding="unicode") + "\n"
 
 		yield '</source>\n'
