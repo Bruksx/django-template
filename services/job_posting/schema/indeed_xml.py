@@ -353,9 +353,6 @@ class JobBase:
 				parts.append(f"  • {e}\n")
 			parts.append("\n")
 
-		# Apply Link
-		parts.append(f"APPLY NOW: {JOB_POST_URL(job_post.uid)}")
-
 		return "".join(parts)
 	@staticmethod
 	def get_education(job_post: JobPost):
