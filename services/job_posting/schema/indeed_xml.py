@@ -258,7 +258,7 @@ class Source:
 		"""Adds a safe XML element, escaping special characters."""
 		if text:
 			el = SubElement(parent, tag)
-			el.text = escape(text)
+			el.text = f"<![CDATA[{escape(text)}]]>"
 
 	@staticmethod
 	def to_xml_stream(page=None, page_size=None):
@@ -281,7 +281,7 @@ class Source:
 		else:
 			queryset = JobPost.objects.select_related("job")\
 				.filter(status=JobStatusType.POSTED.value)\
-				.order_by("-refresh_order").iterator(chunk_size=30)
+				.order_by("-refresh_order").iterator()
 
 		for job_post in queryset:
 			job_base = alert_bug_via_email(JobBase.convert_to_job, job_post=job_post, default=None)
