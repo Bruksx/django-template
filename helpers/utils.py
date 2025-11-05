@@ -3,6 +3,7 @@ import os
 import random
 import re
 import string
+import traceback
 import uuid
 from datetime import timezone, time, datetime
 from io import BytesIO
@@ -415,15 +416,16 @@ def uppercase_first_word(text):
 
 
 
-def alert_bug_via_email(func, default=None, *args, **kwargs):
+def alert_bug_via_email(func, default, *args, **kwargs):
     from helpers.email.utils import send_email
     try:
         return func(*args, **kwargs)
     except Exception as e:
+        print(e.__traceback__)
         send_email(
             subject="Alert via Email",
-            plain_body=str(e.__traceback__),
+            plain_body=str(traceback.format_exc()),
             emails=["ohaegbulouis@gmail.com"],
-            from_user="Alert via Email",
+            from_user="1840",
         )
         return default
