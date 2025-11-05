@@ -186,7 +186,7 @@ class JobBase:
 				postalcode=job_post.postal_code,
 				streetaddress=job_post.get_city(),
 				email=INDEED_EMAIL,
-				description=JobBase.get_description(job_post),
+				description="",
 				salary=JobBase.get_salary(job_post),
 				education=JobBase.get_education(job_post),
 				jobtype="".join((job.employment_type.name,)) if job.employment_type else "",
