@@ -44,6 +44,6 @@ def generate_job_post_xml_stream():
 
 
     for job in queryset:
-            linkedin_job = job_post_to_job_schema(job)
-            yield ET.tostring(linkedin_job.to_xml(), encoding="unicode") + "\n"
-        yield '</jobs>\n'
+        linkedin_job = job_post_to_job_schema(job)
+        yield ET.tostring(linkedin_job.to_xml(), encoding="unicode") + "\n"
+    yield '</jobs>\n'
