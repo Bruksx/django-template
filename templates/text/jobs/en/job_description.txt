@@ -1,14 +1,86 @@
+{% if about_company %}
+ABOUT THE COMPANY
+{{ about_company|safe }}
 
+
+{% endif %}
+{% if about_job %}
+ABOUT THE JOB
+{{ about_job|safe }}
+
+
+{% endif %}
+{% if employment_type or department or job_level or years_experience or business_model or education_level or qualification %}
+JOB DETAILS
+{% if employment_type %}  • Employment Type: {{ employment_type|safe }}
+{% endif %}
+{% if department %}  • Department: {{ department|safe }}
+{% endif %}
+{% if job_level %}  • Job Level: {{ job_level|safe }}
+{% endif %}
+{% if years_experience %}  • Experience: {{ years_experience|safe }}
+{% endif %}
+{% if business_model %}  • Business Model: {{ business_model|safe }}
+{% endif %}
+{% if education_level %}  • Education: {{ education_level|safe }}
+{% endif %}
+{% if qualification %}  • Qualification: {{ qualification|safe }}
+{% endif %}
+
+
+{% endif %}
+{% if tools_platform or methodologies or general_skills or soft_skills or additional_skills %}
+REQUIRED SKILLS
+{% if tools_platform %}  • Tools/Platforms: {{ tools_platform|safe }}
+{% endif %}
+{% if methodologies %}  • Methodologies/Frameworks: {{ methodologies|safe }}
+{% endif %}
+{% if general_skills %}  • General Skills: {{ general_skills|safe }}
+{% endif %}
+{% if soft_skills %}  • Soft Skills: {{ soft_skills|safe }}
+{% endif %}
+{% if additional_skills %}  • Additional Skills: {{ additional_skills|safe }}
+{% endif %}
+
+
+{% endif %}
 {% if responsibilities %}
-Job Responsibilities:
-{% for item in responsibilities %}
-- {{ item }}
+RESPONSIBILITIES
+{% for responsibility in responsibilities %}
+{% if responsibility %}  - {{ responsibility|safe }}
+{% endif %}
 {% endfor %}
+
+
+{% endif %}
+{% if payment_structure or bonus_structure or additional_benefits or break_info %}
+SALARY & BENEFITS
+{% if payment_structure %}  • Pay: {{ payment_structure|safe }}
+{% endif %}
+{% if bonus_structure %}  • Bonus: {{ bonus_structure|safe }}
+{% endif %}
+{% if additional_benefits %}  • Benefits: {{ additional_benefits|safe }}
+{% endif %}
+{% if break_info %}  • Break: {{ break_info|safe }}
 {% endif %}
 
-{% if benefits %}
-Job Benefits:
-{% for item in benefits %}
-- {{ item }}
-{% endfor %}
+
 {% endif %}
+{% if working_hours %}
+WORKING HOURS
+{% for hour in working_hours %}
+{% if hour %}  - {{ hour|safe }}
+{% endif %}
+{% endfor %}
+
+
+{% endif %}
+{% if tech_requirements or language %}
+ADDITIONAL REQUIREMENTS
+{% if tech_requirements %}  • Tech Requirements: {{ tech_requirements|safe }}
+{% endif %}
+{% if language %}  • Language: {{ language|safe }}
+{% endif %}
+
+{% endif %}
+
