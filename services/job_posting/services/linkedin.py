@@ -108,13 +108,13 @@ def get_description(job_post, job) -> str:
 
 	# About Company
 	if job.hiring_company_description:
-		parts.append("ABOUT THE COMPANY\n")
-		parts.append(f"{job.hiring_company_description.strip()}\n\n")
+		parts.append("About the Company\n")
+		parts.append(f"{job.hiring_company_description.strip()}\n\n\n")
 
 	# About Job
 	if job.about:
-		parts.append("ABOUT THE JOB\n")
-		parts.append(f"{job.about.strip()}\n\n")
+		parts.append("About the Job\n")
+		parts.append(f"{job.about.strip()}\n\n\n")
 
 	# Job Details
 	details = []
@@ -128,10 +128,10 @@ def get_description(job_post, job) -> str:
 	if job.qualification: details.append(f"Qualification: {job.qualification}")
 
 	if details:
-		parts.append("JOB DETAILS\n")
+		parts.append("Job Details\n")
 		for d in details:
 			parts.append(f"  • {d}\n")
-		parts.append("\n")
+		parts.append("\n\n")
 
 	# Skills (cached in prefetch)
 	skill_map = {"Tools/Platform": [], "Methodologies/Frameworks": [], "General Skills": [], "Soft Skills": []}
@@ -151,18 +151,18 @@ def get_description(job_post, job) -> str:
 		skills_lines.append(f"Additional Skills: {', '.join(job.additional_skills)}")
 
 	if skills_lines:
-		parts.append("REQUIRED SKILLS\n")
+		parts.append("Required Skills\n")
 		for s in skills_lines:
 			parts.append(f"  • {s}\n")
-		parts.append("\n")
+		parts.append("\n\n")
 
 	# Responsibilities
 	if job.responsibilities:
-		parts.append("RESPONSIBILITIES\n")
+		parts.append("Responsibilities\n")
 		for r in job.responsibilities:
 			if r := r.strip():
 				parts.append(f"  - {r}\n")
-		parts.append("\n")
+		parts.append("\n\n")
 
 	# Salary & Benefits
 	salary_parts = []
@@ -180,21 +180,21 @@ def get_description(job_post, job) -> str:
 		salary_parts.append(f"Break: {job.lunch_break} • {job.lunch_break_time} mins")
 
 	if salary_parts:
-		parts.append("SALARY & BENEFITS\n")
+		parts.append("Salary & Benefits\n")
 		for s in salary_parts:
 			parts.append(f"  • {s}\n")
-		parts.append("\n")
+		parts.append("\n\n")
 
 	# Working Hours
 	if hasattr(job, 'availableday_set') and job.availableday_set.exists():
-		parts.append("WORKING HOURS\n")
+		parts.append("Working Hours\n")
 		for day in job.availableday_set.all().order_by('id'):
 			if day.start_time and day.end_time:
 				parts.append(
 					f"  - {day.day}: {day.start_time.strftime('%H:%M')} - {day.end_time.strftime('%H:%M')}\n")
 			else:
 				parts.append(f"  - {day.day}: Available\n")
-		parts.append("\n")
+		parts.append("\n\n")
 
 	# Tech + Language
 	extra = []
@@ -203,10 +203,10 @@ def get_description(job_post, job) -> str:
 	if job.first_language:
 		extra.append(f"Language: {job.first_language.name}")
 	if extra:
-		parts.append("ADDITIONAL REQUIREMENTS\n")
+		parts.append("Additional Requirements\n")
 		for e in extra:
 			parts.append(f"  • {e}\n")
-		parts.append("\n")
+		parts.append("\n\n")
 
 	return "".join(parts)
 
