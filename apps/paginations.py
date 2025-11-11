@@ -66,3 +66,12 @@ class CustomPageNumberPaginationExtra(PageNumberPaginationExtra):
                 page_number=current_page_number, message=str(exc)
             )
             raise NotFound(msg) from exc
+
+    def get_paginated_queryset(self, queryset: QuerySet, pagination: Input):
+        current_page_number = pagination.page
+        paginator = self.paginator_class(queryset, pagination.page_size)
+        try:
+            page: Page = paginator.page(current_page_number)
+            return page
+        except InvalidPage as exc:  # pragma: no cover
+           return paginator.page(1)

@@ -1,3 +1,6 @@
+{{ job_title|default:"Untitled Role"|safe }} at {{ company_name|default:"Company"|safe }}
+
+
 {% if about_company %}
 ABOUT THE COMPANY
 {{ about_company|safe }}
