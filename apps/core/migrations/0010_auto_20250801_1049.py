@@ -6,7 +6,7 @@ from django.db import migrations
 from helpers.utils import read_json_generator
 
 
-def add_phone_code_to_countries(apps, schema_editor, batch_size=5000):
+def add_phone_code_to_countries(apps, schema_editor):
     Country = apps.get_model("accounts", "Country")
 
     # Pre-fetch existing objects in chunks to reduce memory usage
