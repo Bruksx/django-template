@@ -15,6 +15,7 @@ def load_data_to_db(apps, schema_editor):
         schema_editor: Django schema editor
         batch_size (int): Number of objects to process in each batch (default: 5000)
     """
+    batch_size = 5000
     Country = apps.get_model("accounts", "Country")
     State = apps.get_model("core", "State")
     City = apps.get_model("core", "City")
