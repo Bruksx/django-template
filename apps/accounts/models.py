@@ -11,7 +11,8 @@ import jwt
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
     BusinessSize, BusinessUserStatusType, CaseReasonType
 from core.enums import SalaryType
-from core.models import BaseModel, City, State
+from core.models import BaseModel, State, City
+from dateutil.relativedelta import relativedelta
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
@@ -308,13 +309,12 @@ class Talent(BaseModel):
 
     def education_history(self):
         return self.education_set.all()
-
-
+    
     def calculate_years_of_experience(self)->Tuple[int, int]:
         """
-               Calculate years and months of experience
-               returns (years, months)
-       """
+                       Calculate years and months of experience
+                       returns (years, months)
+               """
         experiences = (
             Experience.objects.filter(talent=self)
             .order_by('start_date')
@@ -322,38 +322,46 @@ class Talent(BaseModel):
         )
         
         if not experiences:
-            return 0,0
+            return 0, 0
         
         today = date.today()
         
-        # Normalize: replace null end_date with today
+        # Normalize
         intervals = []
         for start, end in experiences:
             intervals.append((start, end or today))
         
-        # Merge intervals
+        # Merge
         intervals.sort()
         merged = []
-        current_start, current_end = intervals[0]
+        cs, ce = intervals[0]
         
         for start, end in intervals[1:]:
-            if start <= current_end:
-                current_end = max(current_end, end)
+            if start <= ce:
+                ce = max(ce, end)
             else:
-                merged.append((current_start, current_end))
-                current_start, current_end = start, end
+                merged.append((cs, ce))
+                cs, ce = start, end
+        merged.append((cs, ce))
         
-        merged.append((current_start, current_end))
+        # Sum durations using relativedelta
+        total = relativedelta()
         
-        # Sum total days
-        total_days = sum((end - start).days for start, end in merged)
+        for start, end in merged:
+            total += relativedelta(end, start)
         
-        # Convert days → years & months properly
-        years = total_days // 365
-        remaining_days = total_days % 365
-        months = remaining_days // 30  # approximation good for CV systems
+        years = total.years
+        months = total.months
+        
+        if years > 0 and months > 0:
+            text = f"{years} years, {months} months"
+        elif years > 0:
+            text = f"{years} years"
+        else:
+            text = f"{months} months"
         
         return int(years), (int(years) * 12) + int(months)
+    
     
     def job_post_matches(self, job_only=False, by_talent_country=False, start_date: date=None, end_date: date=None, business=None):
         from jobs.models import JobPost, Job
