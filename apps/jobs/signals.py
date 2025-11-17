@@ -15,7 +15,7 @@ from monkeypatches.q_cluster import async_task
 def handle_stage_timeline_update(sender, instance, **kwargs):
     if instance.id:
          old_application = JobApplication.objects.filter(id=instance.id).first()
-         if old_application.stage != instance.stage:
+         if old_application and old_application.stage != instance.stage:
              instance.stage_date_updated = timezone.now()
              TalentApplicationStageTimeline.objects.filter(
                  application=instance, stage=old_application.stage
@@ -75,7 +75,7 @@ def handle_job_post_recruiter(sender, instance, **kwargs):
             job_post=instance)
     else:
         job_post = JobPost.objects.filter(id=instance.id).first()
-        if job_post.recruiter != instance.recruiter:
+        if job_post and job_post.recruiter != instance.recruiter:
             notifications.send_job_post_assignment_notification(
                 job_post=instance, previous_recruiter=job_post.recruiter)
 

@@ -217,10 +217,8 @@ class Talent(BaseModel):
     whatsapp_number = models.CharField(max_length=50, null=True)
     viber_number = models.CharField(max_length=50, null=True)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
-    state_obj = models.ForeignKey(State, on_delete=models.CASCADE, null=True)
-    city_obj = models.ForeignKey(City, on_delete=models.CASCADE, null=True)
-    state = models.CharField(max_length=64, null=True)
-    city = models.CharField(max_length=64, null=True)
+    state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True)
+    city = models.ForeignKey(City, on_delete=models.SET_NULL, null=True)
     address = models.CharField(max_length=128, null=True)
     postal_code = models.CharField(max_length=20, null=True)
     employment_types = models.ManyToManyField('jobs.EmploymentType', blank=True)
@@ -255,10 +253,10 @@ class Talent(BaseModel):
         # if self.address:
         #     data.append(self.address)
 
-        if self.city_obj:
-            data.append(self.city_obj.name)
-        if self.state_obj:
-            data.append(self.state_obj.name)
+        if self.city:
+            data.append(self.city.name)
+        if self.state:
+            data.append(self.state.name)
         if self.country:
             data.append(self.country.name)
         if self.postal_code:
@@ -362,10 +360,11 @@ class Talent(BaseModel):
         return queryset
 
     def job_match_score(self, job_post):
-        jobpost = self.job_post_matches().filter(id=job_post.id).first()
-        if not jobpost:
+        from jobs.queries import add_talent_match_score
+        talent = add_talent_match_score(Talent.objects.filter(id=self.id), job_post).first()
+        if not talent:
             return 0
-        return int(jobpost.computed_match_score) or 0
+        return int(talent.computed_match_score) or 0
 
 
     def availability_query(self):

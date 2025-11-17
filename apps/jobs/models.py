@@ -365,53 +365,11 @@ class JobPost(BaseModel):
             return
         return self.city.name
 
-    def get_talents(self):
-        query = None
-
-        def get_query(new_query):
-            if not query:
-                return new_query
-            return query | new_query
-
-        job = self.job
-        if not hasattr(job, "requiredattribute"):
-            talents = Talent.objects.select_related("user").filter(visible=True)
-            if query:
-                talents = talents.filter(query)
-            return talents.distinct()
-
-        required_attribute = job.requiredattribute
-        if required_attribute.skills.count() > 0:
-            ids = required_attribute.skills.values_list("id", flat=True)
-            query = get_query(Q(skills__id__in=ids))
-        if required_attribute.role and job.role:
-            query = get_query(Q(experience__role=job.role))
-        if required_attribute.job_level and job.job_level:
-            query = get_query(Q(experience__level=job.job_level))
-        if required_attribute.years_of_experience:
-            query = get_query(Q(years_of_experience__gte=job.years_of_experience))
-        if required_attribute.business_models.count() > 0:
-            ids = required_attribute.business_models.values_list("id", flat=True)
-            query = get_query(Q(business_models__id__in=ids))
-        if required_attribute.minimum_education_level and job.minimum_education_level:
-            query = get_query(Q(education__level=job.minimum_education_level))
-
-        if required_attribute.work_structure and job.work_structure:
-            query = get_query(Q(work_models__contains=[job.work_structure]))
-
-        if required_attribute.first_language:
-            query = get_query(Q(native_language=job.first_language))
-        if required_attribute.secondary_language and job.additional_languages.count() > 0:
-            ids = job.additional_languages.values_list("id", flat=True)
-            query = get_query(Q(additional_languages__id__in=ids))
-        if required_attribute.working_hours:
-            query = get_query(Q(talentavailableday__id__in=TalentAvailableDay.objects.filter(job.availability_query()).only("id").values_list("id", flat=True)))
-        if required_attribute.location:
-            query = get_query(Q(country=self.country))
-        talents =Talent.objects.select_related("user").filter(visible=True)
-        if query:
-            talents = talents.filter(query)
-        return talents.distinct()
+    def get_talents(self, queryset=None):
+        from jobs.queries import add_talent_match_score
+        if not queryset:
+            queryset = Talent.objects.filter(visible=True)
+        return add_talent_match_score(queryset, self).filter(computed_match_score__gte=50).order_by("-computed_match_score")
 
     def phase_data(self):
         def get_phase_count():

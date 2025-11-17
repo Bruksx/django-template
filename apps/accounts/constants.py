@@ -20,7 +20,6 @@ EDUCATION_LEVEL = [
     {"industry": "Healthcare", "education": "Professional Certifications"},
     {"industry": "Healthcare", "education": "Continuing Education Units (CEUs)"}
 ]
-
 DEPARTMENT_AND_SKILLS = [
     {
         "Industry": "General Industries",
@@ -320,3 +319,5 @@ DEPARTMENT_AND_SKILLS = [
         "Soft Skills": ""
     }
 ]
+
+
