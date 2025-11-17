@@ -346,7 +346,7 @@ class TalentFilterQuerySchema(ModelSchema):
             queryset = queryset.filter(skills__department__industry__uid=self.industry)
         if self.location:
             queryset = queryset.filter(Q(country__name__icontains=self.location) |
-                                       Q(state__icontains=self.location) | Q(city__icontains=self.location))
+                                       Q(state__name__icontains=self.location) | Q(city__name__icontains=self.location))
         if self.languages:
             queryset = queryset.filter(Q(native_language__uid__in=self.languages) |
                                        Q(additional_languages__uid__in=self.languages))

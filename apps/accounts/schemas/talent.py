@@ -15,6 +15,8 @@ from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySch
 from jobs.enums import WorkStructureEnum
 from jobs.schemas import JobLevelSchema, EmploymentTypeSchema, BusinessModelSchema
 
+from core.schemas import GenericNameAndUidSchema
+
 
 class DepartmentSchema(Schema):
     uid: UUID
@@ -110,8 +112,8 @@ class UpdateTalentProfileSchema2(ModelSchema):
     phone_code: Optional[str] = None
     phone_number: Optional[str] = None
     country: Optional[UUID] = None
-    state: Optional[str] = None
-    city: Optional[str] = None
+    state: Optional[UUID] = None
+    city: Optional[UUID] = None
     role: Optional[UUID] = None
     employment_types: Optional[List[UUID]] = None
     postal_code: Optional[str] = None
@@ -175,6 +177,8 @@ class TalentUserSchema(ModelSchema):
     user: UserSchema
     role: Optional[RoleSchema]
     country: Optional[CountrySchema]
+    city: Optional[GenericNameAndUidSchema]
+    state: Optional[GenericNameAndUidSchema]
     employment_types: Optional[List[EmploymentTypeSchema]]
     work_models: Optional[List[WorkStructureEnum]]
     skills: List[TalentSkillSchema]
