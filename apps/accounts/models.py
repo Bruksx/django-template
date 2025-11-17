@@ -309,21 +309,52 @@ class Talent(BaseModel):
     def education_history(self):
         return self.education_set.all()
 
+
     def calculate_years_of_experience(self)->Tuple[int, int]:
         """
-        Calculate years and months of experience
-        returns (years, months)
-        """
-        experiences = self.experience_set.only("start_date", "end_date")
+               Calculate years and months of experience
+               returns (years, months)
+       """
+        experiences = (
+            Experience.objects.filter(talent=self)
+            .order_by('start_date')
+            .values_list("start_date", "end_date")
+        )
+        
         if not experiences:
             return 0,0
-        start_date: date = experiences.order_by("start_date").first().start_date
-        end_date: date = experiences.order_by("end_date").last().end_date
-        if not end_date:
-            end_date = timezone.now().date()
-        months = (end_date - start_date).days/30
-        return int(months//12), int(months)
-
+        
+        today = date.today()
+        
+        # Normalize: replace null end_date with today
+        intervals = []
+        for start, end in experiences:
+            intervals.append((start, end or today))
+        
+        # Merge intervals
+        intervals.sort()
+        merged = []
+        current_start, current_end = intervals[0]
+        
+        for start, end in intervals[1:]:
+            if start <= current_end:
+                current_end = max(current_end, end)
+            else:
+                merged.append((current_start, current_end))
+                current_start, current_end = start, end
+        
+        merged.append((current_start, current_end))
+        
+        # Sum total days
+        total_days = sum((end - start).days for start, end in merged)
+        
+        # Convert days → years & months properly
+        years = total_days // 365
+        remaining_days = total_days % 365
+        months = remaining_days // 30  # approximation good for CV systems
+        
+        return int(years), (int(years) * 12) + int(months)
+    
     def job_post_matches(self, job_only=False, by_talent_country=False, start_date: date=None, end_date: date=None, business=None):
         from jobs.models import JobPost, Job
         from jobs.queries import add_job_post_annotations
