@@ -86,7 +86,10 @@ class SkillSchema(ModelSchema):
             return obj.fullname
         return obj.name
 
-
+class AddSkillSchema(Schema):
+    skill_category: UUID
+    department: UUID
+    name: str
 
 class MutateTalentAvailableDaySchema(ModelSchema):
     uid: Optional[UUID] = None
