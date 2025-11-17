@@ -12,7 +12,7 @@ def create_business_workflows(business_id):
     for phase in phases:
         workflow = WorkFlowStage.objects.filter(created_by=business_user, phase=phase).first()
         if not workflow:
-            WorkFlowStage.objects.create(created_by=business_user, phase=phase, name=str(phase).title(), phase_order=phases.index(phase))
+            WorkFlowStage.objects.create(created_by=business_user, phase=phase, name=str(phase).title(), phase_order=PhaseType.values().index(phase))
     return
 
 
