@@ -324,7 +324,7 @@ class Talent(BaseModel):
         if not experiences:
             return 0, 0
         
-        today = date.today()
+        today = timezone.now().date()
         
         # Normalize
         intervals = []
@@ -350,18 +350,10 @@ class Talent(BaseModel):
         for start, end in merged:
             total += relativedelta(end, start)
         
-        years = total.years
-        months = total.months
-        
-        if years > 0 and months > 0:
-            text = f"{years} years, {months} months"
-        elif years > 0:
-            text = f"{years} years"
-        else:
-            text = f"{months} months"
-        
-        return int(years), (int(years) * 12) + int(months)
-    
+        final_months =  (int(total.years) * 12) + int(total.months)
+        if final_months <= 0:
+            return 0,0
+        return final_months//12, final_months
     
     def job_post_matches(self, job_only=False, by_talent_country=False, start_date: date=None, end_date: date=None, business=None):
         from jobs.models import JobPost, Job
