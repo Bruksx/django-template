@@ -11,7 +11,7 @@ import jwt
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
     BusinessSize, BusinessUserStatusType, CaseReasonType
 from core.enums import SalaryType
-from core.models import BaseModel
+from core.models import BaseModel, State, City
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
@@ -217,6 +217,8 @@ class Talent(BaseModel):
     whatsapp_number = models.CharField(max_length=50, null=True)
     viber_number = models.CharField(max_length=50, null=True)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
+    state_obj = models.ForeignKey(State, on_delete=models.CASCADE, null=True)
+    city_obj = models.ForeignKey(City, on_delete=models.CASCADE, null=True)
     state = models.CharField(max_length=64, null=True)
     city = models.CharField(max_length=64, null=True)
     address = models.CharField(max_length=128, null=True)
@@ -253,10 +255,10 @@ class Talent(BaseModel):
         # if self.address:
         #     data.append(self.address)
 
-        if self.city:
-            data.append(self.city)
-        if self.state:
-            data.append(self.state)
+        if self.city_obj:
+            data.append(self.city_obj.name)
+        if self.state_obj:
+            data.append(self.state_obj.name)
         if self.country:
             data.append(self.country.name)
         if self.postal_code:
