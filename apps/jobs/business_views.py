@@ -4,7 +4,7 @@ from typing import Literal, Optional, List
 from uuid import UUID
 
 from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
-from accounts.schemas.talent import SkillSchema
+from accounts.schemas.talent import SkillSchema, AddSkillSchema
 from chats.schemas import ResponseSchema
 from django.db import transaction
 from django.db.models import Q, Count, Exists, Subquery, OuterRef, Case, When, F, Value
@@ -110,7 +110,7 @@ def add_role(request, data: AddRoleSchema):
         raise HttpError(404, "This department does not exist")
     if Role.objects.filter(department=department, name__iexact=data.role).exists():
         raise HttpError(400, "A role with this name already exists")
-    role = Role.objects.create(department=department, name=str(data.role).title())
+    role = Role.objects.create(department=department, name=str(data.role).title(), custom=True)
     return role
 
 @router.get("business-roles", auth=JWTAuth(), response=list[RoleSchema], tags=["Common"])
@@ -167,7 +167,18 @@ def get_skills(request, search="", category="", department:UUID=None):
         queryset = queryset.filter(category__name__iexact=category)
     return queryset.order_by("name")
 
-
+@router.post("skills", response={200: SkillSchema}, tags=["Common"])
+@transaction.atomic
+def add_skill(request, data: AddSkillSchema):
+    department = Department.objects.filter(uid=data.department).first()
+    if not department:
+        raise HttpError(404, "This department does not exist")
+    skill_category  = SkillCategory.objects.filter(uid=data.skill_category).first()
+    if not skill_category:
+        raise HttpError(404, "This category does not exist")
+    if Skill.objects.filter(name__iexact=data.name).exists():
+        raise HttpError(400, "This skill already exists")
+    return Skill.objects.create(department=department, category=skill_category, name=str(data.name).title(), custom=True)
 @router.get("business-models", response=list[GenericNameAndUidSchema], tags=["Common"])
 def get_business_models(request, search=""):
     queryset = BusinessModel.objects.all()

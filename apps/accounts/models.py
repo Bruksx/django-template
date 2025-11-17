@@ -199,6 +199,7 @@ class Department(BaseModel):
 class Role(BaseModel):
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
     name = models.CharField(max_length=128)
+    custom = models.BooleanField(default=False)
 
     def __str__(self) -> str:
         return self.name
@@ -208,6 +209,7 @@ class Skill(BaseModel):
     name = models.CharField(max_length=128)
     category = models.ForeignKey(SkillCategory, on_delete=models.CASCADE)
     department = models.ForeignKey(Department, on_delete=models.CASCADE)
+    custom = models.BooleanField(default=False)
 
     def __str__(self) -> str:
         return f"{self.name} [{self.category}]"
