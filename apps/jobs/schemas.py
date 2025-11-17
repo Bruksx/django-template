@@ -408,7 +408,9 @@ class RoleSchema(ModelSchema):
             return obj.fullname
         return obj.name
 
-
+class AddRoleSchema(Schema):
+    department: UUID
+    role: str
 
 class SkillCategorySchema(Schema):
     uid: UUID

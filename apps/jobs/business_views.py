@@ -37,7 +37,7 @@ from .schemas import (
     DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
-    TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2
+    TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2, AddRoleSchema
 )
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, send_email_on_stage_update, create_job_post_service, \
@@ -100,6 +100,18 @@ def get_roles(request, search="", department:Optional[UUID]=None):
                                    Q(department__name__icontains=search))
     return queryset.order_by("fullname")
 
+
+@router.post("roles", auth=JWTAuth(), response=RoleSchema, tags=["Common"])
+@transaction.atomic
+def add_role(request, data: AddRoleSchema):
+    IsBusinessUser.check(request)
+    department = Department.objects.filter(uid=data.department).first()
+    if not department:
+        raise HttpError(404, "This department does not exist")
+    if Role.objects.filter(department=department, name__iexact=data.role).exists():
+        raise HttpError(400, "A role with this name already exists")
+    role = Role.objects.create(department=department, name=str(data.role).title())
+    return role
 
 @router.get("business-roles", auth=JWTAuth(), response=list[RoleSchema], tags=["Common"])
 def get_business_roles(request, search=""):
