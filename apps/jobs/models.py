@@ -607,10 +607,6 @@ class JobPost(BaseModel):
         return JobInvite.objects.filter(job=self.job, talent=talent).exists()
 
 
-
-
-
-
 class JobPostMetrics(BaseModel):
     job_post = models.OneToOneField(JobPost, on_delete=models.CASCADE, null=True)
     daily_email_shares = models.PositiveIntegerField(default=0)
