@@ -3,11 +3,10 @@
 from django.db import migrations
 from django.db.models import Q, F, OuterRef, Exists
 
-from apps.accounts.models import Experience
 
 
 def update_talent_experience(apps, schema_editor):
-    
+    Experience = apps.get_model("accounts", "Experience")
     Talent = apps.get_model("accounts", "Talent")
     
     for talent in Talent.objects.annotate(
