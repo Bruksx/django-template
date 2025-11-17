@@ -93,11 +93,9 @@ def load_data_to_db(apps, schema_editor):
                 countries_to_create.append(country)
             else:
                 country = existing_countries[country_key]
-                if country.external_id != data["id"] or not country.phone_code:
-                    country.external_id = data["id"]
-                    country.phone_code = data["phonecode"]
-
-                    countries_to_update.append(country)
+                country.external_id = data["id"]
+                country.phone_code = data["phonecode"]
+                countries_to_update.append(country)
 
             # Ensure country has an ID for state relationships
             country = existing_countries.get(country_key) or country
