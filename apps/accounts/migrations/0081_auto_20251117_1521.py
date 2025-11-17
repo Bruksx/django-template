@@ -23,7 +23,7 @@ def update_talent_experience(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0077_talent_city_obj_talent_state_obj'),
+        ('accounts', '0080_rename_city_obj_talent_city_and_more'),
     ]
 
     operations = [
