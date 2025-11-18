@@ -161,7 +161,7 @@ def get_skills(request, search="", category="", department:UUID=None):
     )
     if search:
         queryset = queryset.filter(name__icontains=search)
-    if department:
+    if department and str(category).lower() != "soft skills":
         queryset = queryset.filter(department__uid=department)
     if category:
         queryset = queryset.filter(category__name__iexact=category)
