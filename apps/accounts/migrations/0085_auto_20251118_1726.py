@@ -4,9 +4,9 @@ from django.db import migrations
 
 
 def update_roles_and_department(apps, schema_editor):
-    Department = apps.get_models("accounts", "Department")
-    Industry = apps.get_models("accounts", "Industry")
-    Role = apps.get_models("accounts", "Role")
+    Department = apps.get_model("accounts", "Department")
+    Industry = apps.get_model("accounts", "Industry")
+    Role = apps.get_model("accounts", "Role")
     
     departments = {
         "Finance and Accounting": {
