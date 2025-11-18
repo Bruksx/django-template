@@ -5,17 +5,8 @@ from django.db.models import OuterRef, Exists
 
 
 def update_talent_experience(apps, schema_editor):
-    Experience = apps.get_model("accounts", "Experience")
-    Talent = apps.get_model("accounts", "Talent")
+    print("done")
     
-    for talent in Talent.objects.annotate(
-            has_experience=Exists(Experience.objects.filter(
-                talent_id=OuterRef('id')
-            ))).filter(has_experience=True).iterator():
-        years, month = talent.calculate_years_of_experience()
-        talent.years_of_experience = years
-        talent.months_of_experience = month
-        talent.save(update_fields=["years_of_experience", "months_of_experience"])
 
 
 class Migration(migrations.Migration):
