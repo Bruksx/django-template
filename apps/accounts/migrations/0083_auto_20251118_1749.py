@@ -69,7 +69,7 @@ def update_roles_and_department(apps, schema_editor):
             ]
         },
         
-        "Customer Service / Support": {
+        "Customer Service/Support": {
             "industry": "General Industries",
             "roles": [
                 "Call Center Representative",
@@ -105,8 +105,8 @@ def update_roles_and_department(apps, schema_editor):
             ]
         },
         
-        "Compliance (Insurance)": {
-            "industry": "Healthcare",  # Because Life & Health Insurance roles directly relate to health sector
+        "Compliance": {
+            "industry": "General Industries",
             "roles": [
                 "Licensed Insurance Representative",
                 "Licensed P&C Commercial Insurance Producer",
@@ -138,11 +138,11 @@ def update_roles_and_department(apps, schema_editor):
     }
     
     for department in departments:
-        department_obj = Department.objects.filter(name__iexact=department).first()
+        industry = Industry.objects.filter(name__iexact=departments[department]["industry"]).first()
+        if not industry:
+            industry = Industry.objects.create(name=departments[department]["industry"])
+        department_obj = Department.objects.filter(name__iexact=department, industry=industry).first()
         if not department_obj:
-            industry = Industry.objects.filter(name__iexact=departments[department]["industry"]).first()
-            if not industry:
-                industry = Industry.objects.create(name=departments[department]["industry"])
             department_obj = Department.objects.create(
                 name=department, industry=industry
             )
