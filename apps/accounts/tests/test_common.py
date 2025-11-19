@@ -325,10 +325,10 @@ class TalentListTest(TestCase):
         talent2.save()
 
         talent_filter_params = TalentFilterQuerySchema(
-            role=role.uid,
-            industry=industry.uid,
-            location="New York",
-            educational_level=educational_level.uid,
+            roles=[role.uid],
+            industries=[industry.uid],
+            locations=["New York"],
+            educational_levels=[educational_level.uid],
             maximum_notice_period=14,
             work_structure=WorkStructureEnum.REMOTE.value,
             languages=[language.uid],
@@ -349,8 +349,8 @@ class TalentListTest(TestCase):
         role2 = RoleFactory.create()
 
         tf = TalentFilterQuerySchema(
-            role=role.uid,
-            industry=industry.uid
+            roles=[role.uid],
+            industries=[industry.uid]
         ).to_url_params()
 
         talent = TalentFactory.create(user=UserFactory(first_name="John"))
@@ -381,8 +381,8 @@ class TalentListTest(TestCase):
         skill2= SkillFactory(department=DepartmentFactory(industry=industry2))
         
         tf_params = TalentFilterQuerySchema(
-            role=role.uid,
-            industry=industry.uid
+            roles=[role.uid],
+            industries=[industry.uid]
         ).to_url_params(start=False)
 
         talent = TalentFactory.create(user=UserFactory(first_name="John"))
