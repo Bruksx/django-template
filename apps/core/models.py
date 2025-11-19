@@ -105,3 +105,16 @@ class City(BaseModel):
 
     def __str__(self):
         return self.name
+
+
+class GTCSettings(BaseModel):
+    social_auth = models.BooleanField(default=True)
+    facebook_auth = models.BooleanField(default=True)
+    linkedin_auth = models.BooleanField(default=True)
+    google_auth = models.BooleanField(default=True)
+    apple_auth = models.BooleanField(default=True)
+    maintenance_mode = models.BooleanField(default=False)
+
+    @classmethod
+    def get_settings(cls):
+        return GTCSettings.objects.get_or_create(id=1)
