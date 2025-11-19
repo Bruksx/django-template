@@ -16,6 +16,7 @@ from services.auth.facebook import Facebook
 from accounts.enums import UserType, AuthType, SocialType, BusinessUserRoleType
 from accounts.models import BusinessUser, VerificationCode, User, Talent, Business
 from auth.enums import AuthActionEnum
+from core.services import get_settings
 
 from .client import LinkedInAPI
 from .schema import SocialAuthSchema
@@ -43,12 +44,18 @@ def validate_login(user: User, raise_exception=True):
 
 
 def handle_social_login(data: SocialAuthSchema)->User:
+    settings = get_settings()
+    error_message = "This login method is currently unavailable. Please try another option."
+    if not settings.social_auth:
+        raise HttpError(400, error_message)
     auth_mode = "login"
     if data.user_type:
         auth_mode = "register"
     profile_dict = {}
 
     if data.social_type == SocialType.GOOGLE:
+        if not settings.google_auth:
+            raise HttpError(400, error_message)
         auth_type = AuthType.GOOGLE
         try:
             idinfo = id_token.verify_firebase_token(
@@ -71,6 +78,8 @@ def handle_social_login(data: SocialAuthSchema)->User:
         social_query = Q(email=idinfo["email"])
 
     elif data.social_type == SocialType.LINKEDIN:
+        if not settings.linkedin_auth:
+            raise HttpError(400, error_message)
         api = LinkedInAPI()
         code = data.access_token
         access_token = api.get_access_token(code, data.redirect_uri)
@@ -83,6 +92,8 @@ def handle_social_login(data: SocialAuthSchema)->User:
         profile_dict["email"] = linkedin_profile.email
 
     elif data.social_type == SocialType.FACEBOOK:
+        if not settings.facebook_auth:
+            raise HttpError(400, error_message)
         auth_type = AuthType.FACEBOOK
         facebook_client = Facebook()
         user = facebook_client.get_user(data.social_id, data.access_token)
@@ -93,6 +104,8 @@ def handle_social_login(data: SocialAuthSchema)->User:
         social_query = Q(email=user.email)
 
     elif SocialType.APPLE.value == data.social_type:
+        if not settings.social_auth:
+            raise HttpError(400, error_message)
         pass
         """auth_type = AuthType.APPLE
         social_query = Q(apple_id=profile.id)
