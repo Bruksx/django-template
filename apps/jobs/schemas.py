@@ -832,6 +832,7 @@ class JobPostFullDetailSchema(ModelSchema):
     country: Optional[GenericNameAndUidSchema] = None
     recruiter: Optional[BusinessUserSchema]
     posted_by: Optional[BusinessUserSchema]
+    edited_by: Optional[BusinessUserSchema]
     benefits: List[str] = list()
     saved: Optional[bool] = None
     alert: Optional[bool] = None
@@ -842,7 +843,7 @@ class JobPostFullDetailSchema(ModelSchema):
     class Meta:
         model = JobPost
         fields = ["uid", "status", "created_at",  "postal_code", "date_posted",
-                  "share_compensation", "salary_type", "salary_bonus_type", "edited_by", "edited_at"]
+                  "share_compensation", "salary_type", "salary_bonus_type", "edited_at"]
 
     @staticmethod
     def resolve_saved(obj, context):
