@@ -170,10 +170,9 @@ def get_screening_questions_service(request, job_uid:UUID):
 def create_job_post_service(business_user, job, job_posts_data:list):
     job_posts = list()
     for data in job_posts_data:
+        data["posted_by"] = business_user
         if "status" in data:
             data["status"] = data["status"].value
-            if data["status"] == JobStatusType.POSTED.value:
-                data["posted_by"] = business_user
         if data.get("salary_type"):
             data["salary_type"] = data["salary_type"].value if type(data["salary_type"]) is not str else \
                 data[
@@ -199,8 +198,6 @@ def update_job_post_service(job_post, business_user, data=None, status=None, rai
         status = data.get("status").value
     if status:
         data["status"] = status
-        if status == JobStatusType.POSTED.value:
-            data["posted_by"] = business_user
         if status == JobStatusType.DRAFT.value and job_post.status != JobStatusType.DRAFT.value:
             # you're trying to prevent editing job posts with applications
             new_job = job_post.copy()
