@@ -191,7 +191,8 @@ def update_job_post_service(job_post, business_user, data=None, status=None, rai
     new_job = None
     if not data:
         data = dict()
-
+    data["edited_by"] = business_user
+    data["edited_at"] = timezone.now()
     if not status and "status" in data:
         status = data.get("status").value
     if status:
