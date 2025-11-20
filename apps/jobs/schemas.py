@@ -862,7 +862,7 @@ class JobPostFullDetailSchema(ModelSchema):
     
     @staticmethod
     def resolve_withdrawals(obj):
-        return obj.jobapplicationiwithdrawal_set.count()
+        return obj.jobapplicationwithdrawal_set.count()
 
     @staticmethod
     def resolve_workflow_data(obj, context):
