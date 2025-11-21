@@ -108,5 +108,5 @@ jobs:
             cd code/GTC-backend
             git pull
             pip install -r requirements.txt
-            python manage.py migrate accounts 0078_auto_20251030_0831 --fake
+            python manage.py migrate accounts --fake
           EOF
