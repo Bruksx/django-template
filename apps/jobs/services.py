@@ -168,7 +168,7 @@ def get_screening_questions_service(request, job_uid:UUID):
     return screening_questions.filter(job__created_by__business=request.user.businessuser.business)
 
 def create_job_post_service(business_user, job, job_posts_data:list):
-    job_posts = list()
+    job_post = None
     for data in job_posts_data:
         if "status" in data:
             data["status"] = data["status"].value
@@ -178,29 +178,28 @@ def create_job_post_service(business_user, job, job_posts_data:list):
             data["salary_type"] = data["salary_type"].value if type(data["salary_type"]) is not str else \
                 data[
                     "salary_type"]
-
         if data.get("salary_bonus_type"):
             data["salary_bonus_type"] = data["salary_bonus_type"].value if type(
                 data["salary_bonus_type"]) is not str else data["salary_bonus_type"]
-
-        job_posts.append(JobPost(**data, job=job))
-    if len(job_posts) == 1:
-        job_posts[0].save()
-        return job_posts[0]
-    JobPost.objects.bulk_create(job_posts)
+        
+        job_post = JobPost.objects.create(**data, job=job)
+    if len(job_posts_data) == 1:
+        return job_post
     return
 
 def update_job_post_service(job_post, business_user, data=None, status=None, raise_error=False):
     new_job = None
     if not data:
         data = dict()
-
+    data["edited_by"] = business_user
+    data["edited_at"] = timezone.now()
     if not status and "status" in data:
         status = data.get("status").value
     if status:
         data["status"] = status
         if status == JobStatusType.POSTED.value:
             data["posted_by"] = business_user
+        
         if status == JobStatusType.DRAFT.value and job_post.status != JobStatusType.DRAFT.value:
             # you're trying to prevent editing job posts with applications
             new_job = job_post.copy()

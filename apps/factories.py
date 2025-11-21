@@ -496,15 +496,22 @@ class TalentFilterFactory(BaseModelFactory):
         model = TalentFilter
 
     business_user = factory.SubFactory(BusinessUserFactory)
-    role = factory.SubFactory(RoleFactory)
-    industry = factory.SubFactory(IndustryFactory)
-    location = factory.Faker('city')
+    roles = factory.SubFactory(RoleFactory)
+    industries = factory.SubFactory(IndustryFactory)
+    locations = factory.Faker('city')
     languages = factory.SubFactory(LanguageFactory)
-    educational_level = factory.SubFactory(EducationLevelFactory)
+    educational_levels = factory.SubFactory(EducationLevelFactory)
     maximum_notice_period = factory.Faker('random_int', min=1, max=90)
     work_structure = factory.Faker('random_element', elements=[e.value for e in WorkStructureEnum])
     skills = factory.SubFactory(SkillFactory)
-
+    
+    @factory.post_generation
+    def locations(self, create, extracted, **kwargs):
+        if not create:
+            return
+        
+        if extracted:
+            self.locations = extracted
     @factory.post_generation
     def languages(self, create, extracted, **kwargs):
         if not create:
@@ -513,7 +520,17 @@ class TalentFilterFactory(BaseModelFactory):
         if extracted:
             for language in extracted:
                 self.languages.add(language)
-
+    
+    @factory.post_generation
+    def industries(self, create, extracted, **kwargs):
+        if not create:
+            return
+        
+        if extracted:
+            for industry in extracted:
+                self.industries.add(industry)
+    
+    
     @factory.post_generation
     def skills(self, create, extracted, **kwargs):
         if not create:
@@ -522,3 +539,21 @@ class TalentFilterFactory(BaseModelFactory):
         if extracted:
             for skill in extracted:
                 self.skills.add(skill)
+    
+    @factory.post_generation
+    def educational_levels(self, create, extracted, **kwargs):
+        if not create:
+            return
+        
+        if extracted:
+            for level in extracted:
+                self.educational_levels.add(level)
+    
+    @factory.post_generation
+    def roles(self, create, extracted, **kwargs):
+        if not create:
+            return
+        
+        if extracted:
+            for role in extracted:
+                self.roles.add(role)

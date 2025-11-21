@@ -314,6 +314,10 @@ class JobPost(BaseModel):
         output_field=models.IntegerField(),
         db_persist=True
     )
+    edited_by = models.ForeignKey("accounts.BusinessUser", related_name="edited_job_posts", on_delete=models.SET_NULL
+                                  , null=True)
+    edited_at = models.DateTimeField(null=True)
+    
     def copy(self):
         return JobPost.objects.create(
             job=self.job,

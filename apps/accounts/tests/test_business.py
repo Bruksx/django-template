@@ -835,11 +835,11 @@ class UpdateTalentFilterTest(TestCase):
         self.educational_level = EducationLevelFactory.create()
         self.skill = SkillFactory.create()
         self.valid_data = {
-            "role": str(self.role.uid),
-            "industry": str(self.industry.uid),
-            "location": "New York",
+            "roles": [str(self.role.uid)],
+            "industries": [str(self.industry.uid)],
+            "locations": ["New York"],
             "languages": [str(self.language.uid)],
-            "educational_level": str(self.educational_level.uid),
+            "educational_levels": [str(self.educational_level.uid)],
             "maximum_notice_period": 30,
             "work_structure": WorkStructureEnum.REMOTE.value,
             "skills": [str(self.skill.uid)]
@@ -850,11 +850,11 @@ class UpdateTalentFilterTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.business_user.refresh_from_db()
         self.assertTrue(hasattr(self.business_user, 'talentfilter'))
-        self.assertEqual(self.business_user.talentfilter.role, self.role)
-        self.assertEqual(self.business_user.talentfilter.industry, self.industry)
-        self.assertEqual(self.business_user.talentfilter.location, "New York")
+        self.assertEqual(list(self.business_user.talentfilter.roles.values_list('uid', flat=True)), [self.role.uid])
+        self.assertEqual(list(self.business_user.talentfilter.industries.values_list('uid', flat=True)), [self.industry.uid])
+        self.assertEqual(self.business_user.talentfilter.locations, ["New York"])
         self.assertEqual(list(self.business_user.talentfilter.languages.values_list('uid', flat=True)), [self.language.uid])
-        self.assertEqual(self.business_user.talentfilter.educational_level, self.educational_level)
+        self.assertEqual(list(self.business_user.talentfilter.educational_levels.values_list('uid', flat=True)), [self.educational_level.uid])
         self.assertEqual(self.business_user.talentfilter.maximum_notice_period, 30)
         self.assertEqual(self.business_user.talentfilter.work_structure, WorkStructureEnum.REMOTE.value)
         self.assertEqual(list(self.business_user.talentfilter.skills.values_list('uid', flat=True)), [self.skill.uid])
@@ -876,10 +876,10 @@ class UpdateTalentFilterTest(TestCase):
         invalid_data = {
             "work_structure": "INVALID_STRUCTURE",
             "maximum_notice_period": -1,
-            "role": "invalid-uuid",
-            "industry": "invalid-uuid",
+            "roles": ["invalid-uuid"],
+            "industries": ["invalid-uuid"],
             "languages": ["invalid-uuid"],
-            "educational_level": "invalid-uuid",
+            "educational_levels": ["invalid-uuid"],
             "skills": ["invalid-uuid"]
         }
         response = self.client.patch(self.url, json=invalid_data, headers=self.headers)
@@ -893,11 +893,14 @@ class UpdateTalentFilterTest(TestCase):
         response = self.client.patch(self.url, json=self.valid_data, headers=self.headers)
         self.assertEqual(response.status_code, 200)
         self.business_user.refresh_from_db()
-        self.assertEqual(self.business_user.talentfilter.role, self.role)
-        self.assertEqual(self.business_user.talentfilter.industry, self.industry)
-        self.assertEqual(self.business_user.talentfilter.location, "New York")
+        self.assertEqual(list(self.business_user.talentfilter.roles.values_list('uid', flat=True)),
+                         [self.role.uid])
+        self.assertEqual(list(self.business_user.talentfilter.industries.values_list('uid', flat=True)),
+                         [self.industry.uid])
+        self.assertEqual(list(self.business_user.talentfilter.educational_levels.values_list('uid', flat=True)),
+                         [self.educational_level.uid])
+        self.assertEqual(self.business_user.talentfilter.locations, ["New York"])
         self.assertEqual(list(self.business_user.talentfilter.languages.values_list('uid', flat=True)), [self.language.uid])
-        self.assertEqual(self.business_user.talentfilter.educational_level, self.educational_level)
         self.assertEqual(self.business_user.talentfilter.maximum_notice_period, 30)
         self.assertEqual(self.business_user.talentfilter.work_structure, WorkStructureEnum.REMOTE.value)
         self.assertEqual(list(self.business_user.talentfilter.skills.values_list('uid', flat=True)), [self.skill.uid])
@@ -922,31 +925,36 @@ class GetTalentFilterTest(TestCase):
         self.skill = SkillFactory.create()
         self.talent_filter = TalentFilterFactory.create(
             business_user=self.business_user,
-            role=self.role,
-            industry=self.industry,
-            location="New York",
-            educational_level=self.educational_level,
+            locations=["New York"],
             maximum_notice_period=30,
             work_structure=WorkStructureEnum.REMOTE.value
         )
         self.talent_filter.languages.add(self.language)
+        self.talent_filter.roles.add(self.role)
+        self.talent_filter.industries.add(self.industry)
+        self.talent_filter.educational_levels.add(self.educational_level)
         self.talent_filter.skills.add(self.skill)
+        self.talent_filter.save()
         self.url = f"/talents-filters/{self.talent_filter.uid}"
 
     def test_get_talent_filter_success(self):
         response = self.client.get(self.url, headers=self.headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["role"]["uid"], str(self.role.uid))
-        self.assertEqual(data["role"]["name"], self.role.name)
-        self.assertEqual(data["industry"]["uid"], str(self.industry.uid))
-        self.assertEqual(data["industry"]["name"], self.industry.name)
-        self.assertEqual(data["location"], "New York")
+        self.assertIn(data["roles"][0]["uid"], str(self.role.uid))
+        self.assertEqual(data["roles"][0]["name"], self.role.name)
+        self.assertEqual(data["industries"][0]["uid"], str(self.industry.uid))
+        self.assertEqual(data["industries"][0]["name"], self.industry.name)
+        self.assertEqual(data["locations"][0], "New York")
+        self.assertEqual(len(data["locations"]), 1)
+        self.assertEqual(len(data["educational_levels"]), 1)
+        self.assertEqual(len(data["industries"]), 1)
+        self.assertEqual(len(data["roles"]), 1)
         self.assertEqual(len(data["languages"]), 1)
         self.assertEqual(data["languages"][0]["uid"], str(self.language.uid))
         self.assertEqual(data["languages"][0]["name"], self.language.name)
-        self.assertEqual(data["educational_level"]["uid"], str(self.educational_level.uid))
-        self.assertEqual(data["educational_level"]["industry"], self.educational_level.industry.name)
+        self.assertEqual(data["educational_levels"][0]["uid"], str(self.educational_level.uid))
+        self.assertEqual(data["educational_levels"][0]["industry"], self.educational_level.industry.name)
         self.assertEqual(data["maximum_notice_period"], 30)
         self.assertEqual(data["work_structure"], WorkStructureEnum.REMOTE.value)
         self.assertEqual(len(data["skills"]), 1)
@@ -1006,15 +1014,16 @@ class DeleteTalentFilterTest(TestCase):
         self.skill = SkillFactory.create()
         self.talent_filter = TalentFilterFactory.create(
             business_user=self.business_user,
-            role=self.role,
-            industry=self.industry,
-            location="New York",
-            educational_level=self.educational_level,
+            locations=["New York"],
             maximum_notice_period=30,
             work_structure=WorkStructureEnum.REMOTE.value
         )
         self.talent_filter.languages.add(self.language)
+        self.talent_filter.roles.add(self.role)
+        self.talent_filter.industries.add(self.industry)
+        self.talent_filter.educational_levels.add(self.educational_level)
         self.talent_filter.skills.add(self.skill)
+        self.talent_filter.save()
         self.url = f"/talents-filters/{self.talent_filter.uid}"
 
     def test_get_talent_filter_success(self):

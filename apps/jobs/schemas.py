@@ -408,7 +408,9 @@ class RoleSchema(ModelSchema):
             return obj.fullname
         return obj.name
 
-
+class AddRoleSchema(Schema):
+    department: UUID
+    role: str
 
 class SkillCategorySchema(Schema):
     uid: UUID
@@ -819,6 +821,7 @@ class JobApplicationCountSchema(Schema):
 class JobPostFullDetailSchema(ModelSchema):
     workflow_data: List[WorkFlowSchema]
     applicants: int
+    withdrawals: int
     job: JobDetailSchema
     salary_min: Optional[float] = None
     salary_max: Optional[float] = None
@@ -829,6 +832,7 @@ class JobPostFullDetailSchema(ModelSchema):
     country: Optional[GenericNameAndUidSchema] = None
     recruiter: Optional[BusinessUserSchema]
     posted_by: Optional[BusinessUserSchema]
+    edited_by: Optional[BusinessUserSchema]
     benefits: List[str] = list()
     saved: Optional[bool] = None
     alert: Optional[bool] = None
@@ -839,7 +843,7 @@ class JobPostFullDetailSchema(ModelSchema):
     class Meta:
         model = JobPost
         fields = ["uid", "status", "created_at",  "postal_code", "date_posted",
-                  "share_compensation", "salary_type", "salary_bonus_type"]
+                  "share_compensation", "salary_type", "salary_bonus_type", "edited_at"]
 
     @staticmethod
     def resolve_saved(obj, context):
@@ -856,6 +860,10 @@ class JobPostFullDetailSchema(ModelSchema):
     @staticmethod
     def resolve_applicants(obj):
         return obj.jobapplication_set.count()
+    
+    @staticmethod
+    def resolve_withdrawals(obj):
+        return obj.jobapplicationwithdrawal_set.count()
 
     @staticmethod
     def resolve_workflow_data(obj, context):

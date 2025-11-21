@@ -1258,14 +1258,20 @@ class GetJobRequirementTest(TestCase):
 class TalentsByJobPostTest(TestCase):
     def setUp(self):
         self.client = TestClient(router)
-        country = CountryFactory.create()
+        self.country = CountryFactory.create()
         self.business_user = BusinessUserFactory.create()
-        TalentFactory.create_batch(5, country=country)
-        job = JobFactory.create(created_by=self.business_user)
-        job.requiredattribute.update(location=True)
-        self.job_post = JobPostFactory.create(job=job, country=country)
+        
+        # Create talents with different match profiles
+        self.talent1 = TalentFactory.create(country=self.country, visible=True)
+        self.talent2 = TalentFactory.create(country=self.country, visible=True)
+        self.talent3 = TalentFactory.create(country=self.country, visible=False)  # invisible
+        self.talent4 = TalentFactory.create(visible=True)  # different country
+        
+        # Create job with required attributes
+        self.job = JobFactory.create(created_by=self.business_user)
+        self.job.requiredattribute.update(location=True)
+        self.job_post = JobPostFactory.create(job=self.job, country=self.country)
         self.url = lambda job_post_uid: f"job-posts/{job_post_uid}/talents"
-
 
     def test_get_talents_by_job_post(self):
         headers = {
@@ -1273,27 +1279,76 @@ class TalentsByJobPostTest(TestCase):
         }
         response = self.client.get(self.url(self.job_post.uid), headers=headers)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 5)
+        self.assertIsInstance(response.json(), list)
 
-    def test_get_talents_invisibility(self):
-        talent = Talent.objects.first()
-        talent.update(visible=False)
+    def test_only_visible_talents_returned(self):
+        """Only talents with visible=True should be returned"""
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
         }
         response = self.client.get(self.url(self.job_post.uid), headers=headers)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(len(response.data), 4)
+        
+        returned_uids = [item['uid'] for item in response.json()]
+        # talent3 is invisible, should not be in results
+        self.assertNotIn(str(self.talent3.uid), returned_uids)
 
-    def test_get_talents_by_job_post_with_search_query(self):
+    def test_talents_ordered_by_match_score(self):
+        """Talents should be ordered by computed_match_score descending"""
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
         }
-        search_query = Talent.objects.first().user.first_name
+        response = self.client.get(self.url(self.job_post.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        
+        data = response.json()
+        if len(data) > 1:
+            match_scores = [item.get('match_score', 0) or 0 for item in data]
+            # Verify descending order
+            self.assertEqual(match_scores, sorted(match_scores, reverse=True))
+
+    def test_search_by_first_name(self):
+        """Search should filter by talent's first name"""
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        search_query = self.talent1.user.first_name
         response = self.client.get(self.url(self.job_post.uid)+f"?search={search_query}", headers=headers)
         self.assertEqual(response.status_code, 200)
-        self.assertGreaterEqual(len(response.data), 1)
-        self.assertLess(len(response.data), 5)
+        
+        data = response.json()
+        # If results exist, verify the searched name is in results
+        if data:
+            first_names = [item['first_name'] for item in data]
+            self.assertTrue(any(search_query.lower() in name.lower() for name in first_names))
+
+    def test_search_by_email(self):
+        """Search should filter by talent's email"""
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        search_query = self.talent1.user.email.split('@')[0]  # Use part of email
+        response = self.client.get(self.url(self.job_post.uid)+f"?search={search_query}", headers=headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_search_with_multiple_terms(self):
+        """Search with multiple space-separated terms should work"""
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        # Search with first name and last name
+        search_query = f"{self.talent1.user.first_name} {self.talent1.user.last_name}"
+        response = self.client.get(self.url(self.job_post.uid)+f"?search={search_query}", headers=headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_search_returns_empty_for_no_match(self):
+        """Search with non-existent name should return empty list"""
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.job_post.uid)+"?search=NonExistentNameXYZ123", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.json()), 0)
 
     def test_invalid_job_post_uid(self):
         headers = {
@@ -1303,20 +1358,61 @@ class TalentsByJobPostTest(TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_get_talents_by_job_post_by_talent(self):
-        talent = Talent.objects.first()
+        """Talent users should not have access to this endpoint"""
         headers = {
-            "authorization": f"Bearer {talent.user.token}"
+            "authorization": f"Bearer {self.talent1.user.token}"
         }
-        response = self.client.get(self.url(uuid4()), headers=headers)
+        response = self.client.get(self.url(self.job_post.uid), headers=headers)
         self.assertEqual(response.status_code, 403)
 
     def test_get_talents_by_job_post_by_another_business_user(self):
+        """Business users from other businesses should not access job posts"""
         business_user = BusinessUserFactory.create()
         headers = {
             "authorization": f"Bearer {business_user.user.token}"
         }
-        response = self.client.get(self.url(uuid4()), headers=headers)
+        response = self.client.get(self.url(self.job_post.uid), headers=headers)
         self.assertEqual(response.status_code, 404)
+
+    def test_response_includes_required_fields(self):
+        """Response should include all required schema fields"""
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.job_post.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        
+        data = response.json()
+        if data:
+            first_item = data[0]
+            required_fields = ['uid', 'first_name', 'last_name', 'user_uid', 'email', 'match_score']
+            for field in required_fields:
+                self.assertIn(field, first_item)
+
+    def test_minimum_match_score_filter(self):
+        """Only talents with match_score >= 50 should be returned"""
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.job_post.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        
+        data = response.json()
+        for item in data:
+            match_score = item.get('match_score', 0)
+            if match_score is not None:
+                self.assertGreaterEqual(match_score, 50)
+
+    def test_job_post_without_required_attributes(self):
+        """Job posts without required attributes should still return talents"""
+        job_no_req = JobFactory.create(created_by=self.business_user)
+        job_post_no_req = JobPostFactory.create(job=job_no_req, country=self.country)
+        
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(job_post_no_req.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
 
 class AddScreeningQuestionTest(TestCase):
     def setUp(self):

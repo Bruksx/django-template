@@ -3,47 +3,42 @@ from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
 
-from django.db.models.functions import Concat
-
-from config.permissions import IsBusinessUser
+from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
+from accounts.schemas.talent import SkillSchema, AddSkillSchema
+from chats.schemas import ResponseSchema
 from django.db import transaction
 from django.db.models import Q, Count, Exists, Subquery, OuterRef, Case, When, F, Value
+from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-
-from helpers.email.jobs import send_indeed_apply_email
-from helpers.utils import convert_base64_to_image_file, to_utc
-from monkeypatches.response import Response
-from monkeypatches.q_cluster import async_task
 from ninja import Router, PatchDict, Query
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
-
-from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
-from accounts.schemas.talent import SkillSchema
-from chats.schemas import ResponseSchema
-from notification.notifications import send_talents_job_matching_notification
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
-
 from settings.models import WorkFlowStage
 
-from services.job_posting.schema.indeed import IndeedApplicationDataPatch
+from config.permissions import IsBusinessUser
+from helpers.email.jobs import send_indeed_apply_email
+from helpers.utils import convert_base64_to_image_file
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
+from services.job_posting.schema.indeed import IndeedApplicationData, IndeedApplicationDataPatch
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication, AvailableDay,
     ScreeningQuestion, QuestionOption, Answer, JobInvite
 )
+from .queries import add_application_match_score, add_job_post_annotations
 from .schemas import (
-    EmploymentTypeSchema, DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
+    DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
-    TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2
+    TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2, AddRoleSchema
 )
-from .queries import add_application_match_score, add_job_post_annotations
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, send_email_on_stage_update, create_job_post_service, \
     bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
@@ -106,6 +101,18 @@ def get_roles(request, search="", department:Optional[UUID]=None):
     return queryset.order_by("fullname")
 
 
+@router.post("roles", auth=JWTAuth(), response=RoleSchema, tags=["Common"])
+@transaction.atomic
+def add_role(request, data: AddRoleSchema):
+    IsBusinessUser.check(request)
+    department = Department.objects.filter(uid=data.department).first()
+    if not department:
+        raise HttpError(404, "This department does not exist")
+    if Role.objects.filter(department=department, name__iexact=data.role).exists():
+        raise HttpError(400, "A role with this name already exists")
+    role = Role.objects.create(department=department, name=str(data.role).title(), custom=True)
+    return role
+
 @router.get("business-roles", auth=JWTAuth(), response=list[RoleSchema], tags=["Common"])
 def get_business_roles(request, search=""):
     IsBusinessUser.check(request)
@@ -160,7 +167,18 @@ def get_skills(request, search="", category="", department:UUID=None):
         queryset = queryset.filter(category__name__iexact=category)
     return queryset.order_by("name")
 
-
+@router.post("skills", response={200: SkillSchema}, tags=["Common"])
+@transaction.atomic
+def add_skill(request, data: AddSkillSchema):
+    department = Department.objects.filter(uid=data.department).first()
+    if not department:
+        raise HttpError(404, "This department does not exist")
+    skill_category  = SkillCategory.objects.filter(uid=data.skill_category).first()
+    if not skill_category:
+        raise HttpError(404, "This category does not exist")
+    if Skill.objects.filter(name__iexact=data.name).exists():
+        raise HttpError(400, "This skill already exists")
+    return Skill.objects.create(department=department, category=skill_category, name=str(data.name).title(), custom=True)
 @router.get("business-models", response=list[GenericNameAndUidSchema], tags=["Common"])
 def get_business_models(request, search=""):
     queryset = BusinessModel.objects.all()

@@ -2,7 +2,8 @@ from datetime import date
 from typing import Optional, List, TypedDict, AnyStr, Any
 from uuid import UUID
 
-from django.db.models import Q
+from django.db.models import Q, Subquery
+from django.db.models.functions import Lower
 from ninja import ModelSchema, Schema
 from pydantic import EmailStr, Field
 
@@ -323,56 +324,92 @@ class SendBulkChatSchema(Schema):
 
 
 class TalentFilterQuerySchema(ModelSchema):
-    role: Optional[UUID] = Field(None, description="Role UID")
-    industry: Optional[UUID] = Field(None, description="Industry UID")
+    roles: Optional[List[UUID]] = None
+    industries: Optional[List[UUID]] = None
     languages: Optional[List[UUID]] = None
-    educational_level: Optional[UUID] = None
+    educational_levels: Optional[List[UUID]] = None
     work_structure: Optional[WorkStructureEnum] = None
     skills: Optional[List[UUID]] = None
+    locations: Optional[List[str]] = None
+    
 
     class Meta:
         model = TalentFilter
-        fields = ["location", "maximum_notice_period"]
+        fields = ["maximum_notice_period"]
         optional_fields = fields
 
     def get_queryset(self, queryset=None):
-        if queryset is None:
-            queryset = Talent.objects.all()
-        if self.role:
-            ids = Experience.objects.filter(role__uid=self.role).only("talent_id").distinct("talent_id").values_list(
-                "talent_id", flat=True)
-            queryset = queryset.filter(id__in=ids)
-        if self.industry:
-            queryset = queryset.filter(skills__department__industry__uid=self.industry)
-        if self.location:
-            queryset = queryset.filter(Q(country__name__icontains=self.location) |
-                                       Q(state__name__icontains=self.location) | Q(city__name__icontains=self.location))
+        queryset = queryset or Talent.objects.all()
+        
+        # Filter by roles via Experience (subquery = optimal)
+        if self.roles:
+            queryset = queryset.filter(
+                id__in=Subquery(
+                    Experience.objects.filter(
+                        role__uid__in=self.roles
+                    ).values("talent_id").distinct()
+                )
+            )
+        
+        # Industries
+        if self.industries:
+            queryset = queryset.filter(
+                skills__department__industry__uid__in=self.industries
+            )
+        
+        # Locations (vectorized, no loop)
+        if self.locations:
+            self.locations = list(map(lambda x: str(x).lower(), self.locations))
+            queryset = queryset.annotate(
+                country_name=Lower("country__name")
+            ).filter(country_name__in=self.locations)
+        
+        # Languages
         if self.languages:
-            queryset = queryset.filter(Q(native_language__uid__in=self.languages) |
-                                       Q(additional_languages__uid__in=self.languages))
-        if self.educational_level:
-            ids = Education.objects.filter(level__uid=self.educational_level).only("talent_id").distinct(
-                "talent_id").values_list("talent_id", flat=True)
-            queryset = queryset.filter(id__in=ids)
+            queryset = queryset.filter(
+                Q(native_language__uid__in=self.languages) |
+                Q(additional_languages__uid__in=self.languages)
+            )
+        
+        # Education levels
+        if self.educational_levels:
+            queryset = queryset.filter(
+                id__in=Subquery(
+                    Education.objects.filter(
+                        level__uid__in=self.educational_levels
+                    ).values("talent_id").distinct()
+                )
+            )
+        
+        # Work preference
         if self.work_structure:
-            queryset = queryset.filter(work_models__contains=[self.work_structure.value])
+            queryset = queryset.filter(
+                work_models__contains=[self.work_structure.value]
+            )
+        
+        # Skills
         if self.skills:
             queryset = queryset.filter(skills__uid__in=self.skills)
+        
+        # Notice period
         if self.maximum_notice_period:
             queryset = queryset.filter(notice_period__lte=self.maximum_notice_period)
-        return queryset
+        
+        return queryset.distinct()
 
     def to_url_params(self, start=True):
         params = ""
         get_sign =  lambda : "&" if "?" in params else "?" if start is True else "&"
-        if self.role :
-            params += f"{get_sign()}role={self.role}"
-        if self.industry:
-            params += f"{get_sign()}industry={self.industry}"
+        if self.roles :
+            params += f"{get_sign()}roles={','.join(map(str, self.roles))}"
+        if self.industries:
+            params += f"{get_sign()}industries={','.join(map(str, self.industries))}"
         if self.languages:
             params += f"{get_sign()}languages={','.join(map(str,self.languages))}"
-        if self.educational_level:
-            params += f"{get_sign()}educational_level={self.educational_level}"
+        if self.educational_levels:
+            params += f"{get_sign()}educational_levels={','.join(map(str, self.educational_levels))}"
+        if self.locations:
+            params += f"{get_sign()}locations={','.join(map(str, self.locations))}"
         if self.work_structure:
             params += f"{get_sign()}work_structure={self.work_structure.value}"
         if self.skills:
@@ -382,30 +419,32 @@ class TalentFilterQuerySchema(ModelSchema):
         return params
 
 class MutateTalentFilterSchema(ModelSchema):
-    role: Optional[UUID] = Field(None, description="Role UID")
-    industry: Optional[UUID] = Field(None, description="Industry UID")
+    roles: Optional[List[UUID]] = None
+    industries: Optional[List[UUID]] = None
     languages: Optional[List[UUID]] = None
-    educational_level: Optional[UUID] = None
+    educational_levels: Optional[List[UUID]] = None
     work_structure: Optional[WorkStructureEnum] = None
     skills: Optional[List[UUID]] = None
+    locations: Optional[List[str]] = None
 
     class Meta:
         model = TalentFilter
-        fields = ["name", "location", "maximum_notice_period"]
+        fields = ["name", "maximum_notice_period"]
         optional_fields = fields
 
 
 
 class TalentFilterSchema(ModelSchema):
-    role: Optional[GenericNameAndUidSchema]
-    industry: Optional[GenericNameAndUidSchema]
+    roles: Optional[List[GenericNameAndUidSchema]]
+    industries: Optional[List[GenericNameAndUidSchema]]
     languages: Optional[List[GenericNameAndUidSchema]]
-    educational_level: Optional[EducationLevelSchema]
+    educational_levels: Optional[List[EducationLevelSchema]]
     skills: Optional[List[GenericNameAndUidSchema]]
+    locations: Optional[List[str]]
 
     class Meta:
         model = TalentFilter
-        fields = ["uid","name", "location", "maximum_notice_period", "work_structure"]
+        fields = ["uid","name", "maximum_notice_period", "work_structure"]
         optional_fields = fields
 
 class TalentFilterListSchema(ModelSchema):
