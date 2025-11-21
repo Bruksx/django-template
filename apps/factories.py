@@ -122,7 +122,7 @@ class UserFactory(BaseModelFactory):
     first_name = factory.Faker('first_name', )
     last_name = factory.Faker('last_name')
     gender = factory.Iterator(GenderType.values())
-    email  = factory.Sequence(lambda n: f'test_usery_{n}@example.com')
+    email  = factory.Sequence(lambda n: f'test_userx_{n}@example.com')
     phone_number = factory.LazyAttribute(lambda _: fake.phone_number()[:15])
     password = factory.Faker('password')
 

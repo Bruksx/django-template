@@ -15,7 +15,7 @@ from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySch
 from jobs.enums import WorkStructureEnum
 from jobs.schemas import JobLevelSchema, EmploymentTypeSchema, BusinessModelSchema
 
-from apps.core.schemas import GenericNameAndUidSchema
+from core.schemas import GenericNameAndUidSchema
 
 
 class DepartmentSchema(Schema):

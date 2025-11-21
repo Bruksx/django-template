@@ -2,7 +2,6 @@ from typing import List, Optional, Union
 
 from ninja import Field
 from ninja import Schema
-from pydantic_core.core_schema import AnySchema
 
 
 class Option(Schema):

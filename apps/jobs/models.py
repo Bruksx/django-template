@@ -234,21 +234,6 @@ class Job(BaseModel):
                 })
         return data
 
-
-    def get_indeed_available_days(self):
-        from jobs.schemas import JobAvailableDaySchema
-
-        data = list()
-        for value in Days.values():
-            availability = self.availableday_set.filter(day=value).first()
-            if availability:
-                data.append({
-                    "day": value,
-                    "availability": JobAvailableDaySchema.from_orm(availability).model_dump_json() if availability else None
-                })
-        return data
-
-
     def get_skills(self):
         from jobs.schemas import SkillSchema, JobSkillSchema
         from accounts.models import SkillCategory
@@ -624,10 +609,6 @@ class JobPost(BaseModel):
 
     def invited(self, talent):
         return JobInvite.objects.filter(job=self.job, talent=talent).exists()
-
-
-
-
 
 
 class JobPostMetrics(BaseModel):

@@ -20,11 +20,6 @@ def get_linkedin_job_posts_xml_pool(request, *args, **kwargs):
 def get_indeed_job_posts_xml_pool(request, *args, **kwargs):
     page = request.GET.get("page")
     page_size = request.GET.get("page-size")
-    stream = Source().to_xml_stream(page, page_size)
-    response = StreamingHttpResponse(stream, content_type="application/xml")
-    response["Transfer-Encoding"] = "chunked"
-    response["Cache-Control"] = "no-cache"
-    return response
-
+    return StreamingHttpResponse(Source.to_xml_stream(page, page_size), content_type="application/xml")
 
 
