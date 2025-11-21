@@ -158,7 +158,7 @@ def update_roles_and_department(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0084_auto_20251117_1725'),
+        ('accounts', '0083_role_custom_skill_custom'),
     ]
 
     operations = [
