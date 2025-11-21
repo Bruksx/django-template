@@ -21,7 +21,7 @@ from ninja_jwt.authentication import JWTAuth
 
 from core.models import State
 
-from apps.factories import CityFactory, StateFactory
+from apps.factories import CityFactory, StateFactory, UserFactory
 
 
 class CreateAccountTests(TestCase):
@@ -556,19 +556,20 @@ class DeleteTalentUserAccountTest2(TestCase):
     def setUp(self):
         self.url = "/"
         self.client = TestClient(router)
-
-        self.talent = TalentFactory.create()
+        self.user = UserFactory.create(email_verified=True, is_active=True)
+        self.user.set_password("pass123")
+        self.user.save()
+        self.talent = TalentFactory.create(user=self.user)
         self.business_user = BusinessUser.objects.order_by("?").first()
 
     def test_delete_talent_user_account(self):
         from jobs.models import SavedJob #noqa
         from accounts.models import Experience, Education #noqa
-
-        headers = {
-            "authorization": f"bearer {self.talent.user.token}"
+        data = {
+            "email": self.talent.user.email,
+            "password": "pass123",
         }
-
-        response = self.client.delete(self.url, headers=headers)
+        response = self.client.delete(self.url, json=data)
         self.assertEqual(response.status_code, 204)
         user = User.objects.filter(id=self.talent.user.id).first()
         self.assertIsNone(user)
