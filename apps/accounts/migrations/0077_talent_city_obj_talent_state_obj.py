@@ -15,11 +15,11 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='talent',
             name='city_obj',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='core.city'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='core.city'),
         ),
         migrations.AddField(
             model_name='talent',
             name='state_obj',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.CASCADE, to='core.state'),
+            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='core.state'),
         ),
     ]
