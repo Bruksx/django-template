@@ -390,14 +390,8 @@ class TalentFilterQuerySchema(ModelSchema):
         if self.locations:
             self.locations = list(map(lambda x: str(x).lower(), self.locations))
             queryset = queryset.annotate(
-                country_name=Lower("country__name"),
-                state_name=Lower("state__name"),
-                city_name=Lower("city__name")
-            ).filter(
-                Q(country_name__in=self.locations) |
-                Q(state_name__in=self.locations) |
-                Q(city_name__in=self.locations)
-            )
+                country_name=Lower("country__name")
+            ).filter(country_name__in=self.locations)
         
         # Languages
         if self.languages:
