@@ -18,7 +18,7 @@ def update_talent_filter(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0087_talentfilter_educational_levels_and_more'),
+        ('accounts', '0086_talentfilter_educational_levels_and_more'),
     ]
 
     operations = [

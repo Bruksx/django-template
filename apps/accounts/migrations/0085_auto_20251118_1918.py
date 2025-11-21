@@ -36,7 +36,7 @@ def fix_roles(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('accounts', '0085_auto_20251118_1726'),
+        ('accounts', '0084_auto_20251118_1726'),
     ]
 
     operations = [

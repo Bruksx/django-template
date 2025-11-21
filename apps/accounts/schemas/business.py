@@ -338,35 +338,6 @@ class TalentFilterQuerySchema(ModelSchema):
         fields = ["maximum_notice_period"]
         optional_fields = fields
 
-    # def get_queryset(self, queryset=None):
-    #     if queryset is None:
-    #         queryset = Talent.objects.all()
-    #     if self.roles:
-    #         ids = Experience.objects.filter(role__uid__in=self.roles).only("talent_id").distinct("talent_id").values_list(
-    #             "talent_id", flat=True)
-    #         queryset = queryset.filter(id__in=ids)
-    #     if self.industries:
-    #         queryset = queryset.filter(skills__department__industry__uid__in=self.industries)
-    #     if self.locations:
-    #         q = Q()
-    #         for s in self.locations:
-    #             q = q | Q(Q(country__name__icont=s) | Q(state__name__icontains=s) | Q(city__name__icontains=s))
-    #         queryset = queryset.filter(q)
-    #     if self.languages:
-    #         queryset = queryset.filter(Q(native_language__uid__in=self.languages) |
-    #                                    Q(additional_languages__uid__in=self.languages))
-    #     if self.educational_levels:
-    #         ids = Education.objects.filter(level__uid__in=self.educational_levels).only("talent_id").distinct(
-    #             "talent_id").values_list("talent_id", flat=True)
-    #         queryset = queryset.filter(id__in=ids)
-    #     if self.work_structure:
-    #         queryset = queryset.filter(work_models__contains=[self.work_structure.value])
-    #     if self.skills:
-    #         queryset = queryset.filter(skills__uid__in=self.skills)
-    #     if self.maximum_notice_period:
-    #         queryset = queryset.filter(notice_period__lte=self.maximum_notice_period)
-    #     return queryset
-    #
     def get_queryset(self, queryset=None):
         queryset = queryset or Talent.objects.all()
         
