@@ -7,6 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
+        ('accounts', '0088_remove_talentfilter_educational_level_and_more'),
         ('jobs', '0099_auto_20251120_1202'),
     ]
 
