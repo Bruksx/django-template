@@ -62,6 +62,10 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+    - name: Run migrations and tests
+      run: |
+        python manage.py test accounts --parallel
+
 
   deploy-staging:
     runs-on: ubuntu-latest
@@ -108,5 +112,10 @@ jobs:
             cd code/GTC-backend
             git pull
             pip install -r requirements.txt
-            python manage.py migrate accounts --fake
+            python manage.py migrate
+            python manage.py collectstatic --noinput
+            sudo systemctl restart gunicorn
+            sudo systemctl restart run_qcluster
+            sudo systemctl restart daphne
+            sudo systemctl restart nginx
           EOF
