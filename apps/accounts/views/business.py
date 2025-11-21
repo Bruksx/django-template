@@ -4,7 +4,7 @@ from typing import List, Optional
 from uuid import UUID
 
 from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
-    Skill, Role, BusinessClient
+    Skill, Role, BusinessClient, Industry, EducationLevel
 from core.models import Language
 from core.schemas import GenericNameAndUidSchema
 from django.db import transaction
@@ -494,11 +494,21 @@ def create_talent_filter(request, data: PatchDict[MutateTalentFilterSchema]):
         data["work_structure"] = data["work_structure"].value
     languages = data.pop("languages", None)
     skills = data.pop("skills", None)
+    roles = data.pop("roles", None)
+    industries = data.pop("industries", None)
+    levels = data.pop("educational_levels", None)
+    skills = data.pop("skills", None)
     if languages is not None:
         languages = Language.objects.filter(uid__in=languages)
+    if roles:
+        roles = Role.objects.filter(uid__in=roles)
+    if industries:
+        industries = Industry.objects.filter(uid__in=industries)
+    if levels:
+        levels = EducationLevel.objects.filter(uid__in=levels)
     if skills is not None:
         skills = Skill.objects.filter(uid__in=skills)
-
+    
     talent_filter = TalentFilter.objects.create(business_user=business_user, **data)
     if languages:
         talent_filter.languages.set(languages)
@@ -508,6 +518,18 @@ def create_talent_filter(request, data: PatchDict[MutateTalentFilterSchema]):
         talent_filter.skills.set(skills)
     else:
         talent_filter.skills.clear()
+    if levels:
+        talent_filter.educational_levels.set(levels)
+    else:
+        talent_filter.educational_levels.clear()
+    if roles:
+        talent_filter.roles.set(roles)
+    else:
+        talent_filter.roles.clear()
+    if industries:
+        talent_filter.industries.set(industries)
+    else:
+        talent_filter.industries.clear()
     talent_filter.save()
     return talent_filter
 
@@ -528,8 +550,18 @@ def update_talent_filter(request, talent_filter_uid: UUID, data: PatchDict[Mutat
         data["work_structure"] = data["work_structure"].value
     languages = data.pop("languages", None)
     skills = data.pop("skills", None)
+    roles = data.pop("roles", None)
+    industries = data.pop("industries", None)
+    levels = data.pop("educational_levels", None)
+    
     if languages is not None:
         languages = Language.objects.filter(uid__in=languages)
+    if roles:
+        roles = Role.objects.filter(uid__in=roles)
+    if industries:
+        industries = Industry.objects.filter(uid__in=industries)
+    if levels:
+        levels = EducationLevel.objects.filter(uid__in=levels)
     if skills is not None:
         skills = Skill.objects.filter(uid__in=skills)
 
@@ -542,6 +574,18 @@ def update_talent_filter(request, talent_filter_uid: UUID, data: PatchDict[Mutat
         talent_filter.skills.set(skills)
     else:
         talent_filter.skills.clear()
+    if levels:
+        talent_filter.educational_levels.set(levels)
+    else:
+        talent_filter.educational_levels.clear()
+    if roles:
+        talent_filter.roles.set(roles)
+    else:
+        talent_filter.roles.clear()
+    if industries:
+        talent_filter.industries.set(industries)
+    else:
+        talent_filter.industries.clear()
     talent_filter.save()
     return talent_filter
 

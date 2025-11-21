@@ -45,6 +45,7 @@ class GenderType(BaseEnum):
 class PreferredCommunicationType(BaseEnum):
     TEXT = "text"
     WHATSAPP = "whatsapp"
+    TELEGRAM = "telegram"
     VIBER = "viber"
     EMAIL = "email"
 
