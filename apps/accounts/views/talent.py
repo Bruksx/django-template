@@ -7,6 +7,8 @@ from accounts.models import Talent, TalentAvailableDay
 from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
+from auth.services import validate_login
+from auth.schema import LoginSchema
 from django.db import transaction
 from django.utils import timezone
 from ninja import Router, PatchDict, UploadedFile, File
@@ -298,9 +300,12 @@ def schedule_meeting(request, data: talent_schemas.ScheduleMeetingSchema):
 
     return meeting_response
 
-@router.delete("", auth=JWTAuth(), response={204: None})
+@router.delete("", response={204: None})
 @transaction.atomic
-def delete_account(request):
-    IsTalentUser.check(request)
-    request.user.delete_account()
+def delete_account(request, data: LoginSchema):
+    user: User = User.objects.filter(email=data.email).first()
+    validate_login(user)
+    if not user.check_password(data.password):
+        raise HttpError(400, "Incorrect Password")
+    user.delete_account()
     return Response(status=204, data={"message": "Account deleted successfully"})

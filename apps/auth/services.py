@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from django.db.models import Q
 from django.utils import timezone
 from google.oauth2 import id_token

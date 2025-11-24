@@ -49,6 +49,10 @@ class ResetPasswordSchema(Schema):
     password: str
 
 
+class PasswordSchema(Schema):
+    password: str
+
+
 @dataclass
 class Locale:
     country: str
