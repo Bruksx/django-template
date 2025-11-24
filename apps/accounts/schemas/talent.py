@@ -196,6 +196,7 @@ class TalentUserSchema(ModelSchema):
     additional_skills: List[str]
     address: str = Field(alias="get_address")
     years_of_experience: str = Field(alias="get_years_of_experience")
+    is_profile_completed: bool
 
 
     class Meta:
@@ -205,6 +206,10 @@ class TalentUserSchema(ModelSchema):
     @staticmethod
     def resolve_skills(obj):
         return obj.get_skills()
+    
+    @staticmethod
+    def resolve_is_profile_completed(obj):
+        return obj.is_profile_completed()
 
     @staticmethod
     def resolve_availability(obj):
@@ -270,9 +275,15 @@ class TalentUserListSchema(ModelSchema):
     phone_code: Optional[str] = None
     photo_url:Optional[str]
     cv_url:Optional[str]
+    is_profile_completed: bool
+    
     class Meta:
         model = Talent
         fields = ("uid", "years_of_experience",  )
+    
+    @staticmethod
+    def resolve_is_profile_completed(obj):
+        return obj.is_profile_completed()
 
 
 class CompleteTalentProfileSchema(ModelSchema):
