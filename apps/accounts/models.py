@@ -1,3 +1,4 @@
+import logging
 import random
 import random
 import secrets
@@ -545,7 +546,7 @@ class Talent(BaseModel):
         self.delete()
         
     def is_profile_completed(self):
-        return (self.education_set.count() > 0 and
+        return bool(self.education_set.count() > 0 and
         self.experience_set.count() > 0 and
         self.country and
         self.state and
@@ -557,7 +558,7 @@ class Talent(BaseModel):
         self.additional_skills and
         self.skills.count() > 0 and
         self.photo and
-        self.cv )
+        self.cv)
 
 
 class BusinessIndustry(BaseModel):
