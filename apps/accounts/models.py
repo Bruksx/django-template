@@ -547,7 +547,7 @@ class Talent(BaseModel):
         self.delete()
         
     def is_profile_completed(self):
-        return (self.education_set.exists() and
+        return bool(self.education_set.exists() and
         self.experience_set.exists() and
         bool(self.country) and
         bool(self.state) and
@@ -555,7 +555,7 @@ class Talent(BaseModel):
         bool(self.bio) and
         bool(self.linkedin) and
         bool(self.notice_period) and
-        self.additional_skills and
+        bool(self.additional_skills or list()) and
         self.skills.exists() and
         bool(self.photo) and
         bool(self.cv))
