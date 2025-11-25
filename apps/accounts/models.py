@@ -555,7 +555,6 @@ class Talent(BaseModel):
         bool(self.bio) and
         bool(self.linkedin) and
         bool(self.notice_period) and
-        bool(self.additional_skills or list()) and
         self.skills.exists() and
         bool(self.photo) and
         bool(self.cv))
@@ -577,8 +576,6 @@ class Talent(BaseModel):
             raise ValidationError("LinkedIn profile link is required.")
         if not self.notice_period:
             raise ValidationError("Notice period is required.")
-        if not self.additional_skills:
-            raise ValidationError("Additional skills are required.")
         if not self.skills.exists():
             raise ValidationError("At least one skill is required.")
         if not self.photo:
