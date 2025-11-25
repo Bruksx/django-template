@@ -150,7 +150,7 @@ class JobBase:
 			benefits = ", ".join(job_post.benefits) if isinstance(job_post.benefits, list) else job_post.benefits
 			salary_parts.append(f"Benefits: {benefits}")
 		if job.lunch_break and job.lunch_break_time:
-			salary_parts.append(f"Break: {str(job.lunch_break).title()} • {job.lunch_break_time} mins")
+			salary_parts.append(f"Break: {str(job.lunch_break).title()}, {job.lunch_break_time} mins")
 
 		if salary_parts:
 			parts.append("SALARY & BENEFITS\n")
