@@ -105,12 +105,6 @@ def experience_level_mapper(experience_level):
 
 def get_description(job_post, job) -> str:
 	parts = []
-
-	# About Company
-	if job.hiring_company_description:
-		parts.append("About the Company\n")
-		parts.append(f"{job.hiring_company_description.strip()}\n\n\n")
-
 	# About Job
 	if job.about:
 		parts.append("About the Job\n")
@@ -120,7 +114,7 @@ def get_description(job_post, job) -> str:
 	details = []
 	if job.employment_type: details.append(f"Employment Type: {job.employment_type.name}")
 	if job.department: details.append(f"Department: {job.department.name}")
-	if job.job_level: details.append(f"Job Level: {job.job_level.name}")
+	if job.job_level: details.append(f"Job Level: {str(job.job_level.name).title()}")
 	if job.years_of_experience: details.append(f"Experience: {job.years_of_experience} Years")
 	if job.business_models.exists():
 		details.append(f"Business Model: {', '.join(bm.name for bm in job.business_models.all())}")
@@ -168,16 +162,16 @@ def get_description(job_post, job) -> str:
 	salary_parts = []
 	if job_post.salary_min and job_post.salary_max:
 		cur = job_post.salary_currency.symbol if job_post.salary_currency else "$"
-		salary_parts.append(f"Pay: {job_post.salary_type} • {cur} {job_post.salary_min}–{job_post.salary_max}")
+		salary_parts.append(f"Pay: {job_post.salary_type}, {cur} {job_post.salary_min}–{job_post.salary_max}")
 	if job_post.salary_bonus_min and job_post.salary_bonus_max:
 		cur = job_post.salary_bonus_currency.symbol if job_post.salary_bonus_currency else "$"
 		salary_parts.append(
-			f"Bonus: {job_post.salary_bonus_type} • {cur} {job_post.salary_bonus_min}–{job_post.salary_bonus_max}")
+			f"Bonus: {job_post.salary_bonus_type}, {cur} {job_post.salary_bonus_min}–{job_post.salary_bonus_max}")
 	if job_post.benefits:
 		benefits = ", ".join(job_post.benefits) if isinstance(job_post.benefits, list) else job_post.benefits
 		salary_parts.append(f"Benefits: {benefits}")
 	if job.lunch_break and job.lunch_break_time:
-		salary_parts.append(f"Break: {job.lunch_break} • {job.lunch_break_time} mins")
+		salary_parts.append(f"Break: {str(job.lunch_break).title()}, {job.lunch_break_time} mins")
 
 	if salary_parts:
 		parts.append("Salary & Benefits\n")
@@ -199,7 +193,11 @@ def get_description(job_post, job) -> str:
 	# Tech + Language
 	extra = []
 	if job.technological_requirement:
-		extra.append(f"Tech Requirements: {job.technological_requirement}")
+		if str(job.technological_requirement).lower() == "either":
+			value = "Windows or Mac"
+		else:
+			value = str(job.technological_requirement).title()
+		extra.append(f"Tech Requirements: {value}")
 	if job.first_language:
 		extra.append(f"Language: {job.first_language.name}")
 	if extra:
@@ -207,6 +205,11 @@ def get_description(job_post, job) -> str:
 		for e in extra:
 			parts.append(f"  • {e}\n")
 		parts.append("\n\n")
+		
+	# About Company
+	if job.hiring_company_description:
+		parts.append("About the Company\n")
+		parts.append(f"{job.hiring_company_description.strip()}\n\n\n")
 
 	return "".join(parts)
 
