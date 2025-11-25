@@ -16,6 +16,7 @@ from core.models import BaseModel, State, City
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q, Count, F, Value, Avg, IntegerField, Exists, OuterRef, Sum, When, Case
 from django.db.models.functions import Concat, Cast, Round
@@ -546,21 +547,44 @@ class Talent(BaseModel):
         self.delete()
         
     def is_profile_completed(self):
-        return bool(self.education_set.count() > 0 and
-        self.experience_set.count() > 0 and
-        self.country and
-        self.state and
-        self.city and
-        self.postal_code and
-        self.bio and
-        self.linkedin and
-        self.notice_period and
+        return (self.education_set.exists() and
+        self.experience_set.exists() and
+        bool(self.country) and
+        bool(self.state) and
+        bool(self.postal_code) and
+        bool(self.bio) and
+        bool(self.linkedin) and
+        bool(self.notice_period) and
         self.additional_skills and
-        self.skills.count() > 0 and
-        self.photo and
-        self.cv)
-
-
+        self.skills.exists() and
+        bool(self.photo) and
+        bool(self.cv))
+    
+    def validate_profile_completed(self):
+        if not self.education_set.exists():
+            raise ValidationError("Education is required.")
+        if not self.experience_set.exists():
+            raise ValidationError("Experience is required.")
+        if not self.country:
+            raise ValidationError("Country is required.")
+        if not self.state:
+            raise ValidationError("State is required.")
+        if not self.postal_code:
+            raise ValidationError("Postal code is required.")
+        if not self.bio:
+            raise ValidationError("Bio is required.")
+        if not self.linkedin:
+            raise ValidationError("LinkedIn profile link is required.")
+        if not self.notice_period:
+            raise ValidationError("Notice period is required.")
+        if not self.additional_skills:
+            raise ValidationError("Additional skills are required.")
+        if not self.skills.exists():
+            raise ValidationError("At least one skill is required.")
+        if not self.photo:
+            raise ValidationError("Profile photo is required.")
+        if not self.cv:
+            raise ValidationError("CV upload is required.")
 class BusinessIndustry(BaseModel):
     name = models.CharField(max_length=128)
 
