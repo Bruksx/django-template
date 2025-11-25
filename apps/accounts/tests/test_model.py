@@ -2,11 +2,12 @@ from collections.abc import Iterable
 from datetime import date, timezone, datetime
 from decimal import Decimal
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
 from accounts.enums import BusinessUserRoleType, Days
 from accounts.models import User, Talent, Skill, Department, Experience, Role, Education, EducationLevel, \
-    BusinessUser, Business, Country, TalentAvailableDay, BusinessIndustry
+    BusinessUser, Business, Country, TalentAvailableDay, BusinessIndustry, State, City
 from accounts.schemas.talent import TalentSkillSchema, MonthlyChartSchema, TalentAvailableDaySchema
 from chats.models import Conversation, Message
 from core.models import Currency
@@ -16,6 +17,7 @@ from factories import JobPostFactory, TalentFactory, JobApplicationFactory, JobA
 from jobs.enums import LunchBreakEnum, WorkStructureEnum, PhaseType, JobStatusType
 from jobs.models import JobLevel, EmploymentType, Job, JobPost, RequiredAttribute, BusinessModel, AvailableDay, \
     JobApplication, JobInterview, SavedJob
+from pyasn1_modules.rfc5280 import postal_code
 
 from settings.models import WorkFlowStage
 
@@ -37,6 +39,9 @@ class TalentModelTest(TestCase):
             ]
         )
         self.department = Department.objects.first()
+        self.country = Country.objects.first()
+        self.state = State.objects.first()
+        self.city = City.objects.first()
         self.role = Role.objects.first()
         self.currency = Currency.objects.first()
         self.job_level = JobLevel.objects.first()
@@ -60,8 +65,20 @@ class TalentModelTest(TestCase):
             phone_number="909889999"
         )
         self.talent = Talent.objects.create(
-            user=self.user
+            user=self.user,
+            country=self.country,
+            state=self.state,
+            city=self.city,
+            postal_code="po 12345",
+            bio="hello",
+            linkedin="https://loklo@linkedin.com",
+            notice_period=1,
+            additional_skills=["django", "css"],
         )
+        self.talent.photo = SimpleUploadedFile("t.jpg", b'rggggg', "image/jpg")
+        self.talent.cv = SimpleUploadedFile("c.pdf", b'rggggg', "application/pdf")
+        
+        self.talent.save()
         self.business = Business.objects.create(
             created_by=self.user2,
             name="Example Business",
@@ -181,6 +198,11 @@ class TalentModelTest(TestCase):
             body="Hello"
 
         )
+        
+    def test_is_profile_completed(self):
+        self.talent.validate_profile_completed()
+        self.assertTrue(self.talent.is_profile_completed())
+       
 
     def test_get_skills(self):
         skills = self.talent.get_skills()
