@@ -162,11 +162,11 @@ def get_description(job_post, job) -> str:
 	salary_parts = []
 	if job_post.salary_min and job_post.salary_max:
 		cur = job_post.salary_currency.symbol if job_post.salary_currency else "$"
-		salary_parts.append(f"Pay: {job_post.salary_type}, {cur} {job_post.salary_min}–{job_post.salary_max}")
+		salary_parts.append(f"Pay: {job_post.salary_type}, {cur} {job_post.salary_min} – {job_post.salary_max}")
 	if job_post.salary_bonus_min and job_post.salary_bonus_max:
 		cur = job_post.salary_bonus_currency.symbol if job_post.salary_bonus_currency else "$"
 		salary_parts.append(
-			f"Bonus: {job_post.salary_bonus_type}, {cur} {job_post.salary_bonus_min}–{job_post.salary_bonus_max}")
+			f"Bonus: {job_post.salary_bonus_type}, {cur} {job_post.salary_bonus_min} – {job_post.salary_bonus_max}")
 	if job_post.benefits:
 		benefits = ", ".join(job_post.benefits) if isinstance(job_post.benefits, list) else job_post.benefits
 		salary_parts.append(f"Benefits: {benefits}")
