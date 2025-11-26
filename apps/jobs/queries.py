@@ -817,7 +817,7 @@ def add_talent_match_score(queryset: QuerySet[Talent], job_post:JobPost) -> Quer
         ),
         role_score=Case(
             When(
-                Q(matching_role=True),
+                Q(Q(matching_role=True)|Q(prev_matching_role=True)),
                 then=Value(6.67)
             ),
             default=Value(0.0),
@@ -1058,6 +1058,7 @@ def add_talent_match_score(queryset: QuerySet[Talent], job_post:JobPost) -> Quer
             required_attribute_subquery.filter(first_language=True),
         ),
         first_language_score=Case(
+            When(requires_first_language=False, then=6.67),
             When(native_language=job_post.job.first_language, then=Value(6.67),
                  ),
             When(~Q(native_language=job_post.job.first_language), then=Value(0.0)),
