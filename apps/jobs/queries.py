@@ -1094,9 +1094,9 @@ def add_talent_match_score(queryset: QuerySet[Talent], job_post:JobPost) -> Quer
         )
     ).annotate(
         available_days_count=Subquery(
-            AvailableDay.objects
-                .filter(job=job_post.job)
-                .values("job_id")             # group by job
+            TalentAvailableDay.objects
+                .filter(talent_id=OuterRef('id'))
+                .values("talent_id")             # group by job
                 .annotate(count=Count("id"))  # count rows
                 .values("count")[:1]          # return the count
         ),
