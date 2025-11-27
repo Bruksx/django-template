@@ -1,36 +1,32 @@
 import uuid
+from datetime import time
+from decimal import Decimal, ROUND_HALF_UP
 from random import choice
 from uuid import uuid4
-from decimal import Decimal, ROUND_HALF_UP
-from datetime import time
 
+from django.db import models
+from django.test import TestCase
+from django.utils import timezone
+from future.backports.datetime import timedelta
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
+
+from accounts.enums import Days
 from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent, \
     EducationLevel, SkillCategory, Experience, TalentAvailableDay
-from accounts.enums import Days
+from core.models import City, State
 from core.models import Currency
-from django.test import TestCase
-from django.db import models
-from django.utils import timezone
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
-    JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, SkillFactory, BusinessModelFactory, \
-    CountryFactory, ScreeningQuestionFactory, AnswerFactory, CurrencyFactory, ExperienceFactory
-from future.backports.datetime import timedelta
-from jobs.business_views import router, job_list
+    JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, CountryFactory, ScreeningQuestionFactory, \
+    AnswerFactory, CurrencyFactory, ExperienceFactory
+from jobs.business_views import router
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
     BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage
 )
-from jobs.queries import add_application_match_score, add_talent_match_score
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
-
+from jobs.queries import add_application_match_score
 from settings.models import WorkFlowStage
-
-from core.models import City, State
-
-from apps.factories import EducationFactory
-from jobs.queries import add_job_post_annotations
 
 
 class EmploymentTypeListTests(TestCase):

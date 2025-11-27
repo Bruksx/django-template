@@ -1,4 +1,3 @@
-from accounts.models import Talent, SkillCategory, Experience, Education, TalentAvailableDay
 from django.db.models import (
     OuterRef, Exists, Case, When, Value, FloatField, Q, F, ExpressionWrapper, Count, Subquery, IntegerField,
     BooleanField, CharField
@@ -6,10 +5,10 @@ from django.db.models import (
 from django.db.models.functions import Coalesce, Cast
 from django.db.models.query import QuerySet
 
+from accounts.models import Talent, SkillCategory, Experience, Education, TalentAvailableDay
 from jobs.models import (
     JobPost, RequiredAttribute, RequiredSecondaryLanguage, RequiredSkill, JobApplication, Job, AvailableDay,
 )
-from twisted.web.html import output
 
 
 def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> QuerySet[JobPost]:
@@ -780,7 +779,6 @@ def add_talent_match_score(queryset: QuerySet[Talent], job_post:JobPost) -> Quer
     TalentSkill = Talent.skills.through
     JobSkill = Job.skills.through
     TalentBusinessModel = Talent.business_models.through
-    RequiredBusinessModel = RequiredAttribute.business_models.through
     JobBusinessModel = Job.business_models.through
     ApplicantAdditionalLanguage = Talent.additional_languages.through
     required_attribute = job_post.job.requiredattribute
