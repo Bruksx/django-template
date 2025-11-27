@@ -937,6 +937,7 @@ class JobApplicationListSchema(ModelSchema):
     match:int
     phase:str
     stage:Optional[str] = None
+    stage_uid:Optional[UUID] = None
     applicant_uid: UUID = Field(alias="applicant.uid")
     applicant: str = Field(alias="applicant.user.fullname")
     applicant_location: Optional[str] = Field(None, alias="applicant.get_country")
@@ -964,6 +965,12 @@ class JobApplicationListSchema(ModelSchema):
         if not obj.stage:
             return
         return obj.stage.name
+    
+    @staticmethod
+    def resolve_stage_uid(obj):
+        if not obj.stage:
+            return
+        return obj.stage.uid
 
     @staticmethod
     def resolve_phase(obj):
