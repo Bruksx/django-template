@@ -128,6 +128,8 @@ def bulk_delete_workflow_stage(request, stage_uids:List[UUID]):
             raise HttpError(400, f"This workflow stage '{stage.name}' is still active")
         if stage.jobapplication_set.count() > 0:
             raise HttpError(400, f"This workflow stage '{stage.name}' has job applications")
+        if stage.phase in (PhaseType.NEW.value, PhaseType.HIRED.value, PhaseType.REJECTED.value):
+            raise HttpError(400, f"This workflow stage '{stage.name}' is a default stage ")
     stages.delete()
     return Response(status=204, data={"message": "workflow stage has been deleted successfully"})
 
