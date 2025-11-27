@@ -8,9 +8,9 @@ def  update_stages(apps, schema_editor):
     from accounts.services import create_business_workflows
     from jobs.enums import PhaseType
     
-    Business = apps.from_model("accounts", "Business")
-    WorkFlowStage = apps.from_model("settings", "WorkFlowStage")
-    JobApplication = apps.from_model("jobs", "JobApplication")
+    Business = apps.get_model("accounts", "Business")
+    WorkFlowStage = apps.get_model("settings", "WorkFlowStage")
+    JobApplication = apps.get_model("jobs", "JobApplication")
     
     for business in Business.objects.only("id").iterator():
         create_business_workflows(business.id)
