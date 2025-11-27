@@ -967,7 +967,7 @@ class JobApplicationListSchema(ModelSchema):
         return obj.stage.name
     
     @staticmethod
-    def resolve_stage_id(obj):
+    def resolve_stage_uid(obj):
         if not obj.stage:
             return
         return obj.stage.uid
