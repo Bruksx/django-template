@@ -330,4 +330,4 @@ def get_talents_by_job_posts_service(request, job_post, search):
         query = query & q
     talents = job_post.get_talents()
     send_talents_job_matching_notification(talents.count(), job_post)
-    return talents.filter(query).order_by("-user__last_login")
+    return talents.filter(query)
