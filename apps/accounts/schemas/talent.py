@@ -116,7 +116,7 @@ class UpdateTalentProfileSchema2(ModelSchema):
     phone_number: Optional[str] = None
     country: Optional[UUID] = None
     state: Optional[UUID] = None
-    city: Optional[UUID] = None
+    city: Optional[str] = None
     role: Optional[UUID] = None
     employment_types: Optional[List[UUID]] = None
     postal_code: Optional[str] = None
@@ -180,7 +180,7 @@ class TalentUserSchema(ModelSchema):
     user: UserSchema
     role: Optional[RoleSchema]
     country: Optional[CountrySchema]
-    city: Optional[GenericNameAndUidSchema]
+    city: Optional[str]
     state: Optional[GenericNameAndUidSchema]
     employment_types: Optional[List[EmploymentTypeSchema]]
     work_models: Optional[List[WorkStructureEnum]]

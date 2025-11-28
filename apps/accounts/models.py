@@ -223,7 +223,7 @@ class Talent(BaseModel):
     viber_number = models.CharField(max_length=50, null=True)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
     state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True)
-    city = models.ForeignKey(City, on_delete=models.SET_NULL, null=True)
+    city = models.CharField(max_length=200, null=True)
     address = models.CharField(max_length=128, null=True)
     postal_code = models.CharField(max_length=20, null=True)
     employment_types = models.ManyToManyField('jobs.EmploymentType', blank=True)
@@ -259,7 +259,7 @@ class Talent(BaseModel):
         #     data.append(self.address)
 
         if self.city:
-            data.append(self.city.name)
+            data.append(self.city)
         if self.state:
             data.append(self.state.name)
         if self.country:
