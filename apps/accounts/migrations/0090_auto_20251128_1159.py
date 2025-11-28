@@ -9,9 +9,11 @@ def update_city_text(apps, schema_editor):
     JobPost = apps.get_model("jobs", "JobPost")
     
     for talent in Talent.objects.filter(city__isnull=False).iterator():
-        talent.update(city_text=talent.city.name)
+        talent.city_text=talent.city.name
+        talent.save()
     for job_post in JobPost.objects.filter(city__isnull=False).iterator():
-        job_post.update(city_text=job_post.city.name)
+        job_post.city_text=job_post.city.name
+        job_post.save()
     
     
 class Migration(migrations.Migration):
