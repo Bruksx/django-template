@@ -196,7 +196,7 @@ class DashboardSchema(ModelSchema):
     def resolve_applicant_gender(obj, context):
         data = dict(total_applicants=0, data=list())
         try:
-            data["total_Rapplicants"], data["data"] = obj.applicants_by_gender(
+            data["total_applicants"], data["data"] = obj.applicants_by_gender(
                 **DashboardSchema.get_context(obj, context)
             )
             print(data)

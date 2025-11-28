@@ -17,7 +17,6 @@ from factories import JobPostFactory, TalentFactory, JobApplicationFactory, JobA
 from jobs.enums import LunchBreakEnum, WorkStructureEnum, PhaseType, JobStatusType
 from jobs.models import JobLevel, EmploymentType, Job, JobPost, RequiredAttribute, BusinessModel, AvailableDay, \
     JobApplication, JobInterview, SavedJob
-from pyasn1_modules.rfc5280 import postal_code
 
 from settings.models import WorkFlowStage
 

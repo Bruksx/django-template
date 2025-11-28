@@ -20,6 +20,4 @@ def create_business_workflows(business_id):
 
 
 
-"""
-create major stages for businesses
-"""
+

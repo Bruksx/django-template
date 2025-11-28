@@ -515,7 +515,6 @@ class BulkDeleteWorkflowStageTest(TestCase):
             "authorization": f"Bearer {self.business_user.user.token}"
         }
         response = self.client.delete(self.url, json=self.test_data, headers=headers)
-        print("response: ", response.content)
         self.assertEqual(response.status_code, 204)
         self.assertEqual(WorkFlowStage.objects.filter(created_by=self.business_user).count(), 3)
 
