@@ -68,7 +68,7 @@ class TalentModelTest(TestCase):
             user=self.user,
             country=self.country,
             state=self.state,
-            city=self.city,
+            city=self.city.name,
             postal_code="po 12345",
             bio="hello",
             linkedin="https://loklo@linkedin.com",

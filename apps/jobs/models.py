@@ -270,7 +270,7 @@ class JobPost(BaseModel):
     )
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     province = models.ForeignKey("core.State", on_delete=models.SET_NULL, null=True)
-    city = models.ForeignKey("core.City", on_delete=models.SET_NULL, null=True)
+    city = models.CharField(max_length=200, null=True)
     postal_code = models.CharField(max_length=20, null=True)
     benefits = models.JSONField(default=list, blank=True)
     share_compensation = models.BooleanField(default=True)
@@ -318,6 +318,8 @@ class JobPost(BaseModel):
                                   , null=True)
     edited_at = models.DateTimeField(null=True)
     
+    promotion_code = models.CharField(max_length=200, null=True, blank=True)
+    
     def copy(self):
         return JobPost.objects.create(
             job=self.job,
@@ -341,7 +343,7 @@ class JobPost(BaseModel):
     def get_location(self):
         data = list()
         if self.city:
-            data.append(self.city.name)
+            data.append(self.city)
         if self.province:
             data.append(self.province.name)
         if self.country:
@@ -365,9 +367,7 @@ class JobPost(BaseModel):
         return self.province.name
 
     def get_city(self):
-        if not self.city:
-            return
-        return self.city.name
+        return self.city
 
     def get_talents(self, queryset=None):
         from jobs.queries import add_talent_match_score

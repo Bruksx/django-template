@@ -284,7 +284,7 @@ class JobPostFactory(BaseModelFactory):
     country = factory.SubFactory(CountryFactory)
     recruiter = factory.SubFactory(BusinessUserFactory)
     province = factory.SubFactory(StateFactory)
-    city = factory.SubFactory(CityFactory)
+    city = factory.Faker('city')
     postal_code = factory.Faker('postcode')
     salary_min = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)
     salary_max = factory.Faker("pydecimal", left_digits=6, right_digits=2, positive=True)

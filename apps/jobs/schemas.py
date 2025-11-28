@@ -73,7 +73,7 @@ class JobAvailabilitySchema(Schema):
 
 class MutateJobPostSchema(ModelSchema):
     country: Optional[UUID] = None
-    city: Optional[UUID] = None
+    city: Optional[str] = None
     province: Optional[UUID] = None
     benefits: List[str]
     recruiter: Optional[UUID] = None
@@ -91,7 +91,7 @@ class MutateJobPostSchema(ModelSchema):
 
 class UpdateJobPostSchema(ModelSchema):
     country: Optional[UUID] = None
-    city: Optional[UUID] = None
+    city: Optional[str] = None
     province: Optional[UUID] = None
     uid: Optional[UUID] = None
     benefits: List[str]
@@ -110,7 +110,7 @@ class UpdateJobPostSchema(ModelSchema):
 
 class MutateJobPostListSchema(ModelSchema):
     country: Optional[GenericNameAndUidSchema] = None
-    city: Optional[GenericNameAndUidSchema] = None
+    city: Optional[str] = None
     province: Optional[GenericNameAndUidSchema] = None
     recruiter: Optional[BusinessUserListSchema]
     benefits: List[str]
@@ -452,12 +452,12 @@ class JobPostDetailSchema(ModelSchema):
     saved: Optional[bool]
     alert: Optional[bool]
     applied: Optional[bool]
-    city: GenericNameAndUidSchema | None
+    city: str | None
     province: GenericNameAndUidSchema | None
 
     class Meta:
         model = JobPost
-        fields = ["uid",  "postal_code", "status", "share_compensation", "created_at", "date_posted", "salary_type", "salary_bonus_type"]
+        fields = ["uid",  "postal_code", "status", "promotion_code", "share_compensation", "created_at", "date_posted", "salary_type", "salary_bonus_type"]
 
     @staticmethod
     def resolve_salary_bonus_currency(obj):
@@ -618,7 +618,7 @@ class JobPostListSchema(ModelSchema):
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "created_at", "date_posted", "share_compensation", "last_refreshed", "salary_type", "salary_bonus_type"]
+        fields = ["uid", "status", "created_at", "promotion_code", "date_posted", "share_compensation", "last_refreshed", "salary_type", "salary_bonus_type"]
 
 
     @staticmethod
@@ -836,14 +836,14 @@ class JobPostFullDetailSchema(ModelSchema):
     benefits: List[str] = list()
     saved: Optional[bool] = None
     alert: Optional[bool] = None
-    city: Optional[GenericNameAndUidSchema] = None
+    city: Optional[str] = None
     province: Optional[GenericNameAndUidSchema] = None
 
 
     class Meta:
         model = JobPost
         fields = ["uid", "status", "created_at",  "postal_code", "date_posted",
-                  "share_compensation", "salary_type", "salary_bonus_type", "edited_at"]
+                  "share_compensation", "salary_type", "salary_bonus_type", "edited_at", "promotion_code"]
 
     @staticmethod
     def resolve_saved(obj, context):
@@ -1058,7 +1058,7 @@ class TalentJobPostListSchema(ModelSchema):
     application_uid: Optional[UUID]
     stage: Optional[StageSchema]
     invited: bool
-    city: Optional[GenericNameAndUidSchema] = None
+    city: Optional[str] = None
     province: Optional[GenericNameAndUidSchema] = None
     match_obj: Optional[MatchScoreSchema] = None
     date_saved: Optional[datetime] = None
@@ -1351,7 +1351,7 @@ class BusinessJobFilterQuerySchema(Schema):
     clients: Optional[str] = Field("", description="comma separated clients")
     country: Optional[str] = Field(None, description="country uuid")
     province: Optional[str] = Field(None, description="province uuid")
-    city: Optional[str] = Field(None, description="city uuid")
+    city: Optional[str] = Field(None, description="city name")
     status: Optional[str] = Field(None, description=f"status enums:  {', '.join(JobStatusType.values())}")
     statuses: Optional[str] = Field("", description=f"comma separated status type  enums: {', '.join(JobStatusType.values())}")
     recruiter: Optional[str] = Field("", description="comma separated recruiter uuids")
@@ -1366,7 +1366,7 @@ class BusinessJobFilterQuerySchema(Schema):
             country=self.country,
             status=self.status,
             province=self.province,
-            city=self.city,
+            city=self.city.name if self.city else None,
             statuses=self.statuses.split(",") if self.statuses else [],
             recruiter=self.recruiter.split(",") if self.recruiter else [],
             posted_by=self.posted_by.split(",") if self.posted_by else []
@@ -1380,7 +1380,7 @@ class BusinessJobFilterSchema(Schema):
     status: Optional[JobStatusType] = None
     country: Optional[UUID] = None
     province: Optional[UUID] = None
-    city: Optional[UUID] = None
+    city: Optional[str] = None
     recruiter: Optional[List[UUID]] = []
     posted_by: Optional[List[UUID]] = []
 
@@ -1417,7 +1417,7 @@ class BusinessJobFilterSchema(Schema):
             queryset = queryset.filter(jobpost__province__uid=self.province)
 
         if self.city:
-            queryset = queryset.filter(jobpost__city__uid=self.city)
+            queryset = queryset.filter(jobpost__city__iexact=self.city)
 
         if self.clients:
             queryset = queryset.filter(hiring_company_name__in=self.clients)
@@ -1474,7 +1474,7 @@ class BusinessJobFilterSchema(Schema):
         if context.get("province"):
             queryset = queryset.filter(province__uid=context.get("province"))
         if context.get("city"):
-            queryset = queryset.filter(city__uid=context.get("city"))
+            queryset = queryset.filter(city__iexact=context.get("city"))
         if context.get("statuses"):
             queryset = queryset.filter(status__in=context.get("statuses"))
         if context.get("recruiter"):

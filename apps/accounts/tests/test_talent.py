@@ -152,7 +152,7 @@ class UpdateTalentProfileTests(TestCase):
           "phone_number": "+15551234567",
           "country": str(self.country.uid),
           "state": str(self.state.uid),
-          "city": str(self.city.uid),
+          "city": str(self.city.name),
           "postal_code": "90001",
           "whatsapp_number": "+15559876543",
           "viber_number": "",
@@ -226,7 +226,7 @@ class UpdateTalentProfileTests(TestCase):
         self.assertEqual(self.talent.user.phone_number, "+15551234567")
         self.assertEqual(self.talent.country, self.country)
         self.assertEqual(self.talent.state, self.state)
-        self.assertEqual(self.talent.city, self.city)
+        self.assertEqual(self.talent.city, self.city.name)
         self.assertEqual(self.talent.postal_code, "90001")
         self.assertEqual(self.talent.whatsapp_number, "+15559876543")
         self.assertEqual(self.talent.viber_number, "")

@@ -293,7 +293,7 @@ def bulk_job_post_update(request, data: BulkJobPostSchema):
 def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    job = Job.objects.filter(uid=job_uid, created_by=business_user).first()
+    job = Job.objects.filter(uid=job_uid, created_by__business=business_user.business).first()
     if not job:
         raise HttpError(404, "This job does not exist")
 
@@ -545,7 +545,7 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
     queryset = JobApplication.objects.select_related("stage", "applicant", "applicant__user",
                                                      "applicant__country").annotate(invited=Exists(Subquery(JobInvite.objects.filter(
             job=OuterRef('job_post__job'), talent=OuterRef('applicant')
-        )))).filter(job_post=job_post ,applicant__deleted_at__isnull=True)
+        )))).filter(job_post=job_post , job_post__job__created_by__business=business, applicant__deleted_at__isnull=True)
     queryset = add_application_match_score(queryset, job_post)
     if search:
         q = Q()
