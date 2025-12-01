@@ -73,14 +73,7 @@ def create_job_application(job_post, talent, data:ApplyToJobSchema):
             answer.options.set(answer_data.options)
         answer.save()
     if application.stage and application.stage.phase != PhaseType.REJECTED.value and application.knockout():
-        schedule(
-            reject_application,
-            application,
-            stage,
-            job_post,
-            next_run=timezone.now() + timedelta(minutes=30)
-        )
-        #reject_application(application, stage, job_post)
+        reject_application(application, stage, job_post)
         return
     send_email_on_stage_update(application=application)
     return
