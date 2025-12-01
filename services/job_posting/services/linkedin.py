@@ -106,9 +106,10 @@ def experience_level_mapper(experience_level):
 def get_description(job_post, job) -> str:
 	parts = []
 	# About Job
-	if job.about:
+	if job_post.get_about():
+		about = job_post.get_about()
 		parts.append("About the Job\n")
-		parts.append(f"{job.about.strip()}\n\n\n")
+		parts.append(f"{about.strip()}\n\n\n")
 
 	# Job Details
 	details = []
