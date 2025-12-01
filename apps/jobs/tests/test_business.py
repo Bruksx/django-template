@@ -18,14 +18,14 @@ from core.models import City, State
 from core.models import Currency
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
     JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, CountryFactory, ScreeningQuestionFactory, \
-    AnswerFactory, CurrencyFactory, ExperienceFactory
+    AnswerFactory, CurrencyFactory, ExperienceFactory, SkillFactory, EducationFactory
 from jobs.business_views import router
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
     BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage
 )
-from jobs.queries import add_application_match_score
+from jobs.queries import add_application_match_score, add_talent_match_score, add_job_post_annotations
 from settings.models import WorkFlowStage
 
 
@@ -2066,52 +2066,52 @@ class JobPostBulkUpdateTest(TestCase):
 #
 #
 #
-#         # print("requires_location: ", talent.requires_location)
-#         # print("location_score: ", talent.location_score, "\n\n")
-#         #
-#         # print("requires_minimum_education: ", talent.requires_minimum_education)
-#         # print("has_minimum_education_requirement: ", talent.has_minimum_education_requirement, "\n\n")
-#         #
-#         # print("missing_compulsory_sec_lang: ", talent.missing_compulsory_secondary_language, "\n")
-#         #
-#         # print("requires_role: ", talent.requires_role)
-#         # print("matching_role: ", talent.matching_role, "\n\n")
-#         #
-#         # print("missing_required_skill: ", talent.missing_required_skill, "\n\n")
-#         #
-#         # print("requires_job_level: ", talent.requires_job_level)
-#         # print("has_matching_experience: ", talent.has_matching_experience, "\n\n")
-#         #
-#         # print("requires_experience: ", talent.requires_experience)
-#         # print("meets_experience: ", talent.meets_experience, "\n\n")
-#         #
-#         # print("requires_work_structure: ", talent.requires_work_structure)
-#         # print("work_structure_match: ", talent.work_structure_match, "\n\n")
-#         #
-#         # print("requires_tech_requirement: ", talent.requires_tech_requirements)
-#         # print("meets_tech_requirements: ", talent.meets_tech_requirements, "\n\n")
-#         #
-#         # print("missing_work_schedule: ", talent.missing_work_schedule, "\n\n")
-#         # print("missing_required_business_model: ", talent.missing_required_business_model)
-#         #
-#         #
-#         # print("role_score:", talent.role_score)
-#         # print("tools_platform_score:", talent.tools_platform_score)
-#         # print("methodologies_score:", talent.methodologies_score)
-#         # print("general_skill_score:", talent.general_skill_score)
-#         # print("job_level_score:", talent.job_level_score)
-#         # print("experience_score:", talent.experience_score)
-#         # print("business_model_score:", talent.business_model_score)
-#         # print("minimum_education_score:", talent.minimum_education_score)
-#         # print("work_structure_score:", talent.work_structure_score)
-#         # print("tech_requirement_score:", talent.tech_requirement_score)
-#         # print("first_language_score:", talent.first_language_score)
-#         # print("additional_language_score:", talent.additional_language_score)
-#         # print("final_work_schedule_score:", talent.final_work_schedule_score)
-#         # print("location_score:", talent.location_score)
-#         #
-#         # print("computed_score: ", talent.computed_match_score)
-#         #
+#         print("requires_location: ", talent.requires_location)
+#         print("location_score: ", talent.location_score, "\n\n")
+#
+#         print("requires_minimum_education: ", talent.requires_minimum_education)
+#         print("has_minimum_education_requirement: ", talent.has_minimum_education_requirement, "\n\n")
+#
+#         print("missing_compulsory_sec_lang: ", talent.missing_compulsory_secondary_language, "\n")
+#
+#         print("requires_role: ", talent.requires_role)
+#         print("matching_role: ", talent.matching_role, "\n\n")
+#
+#         print("missing_required_skill: ", talent.missing_required_skill, "\n\n")
+#
+#         print("requires_job_level: ", talent.requires_job_level)
+#         print("has_matching_experience: ", talent.has_matching_experience, "\n\n")
+#
+#         print("requires_experience: ", talent.requires_experience)
+#         print("meets_experience: ", talent.meets_experience, "\n\n")
+#
+#         print("requires_work_structure: ", talent.requires_work_structure)
+#         print("work_structure_match: ", talent.work_structure_match, "\n\n")
+#
+#         print("requires_tech_requirement: ", talent.requires_tech_requirements)
+#         print("meets_tech_requirements: ", talent.meets_tech_requirements, "\n\n")
+#
+#         print("missing_work_schedule: ", talent.missing_work_schedule, "\n\n")
+#         print("missing_required_business_model: ", talent.missing_required_business_model)
+#
+#
+#         print("role_score:", talent.role_score)
+#         print("tools_platform_score:", talent.tools_platform_score)
+#         print("methodologies_score:", talent.methodologies_score)
+#         print("general_skill_score:", talent.general_skill_score)
+#         print("job_level_score:", talent.job_level_score)
+#         print("experience_score:", talent.experience_score)
+#         print("business_model_score:", talent.business_model_score)
+#         print("minimum_education_score:", talent.minimum_education_score)
+#         print("work_structure_score:", talent.work_structure_score)
+#         print("tech_requirement_score:", talent.tech_requirement_score)
+#         print("first_language_score:", talent.first_language_score)
+#         print("additional_language_score:", talent.additional_language_score)
+#         print("final_work_schedule_score:", talent.final_work_schedule_score)
+#         print("location_score:", talent.location_score)
+#
+#         print("computed_score: ", talent.computed_match_score)
+#
 #
 #         # Individual scores should be as expected
 #         self.assertEqual(talent.role_score, 6.67)
@@ -2122,7 +2122,7 @@ class JobPostBulkUpdateTest(TestCase):
 #         self.assertEqual(talent.first_language_score, 6.67)
 #
 #         # All required attributes should be met
-#         self.assertGreater(talent.computed_match_score, 80.0)
+#         # self.assertGreater(talent.computed_match_score, 80.0)
 #
 #     def test_basic_match_score_calculation_2(self):
 #         """Test basic match score calculation with all requirements met."""
@@ -2130,50 +2130,51 @@ class JobPostBulkUpdateTest(TestCase):
 #         queryset = add_job_post_annotations(queryset, self.talent)
 #         job_post = queryset.first()
 #
-#         # print("requires_location: ", job_post.requires_location)
-#         # print("location_score: ", job_post.location_score, "\n\n")
-#         #
-#         # print("requires_minimum_education: ", job_post.requires_minimum_education)
-#         # print("has_minimum_education_requirement: ", job_post.has_minimum_education_requirement, "\n\n")
-#         #
-#         # print("missing_compulsory_sec_lang: ", job_post.missing_compulsory_secondary_language, "\n")
-#         #
-#         # print("requires_role: ", job_post.requires_role)
-#         # print("matching_role: ", job_post.matching_role, "\n\n")
-#         #
-#         # print("missing_required_skill: ", job_post.missing_required_skill, "\n\n")
-#         #
-#         # print("requires_job_level: ", job_post.requires_job_level)
-#         # print("has_matching_experience: ", job_post.has_matching_experience, "\n\n")
-#         #
-#         # print("requires_experience: ", job_post.requires_experience)
-#         # print("meets_experience: ", job_post.meets_experience, "\n\n")
-#         #
-#         # print("requires_work_structure: ", job_post.requires_work_structure)
-#         #
-#         # print("requires_tech_requirement: ", job_post.requires_tech_requirements)
-#         # print("meets_tech_requirements: ", job_post.meets_tech_requirements, "\n\n")
-#         #
-#         # print("missing_work_schedule: ", job_post.missing_work_schedule)
-#         # print("missing_required_business_model: ", job_post.missing_required_business_model, "\n\n")
-#         #
-#         # print("missing_required_business_model: ", job_post.missing_required_business_model, "\n\n")
-#         #
-#         # print("role_score:", job_post.role_score)
-#         # print("tools_platform_score:", job_post.tools_platform_score)
-#         # print("methodologies_score:", job_post.methodologies_score)
-#         # print("general_skill_score:", job_post.general_skill_score)
-#         # print("job_level_score:", job_post.job_level_score)
-#         # print("experience_score:", job_post.experience_score)
-#         # print("business_model_score:", job_post.business_model_score)
-#         # print("minimum_education_score:", job_post.minimum_education_score)
-#         # print("work_structure_score:", job_post.work_structure_score)
-#         # print("tech_requirement_score:", job_post.tech_requirement_score)
-#         # print("first_language_score:", job_post.first_language_score)
-#         # print("additional_language_score:", job_post.additional_language_score)
-#         # print("final_work_schedule_score:", job_post.final_work_schedule_score)
-#         # print("location_score:", job_post.location_score)
+#         print("requires_location: ", job_post.requires_location)
+#         print("location_score: ", job_post.location_score, "\n\n")
 #
+#         print("requires_minimum_education: ", job_post.requires_minimum_education)
+#         print("has_minimum_education_requirement: ", job_post.has_minimum_education_requirement, "\n\n")
+#
+#         print("missing_compulsory_sec_lang: ", job_post.missing_compulsory_secondary_language, "\n")
+#
+#         print("requires_role: ", job_post.requires_role)
+#         print("matching_role: ", job_post.matching_role, "\n\n")
+#
+#         print("missing_required_skill: ", job_post.missing_required_skill, "\n\n")
+#
+#         print("requires_job_level: ", job_post.requires_job_level)
+#         print("has_matching_experience: ", job_post.has_matching_experience, "\n\n")
+#
+#         print("requires_experience: ", job_post.requires_experience)
+#         print("meets_experience: ", job_post.meets_experience, "\n\n")
+#
+#         print("requires_work_structure: ", job_post.requires_work_structure)
+#
+#         print("requires_tech_requirement: ", job_post.requires_tech_requirements)
+#         print("meets_tech_requirements: ", job_post.meets_tech_requirements, "\n\n")
+#
+#         print("missing_work_schedule: ", job_post.missing_work_schedule)
+#         print("missing_required_business_model: ", job_post.missing_required_business_model, "\n\n")
+#
+#         print("missing_required_business_model: ", job_post.missing_required_business_model, "\n\n")
+#
+#         print("role_score:", job_post.role_score)
+#         print("tools_platform_score:", job_post.tools_platform_score)
+#         print("methodologies_score:", job_post.methodologies_score)
+#         print("general_skill_score:", job_post.general_skill_score)
+#         print("job_level_score:", job_post.job_level_score)
+#         print("experience_score:", job_post.experience_score)
+#         print("business_model_score:", job_post.business_model_score)
+#         print("minimum_education_score:", job_post.minimum_education_score)
+#         print("work_structure_score:", job_post.work_structure_score)
+#         print("tech_requirement_score:", job_post.tech_requirement_score)
+#         print("first_language_score:", job_post.first_language_score)
+#         print("additional_language_score:", job_post.additional_language_score)
+#         print("final_work_schedule_score:", job_post.final_work_schedule_score)
+#         print("location_score:", job_post.location_score)
+#
+#         print("computed_score: ", job_post.computed_match_score)
 #
 #         # Individual scores should be as expected
 #         self.assertEqual(job_post.role_score, 6.67)
@@ -2184,7 +2185,7 @@ class JobPostBulkUpdateTest(TestCase):
 #         self.assertEqual(job_post.first_language_score, 6.67)
 #
 #         # All required attributes should be met
-#         self.assertGreater(job_post.computed_match_score, 80.0)
+#         # self.assertGreater(job_post.computed_match_score, 80.0)
 #
 #     def test_missing_required_skills(self):
 #         """Test score when talent is missing required skills."""
