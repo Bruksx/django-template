@@ -24,6 +24,7 @@ from core.models import State
 from apps.factories import CityFactory, StateFactory, UserFactory
 
 
+
 class CreateAccountTests(TestCase):
     def setUp(self):
         self.client = TestClient(router)
@@ -151,7 +152,7 @@ class UpdateTalentProfileTests(TestCase):
           "phone_number": "+15551234567",
           "country": str(self.country.uid),
           "state": str(self.state.uid),
-          "city": str(self.city.uid),
+          "city": str(self.city.name),
           "postal_code": "90001",
           "whatsapp_number": "+15559876543",
           "viber_number": "",
@@ -225,7 +226,7 @@ class UpdateTalentProfileTests(TestCase):
         self.assertEqual(self.talent.user.phone_number, "+15551234567")
         self.assertEqual(self.talent.country, self.country)
         self.assertEqual(self.talent.state, self.state)
-        self.assertEqual(self.talent.city, self.city)
+        self.assertEqual(self.talent.city, self.city.name)
         self.assertEqual(self.talent.postal_code, "90001")
         self.assertEqual(self.talent.whatsapp_number, "+15559876543")
         self.assertEqual(self.talent.viber_number, "")
@@ -560,15 +561,21 @@ class DeleteTalentUserAccountTest2(TestCase):
         self.user.set_password("pass123")
         self.user.save()
         self.talent = TalentFactory.create(user=self.user)
+        self.user = UserFactory.create(email_verified=True, is_active=True)
+        self.user.set_password("pass123")
+        self.user.save()
+        self.talent = TalentFactory.create(user=self.user)
         self.business_user = BusinessUser.objects.order_by("?").first()
 
     def test_delete_talent_user_account(self):
         from jobs.models import SavedJob #noqa
         from accounts.models import Experience, Education #noqa
+
         data = {
             "email": self.talent.user.email,
             "password": "pass123",
         }
+
         response = self.client.delete(self.url, json=data)
         self.assertEqual(response.status_code, 204)
         user = User.objects.filter(id=self.talent.user.id).first()

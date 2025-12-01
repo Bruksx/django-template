@@ -1,33 +1,32 @@
 import uuid
+from datetime import time
+from decimal import Decimal, ROUND_HALF_UP
 from random import choice
 from uuid import uuid4
-from decimal import Decimal, ROUND_HALF_UP
-from datetime import time
 
+from django.db import models
+from django.test import TestCase
+from django.utils import timezone
+from future.backports.datetime import timedelta
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
+
+from accounts.enums import Days
 from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent, \
     EducationLevel, SkillCategory, Experience, TalentAvailableDay
-from accounts.enums import Days
+from core.models import City, State
 from core.models import Currency
-from django.test import TestCase
-from django.db import models
-from django.utils import timezone
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
-    JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, SkillFactory, BusinessModelFactory, \
-    CountryFactory, ScreeningQuestionFactory, AnswerFactory, CurrencyFactory, ExperienceFactory
-from future.backports.datetime import timedelta
-from jobs.business_views import router, job_list
+    JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, CountryFactory, ScreeningQuestionFactory, \
+    AnswerFactory, CurrencyFactory, ExperienceFactory, SkillFactory, EducationFactory
+from jobs.business_views import router
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
     BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage
 )
-from jobs.queries import add_application_match_score
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
-
+from jobs.queries import add_application_match_score, add_talent_match_score, add_job_post_annotations
 from settings.models import WorkFlowStage
-
-from core.models import City, State
 
 
 class EmploymentTypeListTests(TestCase):
@@ -1932,6 +1931,459 @@ class JobPostBulkUpdateTest(TestCase):
         self.test_data["action"] = ActionType.DELETE.value
         response = self.client.patch(self.url, json=self.test_data, headers=headers)
         self.assertEqual(response.status_code, 403)
+
+
+# class TalentMatchScoreTests(TestCase):
+#     def setUp(self):
+#         """Set up test data for talent match score tests."""
+#         # Create test data
+#         self.talent = TalentFactory.create()
+#         self.country = Country.objects.first()
+#         self.role = Role.objects.first()
+#         self.job_level = JobLevel.objects.first()
+#         self.education_level = EducationLevel.objects.first()
+#
+#         # Create job with required attributes
+#         self.job = JobFactory.create(
+#             role=self.role,
+#             job_level=self.job_level,
+#             years_of_experience=3,
+#             minimum_education_level=self.education_level,
+#             work_structure="remote",
+#             first_language=Language.objects.first()
+#         )
+#         self.job.additional_languages.add(Language.objects.last())
+#         self.job.save()
+#
+#
+#
+#         # Create job post
+#         self.job_post = JobPostFactory.create(
+#             job=self.job,
+#             country=self.country
+#         )
+#
+#         # Set up required attributes
+#         self.required_attributes = RequiredAttribute.objects.filter(
+#             job=self.job).first().update(
+#             role=True,
+#             job_level=True,
+#             years_of_experience=True,
+#             minimum_education_level=True,
+#             work_structure=True,
+#             first_language=True,
+#             secondary_language=True,
+#             working_hours=True,
+#             location=True,
+#             technological_requirement=True
+#         )
+#
+#         # Create skills for testing
+#         self.skill_category_general = SkillCategory.objects.get_or_create(name="General Skills")[0]
+#         self.skill_category_tools = SkillCategory.objects.get_or_create(name="Tools/Platforms")[0]
+#         self.skill_category_method = SkillCategory.objects.get_or_create(
+#             name="Common Methodologies/Frameworks"
+#         )[0]
+#
+#         self.general_skills = [
+#             SkillFactory.create(name=f"General Skill {i}", category=self.skill_category_general)
+#             for i in range(3)
+#         ]
+#         self.tool_skills = [
+#             SkillFactory.create(name=f"Tool {i}", category=self.skill_category_tools)
+#             for i in range(3)
+#         ]
+#         self.method_skills = [
+#             SkillFactory.create(name=f"Method {i}", category=self.skill_category_method)
+#             for i in range(3)
+#         ]
+#
+#         # Add skills to job
+#         self.job.skills.set(self.general_skills + self.tool_skills + self.method_skills)
+#
+#         # Create required skills
+#         for skill in self.general_skills[:2]:  # First 2 general skills are required
+#             RequiredSkill.objects.create(
+#                 required_attribute=self.required_attributes,
+#                 skill=skill
+#             )
+#         self.talent.skills.add(*self.general_skills[:2])
+#         self.talent.save()
+#
+#         # Set up talent data
+#         self.talent.role = self.role
+#         self.talent.native_language = self.job.first_language
+#         self.talent.country = self.country
+#         self.talent.work_models = ["remote", "hybrid"]
+#         self.talent.years_of_experience = 5
+#         self.talent.technological_requirement = "yes"
+#         self.talent.additional_languages.add(
+#             Language.objects.last()
+#         )
+#
+#         self.talent.save()
+#
+#
+#         # Add education
+#         EducationFactory.create(
+#             talent=self.talent,
+#             level=self.education_level,
+#             start_date=timezone.now().date() - timedelta(days=365*5),
+#             end_date=timezone.now().date() - timedelta(days=365*2),
+#
+#         )
+#
+#         # Add experience
+#         ExperienceFactory.create(
+#             talent=self.talent,
+#             role=self.role,
+#             company="Test Company",
+#             start_date=timezone.now().date() - timedelta(days=365*5),
+#             end_date=None,
+#             level=self.job_level
+#         )
+#
+#         # Add skills to talent (matching some job skills)
+#         self.talent.skills.add(*[self.general_skills[0], self.tool_skills[1], self.method_skills[2]])
+#
+#         # Add available days
+#         for day in [Days.MONDAY, Days.WEDNESDAY, Days.FRIDAY]:
+#             TalentAvailableDay.objects.create(
+#                 talent=self.talent,
+#                 day=day,
+#                 utc_start_time=time(9, 0),
+#                 utc_end_time=time(17, 0)
+#             )
+#
+#
+#
+#
+#     def test_basic_match_score_calculation(self):
+#         """Test basic match score calculation with all requirements met."""
+#         queryset = Talent.objects.filter(id=self.talent.id)
+#         queryset = add_talent_match_score(queryset, self.job_post)
+#         talent = queryset.first()
+#
+#
+#
+#         print("requires_location: ", talent.requires_location)
+#         print("location_score: ", talent.location_score, "\n\n")
+#
+#         print("requires_minimum_education: ", talent.requires_minimum_education)
+#         print("has_minimum_education_requirement: ", talent.has_minimum_education_requirement, "\n\n")
+#
+#         print("missing_compulsory_sec_lang: ", talent.missing_compulsory_secondary_language, "\n")
+#
+#         print("requires_role: ", talent.requires_role)
+#         print("matching_role: ", talent.matching_role, "\n\n")
+#
+#         print("missing_required_skill: ", talent.missing_required_skill, "\n\n")
+#
+#         print("requires_job_level: ", talent.requires_job_level)
+#         print("has_matching_experience: ", talent.has_matching_experience, "\n\n")
+#
+#         print("requires_experience: ", talent.requires_experience)
+#         print("meets_experience: ", talent.meets_experience, "\n\n")
+#
+#         print("requires_work_structure: ", talent.requires_work_structure)
+#         print("work_structure_match: ", talent.work_structure_match, "\n\n")
+#
+#         print("requires_tech_requirement: ", talent.requires_tech_requirements)
+#         print("meets_tech_requirements: ", talent.meets_tech_requirements, "\n\n")
+#
+#         print("missing_work_schedule: ", talent.missing_work_schedule, "\n\n")
+#         print("missing_required_business_model: ", talent.missing_required_business_model)
+#
+#
+#         print("role_score:", talent.role_score)
+#         print("tools_platform_score:", talent.tools_platform_score)
+#         print("methodologies_score:", talent.methodologies_score)
+#         print("general_skill_score:", talent.general_skill_score)
+#         print("job_level_score:", talent.job_level_score)
+#         print("experience_score:", talent.experience_score)
+#         print("business_model_score:", talent.business_model_score)
+#         print("minimum_education_score:", talent.minimum_education_score)
+#         print("work_structure_score:", talent.work_structure_score)
+#         print("tech_requirement_score:", talent.tech_requirement_score)
+#         print("first_language_score:", talent.first_language_score)
+#         print("additional_language_score:", talent.additional_language_score)
+#         print("final_work_schedule_score:", talent.final_work_schedule_score)
+#         print("location_score:", talent.location_score)
+#
+#         print("computed_score: ", talent.computed_match_score)
+#
+#
+#         # Individual scores should be as expected
+#         self.assertEqual(talent.role_score, 6.67)
+#         self.assertEqual(talent.job_level_score, 6.67)
+#         self.assertEqual(talent.experience_score, 6.67)
+#         self.assertEqual(talent.minimum_education_score, 6.67)
+#         self.assertEqual(talent.work_structure_score, 6.67)
+#         self.assertEqual(talent.first_language_score, 6.67)
+#
+#         # All required attributes should be met
+#         # self.assertGreater(talent.computed_match_score, 80.0)
+#
+#     def test_basic_match_score_calculation_2(self):
+#         """Test basic match score calculation with all requirements met."""
+#         queryset = JobPost.objects.filter(id=self.job_post.id)
+#         queryset = add_job_post_annotations(queryset, self.talent)
+#         job_post = queryset.first()
+#
+#         print("requires_location: ", job_post.requires_location)
+#         print("location_score: ", job_post.location_score, "\n\n")
+#
+#         print("requires_minimum_education: ", job_post.requires_minimum_education)
+#         print("has_minimum_education_requirement: ", job_post.has_minimum_education_requirement, "\n\n")
+#
+#         print("missing_compulsory_sec_lang: ", job_post.missing_compulsory_secondary_language, "\n")
+#
+#         print("requires_role: ", job_post.requires_role)
+#         print("matching_role: ", job_post.matching_role, "\n\n")
+#
+#         print("missing_required_skill: ", job_post.missing_required_skill, "\n\n")
+#
+#         print("requires_job_level: ", job_post.requires_job_level)
+#         print("has_matching_experience: ", job_post.has_matching_experience, "\n\n")
+#
+#         print("requires_experience: ", job_post.requires_experience)
+#         print("meets_experience: ", job_post.meets_experience, "\n\n")
+#
+#         print("requires_work_structure: ", job_post.requires_work_structure)
+#
+#         print("requires_tech_requirement: ", job_post.requires_tech_requirements)
+#         print("meets_tech_requirements: ", job_post.meets_tech_requirements, "\n\n")
+#
+#         print("missing_work_schedule: ", job_post.missing_work_schedule)
+#         print("missing_required_business_model: ", job_post.missing_required_business_model, "\n\n")
+#
+#         print("missing_required_business_model: ", job_post.missing_required_business_model, "\n\n")
+#
+#         print("role_score:", job_post.role_score)
+#         print("tools_platform_score:", job_post.tools_platform_score)
+#         print("methodologies_score:", job_post.methodologies_score)
+#         print("general_skill_score:", job_post.general_skill_score)
+#         print("job_level_score:", job_post.job_level_score)
+#         print("experience_score:", job_post.experience_score)
+#         print("business_model_score:", job_post.business_model_score)
+#         print("minimum_education_score:", job_post.minimum_education_score)
+#         print("work_structure_score:", job_post.work_structure_score)
+#         print("tech_requirement_score:", job_post.tech_requirement_score)
+#         print("first_language_score:", job_post.first_language_score)
+#         print("additional_language_score:", job_post.additional_language_score)
+#         print("final_work_schedule_score:", job_post.final_work_schedule_score)
+#         print("location_score:", job_post.location_score)
+#
+#         print("computed_score: ", job_post.computed_match_score)
+#
+#         # Individual scores should be as expected
+#         self.assertEqual(job_post.role_score, 6.67)
+#         self.assertEqual(job_post.job_level_score, 6.67)
+#         self.assertEqual(job_post.experience_score, 6.67)
+#         self.assertEqual(job_post.minimum_education_score, 6.67)
+#         self.assertEqual(job_post.work_structure_score, 6.67)
+#         self.assertEqual(job_post.first_language_score, 6.67)
+#
+#         # All required attributes should be met
+#         # self.assertGreater(job_post.computed_match_score, 80.0)
+#
+#     def test_missing_required_skills(self):
+#         """Test score when talent is missing required skills."""
+#         # Remove one required skill from talent
+#         self.talent.skills.remove(self.general_skills[0])
+#
+#         queryset = Talent.objects.filter(id=self.talent.id)
+#         queryset = add_talent_match_score(queryset, self.job_post)
+#         talent = queryset.first()
+#
+#         # Score should be 0 because of missing required skill
+#         self.assertEqual(talent.computed_match_score, 0.0)
+#         self.assertTrue(talent.missing_required_skill)
+#
+#     def test_partial_skill_matches(self):
+#         """Test score calculation with partial skill matches."""
+#         # Remove required attribute to test partial scoring
+#         self.required_attributes.role = False
+#         self.required_attributes.job_level = False
+#         self.required_attributes.years_of_experience = False
+#         self.required_attributes.minimum_education_level = False
+#         self.required_attributes.work_structure = False
+#         self.required_attributes.first_language = False
+#         self.required_attributes.working_hours = False
+#         self.required_attributes.location = False
+#         self.required_attributes.technological_requirement = False
+#         self.required_attributes.save()
+#
+#         # Talent has 1 out of 2 required skills, 1/3 general skills, 1/3 tool skills, 1/3 method skills
+#         queryset = Talent.objects.filter(id=self.talent.id)
+#         queryset = add_talent_match_score(queryset, self.job_post)
+#         talent = queryset.first()
+#
+#         # Calculate expected score
+#         expected_score = (1/2 * 6.67) + (1/3 * 6.67) + (1/3 * 6.67) + (1/3 * 6.67)
+#         expected_score = round(expected_score, 2)
+#
+#         self.assertAlmostEqual(talent.computed_match_score, expected_score, places=2)
+#
+#     def test_work_schedule_matching(self):
+#         """Test work schedule matching logic."""
+#         # Clear existing available days
+#         TalentAvailableDay.objects.filter(talent=self.talent).delete()
+#
+#         # Add available days that don't match job's working hours
+#         TalentAvailableDay.objects.create(
+#             talent=self.talent,
+#             day=Days.SUNDAY,
+#             utc_start_time=time(9, 0),
+#             utc_end_time=time(12, 0)
+#         )
+#
+#         queryset = Talent.objects.filter(id=self.talent.id)
+#         queryset = add_talent_match_score(queryset, self.job_post)
+#         talent = queryset.first()
+#         # Should have 0 work schedule score
+#         self.assertEqual(talent.work_schedule_score, 0.0)
+#
+#         # But since working hours are not required, score shouldn't be 0
+#         # self.assertGreater(talent.computed_match_score, 0.0)
+#
+#     def test_required_attributes(self):
+#         """Test that missing required attributes result in 0 score."""
+#         # Make role required
+#         self.required_attributes.role = True
+#         self.required_attributes.save()
+#
+#         # Change talent's role to not match
+#         self.talent.role = Role.objects.exclude(id=self.role.id).first()
+#         self.talent.save()
+#
+#         queryset = Talent.objects.filter(id=self.talent.id)
+#         queryset = add_talent_match_score(queryset, self.job_post)
+#         talent = queryset.first()
+#
+#         # Score should be 0 because required role doesn't match
+#         self.assertEqual(talent.computed_match_score, 0.0)
+#
+#     def test_flexible_availability(self):
+#         """Test that flexible availability is handled correctly."""
+#         # Make job have flexible availability
+#         self.job.flexible_availability = True
+#         self.job.save()
+#
+#         # Clear talent's available days
+#         TalentAvailableDay.objects.filter(talent=self.talent).delete()
+#
+#         queryset = Talent.objects.filter(id=self.talent.id)
+#         queryset = add_talent_match_score(queryset, self.job_post)
+#         talent = queryset.first()
+#
+#         # Should get full work schedule score due to flexible availability
+#         self.assertEqual(talent.final_work_schedule_score, 6.67)
+#
+#     def test_additional_languages(self):
+#         """Test additional language matching."""
+#         # Add some additional languages to job
+#         self.job.additional_languages.set(Language.objects.all()[:2])
+#
+#         # Add one matching language to talent
+#         self.talent.additional_languages.set([self.job.additional_languages.first()])
+#
+#         # Make a language required
+#         RequiredSecondaryLanguage.objects.create(
+#             required_attribute=self.required_attributes,
+#             language=Language.objects.first()
+#         )
+#
+#         queryset = Talent.objects.filter(id=self.talent.id)
+#         queryset = add_talent_match_score(queryset, self.job_post)
+#         talent = queryset.first()
+#
+#         # Should have partial score for additional languages
+#         self.assertEqual(talent.additional_language_score, 3.34)  # 1/2 of 6.67
+#
+#         # Add the required language to talent
+#         self.talent.additional_languages.add(Language.objects.first())
+#
+#         queryset = Talent.objects.filter(id=self.talent.id)
+#         queryset = add_talent_match_score(queryset, self.job_post)
+#         talent = queryset.first()
+#
+#         # Now should have full score for required language
+#         self.assertEqual(talent.additional_language_score, 6.67)
+#         self.assertFalse(talent.missing_compulsory_secondary_language)
+#
+#     def test_compare_with_job_post_annotations(self):
+#         """Test that add_talent_match_score and add_job_post_annotations produce consistent results."""
+#         # First, get talent match score
+#         talent_queryset = Talent.objects.filter(id=self.talent.id)
+#         talent_queryset = add_talent_match_score(talent_queryset, self.job_post)
+#         talent = talent_queryset.first()
+#
+#         # Then, get job post annotations for the same talent
+#         job_post_queryset = JobPost.objects.filter(id=self.job_post.id)
+#         job_post_queryset = add_job_post_annotations(job_post_queryset, self.talent)
+#         job_post = job_post_queryset.first()
+#
+#         # Compare the computed match scores
+#         self.assertAlmostEqual(
+#             talent.computed_match_score,
+#             job_post.computed_match_score,
+#             places=2,
+#             msg="Match scores should be consistent between talent and job post views"
+#         )
+#
+#         # Compare individual score components that should match
+#         score_fields = [
+#             'role_score', 'job_level_score', 'experience_score',
+#             'minimum_education_score', 'work_structure_score',
+#             'first_language_score', 'additional_language_score'
+#         ]
+#
+#         for field in score_fields:
+#             self.assertAlmostEqual(
+#                 getattr(talent, field, 0),
+#                 getattr(job_post, field, 0),
+#                 places=2,
+#                 msg=f"{field} should be consistent between talent and job post views"
+#             )
+#
+#         # Verify that both functions agree on required attributes
+#         self.assertEqual(
+#             talent.missing_required_skill,
+#             job_post.missing_required_skill,
+#             "Missing required skill status should match"
+#         )
+#
+#         self.assertEqual(
+#             talent.missing_compulsory_secondary_language,
+#             job_post.missing_compulsory_secondary_language,
+#             "Missing compulsory secondary language status should match"
+#         )
+#
+#         # Test with a different scenario - remove a required skill
+#         if talent.skills.exists():
+#             skill_to_remove = talent.skills.first()
+#             talent.skills.remove(skill_to_remove)
+#
+#             # Check both functions again
+#             talent_queryset = Talent.objects.filter(id=self.talent.id)
+#             talent_queryset = add_talent_match_score(talent_queryset, self.job_post)
+#             talent = talent_queryset.first()
+#
+#             job_post_queryset = JobPost.objects.filter(id=self.job_post.id)
+#             job_post_queryset = add_job_post_annotations(job_post_queryset, self.talent)
+#             job_post = job_post_queryset.first()
+#
+#             # Both should now show a missing required skill
+#             self.assertTrue(
+#                 talent.missing_required_skill or job_post.missing_required_skill,
+#                 "Both functions should detect missing required skill"
+#             )
+#
+#             # If role is required and doesn't match, both should return 0 score
+#             if self.required_attributes.role and talent.role != self.job.role:
+#                 self.assertEqual(talent.computed_match_score, 0.0)
+#                 self.assertEqual(job_post.computed_match_score, 0.0)
 
 
 class JobApplicationMatchTests(TestCase):
