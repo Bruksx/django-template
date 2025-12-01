@@ -71,6 +71,8 @@ INSTALLED_APPS = [
 
     #3rd party
     "corsheaders",
+    "appleauth",
+
 ]
 
 MIDDLEWARE = [
@@ -353,3 +355,15 @@ BACKEND_URL = os.environ.get("BACKEND_URL", None)
 INDEED_EMAIL=os.environ.get("INDEED_EMAIL", "contact@1840andco.com")
 
 INDEED_APPLY_API_TOKEN=os.environ.get('INDEED_APPLY_API_TOKEN', '')
+
+
+# Apple Config
+APPLE_CONFIG = {
+    "APPLE_KEY_ID": os.environ["APPLE_KEY_ID"],
+    "APPLE_TEAM_ID": os.environ["APPLE_TEAM_ID"],
+    "APPLE_CLIENT_ID": os.environ["APPLE_CLIENT_ID"],
+    "APPLE_PRIVATE_KEY": os.environ["APPLE_PRIVATE_KEY"],
+    "APPLE_REDIRECT_URL": os.environ["APPLE_REDIRECT_URL"], # https://127.0.0.1:8000/auth/apple/token
+    "APPLE_SCOPE": ["name", "email"],
+    "RESPONSE_HANDLER_CLASS": "users.services.AppleSignInResponseHandler",
+}

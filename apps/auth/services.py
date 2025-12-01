@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+from appleauth.services import AppleAuth
 from django.db.models import Q
 from django.utils import timezone
 from google.oauth2 import id_token
@@ -41,6 +42,12 @@ def validate_login(user: User, raise_exception=True):
         if raise_exception:
             raise e
         return False
+    
+
+def handle_apple_response(self, request, user_dict):
+        email = user_dict.get("email", None)
+        apple_id = user_dict.get("apple_id", None)
+        return email, apple_id
 
 
 def handle_social_login(data: SocialAuthSchema)->User:
@@ -106,7 +113,9 @@ def handle_social_login(data: SocialAuthSchema)->User:
     elif SocialType.APPLE.value == data.social_type:
         if not settings.social_auth:
             raise HttpError(400, error_message)
-        pass
+        code = data.access_token
+        apple_auth = AppleAuth(code=code, response_handler=handle_apple_response)
+        user_dict = apple_auth.do_auth()
         """auth_type = AuthType.APPLE
         social_query = Q(apple_id=profile.id)
         profile_dict["apple_id"] = profile.id"""
