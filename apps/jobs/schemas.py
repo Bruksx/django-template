@@ -1366,7 +1366,7 @@ class BusinessJobFilterQuerySchema(Schema):
             country=self.country,
             status=self.status,
             province=self.province,
-            city=self.city.name if self.city else None,
+            city=self.city,
             statuses=self.statuses.split(",") if self.statuses else [],
             recruiter=self.recruiter.split(",") if self.recruiter else [],
             posted_by=self.posted_by.split(",") if self.posted_by else []
