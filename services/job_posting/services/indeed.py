@@ -108,7 +108,7 @@ def convert_job_object_to_job(job_post:JobPost):
         "sourcePostingId": job_post.indeed_id or None,
         "body": {
             "title": job.title,
-            "description": job.about,
+            "description": job_post.get_about(),
             "location": {
                 "country": job_post.country.code if job_post.country else None,
                 "cityRegionPostal": f"{job_post.get_province()} {job_post.postal_code}"

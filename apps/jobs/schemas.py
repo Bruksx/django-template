@@ -82,7 +82,7 @@ class MutateJobPostSchema(ModelSchema):
     salary_bonus_currency: Optional[UUID] = None
     salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
-
+    
 
     class Meta:
         model = JobPost
@@ -101,7 +101,7 @@ class UpdateJobPostSchema(ModelSchema):
     salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_currency: Optional[UUID]
-
+    
     class Meta:
         model = JobPost
         exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "created_at", "posted_by", "date_posted"]
@@ -454,6 +454,7 @@ class JobPostDetailSchema(ModelSchema):
     applied: Optional[bool]
     city: str | None
     province: GenericNameAndUidSchema | None
+    about: Optional[str] = Field(None, alias="get_about")
 
     class Meta:
         model = JobPost
@@ -614,6 +615,7 @@ class JobPostListSchema(ModelSchema):
     recruiter: Optional[str] = None
     city: Optional[str] = Field(None, alias="get_city")
     province: Optional[str] = Field(None, alias="get_province")
+    about: Optional[str] = Field(None, alias="get_about")
 
 
     class Meta:
@@ -838,6 +840,7 @@ class JobPostFullDetailSchema(ModelSchema):
     alert: Optional[bool] = None
     city: Optional[str] = None
     province: Optional[GenericNameAndUidSchema] = None
+    about: Optional[str] = Field(None, alias="get_about")
 
 
     class Meta:
@@ -1063,6 +1066,7 @@ class TalentJobPostListSchema(ModelSchema):
     match_obj: Optional[MatchScoreSchema] = None
     date_saved: Optional[datetime] = None
     date_applied: Optional[datetime] = None
+    about: Optional[str] = Field(None, alias="get_about")
 
     class Meta:
         model = JobPost

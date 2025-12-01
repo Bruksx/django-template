@@ -33,8 +33,9 @@ def create_description_html(job_post:JobPost):
     body = list()
     if job.title:
         body.append(f"<div>The <u><b>{job.title}</b></u></div>")
-    if job.about:
-        body.append(f"<div>{job.about}</div>")
+    if job_post.get_about():
+        about = job_post.get_about()
+        body.append(f"<div>{about}</div>")
     return "".join(body)
 
 def create_lists(job_post:JobPost):
