@@ -793,6 +793,7 @@ def add_talent_match_score(queryset: QuerySet[Talent], job_post:JobPost) -> Quer
     job_tools_skills = job_post.job.skills.filter(category__id=tools_platform_id)
     job_methodology_skills = job_post.job.skills.filter(category=methodologies_id)
 
+    required_job_business_models = [i.id for i in required_attribute.business_models.all()]
     job_business_models = [i.id for i in job_post.job.business_models.all()]
     required_attribute_subquery = RequiredAttribute.objects.filter(
         job=job_post.job
@@ -941,7 +942,7 @@ def add_talent_match_score(queryset: QuerySet[Talent], job_post:JobPost) -> Quer
         matching_required_business_model_count=Coalesce(Subquery(
             TalentBusinessModel.objects.filter(
                 talent_id=OuterRef("id"),
-                businessmodel__id__in=job_business_models
+                businessmodel__id__in=required_job_business_models
             )
             .values("talent_id")          # group by talent
             .annotate(count=Count("id"))  # count matching rows
