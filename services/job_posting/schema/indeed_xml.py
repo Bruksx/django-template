@@ -85,9 +85,10 @@ class JobBase:
 
 		
 		# About Job
-		if job.about:
+		if job_post.get_about():
+			about = job_post.get_about()
 			parts.append("ABOUT THE JOB\n")
-			parts.append(f"{job.about.strip()}\n\n")
+			parts.append(f"{about.strip()}\n\n")
 
 		# Job Details
 		details = []
@@ -263,9 +264,10 @@ class JobBase:
 			parts.append(f"{job.hiring_company_description.strip()}\n\n")
 
 		# About Job
-		if job.about:
+		if job_post.get_about():
+			about = job_post.get_about()
 			parts.append("ABOUT THE JOB\n")
-			parts.append(f"{job.about.strip()}\n\n")
+			parts.append(f"{about.strip()}\n\n")
 
 		# Job Details
 		details = []
