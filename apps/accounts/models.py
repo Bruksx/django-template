@@ -547,8 +547,25 @@ class Talent(BaseModel):
         self.delete()
         
     def is_profile_completed(self):
-        return bool(self.education_set.exists() and
-        self.experience_set.exists() and
+        has_education = self.education_set.exclude(
+            Q(level__isnull=True)|
+            Q(Q(major__isnull=True)| Q(major=""))|
+            Q(Q(university__isnull=True) | Q(university="")) |
+            Q(start_date__isnull=True)
+        ).exists()
+        has_experience = self.experience_set.exclude(
+            Q(role__isnull=True)|
+            Q(Q(company__isnull=True)| Q(company=""))|
+            Q(start_date__isnull=True)|
+            Q(salary_type__isnull=True)|
+            Q(salary__isnull=True) |
+            Q(salary_currency__isnull=True)|
+            Q(employment_type__isnull=True)|
+            Q(level__isnull=True)
+        ).exists()
+        return bool(
+            bool(has_experience) and
+        bool(has_education) and
         bool(self.country) and
         bool(self.state) and
         bool(self.postal_code) and
@@ -560,9 +577,24 @@ class Talent(BaseModel):
         bool(self.cv))
     
     def validate_profile_completed(self):
-        if not self.education_set.exists():
+        if not self.education_set.exclude(
+            Q(level__isnull=True) |
+            Q(Q(major__isnull=True) | Q(major="")) |
+            Q(Q(university__isnull=True) | Q(university="")) |
+            Q(start_date__isnull=True)
+        ).exists():
             raise ValidationError("Education is required.")
-        if not self.experience_set.exists():
+
+        if not self.experience_set.exclude(
+            Q(role__isnull=True) |
+            Q(Q(company__isnull=True) | Q(company="")) |
+            Q(start_date__isnull=True) |
+            Q(salary_type__isnull=True) |
+            Q(salary__isnull=True) |
+            Q(salary_currency__isnull=True) |
+            Q(employment_type__isnull=True) |
+            Q(level__isnull=True)
+        ).exists():
             raise ValidationError("Experience is required.")
         if not self.country:
             raise ValidationError("Country is required.")
