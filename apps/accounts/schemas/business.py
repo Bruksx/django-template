@@ -331,6 +331,7 @@ class TalentFilterQuerySchema(ModelSchema):
     work_structure: Optional[WorkStructureEnum] = None
     skills: Optional[List[UUID]] = None
     locations: Optional[List[str]] = None
+    business_models: Optional[List[UUID]] = None
     
 
     class Meta:
@@ -340,7 +341,8 @@ class TalentFilterQuerySchema(ModelSchema):
 
     def get_queryset(self, queryset=None):
         queryset = queryset or Talent.objects.all()
-        
+
+
         # Filter by roles via Experience (subquery = optimal)
         if self.roles:
             queryset = queryset.filter(
@@ -390,6 +392,10 @@ class TalentFilterQuerySchema(ModelSchema):
         # Skills
         if self.skills:
             queryset = queryset.filter(skills__uid__in=self.skills)
+
+        # Business Model
+        if self.business_models:
+            queryset = queryset.filter(business_models__uid__in=self.business_models)
         
         # Notice period
         if self.maximum_notice_period:
@@ -414,6 +420,8 @@ class TalentFilterQuerySchema(ModelSchema):
             params += f"{get_sign()}work_structure={self.work_structure.value}"
         if self.skills:
             params += f"{get_sign()}skills={','.join(map(str, self.skills))}"
+        if self.business_models:
+            params += f"{get_sign()}business_models={','.join(map(str, self.business_models))}"
         if self.maximum_notice_period:
            params += f"{get_sign()}maximum_notice_period={self.maximum_notice_period}"
         return params
@@ -426,6 +434,7 @@ class MutateTalentFilterSchema(ModelSchema):
     work_structure: Optional[WorkStructureEnum] = None
     skills: Optional[List[UUID]] = None
     locations: Optional[List[str]] = None
+    business_models: Optional[List[UUID]] = None
 
     class Meta:
         model = TalentFilter
@@ -440,6 +449,7 @@ class TalentFilterSchema(ModelSchema):
     languages: Optional[List[GenericNameAndUidSchema]]
     educational_levels: Optional[List[EducationLevelSchema]]
     skills: Optional[List[GenericNameAndUidSchema]]
+    business_models: Optional[List[GenericNameAndUidSchema]]
     locations: Optional[List[str]]
 
     class Meta:
