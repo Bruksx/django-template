@@ -1522,7 +1522,7 @@ class TalentListJobPostSchema(ModelSchema):
     photo_url: Optional[str]
     cv_url: Optional[str]
     match_score: Optional[int]
-    role: Optional[GenericNameAndUidSchema] = None
+    role: Optional[GenericNameAndUidSchema] = Field(None, alias="get_role")
 
     class Meta:
         model = Talent
