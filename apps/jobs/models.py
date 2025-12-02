@@ -258,6 +258,7 @@ class Job(BaseModel):
 
 class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
+    about = models.TextField(null=True)
     status = models.CharField(max_length=50, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
     date_posted = models.DateTimeField(null=True)
     posted_order = models.GeneratedField(
@@ -365,6 +366,13 @@ class JobPost(BaseModel):
         if not self.province:
             return
         return self.province.name
+    
+    def get_about(self):
+        if not self.about:
+            return self.job.about
+        return self.about
+    
+    
 
     def get_city(self):
         return self.city
