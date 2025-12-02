@@ -582,6 +582,12 @@ class Talent(BaseModel):
             raise ValidationError("Profile photo is required.")
         if not self.cv:
             raise ValidationError("CV upload is required.")
+
+    def get_role(self):
+        if self.role:
+            return self.role
+        return self.experience_set.order_by('-start_date').first().role if self.experience_set.exists() else None
+
 class BusinessIndustry(BaseModel):
     name = models.CharField(max_length=128)
 

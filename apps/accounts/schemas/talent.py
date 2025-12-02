@@ -178,7 +178,7 @@ class TalentAvailabilitySchema(Schema):
 
 class TalentUserSchema(ModelSchema):
     user: UserSchema
-    role: Optional[RoleSchema]
+    role: Optional[RoleSchema] = Field(None, alias="get_role")
     country: Optional[CountrySchema]
     city: Optional[str]
     state: Optional[GenericNameAndUidSchema]
@@ -269,7 +269,7 @@ class TalentUserListSchema(ModelSchema):
     last_name: str = Field(alias="user.last_name")
     email: EmailStr = Field(alias="user.email")
     user_uid: UUID = Field(alias="user.uid")
-    role: Optional[RoleSchema]
+    role: Optional[RoleSchema] = Field(None, alias="get_role")
     country: Optional[CountrySchema]
     phone_number: Optional[str] = None
     phone_code: Optional[str] = None
