@@ -1963,6 +1963,8 @@ class JobPostBulkUpdateTest(TestCase):
 #             country=self.country
 #         )
 #
+#         self.application = JobApplicationFactory.create(job_post=self.job_post, applicant=self.talent)
+#
 #         # Set up required attributes
 #         self.required_attributes = RequiredAttribute.objects.filter(
 #             job=self.job).first().update(
@@ -2126,8 +2128,8 @@ class JobPostBulkUpdateTest(TestCase):
 #
 #     def test_basic_match_score_calculation_2(self):
 #         """Test basic match score calculation with all requirements met."""
-#         queryset = JobPost.objects.filter(id=self.job_post.id)
-#         queryset = add_job_post_annotations(queryset, self.talent)
+#         queryset = JobApplication.objects.filter(id=self.application.id)
+#         queryset = add_application_match_score(queryset, self.job_post)
 #         job_post = queryset.first()
 #
 #         print("requires_location: ", job_post.requires_location)
