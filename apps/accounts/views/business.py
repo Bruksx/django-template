@@ -28,6 +28,7 @@ from ..schemas import business as business_schema
 from ..schemas import common as common_schema
 from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema, TalentFilterListSchema, \
     SendBulkChatSchema
+from ...jobs.models import BusinessModel
 
 router = Router(tags=["Business Account"])
 
@@ -550,6 +551,7 @@ def update_talent_filter(request, talent_filter_uid: UUID, data: PatchDict[Mutat
         data["work_structure"] = data["work_structure"].value
     languages = data.pop("languages", None)
     skills = data.pop("skills", None)
+    business_models = data.pop("business_models", None)
     roles = data.pop("roles", None)
     industries = data.pop("industries", None)
     levels = data.pop("educational_levels", None)
@@ -565,7 +567,15 @@ def update_talent_filter(request, talent_filter_uid: UUID, data: PatchDict[Mutat
     if skills is not None:
         skills = Skill.objects.filter(uid__in=skills)
 
+    if business_models is not None:
+        business_models = BusinessModel.objects.filter(uid__in=business_models)
+
     talent_filter = talent_filter.update(**data)
+    if business_models:
+        talent_filter.business_models.set(business_models)
+    else:
+        talent_filter.business_models.clear()
+
     if languages:
         talent_filter.languages.set(languages)
     else:
