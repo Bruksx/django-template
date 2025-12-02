@@ -10,7 +10,7 @@ from core.schemas import GenericNameAndUidSchema
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef
 from django.shortcuts import get_object_or_404
-from jobs.models import Job, JobPost
+from jobs.models import Job, JobPost, BusinessModel
 from jobs.schemas import BusinessUserJobSchema
 from ninja import Router, UploadedFile, PatchDict, Form
 from ninja.errors import HttpError
@@ -28,7 +28,6 @@ from ..schemas import business as business_schema
 from ..schemas import common as common_schema
 from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema, TalentFilterListSchema, \
     SendBulkChatSchema
-from ...jobs.models import BusinessModel
 
 router = Router(tags=["Business Account"])
 
