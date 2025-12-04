@@ -563,10 +563,14 @@ class Talent(BaseModel):
             Q(employment_type__isnull=True)|
             Q(level__isnull=True)
         ).exists()
+
         return bool(
             bool(has_experience) and
         bool(has_education) and
+        bool(self.talentavailableday_set.exists() or self.flexible_availability is True) and
+        bool(self.availability_timezone) and
         bool(self.country) and
+        bool(self.native_language) and
         bool(self.state) and
         bool(self.postal_code) and
         bool(self.bio) and
@@ -584,6 +588,15 @@ class Talent(BaseModel):
             Q(start_date__isnull=True)
         ).exists():
             raise ValidationError("Education is required.")
+
+        if not (self.talentavailableday_set.exists() or self.flexible_availability is True):
+            raise ValidationError("Availability is required.")
+
+        if not self.availability_timezone:
+            raise ValidationError("Availability timezone is required.")
+
+        if not self.native_language:
+            raise ValidationError("Native language is required.")
 
         if not self.experience_set.exclude(
             Q(role__isnull=True) |
