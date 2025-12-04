@@ -1,11 +1,10 @@
-import logging
 import random
 import random
 import secrets
 import string
 from datetime import timedelta, date, datetime
 from functools import reduce
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional
 from uuid import UUID
 
 import jwt
@@ -25,10 +24,10 @@ from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
 from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
 from ninja_jwt.tokens import RefreshToken
+from notification.enums import EntityType
 from notification.enums import NotificationGroup
 from timezone_field import TimeZoneField
 
-from notification.enums import EntityType
 from config.settings import SECRET_KEY
 from helpers.utils import delete_s3_item
 
@@ -545,60 +544,18 @@ class Talent(BaseModel):
         self.cv = None
         self.save()
         self.delete()
-        
-    def is_profile_completed(self):
-        has_education = self.education_set.exclude(
-            Q(level__isnull=True)|
-            Q(Q(major__isnull=True)| Q(major=""))|
-            Q(Q(university__isnull=True) | Q(university="")) |
-            Q(start_date__isnull=True)
-        ).exists()
-        has_experience = self.experience_set.exclude(
-            Q(role__isnull=True)|
-            Q(Q(company__isnull=True)| Q(company=""))|
-            Q(start_date__isnull=True)|
-            Q(salary_type__isnull=True)|
-            Q(salary__isnull=True) |
-            Q(salary_currency__isnull=True)|
-            Q(employment_type__isnull=True)|
-            Q(level__isnull=True)
-        ).exists()
 
-        return bool(
-            bool(has_experience) and
-        bool(has_education) and
-        bool(self.talentavailableday_set.exists() or self.flexible_availability is True) and
-        bool(self.availability_timezone) and
-        bool(self.country) and
-        bool(self.native_language) and
-        bool(self.state) and
-        bool(self.postal_code) and
-        bool(self.bio) and
-        bool(self.linkedin) and
-        bool(self.notice_period) and
-        self.skills.exists() and
-        bool(self.photo) and
-        bool(self.cv))
-    
-    def validate_profile_completed(self):
-        if not self.education_set.exclude(
+    def is_profile_completed(self, raise_exception=False):
+        # Check education
+        has_education = self.education_set.exclude(
             Q(level__isnull=True) |
             Q(Q(major__isnull=True) | Q(major="")) |
             Q(Q(university__isnull=True) | Q(university="")) |
             Q(start_date__isnull=True)
-        ).exists():
-            raise ValidationError("Education is required.")
+        ).exists()
 
-        if not (self.talentavailableday_set.exists() or self.flexible_availability is True):
-            raise ValidationError("Availability is required.")
-
-        if not self.availability_timezone:
-            raise ValidationError("Availability timezone is required.")
-
-        if not self.native_language:
-            raise ValidationError("Native language is required.")
-
-        if not self.experience_set.exclude(
+        # Check experience
+        has_experience = self.experience_set.exclude(
             Q(role__isnull=True) |
             Q(Q(company__isnull=True) | Q(company="")) |
             Q(start_date__isnull=True) |
@@ -607,26 +564,48 @@ class Talent(BaseModel):
             Q(salary_currency__isnull=True) |
             Q(employment_type__isnull=True) |
             Q(level__isnull=True)
-        ).exists():
-            raise ValidationError("Experience is required.")
-        if not self.country:
-            raise ValidationError("Country is required.")
-        if not self.state:
-            raise ValidationError("State is required.")
-        if not self.postal_code:
-            raise ValidationError("Postal code is required.")
-        if not self.bio:
-            raise ValidationError("Bio is required.")
-        if not self.linkedin:
-            raise ValidationError("LinkedIn profile link is required.")
-        if not self.notice_period:
-            raise ValidationError("Notice period is required.")
-        if not self.skills.exists():
-            raise ValidationError("At least one skill is required.")
-        if not self.photo:
-            raise ValidationError("Profile photo is required.")
-        if not self.cv:
-            raise ValidationError("CV upload is required.")
+        ).exists()
+
+        # Check skills
+        all_category_ids = SkillCategory.objects.only("name").distinct("name").values_list("name", flat=True)
+        has_skills = True
+        for cat in all_category_ids:
+            has_skills &= SkillCategory.objects.filter(name=cat).exists()
+
+        # Field validations
+        validations = [
+            (has_experience, "Experience not provided or incomplete."),
+            (has_education, "Education not provided or incomplete."),
+            (self.user.first_name, "First name is missing."),
+            (self.user.last_name, "Last name is missing."),
+            (self.user.email, "Email is missing."),
+            (self.user.phone_number, "Phone number is missing."),
+            (self.user.gender, "Gender is missing."),
+            (self.photo, "Profile photo is missing."),
+            (self.preferred_communication, "Preferred communication method is missing."),
+            (self.employment_types.exists(), "Employment types are not selected."),
+            (self.work_models, "Work models are not specified."),
+            ((self.talentavailableday_set.exists() or self.flexible_availability is True),
+             "Availability information is missing."),
+            (self.availability_timezone, "Availability timezone is missing."),
+            (self.country, "Country is missing."),
+            (self.native_language, "Native language is missing."),
+            (self.state, "State is missing."),
+            (self.postal_code, "Postal code is missing."),
+            (self.bio, "Bio is missing."),
+            (self.linkedin, "LinkedIn profile is missing."),
+            (self.notice_period, "Notice period is missing."),
+            (has_skills, "Skills are incomplete."),
+            (self.cv, "CV is missing."),
+        ]
+
+        for condition, message in validations:
+            if not condition:
+                if raise_exception:
+                    raise ValidationError(message)
+                return False
+
+        return True
 
     def get_role(self):
         if self.role:
