@@ -1,7 +1,9 @@
 from collections.abc import Iterable
 from datetime import date, timezone, datetime
 from decimal import Decimal
+from zoneinfo import available_timezones
 
+import pytz
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 
@@ -10,7 +12,7 @@ from accounts.models import User, Talent, Skill, Department, Experience, Role, E
     BusinessUser, Business, Country, TalentAvailableDay, BusinessIndustry, State, City
 from accounts.schemas.talent import TalentSkillSchema, MonthlyChartSchema, TalentAvailableDaySchema
 from chats.models import Conversation, Message
-from core.models import Currency
+from core.models import Currency, Language
 from factories import JobPostFactory, TalentFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
     BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, ConversationFactory, \
     MessageFactory, ExperienceFactory, WorkflowStageFactory
@@ -69,8 +71,10 @@ class TalentModelTest(TestCase):
             state=self.state,
             city=self.city.name,
             postal_code="po 12345",
+            native_language=Language.objects.first(),
             bio="hello",
             linkedin="https://loklo@linkedin.com",
+            availability_timezone=pytz.timezone("America/New_York"),
             notice_period=1,
             additional_skills=["django", "css"],
         )
