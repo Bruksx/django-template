@@ -491,10 +491,10 @@ class JobCreationTest(TestCase):
                     "end_time": "08:23:54.706000"
                 }
             ],
-            "responsibilities": [
+            "responsibilities": "".join(map(lambda x: f"<li>{x}</li>", [
                 "Create innovative solutions to address environmental challenges",
                 "Collaborate with cross-functional teams to design and implement sustainable solutions"
-            ],
+            ])),
             "hiring_company_name": "Gynex",
             "hiring_company_description": "EcoTech Solutions is a pioneering company in the field of sustainable technology, dedicated to developing innovative products and services that promote environmental responsibility and reduce the carbon footprint of individuals and businesses. Founded in 2010, EcoTech Solutions has grown from a small startup into a global leader in green technology, with a mission to make sustainability accessible and affordable for everyone",
             "work_structure": "remote",
@@ -666,10 +666,10 @@ class JobUpdateTest(TestCase):
                     "end_time": "08:23:54.706000"
                 }
             ],
-            "responsibilities": [
+            "responsibilities": "".join(map(lambda x: f"<li>{x}</li>",[
                 "Create innovative solutions to address environmental challenges",
                 "Collaborate with cross-functional teams to design and implement sustainable solutions"
-            ],
+            ])),
             "hiring_company_name": "Gynex",
             "hiring_company_description": "EcoTech Solutions is a pioneering company in the field of sustainable technology, dedicated to developing innovative products and services that promote environmental responsibility and reduce the carbon footprint of individuals and businesses. Founded in 2010, EcoTech Solutions has grown from a small startup into a global leader in green technology, with a mission to make sustainability accessible and affordable for everyone",
             "work_structure": "remote",

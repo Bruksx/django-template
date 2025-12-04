@@ -276,7 +276,7 @@ class CreateJobSchema(ModelSchema):
     job_level: Optional[UUID]
     business_models: List[UUID]
     minimum_education_level: UUID
-    responsibilities: List[str]
+    responsibilities: Optional[str] = ""
     min_match_score: Optional[float] = None
     required_attributes: Optional[MutateRequiredAttributeSchema] = None
 
@@ -317,7 +317,7 @@ class OptionalCreateJobSchema(ModelSchema):
     logo: Optional[JobLogoSchema] = None
     business_models: Optional[List[UUID]] = None
     minimum_education_level: Optional[UUID] = None
-    responsibilities: Optional[List[str]] = None
+    responsibilities: Optional[str] = ""
     min_match_score: Optional[float] = None
     required_attributes: Optional[MutateRequiredAttributeSchema] = None
     additional_hours_start: Optional[str] = None
@@ -347,7 +347,7 @@ class UpdateJobSchema(ModelSchema):
     logo: Optional[JobLogoSchema] = None
     business_models: Optional[List[UUID]] = None
     minimum_education_level: Optional[UUID] = None
-    responsibilities: Optional[List[str]] = None
+    responsibilities: Optional[str] = ""
     min_match_score: Optional[float] = None
     required_attributes: Optional[MutateRequiredAttributeSchema] = None
     additional_hours_start: Optional[str] = None
@@ -538,7 +538,7 @@ class JobListSchema2(ModelSchema):
 class JobDetailSchema(ModelSchema):
     uid: UUID
     logo_url: Optional[str]
-    responsibilities: List[str]
+    responsibilities: Optional[str] = ""
     skills: List[JobSkillSchema]
     employment_type: Optional[EmploymentTypeSchema]
     department: Optional[GenericNameAndUidSchema]

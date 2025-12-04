@@ -87,7 +87,7 @@ class Job(BaseModel):
     office_address = models.CharField(max_length=128, null=True)
     lunch_break = models.CharField(max_length=50, choices=LunchBreakEnum.choices(), null=True)
     lunch_break_time = models.PositiveSmallIntegerField(default=0)
-    responsibilities = models.JSONField(default=list, blank=True)
+    responsibilities = models.TextField(null=True, blank=True)
     additional_hours_description = models.TextField(null=True)
     additional_skills = models.TextField(null=True)
     additional_hours_start = models.CharField(max_length=100, null=True, blank=True)

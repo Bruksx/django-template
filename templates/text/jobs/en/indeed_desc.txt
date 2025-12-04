@@ -49,11 +49,7 @@ REQUIRED SKILLS
 {% endif %}
 {% if responsibilities %}
 RESPONSIBILITIES
-{% for responsibility in responsibilities %}
-{% if responsibility %}  - {{ responsibility|safe }}
-{% endif %}
-{% endfor %}
-
+{{ responsibilities }}
 
 {% endif %}
 {% if payment_structure or bonus_structure or additional_benefits or break_info %}
