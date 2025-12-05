@@ -46,10 +46,7 @@ REQUIRED SKILLS
 {% endif %}
 {% if responsibilities %}
 RESPONSIBILITIES
-{% for responsibility in responsibilities %}
-{% if responsibility %}  - {{ responsibility|safe }}
-{% endif %}
-{% endfor %}
+{{ responsibilities }}
 
 
 {% endif %}

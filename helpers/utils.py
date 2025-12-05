@@ -11,6 +11,7 @@ from sys import getsizeof
 from typing import Optional, List
 from zoneinfo import ZoneInfo
 
+import bleach
 import boto3
 import ijson
 import pdfkit
@@ -429,3 +430,83 @@ def alert_bug_via_email(func, default, *args, **kwargs):
             from_user="1840",
         )
         return default
+
+def sanitize_html_secure(html: str) -> str:
+    """
+    Security-focused HTML sanitizer:
+    - Removes all scripts, iframes, embeds, objects
+    - Removes all event handlers (onclick, onload, etc.)
+    - Removes javascript: URLs
+    - Leaves harmless HTML tags intact
+    - Leaves CSS styles intact since they are not security threats
+    """
+    html = re.sub(r'<script\b[^>]*>.*?</script>', '', html, flags=re.IGNORECASE | re.DOTALL)
+
+    # Only allow these harmless tags
+    allowed_tags = {
+        "p", "b", "i", "u", "strong", "em", "a"
+        "ul", "ol", "li", "br", "span", "blockquote", "pre", "code"
+    }
+
+    # Allow only safe attributes
+    allowed_attrs = {
+        "*": ["style"],  # keep styles
+        "a": ["href", "title", "target", "rel"]
+    }
+
+    # Sanitize with bleach
+    cleaned = bleach.clean(
+        html,
+        tags=allowed_tags,
+        attributes=allowed_attrs,
+        protocols={"http", "https", "mailto"},  # no javascript: URLs
+        strip=True,
+        strip_comments=True
+    )
+
+    return cleaned
+
+def html_to_text(html: str) -> str:
+    """
+    Converts HTML to plain text in a very fast way suitable for millions of records.
+
+    Rules:
+        - <br>, <p> -> newline
+        - <li> -> "- " prefix
+        - <a href="">text</a> -> text (URL)
+        - Strips all other tags
+    """
+    if not html:
+        return ""
+
+    # 1. Handle links: <a href="URL">text</a> -> text (URL)
+    html = re.sub(
+        r'<a\s+[^>]*href=["\'](.*?)["\'][^>]*>(.*?)</a>',
+        lambda m: f"{m.group(2)} ({m.group(1)})",
+        html,
+        flags=re.IGNORECASE | re.DOTALL
+    )
+
+    # 2. Convert <br> and <p> to newline
+    html = re.sub(r'<br\s*/?>', '\n', html, flags=re.IGNORECASE)
+    html = re.sub(r'</p\s*>', '\n', html, flags=re.IGNORECASE)
+    html = re.sub(r'<p\s*>', '', html, flags=re.IGNORECASE)
+
+    # 3. Convert <li> to "- "
+    html = re.sub(r'<li\s*>', '- ', html, flags=re.IGNORECASE)
+    html = re.sub(r'</li\s*>', '\n', html, flags=re.IGNORECASE)
+
+    # 4. Remove all remaining HTML tags
+    html = re.sub(r'<[^>]+>', '', html)
+
+    # 5. Unescape HTML entities
+    html = re.sub(r'&nbsp;', ' ', html)
+    html = re.sub(r'&amp;', '&', html)
+    html = re.sub(r'&lt;', '<', html)
+    html = re.sub(r'&gt;', '>', html)
+    html = re.sub(r'&quot;', '"', html)
+    html = re.sub(r'&#39;', "'", html)
+
+    # 6. Normalize whitespace and strip
+    lines = [line.strip() for line in html.splitlines()]
+    return '\n'.join([line for line in lines if line])

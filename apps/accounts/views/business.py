@@ -10,7 +10,7 @@ from core.schemas import GenericNameAndUidSchema
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef
 from django.shortcuts import get_object_or_404
-from jobs.models import Job, JobPost
+from jobs.models import Job, JobPost, BusinessModel
 from jobs.schemas import BusinessUserJobSchema
 from ninja import Router, UploadedFile, PatchDict, Form
 from ninja.errors import HttpError
@@ -550,6 +550,7 @@ def update_talent_filter(request, talent_filter_uid: UUID, data: PatchDict[Mutat
         data["work_structure"] = data["work_structure"].value
     languages = data.pop("languages", None)
     skills = data.pop("skills", None)
+    business_models = data.pop("business_models", None)
     roles = data.pop("roles", None)
     industries = data.pop("industries", None)
     levels = data.pop("educational_levels", None)
@@ -565,7 +566,15 @@ def update_talent_filter(request, talent_filter_uid: UUID, data: PatchDict[Mutat
     if skills is not None:
         skills = Skill.objects.filter(uid__in=skills)
 
+    if business_models is not None:
+        business_models = BusinessModel.objects.filter(uid__in=business_models)
+
     talent_filter = talent_filter.update(**data)
+    if business_models:
+        talent_filter.business_models.set(business_models)
+    else:
+        talent_filter.business_models.clear()
+
     if languages:
         talent_filter.languages.set(languages)
     else:
