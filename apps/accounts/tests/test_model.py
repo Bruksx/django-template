@@ -22,6 +22,8 @@ from jobs.models import JobLevel, EmploymentType, Job, JobPost, RequiredAttribut
     JobApplication, JobInterview, SavedJob
 from settings.models import WorkFlowStage
 
+from apps.accounts.queries import add_profile_completion_annotation
+
 
 class TalentModelTest(TestCase):
     def setUp(self):
@@ -82,7 +84,7 @@ class TalentModelTest(TestCase):
         self.talent.cv = SimpleUploadedFile("c.pdf", b'rggggg', "application/pdf")
         self.talent.employment_types.add(self.employment_type)
         self.talent.skills.set(
-            Skill.objects.filter(id__in=(SkillCategory.objects.only('id').values_list('id', flat=True))))
+            Skill.objects.filter(category__name__in=(SkillCategory.objects.only('name').values_list('name', flat=True))))
 
         self.talent.save()
         self.business = Business.objects.create(
@@ -212,6 +214,17 @@ class TalentModelTest(TestCase):
         experience.salary = None
         experience.save()
         self.assertFalse(self.talent.is_profile_completed())
+
+    def test_profile_complete_annotation(self):
+        queryset = Talent.objects.all()
+        queryset = add_profile_completion_annotation(queryset)
+        self.assertEqual(queryset.filter(complete_profile=True).count(), 1)
+        experience = self.talent.experience_history().first()
+        experience.salary = None
+        experience.save()
+        self.assertEqual(queryset.filter(complete_profile=True).count(), 0)
+
+
 
     def test_get_skills(self):
         skills = self.talent.get_skills()
