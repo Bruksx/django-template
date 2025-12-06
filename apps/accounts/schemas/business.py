@@ -12,7 +12,7 @@ from accounts.models import Business, BusinessUser, TalentFilter, Talent, Experi
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, GenericNameAndUidSchema, EducationLevelSchema
 from jobs.enums import WorkStructureEnum
 from jobs.models import EmploymentType
-
+from accounts.queries import add_profile_completion_annotation
 
 class ValidateOTPSchema(Schema):
     email: EmailStr
@@ -332,6 +332,7 @@ class TalentFilterQuerySchema(ModelSchema):
     skills: Optional[List[UUID]] = None
     locations: Optional[List[str]] = None
     business_models: Optional[List[UUID]] = None
+    completed_profiles: Optional[bool] = None
     
 
     class Meta:
@@ -357,6 +358,12 @@ class TalentFilterQuerySchema(ModelSchema):
         if self.industries:
             queryset = queryset.filter(
                 skills__department__industry__uid__in=self.industries
+            )
+
+        if self.completed_profiles is not None:
+            queryset = add_profile_completion_annotation(queryset)
+            queryset = queryset.filter(
+                complete_profile=self.completed_profiles
             )
         
         # Locations (vectorized, no loop)

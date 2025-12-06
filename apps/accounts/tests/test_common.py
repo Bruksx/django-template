@@ -1,18 +1,15 @@
-from uuid import uuid4
-
-from django.test import TestCase
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
-
 from accounts.enums import CaseReasonType
 from accounts.models import Country, Industry, User, Talent, CustomerCase, VerificationCode, TalentFilter
 from accounts.schemas.business import TalentFilterQuerySchema
 from accounts.views.common import router
 from chats.views import ws_router
+from django.test import TestCase
 from factories import (UserFactory, TalentFactory, BusinessUserFactory, RoleFactory, IndustryFactory, LanguageFactory,
                        SkillFactory, TalentFilterFactory, EducationLevelFactory, ExperienceFactory, EducationFactory,
                        CountryFactory, DepartmentFactory)
 from jobs.enums import WorkStructureEnum
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
 
 
 class CommonListTests(TestCase):
@@ -280,6 +277,14 @@ class TalentListTest(TestCase):
         response = self.client.get(f"{self.url}?search={self.talent.user.email}", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 1)
+
+    def test_talent_list_with_completed_profiles_filter(self):
+        headers = {
+            "authorization": f"bearer {self.talent.user.token}"
+        }
+        response = self.client.get(f"{self.url}?completed_profiles=true", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["count"], 0)
 
     def test_for_talent_invisibility(self):
         self.talent.update(visible=False)
