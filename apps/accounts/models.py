@@ -382,8 +382,7 @@ class Talent(BaseModel):
         # Get job IDs to fetch matching JobPosts
         job_ids = jobs.values_list("id", flat=True)
         jobpost_filter = {"job_id__in": job_ids}
-        if by_talent_country:
-            jobpost_filter["country"] = self.country
+
 
         queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business") \
             .filter(**jobpost_filter) \
@@ -391,6 +390,8 @@ class Talent(BaseModel):
         
         queryset = add_job_post_annotations(queryset, self)
         queryset = queryset.filter(computed_match_score__gte=50, status=JobStatusType.POSTED.value)
+        if by_talent_country:
+            queryset = queryset.filter(can_apply=True)
         return queryset
 
     def job_match_score(self, job_post):

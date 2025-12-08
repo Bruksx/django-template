@@ -336,7 +336,12 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             When(Q(country=talent.country), then=Value(6.67)),
             default=Value(0.0),
             output_field=FloatField()
-        )
+        ),
+        can_apply=Case(
+            When(Q(requires_location=True) & Q(location_score=0.0), then=Value(False)),
+            default=Value(True),
+            output_field=BooleanField()
+        ),
     ).annotate(
         computed_match_score=Case(
             When(Q(requires_location=True) & Q(location_score=0.0), then=Value(0.0)),
@@ -741,7 +746,12 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
             When(applicant__country=job_post.country, then=Value(6.67)),
             default=Value(0.0),
             output_field=FloatField()
-        )
+        ),
+        can_apply=Case(
+            When(Q(requires_location=True) & Q(location_score=0.0), then=Value(False)),
+            default=Value(True),
+            output_field=BooleanField()
+        ),
     ).annotate(
         computed_match_score=Case(
             When(Q(requires_location=True) & Q(location_score=0.0), then=Value(0.0)),
