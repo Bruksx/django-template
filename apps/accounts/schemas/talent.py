@@ -2,20 +2,18 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
-from accounts.enums import MeetingType
-from ninja import Schema, ModelSchema, PatchDict
-from pydantic import Field, EmailStr
-
 from accounts.enums import GenderType, PreferredCommunicationType, Days, Months, NoticePeriodType
+from accounts.enums import MeetingType
 from accounts.models import (Talent, User, TalentAvailableDay, Education,
                              Experience, Skill, Role)
 from core.enums import SalaryType
+from core.schemas import GenericNameAndUidSchema
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema, \
     EducationLevelSchema, CountrySchema
 from jobs.enums import WorkStructureEnum
 from jobs.schemas import JobLevelSchema, EmploymentTypeSchema, BusinessModelSchema
-
-from core.schemas import GenericNameAndUidSchema
+from ninja import Schema, ModelSchema, PatchDict
+from pydantic import Field, EmailStr
 
 
 class DepartmentSchema(Schema):
@@ -334,7 +332,7 @@ class TalentDashboardReport(Schema):
     def resolve_job_matches(obj, context):
         if not context:
             context = dict()
-        return obj.job_post_matches(by_talent_country=False, **context).count()
+        return obj.job_post_matches(by_talent_country=True, **context).count()
 
     @staticmethod
     def resolve_jobs_applied(obj, context):
