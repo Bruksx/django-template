@@ -8,6 +8,8 @@ from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
 from django.db import transaction
+from auth.services import validate_login
+from auth.schema import LoginSchema
 from django.utils import timezone
 from ninja import Router, PatchDict, UploadedFile, File
 from ninja.errors import HttpError
@@ -113,7 +115,7 @@ def talent_dashboard_chart(request):
     IsTalentUser.check(request)
     return request.user.talent.dashboard_charts()
 
-@router.patch("profile", auth=JWTAuth())
+@router.patch("profile", auth=JWTAuth(), response=talent_schemas.TalentUserListSchema)
 @transaction.atomic
 def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentProfileSchema2]):
     IsTalentUser.check(request)
@@ -227,8 +229,8 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
                 if not talent_user.talentavailableday_set.filter(day=day).exists():
                     TalentAvailableDay.objects.create(**available_day, talent=talent_user)
     user.update(**user_data)
-    talent_user.update(**data)
-    return Response(status=200, data={"message": "Profile updated successfully"})
+    return talent_user.update(**data)
+    
 
 @router.patch("change-password", auth=JWTAuth())
 def change_talent_password(request, data: talent_schemas.TalentChangePasswordSchema):
@@ -298,9 +300,12 @@ def schedule_meeting(request, data: talent_schemas.ScheduleMeetingSchema):
 
     return meeting_response
 
-@router.delete("", auth=JWTAuth(), response={204: None})
+@router.delete("", response={204: None})
 @transaction.atomic
-def delete_account(request):
-    IsTalentUser.check(request)
-    request.user.delete_account()
+def delete_account(request, data: LoginSchema):
+    user: User = User.objects.filter(email=data.email).first()
+    validate_login(user)
+    if not user.check_password(data.password):
+        raise HttpError(400, "Incorrect Password")
+    user.delete_account()
     return Response(status=204, data={"message": "Account deleted successfully"})

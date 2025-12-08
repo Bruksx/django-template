@@ -4,7 +4,7 @@ import secrets
 import string
 from datetime import timedelta, date, datetime
 from functools import reduce
-from typing import Tuple, Optional, List
+from typing import Tuple, Optional
 from uuid import UUID
 
 import jwt
@@ -15,6 +15,7 @@ from core.models import BaseModel, State, City
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q, Count, F, Value, Avg, IntegerField, Exists, OuterRef, Sum, When, Case
 from django.db.models.functions import Concat, Cast, Round
@@ -23,10 +24,10 @@ from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
 from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
 from ninja_jwt.tokens import RefreshToken
+from notification.enums import EntityType
 from notification.enums import NotificationGroup
 from timezone_field import TimeZoneField
 
-from notification.enums import EntityType
 from config.settings import SECRET_KEY
 from helpers.utils import delete_s3_item
 
@@ -221,7 +222,7 @@ class Talent(BaseModel):
     viber_number = models.CharField(max_length=50, null=True)
     country = models.ForeignKey(Country, on_delete=models.SET_NULL, null=True)
     state = models.ForeignKey(State, on_delete=models.SET_NULL, null=True)
-    city = models.ForeignKey(City, on_delete=models.SET_NULL, null=True)
+    city = models.CharField(max_length=200, null=True)
     address = models.CharField(max_length=128, null=True)
     postal_code = models.CharField(max_length=20, null=True)
     employment_types = models.ManyToManyField('jobs.EmploymentType', blank=True)
@@ -257,7 +258,7 @@ class Talent(BaseModel):
         #     data.append(self.address)
 
         if self.city:
-            data.append(self.city.name)
+            data.append(self.city)
         if self.state:
             data.append(self.state.name)
         if self.country:
@@ -544,6 +545,72 @@ class Talent(BaseModel):
         self.save()
         self.delete()
 
+    def is_profile_completed(self, raise_exception=False):
+        # Check education
+        has_education = self.education_set.exclude(
+            Q(level__isnull=True) |
+            Q(Q(major__isnull=True) | Q(major="")) |
+            Q(Q(university__isnull=True) | Q(university="")) |
+            Q(start_date__isnull=True)
+        ).exists()
+
+        # Check experience
+        has_experience = self.experience_set.exclude(
+            Q(role__isnull=True) |
+            Q(Q(company__isnull=True) | Q(company="")) |
+            Q(start_date__isnull=True) |
+            Q(salary_type__isnull=True) |
+            Q(salary__isnull=True) |
+            Q(salary_currency__isnull=True) |
+            Q(employment_type__isnull=True) |
+            Q(level__isnull=True)
+        ).exists()
+
+        # Check skills
+        all_category_ids = SkillCategory.objects.only("name").distinct("name").values_list("name", flat=True)
+        has_skills = True
+        for cat in all_category_ids:
+            has_skills &= self.skills.filter(category__name__iexact=cat).exists()
+
+        # Field validations
+        validations = [
+            (has_experience, "Experience not provided or incomplete."),
+            (has_education, "Education not provided or incomplete."),
+            (self.user.first_name, "First name is missing."),
+            (self.user.last_name, "Last name is missing."),
+            (self.user.email, "Email is missing."),
+            (self.user.phone_number, "Phone number is missing."),
+            (self.user.gender, "Gender is missing."),
+            (self.photo, "Profile photo is missing."),
+            (self.preferred_communication, "Preferred communication method is missing."),
+            (self.employment_types.exists(), "Employment types are not selected."),
+            (self.work_models, "Work models are not specified."),
+            ((self.talentavailableday_set.exists() or self.flexible_availability is True),
+             "Availability information is missing."),
+            (self.availability_timezone, "Availability timezone is missing."),
+            (self.country, "Country is missing."),
+            (self.native_language, "Native language is missing."),
+            (self.state, "State is missing."),
+            (self.postal_code, "Postal code is missing."),
+            (self.bio, "Bio is missing."),
+            (self.linkedin, "LinkedIn profile is missing."),
+            (self.notice_period, "Notice period is missing."),
+            (has_skills, "Skills are incomplete."),
+            (self.cv, "CV is missing."),
+        ]
+
+        for condition, message in validations:
+            if not condition:
+                if raise_exception:
+                    raise ValidationError(message)
+                return False
+
+        return True
+
+    def get_role(self):
+        if self.role:
+            return self.role
+        return self.experience_set.order_by('-start_date').first().role if self.experience_set.exists() else None
 
 class BusinessIndustry(BaseModel):
     name = models.CharField(max_length=128)
@@ -1210,3 +1277,4 @@ class TalentFilter(BaseModel):
     maximum_notice_period = models.PositiveSmallIntegerField(null=True)
     work_structure = models.CharField(max_length=100, choices=WorkStructureEnum.choices(), null=True)
     skills = models.ManyToManyField("accounts.Skill", related_name="skills_talent_filter")
+    business_models = models.ManyToManyField("jobs.BusinessModel", blank=True, related_name="businessmodels_talent_filter")

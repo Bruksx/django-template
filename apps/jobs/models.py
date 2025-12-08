@@ -13,10 +13,9 @@ from jobs.managers import JobManager
 from settings.enums import PlaceHolderType
 from timezone_field import TimeZoneField
 
-from monkeypatches.q_cluster import async_task
 from .db_functions import Epoch
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
-    JobStatusType
+    JobStatusType, ScreeningResultStatusType
 
 
 # Create your models here.
@@ -87,7 +86,7 @@ class Job(BaseModel):
     office_address = models.CharField(max_length=128, null=True)
     lunch_break = models.CharField(max_length=50, choices=LunchBreakEnum.choices(), null=True)
     lunch_break_time = models.PositiveSmallIntegerField(default=0)
-    responsibilities = models.JSONField(default=list, blank=True)
+    responsibilities = models.TextField(null=True, blank=True)
     additional_hours_description = models.TextField(null=True)
     additional_skills = models.TextField(null=True)
     additional_hours_start = models.CharField(max_length=100, null=True, blank=True)
@@ -134,7 +133,7 @@ class Job(BaseModel):
         return data
 
     def send_alerts(self):
-        async_task(JobAlert.send_alerts,self)
+        JobAlert.send_alerts(self)
         return
 
 
@@ -258,6 +257,7 @@ class Job(BaseModel):
 
 class JobPost(BaseModel):
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
+    about = models.TextField(null=True)
     status = models.CharField(max_length=50, choices=JobStatusType.choices(), default=JobStatusType.DRAFT.value)
     date_posted = models.DateTimeField(null=True)
     posted_order = models.GeneratedField(
@@ -270,7 +270,7 @@ class JobPost(BaseModel):
     )
     country = models.ForeignKey("accounts.Country", on_delete=models.SET_NULL, null=True)
     province = models.ForeignKey("core.State", on_delete=models.SET_NULL, null=True)
-    city = models.ForeignKey("core.City", on_delete=models.SET_NULL, null=True)
+    city = models.CharField(max_length=200, null=True)
     postal_code = models.CharField(max_length=20, null=True)
     benefits = models.JSONField(default=list, blank=True)
     share_compensation = models.BooleanField(default=True)
@@ -318,6 +318,8 @@ class JobPost(BaseModel):
                                   , null=True)
     edited_at = models.DateTimeField(null=True)
     
+    promotion_code = models.CharField(max_length=200, null=True, blank=True)
+    
     def copy(self):
         return JobPost.objects.create(
             job=self.job,
@@ -341,7 +343,7 @@ class JobPost(BaseModel):
     def get_location(self):
         data = list()
         if self.city:
-            data.append(self.city.name)
+            data.append(self.city)
         if self.province:
             data.append(self.province.name)
         if self.country:
@@ -363,11 +365,16 @@ class JobPost(BaseModel):
         if not self.province:
             return
         return self.province.name
+    
+    def get_about(self):
+        if not self.about:
+            return self.job.about
+        return self.about
+    
+    
 
     def get_city(self):
-        if not self.city:
-            return
-        return self.city.name
+        return self.city
 
     def get_talents(self, queryset=None):
         from jobs.queries import add_talent_match_score
@@ -712,6 +719,15 @@ class JobApplication(BaseModel):
         if not ScreeningQuestion.objects.filter(job=self.job_post.job, is_knockout=True).exists():
             return False
         return Answer.objects.filter(application=self, question__is_knockout=True, options__is_accepted=False).exists()
+
+
+    def get_screening_result_status(self):
+        if not ScreeningQuestion.objects.filter(job=self.job_post.job).exists():
+            return None
+        if self.knockout():
+            return ScreeningResultStatusType.FAIL.value
+        return ScreeningResultStatusType.PASS.value
+
 
 
 

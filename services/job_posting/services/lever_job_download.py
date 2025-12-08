@@ -97,7 +97,7 @@ def create_job(job_data):
                 "posted_by": business_user,
                 "recruiter": business_user,
                 "province": province,
-                "city": city,
+                "city": city.name,
                 "salary_min": job_data.get("salaryRange", {}).get("min"),
                 "salary_max": job_data.get("salaryRange", {}).get("max"),
                 "salary_currency": currency,

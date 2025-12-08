@@ -1,5 +1,5 @@
 from copy import copy
-from datetime import datetime, time
+from datetime import datetime
 from typing import List, Literal
 from typing import Optional
 from uuid import UUID
@@ -73,7 +73,7 @@ class JobAvailabilitySchema(Schema):
 
 class MutateJobPostSchema(ModelSchema):
     country: Optional[UUID] = None
-    city: Optional[UUID] = None
+    city: Optional[str] = None
     province: Optional[UUID] = None
     benefits: List[str]
     recruiter: Optional[UUID] = None
@@ -82,7 +82,7 @@ class MutateJobPostSchema(ModelSchema):
     salary_bonus_currency: Optional[UUID] = None
     salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
-
+    
 
     class Meta:
         model = JobPost
@@ -91,7 +91,7 @@ class MutateJobPostSchema(ModelSchema):
 
 class UpdateJobPostSchema(ModelSchema):
     country: Optional[UUID] = None
-    city: Optional[UUID] = None
+    city: Optional[str] = None
     province: Optional[UUID] = None
     uid: Optional[UUID] = None
     benefits: List[str]
@@ -101,7 +101,7 @@ class UpdateJobPostSchema(ModelSchema):
     salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_currency: Optional[UUID]
-
+    
     class Meta:
         model = JobPost
         exclude = [*MUTATE_EXCLUDE_FIELDS, "job", "created_at", "posted_by", "date_posted"]
@@ -110,7 +110,7 @@ class UpdateJobPostSchema(ModelSchema):
 
 class MutateJobPostListSchema(ModelSchema):
     country: Optional[GenericNameAndUidSchema] = None
-    city: Optional[GenericNameAndUidSchema] = None
+    city: Optional[str] = None
     province: Optional[GenericNameAndUidSchema] = None
     recruiter: Optional[BusinessUserListSchema]
     benefits: List[str]
@@ -276,7 +276,7 @@ class CreateJobSchema(ModelSchema):
     job_level: Optional[UUID]
     business_models: List[UUID]
     minimum_education_level: UUID
-    responsibilities: List[str]
+    responsibilities: Optional[str] = ""
     min_match_score: Optional[float] = None
     required_attributes: Optional[MutateRequiredAttributeSchema] = None
 
@@ -317,7 +317,7 @@ class OptionalCreateJobSchema(ModelSchema):
     logo: Optional[JobLogoSchema] = None
     business_models: Optional[List[UUID]] = None
     minimum_education_level: Optional[UUID] = None
-    responsibilities: Optional[List[str]] = None
+    responsibilities: Optional[str] = ""
     min_match_score: Optional[float] = None
     required_attributes: Optional[MutateRequiredAttributeSchema] = None
     additional_hours_start: Optional[str] = None
@@ -347,7 +347,7 @@ class UpdateJobSchema(ModelSchema):
     logo: Optional[JobLogoSchema] = None
     business_models: Optional[List[UUID]] = None
     minimum_education_level: Optional[UUID] = None
-    responsibilities: Optional[List[str]] = None
+    responsibilities: Optional[str] = ""
     min_match_score: Optional[float] = None
     required_attributes: Optional[MutateRequiredAttributeSchema] = None
     additional_hours_start: Optional[str] = None
@@ -452,12 +452,13 @@ class JobPostDetailSchema(ModelSchema):
     saved: Optional[bool]
     alert: Optional[bool]
     applied: Optional[bool]
-    city: GenericNameAndUidSchema | None
+    city: str | None
     province: GenericNameAndUidSchema | None
+    about: Optional[str] = Field(None, alias="get_about")
 
     class Meta:
         model = JobPost
-        fields = ["uid",  "postal_code", "status", "share_compensation", "created_at", "date_posted", "salary_type", "salary_bonus_type"]
+        fields = ["uid",  "postal_code", "status", "promotion_code", "share_compensation", "created_at", "date_posted", "salary_type", "salary_bonus_type"]
 
     @staticmethod
     def resolve_salary_bonus_currency(obj):
@@ -537,7 +538,7 @@ class JobListSchema2(ModelSchema):
 class JobDetailSchema(ModelSchema):
     uid: UUID
     logo_url: Optional[str]
-    responsibilities: List[str]
+    responsibilities: Optional[str] = ""
     skills: List[JobSkillSchema]
     employment_type: Optional[EmploymentTypeSchema]
     department: Optional[GenericNameAndUidSchema]
@@ -614,11 +615,12 @@ class JobPostListSchema(ModelSchema):
     recruiter: Optional[str] = None
     city: Optional[str] = Field(None, alias="get_city")
     province: Optional[str] = Field(None, alias="get_province")
+    about: Optional[str] = Field(None, alias="get_about")
 
 
     class Meta:
         model = JobPost
-        fields = ["uid", "status", "created_at", "date_posted", "share_compensation", "last_refreshed", "salary_type", "salary_bonus_type"]
+        fields = ["uid", "status", "created_at", "promotion_code", "date_posted", "share_compensation", "last_refreshed", "salary_type", "salary_bonus_type"]
 
 
     @staticmethod
@@ -836,14 +838,15 @@ class JobPostFullDetailSchema(ModelSchema):
     benefits: List[str] = list()
     saved: Optional[bool] = None
     alert: Optional[bool] = None
-    city: Optional[GenericNameAndUidSchema] = None
+    city: Optional[str] = None
     province: Optional[GenericNameAndUidSchema] = None
+    about: Optional[str] = Field(None, alias="get_about")
 
 
     class Meta:
         model = JobPost
         fields = ["uid", "status", "created_at",  "postal_code", "date_posted",
-                  "share_compensation", "salary_type", "salary_bonus_type", "edited_at"]
+                  "share_compensation", "salary_type", "salary_bonus_type", "edited_at", "promotion_code"]
 
     @staticmethod
     def resolve_saved(obj, context):
@@ -937,6 +940,7 @@ class JobApplicationListSchema(ModelSchema):
     match:int
     phase:str
     stage:Optional[str] = None
+    stage_uid:Optional[UUID] = None
     applicant_uid: UUID = Field(alias="applicant.uid")
     applicant: str = Field(alias="applicant.user.fullname")
     applicant_location: Optional[str] = Field(None, alias="applicant.get_country")
@@ -964,11 +968,17 @@ class JobApplicationListSchema(ModelSchema):
         if not obj.stage:
             return
         return obj.stage.name
+    
+    @staticmethod
+    def resolve_stage_uid(obj):
+        if not obj.stage:
+            return
+        return obj.stage.uid
 
     @staticmethod
     def resolve_phase(obj):
         if not obj.stage:
-            return "new"
+            return PhaseType.NEW.value
         return obj.stage.phase
 
     @staticmethod
@@ -1051,11 +1061,12 @@ class TalentJobPostListSchema(ModelSchema):
     application_uid: Optional[UUID]
     stage: Optional[StageSchema]
     invited: bool
-    city: Optional[GenericNameAndUidSchema] = None
+    city: Optional[str] = None
     province: Optional[GenericNameAndUidSchema] = None
     match_obj: Optional[MatchScoreSchema] = None
     date_saved: Optional[datetime] = None
     date_applied: Optional[datetime] = None
+    about: Optional[str] = Field(None, alias="get_about")
 
     class Meta:
         model = JobPost
@@ -1344,7 +1355,7 @@ class BusinessJobFilterQuerySchema(Schema):
     clients: Optional[str] = Field("", description="comma separated clients")
     country: Optional[str] = Field(None, description="country uuid")
     province: Optional[str] = Field(None, description="province uuid")
-    city: Optional[str] = Field(None, description="city uuid")
+    city: Optional[str] = Field(None, description="city name")
     status: Optional[str] = Field(None, description=f"status enums:  {', '.join(JobStatusType.values())}")
     statuses: Optional[str] = Field("", description=f"comma separated status type  enums: {', '.join(JobStatusType.values())}")
     recruiter: Optional[str] = Field("", description="comma separated recruiter uuids")
@@ -1373,7 +1384,7 @@ class BusinessJobFilterSchema(Schema):
     status: Optional[JobStatusType] = None
     country: Optional[UUID] = None
     province: Optional[UUID] = None
-    city: Optional[UUID] = None
+    city: Optional[str] = None
     recruiter: Optional[List[UUID]] = []
     posted_by: Optional[List[UUID]] = []
 
@@ -1389,7 +1400,6 @@ class BusinessJobFilterSchema(Schema):
         Returns:
             Job post queryset
         """
-        from jobs.services import order_job_posts
         if not queryset:
             queryset = Job.objects.prefetch_related("jobpost_set").annotate(jobpost_count=Count('jobpost')).filter(
                 jobpost_count__gt=0)
@@ -1410,7 +1420,7 @@ class BusinessJobFilterSchema(Schema):
             queryset = queryset.filter(jobpost__province__uid=self.province)
 
         if self.city:
-            queryset = queryset.filter(jobpost__city__uid=self.city)
+            queryset = queryset.filter(jobpost__city__iexact=self.city)
 
         if self.clients:
             queryset = queryset.filter(hiring_company_name__in=self.clients)
@@ -1467,7 +1477,7 @@ class BusinessJobFilterSchema(Schema):
         if context.get("province"):
             queryset = queryset.filter(province__uid=context.get("province"))
         if context.get("city"):
-            queryset = queryset.filter(city__uid=context.get("city"))
+            queryset = queryset.filter(city__iexact=context.get("city"))
         if context.get("statuses"):
             queryset = queryset.filter(status__in=context.get("statuses"))
         if context.get("recruiter"):
@@ -1511,6 +1521,7 @@ class TalentListJobPostSchema(ModelSchema):
     photo_url: Optional[str]
     cv_url: Optional[str]
     match_score: Optional[int]
+    role: Optional[GenericNameAndUidSchema] = Field(None, alias="get_role")
 
     class Meta:
         model = Talent
@@ -1565,3 +1576,15 @@ class BusinessUserJobSchema(ModelSchema):
     class Meta:
         model = Job
         fields = ["uid"]
+
+
+class TalentScreeningResultSchema(ModelSchema):
+    role: Optional[GenericNameAndUidSchema] = Field(None, alias="job_post.job.role")
+    location: Optional[GenericNameAndUidSchema] = Field(None, alias="job_post.country")
+    client: Optional[str] = Field(None, alias="job_post.job.get_company")
+    result: Optional[str] = Field(None, alias="get_screening_result_status")
+    date_submitted: Optional[datetime] = Field(None, alias="created_at")
+
+    class Meta:
+        model = JobApplication
+        fields = ["updated_at"]

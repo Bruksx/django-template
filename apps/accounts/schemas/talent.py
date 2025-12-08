@@ -116,7 +116,7 @@ class UpdateTalentProfileSchema2(ModelSchema):
     phone_number: Optional[str] = None
     country: Optional[UUID] = None
     state: Optional[UUID] = None
-    city: Optional[UUID] = None
+    city: Optional[str] = None
     role: Optional[UUID] = None
     employment_types: Optional[List[UUID]] = None
     postal_code: Optional[str] = None
@@ -178,9 +178,9 @@ class TalentAvailabilitySchema(Schema):
 
 class TalentUserSchema(ModelSchema):
     user: UserSchema
-    role: Optional[RoleSchema]
+    role: Optional[RoleSchema] = Field(None, alias="get_role")
     country: Optional[CountrySchema]
-    city: Optional[GenericNameAndUidSchema]
+    city: Optional[str]
     state: Optional[GenericNameAndUidSchema]
     employment_types: Optional[List[EmploymentTypeSchema]]
     work_models: Optional[List[WorkStructureEnum]]
@@ -196,6 +196,7 @@ class TalentUserSchema(ModelSchema):
     additional_skills: List[str]
     address: str = Field(alias="get_address")
     years_of_experience: str = Field(alias="get_years_of_experience")
+    is_profile_completed: bool
 
 
     class Meta:
@@ -205,6 +206,10 @@ class TalentUserSchema(ModelSchema):
     @staticmethod
     def resolve_skills(obj):
         return obj.get_skills()
+    
+    @staticmethod
+    def resolve_is_profile_completed(obj):
+        return obj.is_profile_completed()
 
     @staticmethod
     def resolve_availability(obj):
@@ -264,15 +269,21 @@ class TalentUserListSchema(ModelSchema):
     last_name: str = Field(alias="user.last_name")
     email: EmailStr = Field(alias="user.email")
     user_uid: UUID = Field(alias="user.uid")
-    role: Optional[RoleSchema]
+    role: Optional[RoleSchema] = Field(None, alias="get_role")
     country: Optional[CountrySchema]
     phone_number: Optional[str] = None
     phone_code: Optional[str] = None
     photo_url:Optional[str]
     cv_url:Optional[str]
+    is_profile_completed: bool
+    
     class Meta:
         model = Talent
         fields = ("uid", "years_of_experience",  )
+    
+    @staticmethod
+    def resolve_is_profile_completed(obj):
+        return obj.is_profile_completed()
 
 
 class CompleteTalentProfileSchema(ModelSchema):

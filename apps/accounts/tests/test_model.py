@@ -2,24 +2,27 @@ from collections.abc import Iterable
 from datetime import date, timezone, datetime
 from decimal import Decimal
 
-from django.test import TestCase
-
+import pytz
 from accounts.enums import BusinessUserRoleType, Days
+from accounts.enums import PreferredCommunicationType
+from accounts.models import SkillCategory
 from accounts.models import User, Talent, Skill, Department, Experience, Role, Education, EducationLevel, \
-    BusinessUser, Business, Country, TalentAvailableDay, BusinessIndustry
+    BusinessUser, Business, Country, TalentAvailableDay, BusinessIndustry, State, City
 from accounts.schemas.talent import TalentSkillSchema, MonthlyChartSchema, TalentAvailableDaySchema
 from chats.models import Conversation, Message
-from core.models import Currency
+from core.models import Currency, Language
+from core.models import State
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase
 from factories import JobPostFactory, TalentFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
     BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, ConversationFactory, \
     MessageFactory, ExperienceFactory, WorkflowStageFactory
 from jobs.enums import LunchBreakEnum, WorkStructureEnum, PhaseType, JobStatusType
 from jobs.models import JobLevel, EmploymentType, Job, JobPost, RequiredAttribute, BusinessModel, AvailableDay, \
     JobApplication, JobInterview, SavedJob
-
 from settings.models import WorkFlowStage
 
-from core.models import State
+from apps.accounts.queries import add_profile_completion_annotation
 
 
 class TalentModelTest(TestCase):
@@ -37,6 +40,9 @@ class TalentModelTest(TestCase):
             ]
         )
         self.department = Department.objects.first()
+        self.country = Country.objects.first()
+        self.state = State.objects.first()
+        self.city = City.objects.first()
         self.role = Role.objects.first()
         self.currency = Currency.objects.first()
         self.job_level = JobLevel.objects.first()
@@ -60,8 +66,27 @@ class TalentModelTest(TestCase):
             phone_number="909889999"
         )
         self.talent = Talent.objects.create(
-            user=self.user
+            user=self.user,
+            country=self.country,
+            state=self.state,
+            city=self.city.name,
+            postal_code="po 12345",
+            native_language=Language.objects.first(),
+            bio="hello",
+            preferred_communication=PreferredCommunicationType.EMAIL.value,
+            work_models=[WorkStructureEnum.HYBRID.value],
+            linkedin="https://loklo@linkedin.com",
+            availability_timezone=pytz.timezone("America/New_York"),
+            notice_period=1,
+            additional_skills=["django", "css"],
         )
+        self.talent.photo = SimpleUploadedFile("t.jpg", b'rggggg', "image/jpg")
+        self.talent.cv = SimpleUploadedFile("c.pdf", b'rggggg', "application/pdf")
+        self.talent.employment_types.add(self.employment_type)
+        self.talent.skills.set(
+            Skill.objects.filter(category__name__in=(SkillCategory.objects.only('name').values_list('name', flat=True))))
+
+        self.talent.save()
         self.business = Business.objects.create(
             created_by=self.user2,
             name="Example Business",
@@ -78,7 +103,6 @@ class TalentModelTest(TestCase):
             role=BusinessUserRoleType.OWNER.value
 
         )
-        self.talent.skills.set(Skill.objects.all()[:3])
         Experience.objects.create(
             talent=self.talent,
             role=self.role,
@@ -181,6 +205,26 @@ class TalentModelTest(TestCase):
             body="Hello"
 
         )
+        
+    def test_is_profile_completed(self):
+        self.assertTrue(self.talent.is_profile_completed(raise_exception=True))
+
+    def test_is_not_profile_completed(self):
+        experience = self.talent.experience_history().first()
+        experience.salary = None
+        experience.save()
+        self.assertFalse(self.talent.is_profile_completed())
+
+    def test_profile_complete_annotation(self):
+        queryset = Talent.objects.all()
+        queryset = add_profile_completion_annotation(queryset)
+        self.assertEqual(queryset.filter(complete_profile=True).count(), 1)
+        experience = self.talent.experience_history().first()
+        experience.salary = None
+        experience.save()
+        self.assertEqual(queryset.filter(complete_profile=True).count(), 0)
+
+
 
     def test_get_skills(self):
         skills = self.talent.get_skills()

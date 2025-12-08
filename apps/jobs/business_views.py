@@ -22,7 +22,7 @@ from settings.models import WorkFlowStage
 
 from config.permissions import IsBusinessUser
 from helpers.email.jobs import send_indeed_apply_email
-from helpers.utils import convert_base64_to_image_file
+from helpers.utils import convert_base64_to_image_file, sanitize_html_secure
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from services.job_posting.schema.indeed import IndeedApplicationData, IndeedApplicationDataPatch
@@ -293,7 +293,7 @@ def bulk_job_post_update(request, data: BulkJobPostSchema):
 def add_job_post(request, job_uid:UUID, data: job_schemas.MutateJobPostSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
-    job = Job.objects.filter(uid=job_uid, created_by=business_user).first()
+    job = Job.objects.filter(uid=job_uid, created_by__business=business_user.business).first()
     if not job:
         raise HttpError(404, "This job does not exist")
 
@@ -364,7 +364,8 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
         data["lunch_break"] = data["lunch_break"].value
     if data.get("technological_requirement"):
         data["technological_requirement"] = data["technological_requirement"].value
-
+    if data.get("responsibilities"):
+        data["responsibilities"] = sanitize_html_secure(data["responsibilities"])
 
     job = Job.objects.create(**data)
     job.business_models.set(business_models)
@@ -429,6 +430,8 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
         data["lunch_break"] = data["lunch_break"].value
     if data.get("technological_requirement"):
         data["technological_requirement"] = data["technological_requirement"].value
+    if data.get("responsibilities"):
+        data["responsibilities"] = sanitize_html_secure(data["responsibilities"])
 
     if logo:
         logo_data = JobLogoSchema(**logo)
@@ -545,8 +548,7 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
     queryset = JobApplication.objects.select_related("stage", "applicant", "applicant__user",
                                                      "applicant__country").annotate(invited=Exists(Subquery(JobInvite.objects.filter(
             job=OuterRef('job_post__job'), talent=OuterRef('applicant')
-        )))).filter(job_post=job_post, stage__created_by__business=business,
-                                         applicant__deleted_at__isnull=True)
+        )))).filter(job_post=job_post , job_post__job__created_by__business=business, applicant__deleted_at__isnull=True)
     queryset = add_application_match_score(queryset, job_post)
     if search:
         q = Q()

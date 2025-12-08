@@ -505,7 +505,7 @@ class BulkDeleteWorkflowStageTest(TestCase):
         self.url = "workflows/stages"
         self.client = TestClient(router)
         self.business_user = BusinessUserFactory.create(role=BusinessUserRoleType.ADMIN.value)
-        stages = WorkflowStageFactory.create_batch(5, created_by=self.business_user, is_active=False)
+        stages = WorkflowStageFactory.create_batch(5, created_by=self.business_user, is_active=False, phase=PhaseType.INTERVIEW.value)
         self.test_data = [
             str(stage.uid) for stage in stages
         ]

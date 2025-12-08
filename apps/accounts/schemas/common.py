@@ -19,10 +19,17 @@ class UserSchema(ModelSchema):
     business_user_uid: Optional[UUID]
     phone_number: Optional[str] = None
     phone_code: Optional[str] = None
+    is_profile_completed: bool
 
     class Meta:
         model = User
         fields = ['uid', 'email', 'first_name', 'last_name', 'type', 'phone_number', 'phone_code']
+        
+    @staticmethod
+    def resolve_is_profile_completed(obj):
+        if not hasattr(obj, "talent"):
+            return True
+        return obj.talent.is_profile_completed()
     
     @staticmethod
     def resolve_has_set_password(obj):
