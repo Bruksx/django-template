@@ -1,5 +1,4 @@
 from config import settings
-from helpers.email.utils import render_text_email
 from helpers.utils import datetime_to_epoch_milliseconds, html_to_text
 
 from services.job_posting.enums.linkedIn import EmploymentStatusEnum, WorkPlaceTypeEnum, ExperienceLevelEnum

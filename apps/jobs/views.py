@@ -1,19 +1,9 @@
 from typing import List, Literal, Union
 from uuid import UUID
 
-from config.permissions import IsTalentUser, IsBusinessUser
+from accounts.models import Talent
 from django.db import transaction
 from django.db.models import Q
-from helpers.utils import delete_s3_item
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
-from ninja import Router, UploadedFile
-from ninja.errors import HttpError
-from ninja.params import Query
-from ninja_extra.pagination import paginate
-from ninja_jwt.authentication import JWTAuth
-
-from accounts.models import Talent
 from jobs import tasks
 from jobs.enums import JobStatusType, PhaseType
 from jobs.models import (
@@ -26,9 +16,19 @@ from jobs.schemas import TalentJobPostListSchema, TalentJobApplicationWithdrawal
     InviteToApplySchema, TalentScreeningResultSchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service, \
     get_screening_questions_service, get_talent_screening_results
+from ninja import Router, UploadedFile
+from ninja.errors import HttpError
+from ninja.params import Query
+from ninja_extra.pagination import paginate
+from ninja_jwt.authentication import JWTAuth
 from notification import notifications
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+
+from config.permissions import IsTalentUser, IsBusinessUser
+from helpers.utils import delete_s3_item
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
 
 router = Router()
 
@@ -89,7 +89,7 @@ def job_posts_for_talent(request, filters:TalentJobFilterQuerySchema = Query(...
     talent: Talent = request.user.talent
     request.context = {"talent": talent}
     queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(status=JobStatusType.POSTED.value)
-    queryset = add_job_post_annotations(queryset, talent)
+    queryset = add_job_post_annotations(queryset, talent).filter(can_apply=True)
     return filters.get_queryset(talent=talent, queryset=queryset)
 
 

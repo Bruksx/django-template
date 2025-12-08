@@ -25,7 +25,7 @@ from helpers.email.jobs import send_indeed_apply_email
 from helpers.utils import convert_base64_to_image_file, sanitize_html_secure
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
-from services.job_posting.schema.indeed import IndeedApplicationData, IndeedApplicationDataPatch
+from services.job_posting.schema.indeed import IndeedApplicationDataPatch
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
@@ -749,7 +749,7 @@ def job_posts_for_talent(request, talent_uid:UUID, filters:TalentJobFilterQueryS
         raise HttpError(404, "This talent does not exist")
     request.context = {"talent": talent}
     queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(status=JobStatusType.POSTED.value)
-    queryset = add_job_post_annotations(queryset, talent)
+    queryset = add_job_post_annotations(queryset, talent).filter(can_apply=True)
     return filters.get_queryset(talent=talent, queryset=queryset)
 
 

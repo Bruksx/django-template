@@ -1,11 +1,10 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional
 from urllib.parse import quote_plus
 from xml.sax.saxutils import escape
 
 from core.enums import SalaryType
-from django.template.loader import render_to_string
 from jobs.enums import WorkStructureEnum, JobStatusType
 from jobs.models import JobPost, Job
 from jobs.schemas import JobAvailabilitySchema
@@ -380,7 +379,7 @@ class JobBase:
                 state=job_post.get_province(),
                 country=job_post.get_country(),
                 postalcode=job_post.postal_code,
-                streetaddress=job_post.get_city(),
+                streetaddress=job_post.get_location(),
                 email=INDEED_EMAIL,
                 description=cls.get_description(job_post, job),
                 salary=JobBase.get_salary(job_post),
@@ -393,13 +392,15 @@ class JobBase:
             )
 
     @staticmethod
-    def add_element(parent, tag: str, text: str, escape_text: bool = True):
+    def add_element(parent, tag: str, text: str, escape_text: bool = False):
+        el = SubElement(parent, tag)
         if text and str(text).strip():
-            el = SubElement(parent, tag)
             content = str(text).strip()
             if escape_text:
                 content = escape(content)
-            el.text = f"<![CDATA[{content}]]>"
+        else:
+            content = ""
+        el.text = f"<![CDATA[{content}]]>"
 
     def to_xml(self):
         job_el = Element( "job")
