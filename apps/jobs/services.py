@@ -24,7 +24,7 @@ from monkeypatches.q_cluster import async_task
 
 
 def get_talent_job_recommendations(talent, business=None, search="", distinct=False):
-    queryset = talent.job_post_matches(by_talent_country=False, business=business)
+    queryset = talent.job_post_matches(by_talent_country=True, business=business)
     if search not in (None, ""):
         queryset = queryset.filter(job__role__name__icontains=search)
     if distinct is True:
