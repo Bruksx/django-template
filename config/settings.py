@@ -71,7 +71,6 @@ INSTALLED_APPS = [
 
     #3rd party
     "corsheaders",
-    "appleauth",
 
 ]
 
@@ -363,7 +362,7 @@ APPLE_CONFIG = {
     "APPLE_TEAM_ID": os.environ["APPLE_TEAM_ID"],
     "APPLE_CLIENT_ID": os.environ["APPLE_CLIENT_ID"],
     "APPLE_PRIVATE_KEY": os.environ["APPLE_PRIVATE_KEY"],
-    "APPLE_REDIRECT_URL": os.environ["APPLE_REDIRECT_URL"], # https://127.0.0.1:8000/auth/apple/token
+    "APPLE_REDIRECT_URL": os.environ["APPLE_REDIRECT_URL"],
     "APPLE_SCOPE": ["name", "email"],
     "RESPONSE_HANDLER_CLASS": "users.services.AppleSignInResponseHandler",
 }
