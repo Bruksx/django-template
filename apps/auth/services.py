@@ -138,19 +138,57 @@ class AppleAuth:
         return self.response_handler.handle_fetch_or_create_user(request, response_dict)
     
     def apple_exchange_code(self):
-        data = {
+        """data = {
             "client_id": self.APPLE_CLIENT_ID,
             "client_secret": self.get_client_secret(),
             "code": self.code,
-            "grant_type": "authorization_code",
+            "grant_type": "identity_token",
         }
         headers = {"content-type": "application/x-www-form-urlencoded"}
-        r = requests.post("https://appleid.apple.com/auth/token", data=data, headers=headers)
+        r = requests.post("https://appleid.apple.com/auth/token", data=data, headers=headers)"""
+        """print(r.json())
         r.raise_for_status()
-        response_data = r.json()
-        id_token = response_data["id_token"]
-        user_data = self.decode_token(id_token)
-        return user_data
+        response_data = r.json()"""
+        try:
+            data = self.decode_token(self.code)
+            if data.get("iss") != "https://appleid.apple.com":
+                raise HttpError(400, "Invalid Login")
+            now = time.time()
+            exp = data.get("exp")
+            """if exp:
+                if exp > now:
+                    raise HttpError(400, "Invalid Login")"""
+            return data 
+        except:
+            raise HttpError(400, "Invalid Login")
+        
+    def verify_token(self):
+        header = jwt.get_unverified_header(self.code)
+        kid = header["kid"]
+        jwks = requests.get("https://appleid.apple.com/auth/keys").json()
+
+        public_key = None
+        for key in jwks["keys"]:
+            if key["kid"] == kid:
+                public_key = jwt.algorithms.RSAAlgorithm.from_jwk(key)
+                break
+
+        if not public_key:
+            raise Exception("No matching Apple public key found")
+
+        try:
+            payload = jwt.decode(
+                self.code,
+                public_key,
+                algorithms=["RS256"],
+                audience=self.APPLE_CLIENT_ID
+            )
+            print(payload)
+        except jwt.ExpiredSignatureError:
+            print("Apple token expired")
+        except jwt.InvalidTokenError as e:
+            print("Invalid Apple token:", e)
+
 
     def get_client_secret(self):
         headers = {"kid": self.APPLE_KEY_ID}
@@ -257,8 +295,10 @@ def handle_social_login(data: SocialAuthSchema)->User:
         apple_auth = AppleAuth(code=code)
         try:
             user_data = apple_auth.apple_exchange_code()
+            print(user_data)
         except RequestsError:
             raise HttpError(400, "invalid login")
+        auth_type = AuthType.APPLE
         profile_dict["apple_id"] = user_data["sub"]
         profile_dict["first_name"] = user_data.get("first_name")
         profile_dict["last_name"] = user_data.get("last_name")
