@@ -50,7 +50,7 @@ class UserSchema(ModelSchema):
     
     @staticmethod
     def resolve_is_social_account(obj):
-        return bool(obj.google_id or obj.facebook_id or obj.linkedin_id)
+        return bool(obj.google_id or obj.facebook_id or obj.linkedin_id or obj.apple_id)
     
     @staticmethod
     def resolve_is_new(obj):

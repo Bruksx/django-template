@@ -300,8 +300,8 @@ def handle_social_login(data: SocialAuthSchema)->User:
             raise HttpError(400, "invalid login")
         auth_type = AuthType.APPLE
         profile_dict["apple_id"] = user_data["sub"]
-        profile_dict["first_name"] = user_data.get("first_name")
-        profile_dict["last_name"] = user_data.get("last_name")
+        profile_dict["first_name"] = data.first_name
+        profile_dict["last_name"] = data.last_name
         profile_dict["email"] = user_data["email"]
         social_query = Q(email=user_data["email"])
     
