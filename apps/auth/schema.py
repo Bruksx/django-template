@@ -24,6 +24,8 @@ class SocialAuthSchema(BaseModel):
     social_type: SocialType
     redirect_uri: Optional[str] = None
     app_id: Optional[str] = None
+    first_name: Optional[str] = ""
+    last_name: Optional[str] = ""
 
 
 class GoogleAuthSchema(BaseModel):
