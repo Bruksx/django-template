@@ -355,8 +355,6 @@ INDEED_EMAIL=os.environ.get("INDEED_EMAIL", "contact@1840andco.com")
 
 INDEED_APPLY_API_TOKEN=os.environ.get('INDEED_APPLY_API_TOKEN', '')
 
-
-# Apple Config
 APPLE_CONFIG = {
     "APPLE_KEY_ID": os.environ["APPLE_KEY_ID"],
     "APPLE_TEAM_ID": os.environ["APPLE_TEAM_ID"],
