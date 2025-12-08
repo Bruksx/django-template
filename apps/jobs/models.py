@@ -13,10 +13,9 @@ from jobs.managers import JobManager
 from settings.enums import PlaceHolderType
 from timezone_field import TimeZoneField
 
-from monkeypatches.q_cluster import async_task
 from .db_functions import Epoch
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
-    JobStatusType
+    JobStatusType, ScreeningResultStatusType
 
 
 # Create your models here.
@@ -134,7 +133,7 @@ class Job(BaseModel):
         return data
 
     def send_alerts(self):
-        async_task(JobAlert.send_alerts,self)
+        JobAlert.send_alerts(self)
         return
 
 
@@ -720,6 +719,15 @@ class JobApplication(BaseModel):
         if not ScreeningQuestion.objects.filter(job=self.job_post.job, is_knockout=True).exists():
             return False
         return Answer.objects.filter(application=self, question__is_knockout=True, options__is_accepted=False).exists()
+
+
+    def get_screening_result_status(self):
+        if not ScreeningQuestion.objects.filter(job=self.job_post.job).exists():
+            return None
+        if self.knockout():
+            return ScreeningResultStatusType.FAIL.value
+        return ScreeningResultStatusType.PASS.value
+
 
 
 
