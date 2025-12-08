@@ -52,3 +52,7 @@ class ActionType(BaseEnum):
     POSTED = "posted"
     CLOSED = "closed"
     DELETE = "delete"
+
+class ScreeningResultStatusType(BaseEnum):
+    PASS = "Pass"
+    FAIL =  "Fail"

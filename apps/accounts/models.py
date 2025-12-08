@@ -570,7 +570,7 @@ class Talent(BaseModel):
         all_category_ids = SkillCategory.objects.only("name").distinct("name").values_list("name", flat=True)
         has_skills = True
         for cat in all_category_ids:
-            has_skills &= SkillCategory.objects.filter(name=cat).exists()
+            has_skills &= self.skills.filter(category__name__iexact=cat).exists()
 
         # Field validations
         validations = [

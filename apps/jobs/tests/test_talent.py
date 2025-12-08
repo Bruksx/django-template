@@ -2,8 +2,9 @@ import uuid
 from datetime import timezone, time
 from decimal import Decimal, ROUND_HALF_UP
 
-from django.test import TestCase
 from django.db import models
+from django.test import TestCase
+from django.utils import timezone
 from ninja.testing import TestClient
 
 from accounts.enums import BusinessUserRoleType, Days
@@ -11,22 +12,20 @@ from accounts.models import (
     Country, Industry, User, Talent, BusinessUser, Business, Role, EducationLevel, Department, BusinessIndustry,
     Skill, TalentAvailableDay, Experience, Education
 )
-from jobs.queries import add_job_post_annotations
 from core.models import Currency, Language
+from core.models import State
 from factories import (
     TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory,
-    JobApplicationFactory, CountryFactory, ScreeningQuestionFactory, fake, RequiredAttributeFactory,
-    EducationFactory, ExperienceFactory
+    JobApplicationFactory, CountryFactory, ScreeningQuestionFactory, fake, ExperienceFactory
 )
 from jobs.enums import WorkStructureEnum, LunchBreakEnum, PhaseType, JobStatusType, WithdrawalFeedbackType, \
-    QuestionTypeEnum
+    QuestionTypeEnum, ScreeningResultStatusType
 from jobs.models import (
     JobPost, JobLevel, EmploymentType, SavedJob, JobApplication, RequiredAttribute, BusinessModel, AvailableDay,
-    Job, RequiredSecondaryLanguage, RequiredSkill, JobInvite
+    Job, RequiredSecondaryLanguage, RequiredSkill, JobInvite, ScreeningQuestion, Answer, QuestionOption
 )
+from jobs.queries import add_job_post_annotations
 from jobs.views import router
-
-from core.models import State
 
 
 class TalentJobListTests(TestCase):
@@ -1031,6 +1030,160 @@ class TestShareJobViaChat(TestCase):
         }
         response = self.client.post(self.url, headers=header, json=data)
         self.assertEqual(response.status_code, 200)
+
+class TestTalentScreeningResults(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.country = Country.objects.first()
+        self.industry = Industry.objects.first()
+        self.business_industry = BusinessIndustry.objects.first()
+        self.education_level = EducationLevel.objects.first()
+        # Create test users
+        self.talent_user = User.objects.create_user(
+            first_name="Talent",
+            last_name="User",
+            email="talent@example.com",
+            password="testpass123",
+            email_verified=True,
+            is_active=True
+        )
+        self.business_user = User.objects.create_user(
+            first_name="Business",
+            last_name="User",
+            email="business@example.com",
+            password="testpass123",
+            email_verified=True,
+            is_active=True
+        )
+        
+        # Create talent and business user
+        self.role = Role.objects.first()
+        self.talent = TalentFactory.create(
+            user=self.talent_user, 
+            country=self.country, 
+            role=self.role
+        )
+        
+        self.business = Business.objects.create(
+            name="Test Business",
+            industry=self.business_industry,
+            size=1,
+            website="https://testbusiness.com"
+        )
+        
+        self.business_user = BusinessUser.objects.create(
+            user=self.business_user,
+            business=self.business,
+            role=BusinessUserRoleType.ADMIN.value
+        )
+        
+        # Create job and job post
+        self.employment_type = EmploymentType.objects.first()
+        self.currency = Currency.objects.first()
+        
+        self.job = JobFactory.create(
+            employment_type=self.employment_type,
+            created_by=self.business_user,
+            work_structure=WorkStructureEnum.REMOTE.value,
+            first_language=Language.objects.first(),
+            minimum_education_level=self.education_level
+        )
+        
+        self.job_post = JobPostFactory.create(
+            job=self.job,
+            country=self.country,
+            salary_currency=self.currency,
+            status=JobStatusType.POSTED.value
+        )
+        
+        # Create screening questions
+        self.screening_question1 = ScreeningQuestion.objects.create(
+            job=self.job,
+            text="What is your experience with Python?",
+            type=QuestionTypeEnum.TEXT.value,
+            is_knockout=False
+        )
+        
+        self.screening_question2 = ScreeningQuestion.objects.create(
+            job=self.job,
+            text="Do you have experience with Django?",
+            type=QuestionTypeEnum.SINGLE_SELECT.value,
+            is_knockout=True
+        )
+        
+        self.option1 = QuestionOption.objects.create(
+            question=self.screening_question2,
+            text="Yes",
+            is_accepted=True
+        )
+        
+        # Create job application with answers
+        self.job_application = JobApplication.objects.create(
+            job_post=self.job_post,
+            applicant=self.talent,
+            recruiter=self.business_user,
+            stage=WorkflowStageFactory(phase=PhaseType.NEW.value, order=1)
+        )
+        
+        # Create answers
+        self.answer1 = Answer.objects.create(
+            application=self.job_application,
+            question=self.screening_question1,
+            text="I have 5 years of Python experience."
+        )
+        
+        self.answer2 = Answer.objects.create(
+            application=self.job_application,
+            question=self.screening_question2,
+        )
+        self.answer2.options.add(self.option1)
+    
+    def test_get_logged_in_talent_screening_results(self):
+        """Test getting screening results for logged-in talent"""
+        # Authenticate as talent
+        headers = dict(authorization=f"Bearer {self.talent.user.token}")
+        
+        # Make request
+        response = self.client.get("/talent/screening-results?page=1&pageSize=10", headers=headers)
+        
+        # Assert response
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+        result = response.json()["results"][0]
+        self.assertEqual(result["role"]["uid"], str(self.job.role.uid))
+        self.assertEqual(result["location"]["uid"], str(self.country.uid))
+        self.assertEqual(result["client"], self.job.hiring_company_name)
+        self.assertEqual(result["result"], ScreeningResultStatusType.PASS.value)
+    
+    def test_get_talent_screening_results_as_business_user(self):
+        """Test getting screening results for a specific talent as business user"""
+        # Authenticate as business user
+        headers = dict(authorization=f"Bearer {self.business_user.user.token}")
+        
+        # Make request
+        response = self.client.get(f"/talents/{self.talent.uid}/screening-results?page=1&pageSize=10", headers=headers)
+        
+        # Assert response
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["count"], 1)
+        result = response.json()["results"][0]
+        self.assertEqual(result["role"]["uid"], str(self.job.role.uid))
+        self.assertEqual(result["location"]["uid"], str(self.country.uid))
+        self.assertEqual(result["client"], self.job.hiring_company_name)
+        self.assertEqual(result["result"], ScreeningResultStatusType.PASS.value)
+    
+    def test_get_talent_screening_results_unauthorized(self):
+        """Test getting screening results without authentication"""
+        response = self.client.get("/talent/screening-results?page=1&pageSize=10")
+        self.assertEqual(response.status_code, 401)  # Unauthorized
+    
+    def test_get_talent_screening_results_talent_not_found(self):
+        """Test getting screening results for non-existent talent"""
+        headers = dict(authorization=f"Bearer {self.business_user.user.token}")
+        non_existent_uid = "00000000-0000-0000-0000-000000000000"
+        response = self.client.get(f"/talents/{non_existent_uid}/screening-results?page=1&pageSize=10", headers=headers)
+        self.assertEqual(response.status_code, 404)
+
 
 class TestJobRecommendationsEndpoint(TestCase):
     def setUp(self):

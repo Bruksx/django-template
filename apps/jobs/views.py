@@ -22,9 +22,10 @@ from jobs.models import (
 from jobs.queries import add_job_post_annotations
 from jobs.schemas import TalentJobPostListSchema, TalentJobApplicationWithdrawalSchema, TalentJobPostSchema, \
     ApplyToJobSchema, \
-    ShareJobViaEmailSchema, ShareJobViaChatSchema, TalentQuestionSchema, TalentJobFilterQuerySchema, InviteToApplySchema
+    ShareJobViaEmailSchema, ShareJobViaChatSchema, TalentQuestionSchema, TalentJobFilterQuerySchema, \
+    InviteToApplySchema, TalentScreeningResultSchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service, \
-    get_screening_questions_service
+    get_screening_questions_service, get_talent_screening_results
 from notification import notifications
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
@@ -38,6 +39,23 @@ def logged_in_talent_job_recommendations(request, search:str=""):
     talent = request.user.talent
     request.context = {"talent": talent}
     return get_talent_job_recommendations(talent, search=search)
+
+@router.get("talent/screening-results", auth=JWTAuth(), response=PaginatedResponseSchema[TalentScreeningResultSchema], tags=["Talent Jobs"])
+@paginate(PageNumberPaginationExtra, page_size=50)
+def get_logged_in_talent_screening_results(request):
+    IsTalentUser.check(request)
+    return get_talent_screening_results(request.user.talent).order_by("-id")
+
+@router.get("talents/{talent_uid}/screening-results", auth=JWTAuth(), response=PaginatedResponseSchema[TalentScreeningResultSchema], tags=["Talent Jobs"])
+@paginate(PageNumberPaginationExtra, page_size=50)
+def get_talent_screening_result_list(request, talent_uid: UUID):
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
+    talent = Talent.objects.filter(uid=talent_uid).first()
+    if not talent:
+        raise HttpError(404, "Talent not found")
+    return get_talent_screening_results(talent, business=business).order_by("-id")
+
 
 
 @router.get("talents/{talent_uid}/job-recommendations", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])

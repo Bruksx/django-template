@@ -1,28 +1,26 @@
-from datetime import timedelta
 from typing import List
 from uuid import UUID
 
-from django.conf import settings
-from django.db import transaction
-from django.db.models import QuerySet, Window, F, Q
-from django.db.models.functions import RowNumber
-from django.utils import timezone
-from django.shortcuts import get_object_or_404
-from django_q.tasks import schedule
-from helpers.utils import upload_to_s3, upload_to_server, sort_params_function
-from monkeypatches.q_cluster import async_task
-from ninja.errors import HttpError
-
 from accounts.models import Skill
 from core.models import Language
+from django.conf import settings
+from django.db import transaction
+from django.db.models import QuerySet, Window, F, Q, OuterRef, Exists
+from django.db.models.functions import RowNumber
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from jobs.enums import PhaseType, JobStatusType, QuestionTypeEnum
 from jobs.models import (
     JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job, RequiredSecondaryLanguage,
     RequiredSkill, BusinessModel, JobPost, QuestionOption
 )
 from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema, MutateOptionSchema
+from ninja.errors import HttpError
 from notification.notifications import send_talents_job_matching_notification
 from settings.models import WorkFlowStage
+
+from helpers.utils import upload_to_s3, upload_to_server, sort_params_function
+from monkeypatches.q_cluster import async_task
 
 
 def get_talent_job_recommendations(talent, business=None, search="", distinct=False):
@@ -324,3 +322,17 @@ def get_talents_by_job_posts_service(request, job_post, search):
     talents = job_post.get_talents()
     send_talents_job_matching_notification(talents.count(), job_post)
     return talents.filter(query)
+
+
+def get_talent_screening_results(talent, business=None):
+    queryset = JobApplication.objects.filter(applicant=talent).annotate(
+        has_questions=Exists(
+            ScreeningQuestion.objects.filter(job__id=OuterRef("job_post__job_id")),
+        ),
+        has_answers=Exists(
+            Answer.objects.filter(question__job__id=OuterRef("job_post__job_id")),
+        )
+    ).filter(has_questions=True, has_answers=True).select_related("job_post", "job_post__job")
+    if business:
+        queryset = queryset.filter(job_post__job__created_by__business=business)
+    return queryset
