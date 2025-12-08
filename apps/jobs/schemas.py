@@ -1,5 +1,5 @@
 from copy import copy
-from datetime import datetime, time
+from datetime import datetime
 from typing import List, Literal
 from typing import Optional
 from uuid import UUID
@@ -1400,7 +1400,6 @@ class BusinessJobFilterSchema(Schema):
         Returns:
             Job post queryset
         """
-        from jobs.services import order_job_posts
         if not queryset:
             queryset = Job.objects.prefetch_related("jobpost_set").annotate(jobpost_count=Count('jobpost')).filter(
                 jobpost_count__gt=0)
@@ -1577,3 +1576,15 @@ class BusinessUserJobSchema(ModelSchema):
     class Meta:
         model = Job
         fields = ["uid"]
+
+
+class TalentScreeningResultSchema(ModelSchema):
+    role: Optional[GenericNameAndUidSchema] = Field(None, alias="job_post.job.role")
+    location: Optional[GenericNameAndUidSchema] = Field(None, alias="job_post.country")
+    client: Optional[str] = Field(None, alias="job_post.job.get_company")
+    result: Optional[str] = Field(None, alias="get_screening_result_status")
+    date_submitted: Optional[datetime] = Field(None, alias="created_at")
+
+    class Meta:
+        model = JobApplication
+        fields = ["updated_at"]

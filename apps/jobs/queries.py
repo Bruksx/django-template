@@ -1172,3 +1172,5 @@ def add_talent_match_score(queryset: QuerySet[Talent], job_post:JobPost) -> Quer
     )
 
     return queryset
+
+
