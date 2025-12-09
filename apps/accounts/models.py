@@ -679,7 +679,6 @@ class Business(BaseModel):
         return queryset.count()
 
     def total_applicants(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
-
         queryset = Q(jobapplication__stage__created_by__business=self)
 
         if start_date and not end_date:
@@ -695,6 +694,24 @@ class Business(BaseModel):
 
         return Talent.objects.annotate(application_count=Count("jobapplication", filter=queryset)).filter(
             application_count__gt=0).count()
+
+    def total_applications(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
+        from jobs.models import JobApplication
+        queryset = Q(stage__created_by__business=self)
+
+        if start_date and not end_date:
+            queryset = queryset & Q(created_at__gte=start_date)
+        elif end_date and not start_date:
+            queryset = queryset & Q(created_at__lte=end_date)
+        elif start_date and end_date:
+            queryset = queryset & Q(created_at__range=[start_date, end_date])
+        if role_id:
+            queryset = queryset & Q(job_post__job__role_id=role_id)
+        if client:
+            queryset = queryset & Q(job_post__job__hiring_company_name=client)
+
+        return JobApplication.objects.filter(queryset).count()
+
 
     def average_days_to_hire(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import TalentApplicationStageTimeline
