@@ -1,18 +1,18 @@
 from datetime import date
-from typing import Optional, List, TypedDict, AnyStr, Any
+from typing import Optional, List, TypedDict, Any
 from uuid import UUID
-
-from django.db.models import Q, Subquery
-from django.db.models.functions import Lower
-from ninja import ModelSchema, Schema
-from pydantic import EmailStr, Field
 
 from accounts.enums import BusinessUserRoleType
 from accounts.models import Business, BusinessUser, TalentFilter, Talent, Experience, Education
+from accounts.queries import add_profile_completion_annotation
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, GenericNameAndUidSchema, EducationLevelSchema
+from django.db.models import Q, Subquery
+from django.db.models.functions import Lower
 from jobs.enums import WorkStructureEnum
 from jobs.models import EmploymentType
-from accounts.queries import add_profile_completion_annotation
+from ninja import ModelSchema, Schema
+from pydantic import EmailStr, Field
+
 
 class ValidateOTPSchema(Schema):
     email: EmailStr
@@ -131,6 +131,7 @@ class DashboardSchema(ModelSchema):
     hires:int
     open_roles:int
     applicants:int
+    applications:int
     avg_days_to_hire:int
     invitations_sent: int
 
@@ -168,6 +169,10 @@ class DashboardSchema(ModelSchema):
     @staticmethod
     def resolve_applicants(obj, context):
         return obj.total_applicants(**DashboardSchema.get_context(obj, context))
+
+    @staticmethod
+    def resolve_applications(obj, context):
+        return obj.total_applications(**DashboardSchema.get_context(obj, context))
 
     @staticmethod
     def resolve_avg_days_to_hire(obj, context):
