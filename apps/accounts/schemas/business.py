@@ -337,7 +337,7 @@ class TalentFilterQuerySchema(ModelSchema):
     skills: Optional[List[UUID]] = None
     locations: Optional[List[str]] = None
     business_models: Optional[List[UUID]] = None
-    completed_profiles: Optional[bool] = None
+    completed_profiles: Optional[bool] = True
     
 
     class Meta:
@@ -450,7 +450,7 @@ class MutateTalentFilterSchema(ModelSchema):
 
     class Meta:
         model = TalentFilter
-        fields = ["name", "maximum_notice_period"]
+        fields = ["name", "maximum_notice_period", "completed_profiles"]
         optional_fields = fields
 
 
@@ -466,7 +466,7 @@ class TalentFilterSchema(ModelSchema):
 
     class Meta:
         model = TalentFilter
-        fields = ["uid","name", "maximum_notice_period", "work_structure"]
+        fields = ["uid","name", "maximum_notice_period", "work_structure", "completed_profiles"]
         optional_fields = fields
 
 class TalentFilterListSchema(ModelSchema):
