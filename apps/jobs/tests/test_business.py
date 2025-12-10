@@ -4,28 +4,27 @@ from decimal import Decimal, ROUND_HALF_UP
 from random import choice
 from uuid import uuid4
 
-from django.db import models
-from django.test import TestCase
-from django.utils import timezone
-from future.backports.datetime import timedelta
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
-
 from accounts.enums import Days
 from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent, \
     EducationLevel, SkillCategory, Experience, TalentAvailableDay
 from core.models import City, State
 from core.models import Currency
+from django.db import models
+from django.test import TestCase
+from django.utils import timezone
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
     JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, CountryFactory, ScreeningQuestionFactory, \
-    AnswerFactory, CurrencyFactory, ExperienceFactory, SkillFactory, EducationFactory
+    AnswerFactory, CurrencyFactory, ExperienceFactory
+from future.backports.datetime import timedelta
 from jobs.business_views import router
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
-    BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage
+    BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage, JobTag
 )
-from jobs.queries import add_application_match_score, add_talent_match_score, add_job_post_annotations
+from jobs.queries import add_application_match_score
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
 from settings.models import WorkFlowStage
 
 
@@ -573,6 +572,7 @@ class JobCreationTest(TestCase):
             ],
             "department": str(self.department.uid),
             "role": str(self.role.uid),
+            "tags": ["test1", "test2", "test3"],
             "skills": [
                 str(skill.uid) for skill in self.skills
             ],
@@ -618,6 +618,13 @@ class JobCreationTest(TestCase):
         self.assertEqual(question_options.count(), 2)
         self.assertEqual(job.skills.count(), 5)
 
+        # Check tags
+        job_tags = JobTag.objects.filter(jobs__id=job.id)
+        self.assertEqual(job_tags.count(), 3)
+        self.assertEqual(job_tags[0].name, "test1")
+        self.assertEqual(job_tags[1].name, "test2")
+        self.assertEqual(job_tags[2].name, "test3")
+
     def test_create_job_by_talent(self):
         talent = TalentFactory.create()
         header = {"Authorization": f"Bearer {talent.user.token}"}
@@ -650,6 +657,11 @@ class JobUpdateTest(TestCase):
         self.auth = JWTAuth()
         self.client = TestClient(router)
         self.job = JobFactory.create(created_by=self.business_user)
+        j1 = JobTag.objects.create(business=self.business, name="test1")
+        j2 = JobTag.objects.create(business=self.business, name="test2")
+        j3 = JobTag.objects.create(business=self.business, name="test3")
+        self.job.tags.add(j1, j2, j3)
+        self.job.save()
         self.job_posts = JobPostFactory.create_batch(2, job=self.job)
         self.test_data = {
             "availability": [
@@ -694,6 +706,7 @@ class JobUpdateTest(TestCase):
                     "salary_bonus_max": 2000
                 }
             ],
+            "tags": ["test7", "test2", "test5"],
             "additional_hours_start": "12:00:00",
             "additional_hours_end": "22:00:00",
         }
@@ -739,6 +752,10 @@ class JobUpdateTest(TestCase):
 
         available_days = AvailableDay.objects.filter(job=self.job)
         self.assertEqual(available_days.count(), 2)
+        self.assertEqual(self.job.tags.filter(name__in=["test1", "test2", "test3"]).count(), 1)
+        self.assertEqual(self.job.tags.filter(name__in=["test7", "test2", "test5"]).count(), 3)
+
+
 
     def test_update_job_with_multiple_job_posts(self):
         headers = {
@@ -2813,3 +2830,30 @@ class JobApplicationMatchTests(TestCase):
     
     def get_queryset(self):
         return JobApplication.objects.filter(id=self.job_application.id)
+
+
+class JobTagAPITests(TestCase):
+    def setUp(self):
+        super().setUp()
+        self.client = TestClient(router)
+        self.url =  "tags/list"
+        user = UserFactory()
+        business = BusinessFactory(created_by=user)
+        self.business_user = BusinessUserFactory(business=business, user=user)
+        job = JobFactory(created_by=self.business_user)
+        j1 = JobTag.objects.create(business=business, name="test1")
+        j2 = JobTag.objects.create(business=business, name="test2")
+        j3 = JobTag.objects.create(business=business, name="test3")
+        JobPostFactory(job=job)
+        job.tags.add(j1, j2, j3)
+        job.save()
+
+
+    def test_get_tags(self):
+        response = self.client.get(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 3)
+
+
+
+

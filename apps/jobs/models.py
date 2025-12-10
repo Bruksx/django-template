@@ -108,6 +108,10 @@ class Job(BaseModel):
             "location"
         )
 
+
+    def get_tags(self):
+        return self.tags.values_list("name", flat=True)
+
     @property
     def get_title(self):
         if not self.role:
@@ -319,6 +323,7 @@ class JobPost(BaseModel):
     edited_at = models.DateTimeField(null=True)
     
     promotion_code = models.CharField(max_length=200, null=True, blank=True)
+
     
     def copy(self):
         return JobPost.objects.create(
@@ -616,6 +621,11 @@ class JobPost(BaseModel):
 
     def invited(self, talent):
         return JobInvite.objects.filter(job=self.job, talent=talent).exists()
+
+class JobTag(BaseModel):
+    business = models.ForeignKey("accounts.Business", on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    jobs = models.ManyToManyField(Job, related_name="tags", blank=True)
 
 
 class JobPostMetrics(BaseModel):
