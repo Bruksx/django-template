@@ -1296,3 +1296,4 @@ class TalentFilter(BaseModel):
     work_structure = models.CharField(max_length=100, choices=WorkStructureEnum.choices(), null=True)
     skills = models.ManyToManyField("accounts.Skill", related_name="skills_talent_filter")
     business_models = models.ManyToManyField("jobs.BusinessModel", blank=True, related_name="businessmodels_talent_filter")
+    completed_profiles = models.BooleanField(default=True)

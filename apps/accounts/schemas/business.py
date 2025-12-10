@@ -337,7 +337,7 @@ class TalentFilterQuerySchema(ModelSchema):
     skills: Optional[List[UUID]] = None
     locations: Optional[List[str]] = None
     business_models: Optional[List[UUID]] = None
-    completed_profiles: Optional[bool] = None
+    completed_profiles: Optional[bool] = True
     
 
     class Meta:
@@ -347,6 +347,8 @@ class TalentFilterQuerySchema(ModelSchema):
 
     def get_queryset(self, queryset=None):
         queryset = queryset or Talent.objects.all()
+
+        print("completed_profiles: ", self.completed_profiles)
 
 
         # Filter by roles via Experience (subquery = optimal)
@@ -365,10 +367,10 @@ class TalentFilterQuerySchema(ModelSchema):
                 skills__department__industry__uid__in=self.industries
             )
 
-        if self.completed_profiles is not None:
+        if self.completed_profiles is True or self.completed_profiles is None:
             queryset = add_profile_completion_annotation(queryset)
             queryset = queryset.filter(
-                complete_profile=self.completed_profiles
+                complete_profile=True
             )
         
         # Locations (vectorized, no loop)
@@ -436,6 +438,8 @@ class TalentFilterQuerySchema(ModelSchema):
             params += f"{get_sign()}business_models={','.join(map(str, self.business_models))}"
         if self.maximum_notice_period:
            params += f"{get_sign()}maximum_notice_period={self.maximum_notice_period}"
+        if self.completed_profiles is not None:
+            params += f"{get_sign()}completed_profiles={self.completed_profiles}"
         return params
 
 class MutateTalentFilterSchema(ModelSchema):
@@ -450,7 +454,7 @@ class MutateTalentFilterSchema(ModelSchema):
 
     class Meta:
         model = TalentFilter
-        fields = ["name", "maximum_notice_period"]
+        fields = ["name", "maximum_notice_period", "completed_profiles"]
         optional_fields = fields
 
 
@@ -466,7 +470,7 @@ class TalentFilterSchema(ModelSchema):
 
     class Meta:
         model = TalentFilter
-        fields = ["uid","name", "maximum_notice_period", "work_structure"]
+        fields = ["uid","name", "maximum_notice_period", "work_structure", "completed_profiles"]
         optional_fields = fields
 
 class TalentFilterListSchema(ModelSchema):
