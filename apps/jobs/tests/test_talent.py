@@ -1,12 +1,8 @@
 import uuid
-from datetime import timezone, time
+from datetime import time
 from decimal import Decimal, ROUND_HALF_UP
 
-from django.db import models
-from django.test import TestCase
-from django.utils import timezone
-from ninja.testing import TestClient
-
+import pytz
 from accounts.enums import BusinessUserRoleType, Days
 from accounts.models import (
     Country, Industry, User, Talent, BusinessUser, Business, Role, EducationLevel, Department, BusinessIndustry,
@@ -14,6 +10,8 @@ from accounts.models import (
 )
 from core.models import Currency, Language
 from core.models import State
+from django.db import models
+from django.test import TestCase
 from factories import (
     TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory,
     JobApplicationFactory, CountryFactory, ScreeningQuestionFactory, fake, ExperienceFactory
@@ -26,6 +24,7 @@ from jobs.models import (
 )
 from jobs.queries import add_job_post_annotations
 from jobs.views import router
+from ninja.testing import TestClient
 
 
 class TalentJobListTests(TestCase):
@@ -89,7 +88,7 @@ class TalentJobListTests(TestCase):
             minimum_education_level=self.education_level,
             role=self.role,
             department=self.department,
-            availability_timezone=timezone.utc  # Set to UTC for this example
+            availability_timezone=pytz.timezone("UTC")  # Set to UTC for this example
         )
         job.requiredattribute.update(
             role=True,
