@@ -254,7 +254,8 @@ class PhoneNumberChangeTest(TestCase):
 class TalentListTest(TestCase):
     def setUp(self):
         self.client = TestClient(router)
-        self.url = "talents"
+        self.url = "talents?completed_profiles=false"
+        self.url2 = "talents"
         self.talent = TalentFactory.create()
         TalentFactory.create_batch(5)
         self.business_user = BusinessUserFactory.create()
@@ -274,7 +275,7 @@ class TalentListTest(TestCase):
         headers = {
             "authorization": f"bearer {self.talent.user.token}"
         }
-        response = self.client.get(f"{self.url}?search={self.talent.user.email}", headers=headers)
+        response = self.client.get(f"{self.url2}?search={self.talent.user.email}&completed_profiles=false", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 1)
 
@@ -282,7 +283,7 @@ class TalentListTest(TestCase):
         headers = {
             "authorization": f"bearer {self.talent.user.token}"
         }
-        response = self.client.get(f"{self.url}?completed_profiles=true", headers=headers)
+        response = self.client.get(f"{self.url2}?completed_profiles=true", headers=headers)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["count"], 0)
 
@@ -337,10 +338,11 @@ class TalentListTest(TestCase):
             maximum_notice_period=14,
             work_structure=WorkStructureEnum.REMOTE.value,
             languages=[language.uid],
-            skills=[skill.uid]
+            skills=[skill.uid],
+            completed_profiles=False
         ).to_url_params()
 
-        response = self.client.get(f"{self.url}{talent_filter_params}", headers=self.headers)
+        response = self.client.get(f"{self.url2}{talent_filter_params}", headers=self.headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["count"], 2)  # Only the matching talent should be returned
@@ -369,7 +371,7 @@ class TalentListTest(TestCase):
             role=role2,
         )
 
-        response = self.client.get(f"{self.url}{tf}", headers=self.headers)
+        response = self.client.get(f"{self.url2}{tf}", headers=self.headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["count"], 0)  # No matching talents should be returned
@@ -409,7 +411,7 @@ class TalentListTest(TestCase):
         talent3.save()
 
 
-        response = self.client.get(f"{self.url}?search=John{tf_params}", headers=self.headers)
+        response = self.client.get(f"{self.url2}?search=John{tf_params}&completed_profiles=false", headers=self.headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["results"][0]["uid"], str(talent.uid))
