@@ -30,7 +30,7 @@ from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication, AvailableDay,
-    ScreeningQuestion, QuestionOption, Answer, JobInvite
+    ScreeningQuestion, QuestionOption, Answer, JobInvite, JobTag
 )
 from .queries import add_application_match_score, add_job_post_annotations
 from .schemas import (
@@ -42,7 +42,7 @@ from .schemas import (
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, send_email_on_stage_update, create_job_post_service, \
     bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
-    get_talents_by_job_posts_service
+    get_talents_by_job_posts_service, handle_job_tags
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -345,6 +345,7 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
     job_posts = data.pop("job_posts", list())
     additional_languages = data.pop("additional_languages", list())
     skills = data.pop("skills", list())
+    tags = data.pop("tags", list())
     business_models = data.pop("business_models", list())
     logo = data.pop("logo", None)
 
@@ -372,6 +373,7 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
     job.skills.set(skills)
     job.additional_languages.set(additional_languages)
     job.save()
+    handle_job_tags(job, tags, business)
 
     if required_attributes:
         set_job_required_attributes(required_attributes, job)
@@ -415,6 +417,7 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
         raise HttpError(404, "Job not found")
     additional_languages = data.pop("additional_languages", list())
     skills = data.pop("skills", list())
+    tags = data.pop("tags", list())
     business_models = data.pop("business_models", list())
     required_attributes = data.pop("required_attributes", None)
     job_posts = data.pop("job_posts", list())
@@ -440,6 +443,7 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
         data["logo"] = convert_base64_to_image_file(logo_data.base64, name)
 
     job.update(**data)
+    handle_job_tags(job, tags, business)
     for available_day in availability:
         available_day["day"] = available_day["day"].value
         uid =  available_day.pop("uid", None)
@@ -760,3 +764,9 @@ def handle_indeed_application(request, job_post_uid:UUID, data: IndeedApplicatio
         async_task(send_indeed_apply_email, job_post, data.applicant.email,
                    data.applicant.firstName or "", data.applicant.lastName or "")
     return Response(status=200, data=dict(message="Application is successful"))
+
+@router.get("tags/list", tags=['Common'], auth=JWTAuth(), response=List[str])
+def get_job_tags(request):
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
+    return JobTag.objects.filter(business=business).order_by("name").values_list("name", flat=True)

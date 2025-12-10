@@ -83,6 +83,7 @@ class MutateJobPostSchema(ModelSchema):
     salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
     
+    
 
     class Meta:
         model = JobPost
@@ -101,6 +102,7 @@ class UpdateJobPostSchema(ModelSchema):
     salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_currency: Optional[UUID]
+    
     
     class Meta:
         model = JobPost
@@ -123,6 +125,7 @@ class MutateJobPostListSchema(ModelSchema):
     salary_bonus_max: Optional[float]
     salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
+    
 
     class Meta:
         model = JobPost
@@ -279,6 +282,7 @@ class CreateJobSchema(ModelSchema):
     responsibilities: Optional[str] = ""
     min_match_score: Optional[float] = None
     required_attributes: Optional[MutateRequiredAttributeSchema] = None
+    tags: List[str]
 
 
     class Meta:
@@ -322,6 +326,7 @@ class OptionalCreateJobSchema(ModelSchema):
     required_attributes: Optional[MutateRequiredAttributeSchema] = None
     additional_hours_start: Optional[str] = None
     additional_hours_end: Optional[str] = None
+    tags: Optional[List[str]] = None
 
     class Meta:
         model = Job
@@ -353,6 +358,7 @@ class UpdateJobSchema(ModelSchema):
     additional_hours_start: Optional[str] = None
     additional_hours_end: Optional[str] = None
     job_posts : List[UpdateJobPostSchema]  = []
+    tags: List[str]
     screening_questions: List[MutateQuestionSchema]
 
     class Meta:
@@ -455,6 +461,7 @@ class JobPostDetailSchema(ModelSchema):
     city: str | None
     province: GenericNameAndUidSchema | None
     about: Optional[str] = Field(None, alias="get_about")
+    
 
     class Meta:
         model = JobPost
@@ -529,6 +536,7 @@ class JobListSchema2(ModelSchema):
     title: str = Field(alias="get_title")
     hiring_company_name: Optional[str] = Field(alias="hiring_company")
     business_name: Optional[str] = None
+    tags: List[str] = Field(alias="get_tags")
     class Meta:
         model = Job
         fields = ["work_structure", "office_address"]
@@ -551,6 +559,7 @@ class JobDetailSchema(ModelSchema):
     additional_languages: List[GenericNameAndUidSchema]
     required_attribute: Optional[RequiredAttributeSchema]
     title:Optional[str] = Field(alias="get_title")
+    tags: List[str] = Field(alias="get_tags")
     business_name : Optional[str] = None
 
     class Meta:
@@ -616,6 +625,7 @@ class JobPostListSchema(ModelSchema):
     city: Optional[str] = Field(None, alias="get_city")
     province: Optional[str] = Field(None, alias="get_province")
     about: Optional[str] = Field(None, alias="get_about")
+    
 
 
     class Meta:
@@ -709,6 +719,7 @@ class JobFullListSchema(ModelSchema):
     date_posted: Optional[datetime] = None
     status: Optional[str]
     recruiter: Optional[str]
+    tags: List[str] = Field(alias="get_tags")
 
     class Meta:
         model = Job
@@ -841,6 +852,7 @@ class JobPostFullDetailSchema(ModelSchema):
     city: Optional[str] = None
     province: Optional[GenericNameAndUidSchema] = None
     about: Optional[str] = Field(None, alias="get_about")
+    
 
 
     class Meta:
@@ -905,6 +917,7 @@ class JobListSchema(ModelSchema):
     business_name: str
     role: Optional[GenericNameAndUidSchema]
     title: Optional[str] = Field(alias="get_title")
+    tags: List[str] = Field(alias="get_tags")
 
     class Meta:
         model = Job
@@ -1067,6 +1080,7 @@ class TalentJobPostListSchema(ModelSchema):
     date_saved: Optional[datetime] = None
     date_applied: Optional[datetime] = None
     about: Optional[str] = Field(None, alias="get_about")
+    
 
     class Meta:
         model = JobPost
@@ -1573,6 +1587,8 @@ class BulkJobPostSchema(Schema):
 class BusinessUserJobSchema(ModelSchema):
     created_by: BusinessUserListSchema
     title: Optional[str] = Field(alias="get_title")
+    tags: List[str] = Field(alias="get_tags")
+
     class Meta:
         model = Job
         fields = ["uid"]

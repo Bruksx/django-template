@@ -12,7 +12,7 @@ from django.utils import timezone
 from jobs.enums import PhaseType, JobStatusType, QuestionTypeEnum
 from jobs.models import (
     JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job, RequiredSecondaryLanguage,
-    RequiredSkill, BusinessModel, JobPost, QuestionOption
+    RequiredSkill, BusinessModel, JobPost, QuestionOption, JobTag
 )
 from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema, MutateOptionSchema
 from ninja.errors import HttpError
@@ -336,3 +336,34 @@ def get_talent_screening_results(talent, business=None):
     if business:
         queryset = queryset.filter(job_post__job__created_by__business=business)
     return queryset
+
+
+def handle_job_tags(job, tags: list[str], business):
+    if not job:
+        raise HttpError(404, "Job Post not found")
+    if not tags:
+        raise HttpError(400, "Tags not found")
+    if not business:
+        raise HttpError(400, "Business not found")
+
+    # Fetch existing tags once
+    existing = set(
+        JobTag.objects.filter(name__in=tags, business=business)
+        .values_list("name", flat=True)
+    )
+
+    # Compute missing tags in Python (cheap)
+    missing = [
+        JobTag(name=tag, business=business)
+        for tag in tags
+        if tag not in existing
+    ]
+
+    # Create missing tags in one query
+    if missing:
+        JobTag.objects.bulk_create(missing)
+
+    # Attach tags to job – fetch all matching tags once
+    tag_qs = JobTag.objects.filter(name__in=tags, business=business)
+    job.tags.set(tag_qs)
+    return
