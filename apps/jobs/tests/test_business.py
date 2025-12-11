@@ -20,7 +20,7 @@ from jobs.business_views import router
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
-    BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage, JobTag
+    BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage, JobPostTag
 )
 from jobs.queries import add_application_match_score
 from ninja.testing import TestClient
@@ -572,7 +572,6 @@ class JobCreationTest(TestCase):
             ],
             "department": str(self.department.uid),
             "role": str(self.role.uid),
-            "tags": ["test1", "test2", "test3"],
             "skills": [
                 str(skill.uid) for skill in self.skills
             ],
@@ -618,13 +617,6 @@ class JobCreationTest(TestCase):
         self.assertEqual(question_options.count(), 2)
         self.assertEqual(job.skills.count(), 5)
 
-        # Check tags
-        job_tags = JobTag.objects.filter(jobs__id=job.id)
-        self.assertEqual(job_tags.count(), 3)
-        self.assertEqual(job_tags[0].name, "test1")
-        self.assertEqual(job_tags[1].name, "test2")
-        self.assertEqual(job_tags[2].name, "test3")
-
     def test_create_job_by_talent(self):
         talent = TalentFactory.create()
         header = {"Authorization": f"Bearer {talent.user.token}"}
@@ -657,11 +649,6 @@ class JobUpdateTest(TestCase):
         self.auth = JWTAuth()
         self.client = TestClient(router)
         self.job = JobFactory.create(created_by=self.business_user)
-        j1 = JobTag.objects.create(business=self.business, name="test1")
-        j2 = JobTag.objects.create(business=self.business, name="test2")
-        j3 = JobTag.objects.create(business=self.business, name="test3")
-        self.job.tags.add(j1, j2, j3)
-        self.job.save()
         self.job_posts = JobPostFactory.create_batch(2, job=self.job)
         self.test_data = {
             "availability": [
@@ -706,9 +693,8 @@ class JobUpdateTest(TestCase):
                     "salary_bonus_max": 2000
                 }
             ],
-            "tags": ["test7", "test2", "test5"],
             "additional_hours_start": "12:00:00",
-            "additional_hours_end": "22:00:00",
+            "additional_hours_end": "22:00:00"
         }
 
     def test_update_job(self):
@@ -752,10 +738,6 @@ class JobUpdateTest(TestCase):
 
         available_days = AvailableDay.objects.filter(job=self.job)
         self.assertEqual(available_days.count(), 2)
-        self.assertEqual(self.job.tags.filter(name__in=["test1", "test2", "test3"]).count(), 1)
-        self.assertEqual(self.job.tags.filter(name__in=["test7", "test2", "test5"]).count(), 3)
-
-
 
     def test_update_job_with_multiple_job_posts(self):
         headers = {
@@ -922,7 +904,12 @@ class JobPostCreationTest(TestCase):
                   "salary_min": 100,
                   "salary_max": 1000,
                   "salary_bonus_min": 200,
-                  "salary_bonus_max": 2000
+                  "salary_bonus_max": 2000,
+                  "tags": [
+                    "test1",
+                    "test2",
+                    "test3"
+                  ],
                 }
 
     def test_create_job_post(self):
@@ -933,6 +920,7 @@ class JobPostCreationTest(TestCase):
         self.assertEqual(response.status_code, 200)
 
         job_post = JobPost.objects.filter(job=self.job).first()
+
         self.assertEqual(job_post.country, self.country)
         self.assertEqual(job_post.benefits, self.test_data["benefits"])
         self.assertEqual(job_post.recruiter, self.business_user)
@@ -946,8 +934,9 @@ class JobPostCreationTest(TestCase):
         self.assertEqual(job_post.salary_max, self.test_data["salary_max"])
         self.assertEqual(job_post.salary_bonus_min, self.test_data["salary_bonus_min"])
         self.assertEqual(job_post.salary_bonus_max, self.test_data["salary_bonus_max"])
-
         self.assertEqual(job_post.posted_by, self.business_user)
+        self.assertEqual(job_post.tags.filter(name__in=self.test_data["tags"]).count(), 3)
+
 
     def test_create_job_post_with_invalid_uuid(self):
         headers = {
@@ -981,6 +970,10 @@ class JobPostUpdateTest(TestCase):
         self.country = Country.objects.first()
         self.currency = Currency.objects.first()
         self.job_post = JobPostFactory.create(job=self.job, country=self.country, status=JobStatusType.POSTED.value)
+        self.job_post.tags.add(JobPostTag.objects.create(name="test1", business=self.business))
+        self.job_post.tags.add(JobPostTag.objects.create(name="test2", business=self.business))
+        self.job_post.tags.add(JobPostTag.objects.create(name="test3", business=self.business))
+        self.job_post.save()
         self.url = lambda job_post_uid: f"job-post/{job_post_uid}"
         self.test_data = {
             "benefits": [
@@ -995,7 +988,12 @@ class JobPostUpdateTest(TestCase):
             "salary_bonus_type": "Weekly",
             "salary_max": 1000,
             "salary_bonus_min": 200,
-            "salary_bonus_max": 2000
+            "salary_bonus_max": 2000,
+            "tags": [
+                "test7",
+                "test2",
+                "test5"
+            ]
         }
 
     def test_update_job_post(self):
@@ -1015,17 +1013,29 @@ class JobPostUpdateTest(TestCase):
         self.assertEqual(response.status_code, 200)
 
         self.job_post.refresh_from_db()
+
         data = response.json()
+
+        # check details of old job poast
         self.assertEqual(self.test_data["status"], data["status"])
         self.assertNotEqual(str(self.job_post.uid), data["uid"])
         self.assertEqual(data["benefits"], self.test_data["benefits"])
         self.assertEqual(self.job_post.status, "closed")
+        self.assertEqual(self.job_post.tags.filter(name__in=self.test_data["tags"]).count(), 1)
+        self.assertEqual(self.job_post.tags.filter(name__in=["test1", "test2", "test3"]).count(), 3)
+
+        # check details of new job post
         self.assertEqual(data["salary_currency"], self.currency.abbreviation)
         self.assertEqual(data["salary_bonus_currency"], self.currency.abbreviation)
         self.assertEqual(data["salary_min"], self.test_data["salary_min"])
         self.assertEqual(data["salary_max"], self.test_data["salary_max"])
         self.assertEqual(data["salary_bonus_min"], self.test_data["salary_bonus_min"])
         self.assertEqual(data["salary_bonus_max"], self.test_data["salary_bonus_max"])
+        job_post = JobPost.objects.get(uid=data["uid"])
+        self.assertEqual(job_post.tags.filter(name__in=self.test_data["tags"]).count(), 3)
+        self.assertEqual(job_post.tags.filter(name__in=["test1", "test2", "test3"]).count(), 1)
+
+
 
     def test_update_job_post_to_posted(self):
         self.job_post.update(status=JobStatusType.PAUSED.value, date_posted=timezone.now() - timedelta(days=6))
@@ -1078,6 +1088,10 @@ class JobPostDeleteTest(TestCase):
         self.country = Country.objects.first()
         self.currency = Currency.objects.first()
         self.job_post = JobPostFactory.create(job=self.job, country=self.country, status=JobStatusType.POSTED.value)
+        self.job_post.tags.add(JobPostTag.objects.create(name="test1", business=self.business))
+        self.job_post.tags.add(JobPostTag.objects.create(name="test2", business=self.business))
+        self.job_post.tags.add(JobPostTag.objects.create(name="test3", business=self.business))
+        self.job_post.save()
         self.url = lambda job_post_uid: f"job-post/{job_post_uid}"
 
     def test_delete_job_post(self):
@@ -1089,6 +1103,7 @@ class JobPostDeleteTest(TestCase):
 
         job_post = JobPost.objects.filter(uid=self.job_post.uid).first()
         self.assertIsNone(job_post)
+        self.assertEqual(self.job_post.tags.filter(name__in=["test1", "test2", "test3"]).count(), 0)
 
     def test_delete_job_post_with_invalid_uuid(self):
         headers = {
@@ -2832,21 +2847,21 @@ class JobApplicationMatchTests(TestCase):
         return JobApplication.objects.filter(id=self.job_application.id)
 
 
-class JobTagAPITests(TestCase):
+class JobPostTagAPITests(TestCase):
     def setUp(self):
         super().setUp()
         self.client = TestClient(router)
-        self.url =  "tags/list"
+        self.url =  "jobposts/tags"
         user = UserFactory()
         business = BusinessFactory(created_by=user)
         self.business_user = BusinessUserFactory(business=business, user=user)
         job = JobFactory(created_by=self.business_user)
-        j1 = JobTag.objects.create(business=business, name="test1")
-        j2 = JobTag.objects.create(business=business, name="test2")
-        j3 = JobTag.objects.create(business=business, name="test3")
-        JobPostFactory(job=job)
-        job.tags.add(j1, j2, j3)
-        job.save()
+        job_post = JobPostFactory(job=job)
+        j1 = JobPostTag.objects.create(business=business, name="test1")
+        j2 = JobPostTag.objects.create(business=business, name="test2")
+        j3 = JobPostTag.objects.create(business=business, name="test3")
+        job_post.tags.add(j1, j2, j3)
+        job_post.save()
 
 
     def test_get_tags(self):

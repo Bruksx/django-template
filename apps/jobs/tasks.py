@@ -7,7 +7,7 @@ from chats.models import Conversation, Message
 from django.db import connection, close_old_connections, transaction
 from django.db.models import Count
 from jobs.enums import JobStatusType
-from jobs.models import JobPost, Job, JobInvite, JobTag
+from jobs.models import JobPost, Job, JobInvite, JobPostTag
 from notification.notifications import send_job_application_notification, send_job_sharing_notification, \
     send_job_performance_notification
 
@@ -101,10 +101,10 @@ def fetch_job_posts_from_lever():
     import_lever_jobs()
 
 
-def delete_tags_with_no_jobs():
+def delete_tags_with_no_job_posts():
     unused = (
-        JobTag.objects
-        .annotate(job_count=Count("jobs"))
+        JobPostTag.objects
+        .annotate(job_count=Count("job_posts"))
         .filter(job_count=0)
     )
     if unused.exists():
