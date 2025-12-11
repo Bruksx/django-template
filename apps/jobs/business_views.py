@@ -3,34 +3,34 @@ from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
 
-from config.permissions import IsBusinessUser
+from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
+from accounts.schemas.talent import SkillSchema, AddSkillSchema
+from chats.schemas import ResponseSchema
 from django.db import transaction
 from django.db.models import Q, Count, Exists, Subquery, OuterRef, Case, When, F, Value
 from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from helpers.email.jobs import send_indeed_apply_email
-from helpers.utils import convert_base64_to_image_file, sanitize_html_secure
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
 from ninja import Router, PatchDict, Query
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
-from services.job_posting.schema.indeed import IndeedApplicationDataPatch
-
-from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
-from accounts.schemas.talent import SkillSchema, AddSkillSchema
-from chats.schemas import ResponseSchema
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from settings.models import WorkFlowStage
+
+from config.permissions import IsBusinessUser
+from helpers.email.jobs import send_indeed_apply_email
+from helpers.utils import convert_base64_to_image_file, sanitize_html_secure
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
+from services.job_posting.schema.indeed import IndeedApplicationDataPatch
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication, AvailableDay,
-    ScreeningQuestion, QuestionOption, Answer, JobInvite, JobTag
+    ScreeningQuestion, QuestionOption, Answer, JobInvite, JobPostTag
 )
 from .queries import add_application_match_score, add_job_post_annotations
 from .schemas import (
@@ -42,7 +42,7 @@ from .schemas import (
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, send_email_on_stage_update, create_job_post_service, \
     bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
-    get_talents_by_job_posts_service, handle_job_tags
+    get_talents_by_job_posts_service
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -219,6 +219,8 @@ def delete_job_post(request, job_post_uid:UUID):
         raise HttpError(404, "This job post does not exist")
     if job_post.jobapplication_set.count() > 0:
         raise HttpError(400, "Some job applications are tied to this job post")
+    job_post.tags.clear()
+    job_post.save()
     job_post.delete()
     return Response(status=204, data={"message": "Job post deleted"})
 
@@ -261,6 +263,7 @@ def delete_job(request, job_uid:UUID):
         raise HttpError(404, "This job does not exist")
     if JobApplication.objects.filter(job_post__job=job).exists():
         raise HttpError(400, "Some job applications are tied to this job")
+    job.jobpost_set.all().delete()
     job.delete()
     return Response(status=204, data={"message": "Job deleted"})
 
@@ -345,7 +348,6 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
     job_posts = data.pop("job_posts", list())
     additional_languages = data.pop("additional_languages", list())
     skills = data.pop("skills", list())
-    tags = data.pop("tags", list())
     business_models = data.pop("business_models", list())
     logo = data.pop("logo", None)
 
@@ -373,7 +375,7 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
     job.skills.set(skills)
     job.additional_languages.set(additional_languages)
     job.save()
-    handle_job_tags(job, tags, business)
+
 
     if required_attributes:
         set_job_required_attributes(required_attributes, job)
@@ -417,7 +419,6 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
         raise HttpError(404, "Job not found")
     additional_languages = data.pop("additional_languages", list())
     skills = data.pop("skills", list())
-    tags = data.pop("tags", list())
     business_models = data.pop("business_models", list())
     required_attributes = data.pop("required_attributes", None)
     job_posts = data.pop("job_posts", list())
@@ -443,7 +444,6 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
         data["logo"] = convert_base64_to_image_file(logo_data.base64, name)
 
     job.update(**data)
-    handle_job_tags(job, tags, business)
     for available_day in availability:
         available_day["day"] = available_day["day"].value
         uid =  available_day.pop("uid", None)
@@ -765,8 +765,8 @@ def handle_indeed_application(request, job_post_uid:UUID, data: IndeedApplicatio
                    data.applicant.firstName or "", data.applicant.lastName or "")
     return Response(status=200, data=dict(message="Application is successful"))
 
-@router.get("tags/list", tags=['Common'], auth=JWTAuth(), response=List[GenericNameAndUidSchema])
+@router.get("jobposts/tags", tags=['Common'], auth=JWTAuth(), response=List[GenericNameAndUidSchema])
 def get_job_tags(request):
     IsBusinessUser.check(request)
     business = request.user.businessuser.business
-    return JobTag.objects.filter(business=business).order_by("name")
+    return JobPostTag.objects.filter(business=business).order_by("name")
