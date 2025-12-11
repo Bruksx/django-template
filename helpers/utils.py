@@ -1,4 +1,5 @@
 import base64
+import logging
 import os
 import random
 import re
@@ -9,6 +10,7 @@ from datetime import timezone, time, datetime
 from io import BytesIO
 from sys import getsizeof
 from typing import Optional, List
+from urllib.parse import urlencode, urljoin
 from zoneinfo import ZoneInfo
 
 import bleach
@@ -25,7 +27,6 @@ from ninja.errors import HttpError
 from helpers.loggers import Logger
 from monkeypatches.response import Response
 
-from urllib.parse import urlencode, urljoin
 
 def create_url_with_params(base_url: str, params: dict, doseq: bool = False) -> str:
     """
@@ -422,7 +423,7 @@ def alert_bug_via_email(func, default, *args, **kwargs):
     try:
         return func(*args, **kwargs)
     except Exception as e:
-        print(e.__traceback__)
+        logging.error(str(e), exc_info=True)
         send_email(
             subject="Alert via Email",
             plain_body=str(traceback.format_exc()),
