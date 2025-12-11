@@ -5,6 +5,7 @@ from urllib.parse import quote_plus
 from xml.sax.saxutils import escape
 
 from core.enums import SalaryType
+from htmlmin import minify
 from jobs.enums import WorkStructureEnum, JobStatusType
 from jobs.models import JobPost, Job
 from jobs.schemas import JobAvailabilitySchema
@@ -254,7 +255,7 @@ class JobBase:
     @staticmethod
     def get_job_html_description(job_post):
         from django.template.loader import render_to_string
-        return render_to_string("jobs/en/indeed_job_desc.html", TalentJobPostSchema.from_orm(job_post).dict() )
+        return minify(render_to_string("jobs/en/indeed_job_desc.html", TalentJobPostSchema.from_orm(job_post).dict() ),remove_empty_space=True, remove_comments=True)
 
     @staticmethod
     def get_description(job_post: JobPost, job: Job) -> str:
