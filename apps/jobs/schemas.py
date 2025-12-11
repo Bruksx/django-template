@@ -1374,6 +1374,7 @@ class BusinessJobFilterQuerySchema(Schema):
     statuses: Optional[str] = Field("", description=f"comma separated status type  enums: {', '.join(JobStatusType.values())}")
     recruiter: Optional[str] = Field("", description="comma separated recruiter uuids")
     posted_by : Optional[str] = Field("", description="comma separated recruiter uuids")
+    tags: Optional[str] = Field("", description="comma separated tag uuids")
 
 
     def convert_to_schema(self):
@@ -1387,7 +1388,8 @@ class BusinessJobFilterQuerySchema(Schema):
             city=self.city,
             statuses=self.statuses.split(",") if self.statuses else [],
             recruiter=self.recruiter.split(",") if self.recruiter else [],
-            posted_by=self.posted_by.split(",") if self.posted_by else []
+            posted_by=self.posted_by.split(",") if self.posted_by else [],
+            tags=self.tags.split(",") if self.tags else [],
         )
 
 class BusinessJobFilterSchema(Schema):
@@ -1401,6 +1403,7 @@ class BusinessJobFilterSchema(Schema):
     city: Optional[str] = None
     recruiter: Optional[List[UUID]] = []
     posted_by: Optional[List[UUID]] = []
+    tags: Optional[List[UUID]] = []
 
     def get_queryset(self, queryset=None, extra_sorts:List[str]=None)->QuerySet:
         """
@@ -1429,6 +1432,9 @@ class BusinessJobFilterSchema(Schema):
 
         if self.country:
             queryset = queryset.filter(jobpost__country__uid=self.country)
+
+        if self.tags:
+            queryset = queryset.filter(tags__uid__in=self.tags)
 
         if self.province:
             queryset = queryset.filter(jobpost__province__uid=self.province)
