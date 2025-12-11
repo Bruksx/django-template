@@ -294,7 +294,7 @@ DEPARTMENT_AND_SKILLS = [
     {
         "Industry": "Healthcare",
         "Department": "Psychiatry",
-        "Roles": "Psychiatrist\nClinical Psychologist\nMental Health Nurse\nPsychiatric Social Worker",
+        "Roles": "Psychiatrist\nClinical Psychologist\nMental Health Nurse\nPsychiatric Social Worker\nMental Health Therapist",
         "Tools/Platforms": "Psychological Assessment Tools, Mental Health Management Software, Cognitive Behavioral Therapy (CBT) Tools, Diagnostic and Statistical Manual of Mental Disorders (DSM), Psychotherapy Documentation Software",
         "Common Methodologies/Frameworks": "Cognitive Behavioral Therapy (CBT) Protocols, Psychotherapy Techniques, Mental Health Assessment Frameworks, Crisis Intervention Models",
         "General Skills": "Psychotherapy, Crisis Intervention, Therapeutic Techniques",
