@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job Details - {{ job.title }}</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+          "Oxygen", "Ubuntu", "Cantarell", sans-serif;
+        line-height: 1.5;
+        color: #6b7280;
+        background-color: #ffffff;
+      }
+      .container {
+        max-width: 83.333333%;
+        margin: 0 auto;
+        padding: 0.5rem;
+      }
+      .inner-container {
+        padding: 0 0.5rem;
+      }
+      .job-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        margin-top: 1rem;
+        color: #111827;
+      }
+      .job-card {
+        border-radius: 0.375rem;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1),
+          0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        padding: 0.5rem 0;
+        margin: 0.75rem 0;
+      }
+      .job-content {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .logo-container {
+        height: 9.5rem;
+        width: 12rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .logo-image {
+        border-radius: 0.5rem;
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+      }
+      .job-info-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        width: 100%;
+        padding: 0.75rem 0;
+        justify-content: space-between;
+      }
+      .job-details {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 0.5rem;
+      }
+      .role-name {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #111827;
+      }
+      .info-row {
+        font-weight: 600;
+        display: flex;
+        gap: 0.25rem;
+        align-items: center;
+        color: #007d53;
+      }
+      .info-row svg {
+        width: 1rem;
+        height: 1rem;
+        flex-shrink: 0;
+      }
+      .location-text {
+        text-transform: capitalize;
+      }
+      .button-container {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.5rem;
+        justify-content: center;
+      }
+      .apply-button {
+        background-color: #007d53;
+        color: white;
+        padding: 0.5rem 2.5rem;
+        border: none;
+        border-radius: 0.125rem;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+      .apply-button:hover {
+        background-color: #007d53cc;
+      }
+      .details-card {
+        border-radius: 0.375rem;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1),
+          0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        padding: 0.5rem;
+        margin-top: 0.5rem;
+        margin-bottom: 0.75rem;
+      }
+      .details-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        padding: 0.5rem;
+        margin-top: 0.5rem;
+      }
+      .grid-item {
+        padding-bottom: 0.25rem;
+        border-bottom: 1px solid #e5e7eb;
+      }
+      .grid-item:last-child {
+        border-bottom: none;
+      }
+      .section-title {
+        font-weight: 600;
+        font-size: 1.125rem;
+        margin-bottom: 0.5rem;
+        color: #111827;
+      }
+      .section-content {
+        margin-top: 1rem;
+        margin-bottom: 2rem;
+      }
+      .info-list {
+        list-style: none;
+        margin-top: 0.25rem;
+      }
+      .info-list li {
+        margin-bottom: 0.125rem;
+      }
+      .info-list-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        text-transform: capitalize;
+      }
+      .info-list-label {
+        font-weight: 600;
+        color: #6b7280;
+      }
+      .non-negotiable-title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #007d53;
+        margin-bottom: 0.25rem;
+      }
+      .non-negotiable-list {
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+      }
+      .two-column-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+      .responsibilities-content ul {
+        padding-left: 1.5rem;
+        margin-top: 0.25rem;
+      }
+      .responsibilities-content li {
+        margin-bottom: 0.5rem;
+      }
+      @media (min-width: 768px) {
+        .container {
+          padding: 1rem;
+          margin-top: 0;
+        }
+        .inner-container {
+          padding: 0 1rem;
+        }
+        .job-content {
+          flex-direction: row;
+        }
+        .job-info-wrapper {
+          flex-direction: row;
+        }
+        .section-content {
+          margin-top: 2rem;
+          margin-bottom: 2rem;
+        }
+      }
+      @media (min-width: 1024px) {
+        .container {
+          padding: 0 1rem;
+        }
+        .inner-container {
+          padding: 0 1rem;
+        }
+        .two-column-grid {
+          grid-template-columns: 1fr 1fr;
+          gap: 1.5rem;
+        }
+      }
+      @media (min-width: 1536px) {
+        .job-title {
+          font-size: 1.875rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <section>
+      <div class="container">
+        <div class="inner-container">
+          <p class="job-title">{{ job.title }}</p>
+
+          <div class="job-card">
+            <div class="job-content">
+              <div class="logo-container">
+                <img
+                  src="{{job.logo_url}}"
+                  alt="{{ job.hiring_company_name }} Logo"
+                  class="logo-image"
+                />
+              </div>
+
+              <div class="job-info-wrapper">
+                <div class="job-details">
+                  <p class="role-name">{{ job.title }}</p>
+
+                  <p class="info-row">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path
+                        fill-rule="evenodd"
+                        d="M7.5 5.25a3 3 0 013-3h3a3 3 0 013 3v.205c.933.085 1.857.197 2.774.334 1.454.218 2.476 1.483 2.476 2.917v3.033c0 1.211-.734 2.352-1.936 2.752A24.726 24.726 0 0112 15.75c-2.73 0-5.357-.442-7.814-1.259-1.202-.4-1.936-1.541-1.936-2.752V8.706c0-1.434 1.022-2.7 2.476-2.917A48.814 48.814 0 017.5 5.455V5.25zm7.5 0v.09a49.488 49.488 0 00-6 0v-.09a1.5 1.5 0 011.5-1.5h3a1.5 1.5 0 011.5 1.5zm-3 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z"
+                        clip-rule="evenodd"
+                      />
+                      <path
+                        d="M3 18.4v-2.796a4.3 4.3 0 00.713.31A26.226 26.226 0 0012 17.25c2.892 0 5.68-.468 8.287-1.335.252-.084.49-.189.713-.311V18.4c0 1.452-1.047 2.728-2.523 2.923-2.12.282-4.282.427-6.477.427a49.19 49.19 0 01-6.477-.427C4.047 21.128 3 19.852 3 18.4z"
+                      />
+                    </svg>
+                    {{ job.hiring_company_name }}
+                  </p>
+
+                  <p class="info-row location-text">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                    >
+                      <path
+                        fill-rule="evenodd"
+                        d="M11.54 22.351l.07.04.028.016a.76.76 0 00.723 0l.028-.015.071-.041a16.975 16.975 0 001.144-.742 19.58 19.58 0 002.683-2.282c1.944-1.99 3.963-4.98 3.963-8.827a8.25 8.25 0 00-16.5 0c0 3.846 2.02 6.837 3.963 8.827a19.58 19.58 0 002.682 2.282 16.975 16.975 0 001.145.742zM12 13.5a3 3 0 100-6 3 3 0 000 6z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
+                    {{ job.work_structure }},  {{ address }}
+                  </p>
+                </div>
+
+                <div class="button-container">
+                  <button class="apply-button">Apply Now</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="details-card">
+            <div class="details-grid">
+              <div class="grid-item">
+                <p class="non-negotiable-title">Non-Negotiable</p>
+                <div class="non-negotiable-list">
+                    {% if non_negotiable.skills %}
+                        <span>Skills</span>
+                        <ul class="info-list">
+                    {% for skill in non_negotiable.skills %}
+                        <li>
+                            <div class="info-list-row">
+                              <p class="info-list-label">{{ skill.category }}:</p>
+                                {% for skill in skill.skills %}
+                                    <span style="text-align: right; max-width: 55%">{{ skill.name }}</span>
+                                {% endfor %}
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+                    {% endif %}
+
+                    {% if non_negotiable.job_level %}
+                        <span>Job Level</span>
+                        <p>• {{non_negotiable.job_level.name}}</p>
+                    {% endif %}
+
+                    {% if non_negotiable.role %}
+                        <span>Role</span>
+                        <p>• {{non_negotiable.role.name}}</p>
+                    {% endif %}
+
+                   {% if non_negotiable.business_models %}
+                    {% for business_model in non_negotiable.business_models %}
+                        <span>Business Model</span>
+                        <p>• {{business_model.name}}</p>
+                    {% endfor %}
+                {% endif %}
+
+                {% if non_negotiable.work_structure %}
+                    <span>Work Structure</span>
+                    <p>• {{non_negotiable.work_structure}}</p>
+                {% endif %}
+
+                {% if non_negotiable.years_of_experience %}
+                    <span>Years of Experience</span>
+                    <p>• {{non_negotiable.years_of_experience}}</p>
+                {% endif %}
+
+                {% if non_negotiable.first_language %}
+                    <span>First Language</span>
+                    <p>• {{non_negotiable.first_language.name}}</p>
+                {% endif %}
+
+                {% if non_negotiable.secondary_language %}
+                    <span>Secondary Language</span>
+                    <p>• {{non_negotiable.secondary_language.name}}</p>
+                {% endif %}
+
+                {% if non_negotiable.education_level %}
+                    <span>Education Level</span>
+                    <p>• {{non_negotiable.education_level.level}}</p>
+                {% endif %}
+
+                {% if non_negotiable.location %}
+                    <span>Location</span>
+                    <p>• {{non_negotiable.location.name}}</p>
+                {% endif %}
+
+                {% if non_negotiable.working_hours %}
+                    <span>Working Hours</span>
+                    <ul class="info-list">
+                  {% for availability in non_negotiable.working_hours %}
+                  <li>
+                    <div class="info-list-row">
+                      <p class="info-list-label">{{availability.day}}:</p>
+                      <span style="font-size: 0.875rem">{{availability.start_time}} - {{availability.end_time}}</span>
+                    </div>
+                  </li>
+                  {% endfor %}
+                </ul>
+                {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-content">
+            <p class="section-title">About the Company</p>
+            <p>{{ job.hiring_company_description }}</p>
+          </div>
+
+          <div class="section-content">
+            <p class="section-title">About the Job</p>
+            <p>{{job.about}}</p>
+          </div>
+
+          <div class="two-column-grid">
+            <div>
+              <div class="section-content">
+                <p class="section-title">Job Overview</p>
+                <ul class="info-list">
+                  <li>
+                    <div class="info-list-row">
+                      <p class="info-list-label">Employment Type:</p>
+                      <span>{{ job.employment_type.name }}</span>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-list-row">
+                      <p class="info-list-label">Department:</p>
+                      <span>{{ job.department.name }}</span>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-list-row">
+                      <p class="info-list-label">Job Level:</p>
+                      <span>{{ job.job_level.name }}</span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+
+              <div class="section-content">
+                <p class="section-title">Education & Experience</p>
+                <ul class="info-list">
+                  <li>
+                    <div class="info-list-row">
+                      <p class="info-list-label">Years of Experience:</p>
+                      <span>{{ job.years_of_experience }}</span>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-list-row">
+                      <p class="info-list-label">Business Model:</p>
+                      {% for business_model in job.business_models %}
+                        <span>{{ business_model.name }}</span>
+                      {% endfor %}
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-list-row">
+                      <p class="info-list-label">Minimum Education Level:</p>
+                      <span>{{ job.education_level.level }}</span>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-list-row">
+                      <p class="info-list-label">Qualification:</p>
+                      <span style="text-align: right">{{ job.qualification }}</span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+
+              <div class="section-content">
+                <p class="section-title">Skills</p>
+                <ul class="info-list">
+                    {% for skill in job.skills %}
+                        <li>
+                            <div class="info-list-row">
+                              <p class="info-list-label">{{ skill.category }}:</p>
+                                {% for skill in skill.skills %}
+                                    <span style="text-align: right; max-width: 55%">{{ skill.name }}</span>
+                                {% endfor %}
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+              </div>
+
+              <div class="section-content">
+                <p class="section-title">Additional Requirements</p>
+                <ul class="info-list">
+                  <li>
+                    <div class="info-list-row">
+                      <p class="info-list-label">Technological Requirements:</p>
+                      <span>{{ job.technological_requirements }}</span>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-list-row">
+                      <p class="info-list-label">Language:</p>
+                      <span>{{ job.first_language.name }}</span>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-list-row">
+                      <p class="info-list-label">Location:</p>
+                      <span>{{ country.name }}</span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div>
+              <div class="section-content">
+                <p class="section-title">Responsibilities</p>
+                <div class="responsibilities-content">
+                  {{ job.responsibilities|safe }}
+                </div>
+              </div>
+
+              <div class="section-content">
+                <p class="section-title">Salary & Benefits</p>
+                <ul class="info-list">
+                  <li>
+                    <div
+                      class="info-list-row"
+                      style="flex-direction: column; align-items: flex-start"
+                    >
+                      <p class="info-list-label">Payment Structure:</p>
+                      <div
+                        style="
+                          display: flex;
+                          align-items: center;
+                          gap: 0.5rem;
+                          margin-top: 0.25rem;
+                        "
+                      >
+                        <span>{{ salary_type }}</span
+                        ><span
+                          style="
+                            width: 0.25rem;
+                            height: 0.25rem;
+                            border-radius: 50%;
+                            background-color: rgba(0, 0, 0, 0.7);
+                          "
+                        ></span
+                        ><span>{{ salary_currency }} {{ salary_min }} - {{ salary_currency }} {{ salary_max }}</span>
+                      </div>
+                    </div>
+                  </li>
+                  <li>
+                    <div
+                      class="info-list-row"
+                      style="flex-direction: column; align-items: flex-start"
+                    >
+                      <p class="info-list-label">Bonus Structure:</p>
+                      <div
+                        style="
+                          display: flex;
+                          align-items: center;
+                          gap: 0.5rem;
+                          margin-top: 0.25rem;
+                        "
+                      >
+                        <span>{{ salary_bonus_type }}</span
+                        ><span
+                          style="
+                            width: 0.25rem;
+                            height: 0.25rem;
+                            border-radius: 50%;
+                            background-color: rgba(0, 0, 0, 0.7);
+                          "
+                        ></span
+                        ><span>{{ salary_bonus_currency }} {{ salary_bonus_min }} - {{ salary_bonus_currency }} {{ salary_bonus_max }}</span>
+                      </div>
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-list-row">
+                      <p class="info-list-label">Additional Benefits:</p>
+                      {% for benefit in additional_benefits %}
+                        <span>{{ benefit }}</span>
+                      {% endfor %}
+                    </div>
+                  </li>
+                  <li>
+                    <div class="info-list-row">
+                      <p class="info-list-label">Break:</p>
+                      <div
+                        style="display: flex; align-items: center; gap: 0.75rem"
+                      >
+                        <span>{{ job.lunch_break }}</span><span>{{ job.lunch_break_time }}</span>
+                      </div>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+
+              <div class="section-content">
+                <p class="section-title">Working Hours</p>
+                <ul class="info-list">
+                  {% for availability in job.availability %}
+                  <li>
+                    <div class="info-list-row">
+                      <p class="info-list-label">{{availability.day}}:</p>
+                      <span style="font-size: 0.875rem">{{availability.start_time}} - {{availability.end_time}}</span>
+                    </div>
+                  </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>
