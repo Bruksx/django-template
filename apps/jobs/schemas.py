@@ -127,7 +127,7 @@ class MutateJobPostListSchema(ModelSchema):
     salary_bonus_max: Optional[float]
     salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
-    tags: List[str] = []
+    tags: List[str] = Field(alias="get_tags")
     
 
     class Meta:
@@ -1199,15 +1199,16 @@ class TalentJobPostSchema(JobPostListSchema):
     strength: Optional[JobMatchSchema] = None
     weakness: Optional[JobMatchSchema] = None
     non_negotiable: JobMatchSchema
-    application_uid: Optional[UUID]
+    application_uid: Optional[UUID] = None
     match_score: Optional[int] = 0
-    stage: Optional[StageSchema]
+    stage: Optional[StageSchema] = None
     screening_questions: List[TalentQuestionSchema]
     country: Optional[GenericNameAndUidSchema] = None
     strength: Optional[JobMatchSchema]
     weakness: Optional[JobMatchSchema]
     non_negotiable: JobMatchSchema
     benefits: List[str]
+    address: Optional[str] = Field(None, alias="get_location")
 
     @staticmethod
     def get_talent(context):
@@ -1254,6 +1255,8 @@ class TalentJobPostSchema(JobPostListSchema):
         if not talent:
             return
         return obj.weakness(talent)
+
+
 
 
 class TalentJobFilterQuerySchema(Schema):

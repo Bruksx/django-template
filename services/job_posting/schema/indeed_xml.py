@@ -8,6 +8,7 @@ from core.enums import SalaryType
 from jobs.enums import WorkStructureEnum, JobStatusType
 from jobs.models import JobPost, Job
 from jobs.schemas import JobAvailabilitySchema
+from jobs.schemas import TalentJobPostSchema
 from lxml.etree import Element, SubElement, tostring
 
 from apps.paginations import CustomPageNumberPaginationExtra
@@ -51,6 +52,8 @@ class JobBase:
     billingId: Optional[str] = None
     apijobid: Optional[str] = None
     location: Optional[str] =   None
+
+
 
 
     def get_indeed_apply_data(self):
@@ -249,6 +252,11 @@ class JobBase:
         return formatted_hours if formatted_hours else None
 
     @staticmethod
+    def get_job_html_description(job_post):
+        from django.template.loader import render_to_string
+        return render_to_string("jobs/en/indeed_job_desc.html", TalentJobPostSchema.from_orm(job_post).dict() )
+
+    @staticmethod
     def get_description(job_post: JobPost, job: Job) -> str:
         parts = []
 
@@ -381,7 +389,7 @@ class JobBase:
                 postalcode=job_post.postal_code,
                 streetaddress=job_post.get_location(),
                 email=INDEED_EMAIL,
-                description=cls.get_description(job_post, job),
+                description=cls.get_job_html_description(job_post),
                 salary=JobBase.get_salary(job_post),
                 education=JobBase.get_education(job_post),
                 jobtype="".join((job.employment_type.name,)) if job.employment_type else "",
