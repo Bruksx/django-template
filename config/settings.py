@@ -10,17 +10,17 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
-from pathlib import Path
-
-from django.conf.global_settings import EMAIL_BACKEND, APPEND_SLASH
-from dotenv import load_dotenv
+import logging
 import os
 import sys
-import dj_database_url
 from datetime import timedelta
+from pathlib import Path
+
+import dj_database_url
 import sentry_sdk
+from django.conf.global_settings import EMAIL_BACKEND, APPEND_SLASH
+from dotenv import load_dotenv
 from sentry_sdk.integrations.logging import LoggingIntegration
-import logging
 
 load_dotenv()
 
@@ -38,7 +38,7 @@ sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 SECRET_KEY = os.environ['SECRET_KEY']
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True if os.environ['DEBUG'].lower() == "true" else False
+DEBUG = True if os.environ['DEBUG'].lower() != "true" else False
 
 ALLOWED_HOSTS = [
     "gtc-staging.1840andco.com",
@@ -75,6 +75,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'django.middleware.gzip.GZipMiddleware',
     'django.middleware.security.SecurityMiddleware',
     "corsheaders.middleware.CorsMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
