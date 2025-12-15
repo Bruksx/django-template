@@ -9,7 +9,7 @@ from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
 from django.db import transaction
 from auth.services import validate_login
-from auth.schema import LoginSchema
+from auth.schema import OptionalLoginSchema
 from django.utils import timezone
 from ninja import Router, PatchDict, UploadedFile, File
 from ninja.errors import HttpError
@@ -302,10 +302,18 @@ def schedule_meeting(request, data: talent_schemas.ScheduleMeetingSchema):
 
 @router.delete("", response={204: None})
 @transaction.atomic
-def delete_account(request, data: LoginSchema):
-    user: User = User.objects.filter(email=data.email).first()
-    validate_login(user)
-    if not user.check_password(data.password):
-        raise HttpError(400, "Incorrect Password")
+def delete_account(request, data: OptionalLoginSchema = {}):
+    #optionally requires auth
+    token = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header:
+        _, _, token = auth_header.partition(" ")
+    if token:
+        user = JWTAuth().authenticate(request, token)
+    else:
+        user: User = User.objects.filter(email=data.email).first()
+        validate_login(user)
+        if not user.check_password(data.password):
+            raise HttpError(400, "Incorrect Password")
     user.delete_account()
     return Response(status=204, data={"message": "Account deleted successfully"})

@@ -17,6 +17,11 @@ class LoginSchema(BaseModel):
     password: str
 
 
+class OptionalLoginSchema(BaseModel):
+    email: Optional[str] = None
+    password: Optional[str] = None
+
+
 class SocialAuthSchema(BaseModel):
     access_token: str
     social_id: Optional[str] = None
