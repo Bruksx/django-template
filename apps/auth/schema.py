@@ -17,6 +17,11 @@ class LoginSchema(BaseModel):
     password: str
 
 
+class OptionalLoginSchema(BaseModel):
+    email: Optional[str] = None
+    password: Optional[str] = None
+
+
 class SocialAuthSchema(BaseModel):
     access_token: str
     social_id: Optional[str] = None
@@ -24,6 +29,8 @@ class SocialAuthSchema(BaseModel):
     social_type: SocialType
     redirect_uri: Optional[str] = None
     app_id: Optional[str] = None
+    first_name: Optional[str] = ""
+    last_name: Optional[str] = ""
 
 
 class GoogleAuthSchema(BaseModel):

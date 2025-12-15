@@ -588,6 +588,27 @@ class DeleteTalentUserAccountTest2(TestCase):
         self.assertFalse(SavedJob.global_objects.filter(talent=talent_user).exists())
         self.assertFalse(Education.global_objects.filter(talent=talent_user).exists())
         self.assertFalse(Experience.global_objects.filter(talent=talent_user).exists())
+    
+    def test_delete_talent_user_account_with_token(self):
+        from jobs.models import SavedJob 
+        from accounts.models import Experience, Education
+
+        headers = {
+            "Authorization": f"Bearer {self.user.token}"
+        }
+
+        response = self.client.delete(self.url, headers=headers)
+        self.assertEqual(response.status_code, 204)
+        user = User.objects.filter(id=self.talent.user.id).first()
+        self.assertIsNone(user)
+        talent_user = Talent.objects.filter(id=self.talent.id).first()
+        self.assertIsNone(talent_user)
+        user = User.deleted_objects.filter(id=self.talent.user.id).first()
+        talent_user = Talent.deleted_objects.filter(id=self.talent.id).first()
+
+        self.assertFalse(SavedJob.global_objects.filter(talent=talent_user).exists())
+        self.assertFalse(Education.global_objects.filter(talent=talent_user).exists())
+        self.assertFalse(Experience.global_objects.filter(talent=talent_user).exists())
 
 
 class UploadTalentProfilePictureTests(TestCase):
