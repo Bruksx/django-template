@@ -127,7 +127,6 @@ class ResumeSchema(Schema):
     file: Optional[str] = None  # Binary file (e.g., URL to the file or base64 encoded content)
     text: Optional[str] = None  # Text representation of the resume (if using Indeed Resume)
     html: Optional[str] = None  # HTML representation of the resume (if using Indeed Resume)
-    json: Optional[dict] = None  # JSON
 
 class ApplicantSchema(Schema):
     fullName: str  # Full name (e.g., "John Doe")
@@ -200,7 +199,6 @@ class ResumeSchemaPatch(Schema):
     file: Optional[str] = None
     text: Optional[str] = None
     html: Optional[str] = None
-    json: Optional[dict] = None
 
 
 class ApplicantSchemaPatch(Schema):
