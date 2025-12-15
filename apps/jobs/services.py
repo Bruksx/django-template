@@ -193,7 +193,7 @@ def update_job_post_service(job_post, business_user, data=None, status=None, rai
         status = data.get("status").value
     if status:
         data["status"] = status
-        if status == JobStatusType.POSTED.value:
+        if job_post.status != status and status == JobStatusType.POSTED.value:
             data["posted_by"] = business_user
         
         if status == JobStatusType.DRAFT.value and job_post.status != JobStatusType.DRAFT.value:
