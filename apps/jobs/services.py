@@ -12,7 +12,7 @@ from django.utils import timezone
 from jobs.enums import PhaseType, JobStatusType, QuestionTypeEnum
 from jobs.models import (
     JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job, RequiredSecondaryLanguage,
-    RequiredSkill, BusinessModel, JobPost, QuestionOption
+    RequiredSkill, BusinessModel, JobPost, QuestionOption, JobPostTag
 )
 from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema, MutateOptionSchema
 from ninja.errors import HttpError
@@ -161,6 +161,7 @@ def get_screening_questions_service(request, job_uid:UUID):
 def create_job_post_service(business_user, job, job_posts_data:list):
     job_post = None
     for data in job_posts_data:
+        tags = data.pop("tags", list())
         if "status" in data:
             data["status"] = data["status"].value
             if data["status"] == JobStatusType.POSTED.value:
@@ -174,16 +175,20 @@ def create_job_post_service(business_user, job, job_posts_data:list):
                 data["salary_bonus_type"]) is not str else data["salary_bonus_type"]
         
         job_post = JobPost.objects.create(**data, job=job)
+        handle_job_post_tags(job_post, tags, business_user.business)
     if len(job_posts_data) == 1:
         return job_post
     return
 
 def update_job_post_service(job_post, business_user, data=None, status=None, raise_error=False):
-    new_job = None
+    new_job_post = None
     if not data:
         data = dict()
     data["edited_by"] = business_user
     data["edited_at"] = timezone.now()
+    tags = None
+    if "tags" in data:
+        tags = data.pop("tags")
     if not status and "status" in data:
         status = data.get("status").value
     if status:
@@ -193,7 +198,7 @@ def update_job_post_service(job_post, business_user, data=None, status=None, rai
         
         if status == JobStatusType.DRAFT.value and job_post.status != JobStatusType.DRAFT.value:
             # you're trying to prevent editing job posts with applications
-            new_job = job_post.copy()
+            new_job_post = job_post.copy()
     if data.get("salary_type"):
         data["salary_type"] = data["salary_type"].value if type(data["salary_type"]) is not str else \
         data[
@@ -202,11 +207,17 @@ def update_job_post_service(job_post, business_user, data=None, status=None, rai
     if data.get("salary_bonus_type"):
         data["salary_bonus_type"] = data["salary_bonus_type"].value if type(
             data["salary_bonus_type"]) is not str else data["salary_bonus_type"]
-    if new_job:
+    if new_job_post:
         job_post.update(status=JobStatusType.CLOSED.value)
-        new_job.update(**data)
-        return new_job
-    return job_post.update(**data)
+        new_job_post.update(**data)
+        if tags:
+            new_job_post = handle_job_post_tags(new_job_post, tags, business_user.business)
+        return new_job_post
+
+    job_post = job_post.update(**data)
+    if tags:
+        job_post = handle_job_post_tags(job_post, tags, business_user.business)
+    return job_post
 
 def bulk_job_posts_service(job, job_post_data, business_user):
     new_job_posts = [dt for dt in job_post_data if not dt.get("uid")]
@@ -336,3 +347,35 @@ def get_talent_screening_results(talent, business=None):
     if business:
         queryset = queryset.filter(job_post__job__created_by__business=business)
     return queryset
+
+
+def handle_job_post_tags(job_post, tags: list[str], business):
+    if not job_post:
+        raise HttpError(404, "Job Post not found")
+    if tags is None:
+        raise HttpError(400, "Tags not found")
+    if not business:
+        raise HttpError(400, "Business not found")
+
+    # Fetch existing tags once
+    existing = set(
+        JobPostTag.objects.filter(name__in=tags, business=business)
+        .values_list("name", flat=True)
+    )
+
+    # Compute missing tags in Python (cheap)
+    missing = [
+        JobPostTag(name=tag, business=business)
+        for tag in tags
+        if tag not in existing
+    ]
+
+    # Create missing tags in one query
+    if missing:
+        JobPostTag.objects.bulk_create(missing)
+
+    # Attach tags to job – fetch all matching tags once
+    tag_qs = JobPostTag.objects.filter(name__in=tags, business=business)
+    job_post.tags.set(tag_qs)
+    job_post.save()
+    return job_post

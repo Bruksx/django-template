@@ -82,7 +82,9 @@ class MutateJobPostSchema(ModelSchema):
     salary_bonus_currency: Optional[UUID] = None
     salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
-    
+    tags: List[str] = []
+
+
 
     class Meta:
         model = JobPost
@@ -101,6 +103,8 @@ class UpdateJobPostSchema(ModelSchema):
     salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_currency: Optional[UUID]
+    tags: List[str] = []
+    
     
     class Meta:
         model = JobPost
@@ -123,6 +127,8 @@ class MutateJobPostListSchema(ModelSchema):
     salary_bonus_max: Optional[float]
     salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
     salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
+    tags: List[str] = Field(alias="get_tags")
+    
 
     class Meta:
         model = JobPost
@@ -455,6 +461,8 @@ class JobPostDetailSchema(ModelSchema):
     city: str | None
     province: GenericNameAndUidSchema | None
     about: Optional[str] = Field(None, alias="get_about")
+    tags: List[str] = Field(alias="get_tags")
+    
 
     class Meta:
         model = JobPost
@@ -529,6 +537,7 @@ class JobListSchema2(ModelSchema):
     title: str = Field(alias="get_title")
     hiring_company_name: Optional[str] = Field(alias="hiring_company")
     business_name: Optional[str] = None
+
     class Meta:
         model = Job
         fields = ["work_structure", "office_address"]
@@ -616,6 +625,8 @@ class JobPostListSchema(ModelSchema):
     city: Optional[str] = Field(None, alias="get_city")
     province: Optional[str] = Field(None, alias="get_province")
     about: Optional[str] = Field(None, alias="get_about")
+    tags: List[str] = Field(alias="get_tags")
+    
 
 
     class Meta:
@@ -841,6 +852,8 @@ class JobPostFullDetailSchema(ModelSchema):
     city: Optional[str] = None
     province: Optional[GenericNameAndUidSchema] = None
     about: Optional[str] = Field(None, alias="get_about")
+    tags: List[str] = Field(alias="get_tags")
+    
 
 
     class Meta:
@@ -1067,6 +1080,7 @@ class TalentJobPostListSchema(ModelSchema):
     date_saved: Optional[datetime] = None
     date_applied: Optional[datetime] = None
     about: Optional[str] = Field(None, alias="get_about")
+    tags: List[str] = Field(alias="get_tags")
 
     class Meta:
         model = JobPost
@@ -1363,6 +1377,7 @@ class BusinessJobFilterQuerySchema(Schema):
     statuses: Optional[str] = Field("", description=f"comma separated status type  enums: {', '.join(JobStatusType.values())}")
     recruiter: Optional[str] = Field("", description="comma separated recruiter uuids")
     posted_by : Optional[str] = Field("", description="comma separated recruiter uuids")
+    tags: Optional[str] = Field("", description="comma separated tag uuids")
 
 
     def convert_to_schema(self):
@@ -1376,7 +1391,8 @@ class BusinessJobFilterQuerySchema(Schema):
             city=self.city,
             statuses=self.statuses.split(",") if self.statuses else [],
             recruiter=self.recruiter.split(",") if self.recruiter else [],
-            posted_by=self.posted_by.split(",") if self.posted_by else []
+            posted_by=self.posted_by.split(",") if self.posted_by else [],
+            tags=self.tags.split(",") if self.tags else [],
         )
 
 class BusinessJobFilterSchema(Schema):
@@ -1390,6 +1406,7 @@ class BusinessJobFilterSchema(Schema):
     city: Optional[str] = None
     recruiter: Optional[List[UUID]] = []
     posted_by: Optional[List[UUID]] = []
+    tags: Optional[List[UUID]] = []
 
     def get_queryset(self, queryset=None, extra_sorts:List[str]=None)->QuerySet:
         """
@@ -1418,6 +1435,9 @@ class BusinessJobFilterSchema(Schema):
 
         if self.country:
             queryset = queryset.filter(jobpost__country__uid=self.country)
+
+        if self.tags:
+            queryset = queryset.filter(jobpost__tags__uid__in=self.tags)
 
         if self.province:
             queryset = queryset.filter(jobpost__province__uid=self.province)
@@ -1576,6 +1596,7 @@ class BulkJobPostSchema(Schema):
 class BusinessUserJobSchema(ModelSchema):
     created_by: BusinessUserListSchema
     title: Optional[str] = Field(alias="get_title")
+
     class Meta:
         model = Job
         fields = ["uid"]
