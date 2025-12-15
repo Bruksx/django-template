@@ -29,5 +29,10 @@ tasks = [
         "name": "Lever JobPost Download - 1 AM",
         "func": "jobs.tasks.fetch_job_posts_from_lever",
         "cron": "0 1 * * *",  # Every day at 1:00 AM
+        },
+        {
+            "name": "Delete Tags With No JobPosts - 1 AM",
+            "func": "jobs.tasks.delete_tags_with_no_job_posts",
+            "cron": "0 0 * * *",  # Every day at 12:00 AM
         }
     ]

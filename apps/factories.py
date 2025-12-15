@@ -557,3 +557,5 @@ class TalentFilterFactory(BaseModelFactory):
         if extracted:
             for role in extracted:
                 self.roles.add(role)
+
+

@@ -30,7 +30,7 @@ from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication, AvailableDay,
-    ScreeningQuestion, QuestionOption, Answer, JobInvite
+    ScreeningQuestion, QuestionOption, Answer, JobInvite, JobPostTag
 )
 from .queries import add_application_match_score, add_job_post_annotations
 from .schemas import (
@@ -219,6 +219,8 @@ def delete_job_post(request, job_post_uid:UUID):
         raise HttpError(404, "This job post does not exist")
     if job_post.jobapplication_set.count() > 0:
         raise HttpError(400, "Some job applications are tied to this job post")
+    job_post.tags.clear()
+    job_post.save()
     job_post.delete()
     return Response(status=204, data={"message": "Job post deleted"})
 
@@ -261,6 +263,7 @@ def delete_job(request, job_uid:UUID):
         raise HttpError(404, "This job does not exist")
     if JobApplication.objects.filter(job_post__job=job).exists():
         raise HttpError(400, "Some job applications are tied to this job")
+    job.jobpost_set.all().delete()
     job.delete()
     return Response(status=204, data={"message": "Job deleted"})
 
@@ -372,6 +375,7 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
     job.skills.set(skills)
     job.additional_languages.set(additional_languages)
     job.save()
+
 
     if required_attributes:
         set_job_required_attributes(required_attributes, job)
@@ -760,3 +764,9 @@ def handle_indeed_application(request, job_post_uid:UUID, data: IndeedApplicatio
         async_task(send_indeed_apply_email, job_post, data.applicant.email,
                    data.applicant.firstName or "", data.applicant.lastName or "")
     return Response(status=200, data=dict(message="Application is successful"))
+
+@router.get("jobposts/tags", tags=['Common'], auth=JWTAuth(), response=List[GenericNameAndUidSchema])
+def get_job_tags(request):
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
+    return JobPostTag.objects.filter(business=business).order_by("name")
