@@ -23,6 +23,7 @@ from jobs.models import JobLevel, EmploymentType, Job, JobPost, RequiredAttribut
 from settings.models import WorkFlowStage
 
 from apps.accounts.queries import add_profile_completion_annotation
+from apps.jobs.services import handle_stage_update
 
 
 class TalentModelTest(TestCase):
@@ -530,7 +531,7 @@ class BusinessModelTests(TestCase):
                                    :self.sub_data]
         applications = JobApplication.objects.filter(id__in=last_sub_application_ids)
         for application in applications:
-            application.update(stage=self.hired_stage)
+            handle_stage_update(application, [application.stage, self.hired_stage], self.business_user)
         data = self.business.time_to_hire_via_stage()
         self.assertNotEqual(data, list())
         self.assertIn("role", data[0])
