@@ -495,6 +495,7 @@ def create_talent_filter(request, data: PatchDict[MutateTalentFilterSchema]):
     languages = data.pop("languages", None)
     skills = data.pop("skills", None)
     roles = data.pop("roles", None)
+    business_models = data.pop("business_models", None)
     industries = data.pop("industries", None)
     levels = data.pop("educational_levels", None)
     skills = data.pop("skills", None)
@@ -514,6 +515,12 @@ def create_talent_filter(request, data: PatchDict[MutateTalentFilterSchema]):
         talent_filter.languages.set(languages)
     else:
         talent_filter.languages.clear()
+
+    if business_models:
+        talent_filter.business_models.set(business_models)
+    else:
+        talent_filter.business_models.clear()
+
     if skills:
         talent_filter.skills.set(skills)
     else:

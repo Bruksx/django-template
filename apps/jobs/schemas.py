@@ -4,20 +4,20 @@ from typing import List, Literal
 from typing import Optional
 from uuid import UUID
 
-from accounts.enums import Days
-from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
-from accounts.schemas.business import BusinessUserListSchema
-from core.enums import SalaryType
-from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
 from django.db.models import QuerySet, Q, Count
 from django.utils import timezone
 from ninja import ModelSchema
 from ninja.errors import HttpError
 from ninja.schema import Schema
-from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from pydantic import Field, EmailStr
-from settings.models import WorkFlowStage
 
+from accounts.enums import Days
+from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
+from accounts.schemas.business import BusinessUserListSchema
+from core.enums import SalaryType
+from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+from settings.models import WorkFlowStage
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType
 from .models import BusinessModel, JobApplication, Answer, JobInvite
@@ -1545,6 +1545,7 @@ class TalentListJobPostSchema(ModelSchema):
     cv_url: Optional[str]
     match_score: Optional[int]
     role: Optional[GenericNameAndUidSchema] = Field(None, alias="get_role")
+    country: Optional[GenericNameAndUidSchema]
 
     class Meta:
         model = Talent
