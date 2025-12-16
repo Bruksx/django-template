@@ -3,29 +3,29 @@ from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
 
-from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
-from accounts.schemas.talent import SkillSchema, AddSkillSchema
-from chats.schemas import ResponseSchema
+from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q, Count, Exists, Subquery, OuterRef, Case, When, F, Value
 from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from ninja import Router, PatchDict, Query
-from ninja.errors import HttpError
-from ninja_extra import paginate
-from ninja_jwt.authentication import JWTAuth
-from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
-from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
-from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
-from settings.models import WorkFlowStage
-
-from config.permissions import IsBusinessUser
 from helpers.email.jobs import send_indeed_apply_email
 from helpers.utils import convert_base64_to_image_file, sanitize_html_secure
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
+from ninja import Router, PatchDict, Query
+from ninja.errors import HttpError
+from ninja_extra import paginate
+from ninja_jwt.authentication import JWTAuth
 from services.job_posting.schema.indeed import IndeedApplicationDataPatch
+
+from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
+from accounts.schemas.talent import SkillSchema, AddSkillSchema
+from chats.schemas import ResponseSchema
+from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
+from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+from settings.models import WorkFlowStage
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
@@ -605,6 +605,11 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
 def update_application(request, application_uid:UUID, data:job_schemas.UpdateApplicationSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
+    if not data.stages:
+        raise HttpError(400, "Stages cannot be empty")
+    if len(data.stages) < 2:
+        raise HttpError(400, "Stages must contain at least two stages")
+
     application = JobApplication.objects.filter(uid=application_uid, job_post__job__created_by__business=business_user.business).first()
     stages = list(WorkFlowStage.objects.filter(uid__in=data.stages, created_by__business=business_user.business).order_by("phase_order", "order"))
     application = handle_stage_update(application=application, stages=stages, business_user=business_user)
@@ -616,10 +621,14 @@ def update_application(request, application_uid:UUID, data:job_schemas.UpdateApp
 def bulk_update_application(request, data:job_schemas.BulkUpdateApplicationSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
+    if not data.stages:
+        raise HttpError(400, "Stages cannot be empty")
+    if len(data.stages) < 2:
+        raise HttpError(400, "Stages must contain at least two stages")
     applications = JobApplication.objects.filter(uid__in=data.uids, job_post__job__created_by__business=business_user.business).iterator()
     stages = list(WorkFlowStage.objects.filter(uid__in=data.stages, created_by__business=business_user.business).order_by("phase_order", "order"))
     for application in applications:
-        handle_stage_update(application=application, stages=stages, business_user=business_user)
+        handle_stage_update(application=application, stages=stages, business_user=business_user, raise_exception=False)
     return JobApplication.objects.filter(uid__in=data.uids)
 
 
