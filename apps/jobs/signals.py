@@ -1,33 +1,14 @@
 from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver
 from django.utils import timezone
-
-from jobs.models import TalentApplicationStageTimeline
 from helpers.utils import to_utc
-from jobs.enums import PhaseType, JobStatusType
-from jobs.models import JobApplication, JobPost, JobPostMetrics, RequiredAttribute, Job, AvailableDay
-from notification import notifications
-
 from monkeypatches.q_cluster import async_task
 
+from jobs.enums import JobStatusType
+from jobs.models import JobApplication, JobPost, JobPostMetrics, RequiredAttribute, Job, AvailableDay
+from jobs.models import TalentApplicationStageTimeline
+from notification import notifications
 
-@receiver(pre_save, sender=JobApplication)
-def handle_stage_timeline_update(sender, instance, **kwargs):
-    if instance.id:
-         old_application = JobApplication.objects.filter(id=instance.id).first()
-         if old_application and old_application.stage != instance.stage:
-             instance.stage_date_updated = timezone.now()
-             TalentApplicationStageTimeline.objects.filter(
-                 application=instance, stage=old_application.stage
-             ).update(exit_date=timezone.now())
-             tf = TalentApplicationStageTimeline.objects.filter(
-                 application=instance, stage=instance.stage
-             ).first()
-             if tf:
-                 tf.exit_date = None
-                 tf.save()
-             else:
-                 TalentApplicationStageTimeline.objects.create(stage=instance.stage, application=instance, job_role=instance.job_post.job.role)
 
 @receiver(post_save, sender=JobApplication)
 def handle_new_application(sender, instance,created,  **kwargs):
