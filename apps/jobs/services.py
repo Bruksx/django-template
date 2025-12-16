@@ -1,26 +1,26 @@
 from typing import List
 from uuid import UUID
 
+from accounts.models import Skill
+from core.models import Language
 from django.conf import settings
 from django.db import transaction
 from django.db.models import QuerySet, Window, F, Q, OuterRef, Exists
 from django.db.models.functions import RowNumber
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from helpers.utils import upload_to_s3, upload_to_server, sort_params_function
-from monkeypatches.q_cluster import async_task
-from ninja.errors import HttpError
-
-from accounts.models import Skill
-from core.models import Language
 from jobs.enums import PhaseType, JobStatusType, QuestionTypeEnum
 from jobs.models import (
     JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job, RequiredSecondaryLanguage,
     RequiredSkill, BusinessModel, JobPost, QuestionOption, JobPostTag, TalentApplicationStageTimeline
 )
 from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema, MutateOptionSchema
+from ninja.errors import HttpError
 from notification.notifications import send_talents_job_matching_notification
 from settings.models import WorkFlowStage
+
+from helpers.utils import upload_to_s3, upload_to_server, sort_params_function
+from monkeypatches.q_cluster import async_task
 
 
 def get_talent_job_recommendations(talent, business=None, search="", distinct=False):
@@ -385,10 +385,6 @@ def handle_stage_update(application: JobApplication, stages: List[WorkFlowStage]
     try:
         if not application:
             raise HttpError(404, "Application does not exist")
-        if not stages:
-            raise HttpError(400, "Stages cannot be empty")
-        if len(stages) < 2:
-            raise HttpError(400, "Stages must contain at least two stages")
         if stages[0] == application.stage:
             forward = True
         elif stages[-1] == application.stage:
