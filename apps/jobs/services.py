@@ -1,26 +1,26 @@
 from typing import List
 from uuid import UUID
 
-from accounts.models import Skill
-from core.models import Language
 from django.conf import settings
 from django.db import transaction
 from django.db.models import QuerySet, Window, F, Q, OuterRef, Exists
 from django.db.models.functions import RowNumber
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from helpers.utils import upload_to_s3, upload_to_server, sort_params_function
+from monkeypatches.q_cluster import async_task
+from ninja.errors import HttpError
+
+from accounts.models import Skill
+from core.models import Language
 from jobs.enums import PhaseType, JobStatusType, QuestionTypeEnum
 from jobs.models import (
     JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job, RequiredSecondaryLanguage,
-    RequiredSkill, BusinessModel, JobPost, QuestionOption, JobPostTag
+    RequiredSkill, BusinessModel, JobPost, QuestionOption, JobPostTag, TalentApplicationStageTimeline
 )
 from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema, MutateOptionSchema
-from ninja.errors import HttpError
 from notification.notifications import send_talents_job_matching_notification
 from settings.models import WorkFlowStage
-
-from helpers.utils import upload_to_s3, upload_to_server, sort_params_function
-from monkeypatches.q_cluster import async_task
 
 
 def get_talent_job_recommendations(talent, business=None, search="", distinct=False):
@@ -379,3 +379,51 @@ def handle_job_post_tags(job_post, tags: list[str], business):
     job_post.tags.set(tag_qs)
     job_post.save()
     return job_post
+
+
+def handle_stage_update(application: JobApplication, stages: List[WorkFlowStage], business_user, raise_exception=True):
+    try:
+        if not application:
+            raise HttpError(404, "Application does not exist")
+        if not stages:
+            raise HttpError(400, "Stages cannot be empty")
+        if len(stages) < 2:
+            raise HttpError(400, "Stages must contain at least two stages")
+        if stages[0] == application.stage:
+            forward = True
+        elif stages[-1] == application.stage:
+            forward = False
+        else:
+            raise HttpError(400, "Current stage must be the first or the last stage")
+        final_stage = stages[-1] if forward else stages[0]
+        previous_stage = stages[-2] if forward else stages[1]
+        if not forward:
+            stages = stages[::-1]
+
+        for stage in stages:
+            tf = TalentApplicationStageTimeline.objects.filter(
+             application=application, stage=stage).first()
+
+            if not tf and (forward or (not forward and stage == final_stage)):
+                tf = TalentApplicationStageTimeline.objects.create(stage=stage, application=application, job_role=application.job_post.job.role)
+
+            if not forward and tf and stage != final_stage:
+                tf.delete()
+
+            if forward and tf:
+                tf.exit_date = timezone.now() if stage != final_stage else None
+                tf.save()
+
+        application.stage = final_stage
+        application.stage_date_updated = timezone.now()
+        application.save()
+        async_task(send_email_on_stage_update, application=application, previous_stage=previous_stage,
+                                   business_user=business_user)
+        return application
+    except Exception as e:
+        if raise_exception:
+            raise e
+        return None
+
+
+

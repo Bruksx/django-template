@@ -1576,10 +1576,10 @@ class UpdateApplicationSchema(ModelSchema):
     class Meta:
         model = JobApplication
         fields = ("stage",)
-    stage: Optional[UUID]
+    stages: List[UUID]
 
 class BulkUpdateApplicationSchema(Schema):
-    stage: Optional[UUID]
+    stages: List[UUID]
     uids: List[UUID]
 
 
