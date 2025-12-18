@@ -63,7 +63,7 @@ class MutateExperienceSchema(ModelSchema):
 class ExperienceSchema(ModelSchema):
     role: Optional[RoleSchema]
     level: Optional[JobLevelSchema]
-    employment_type: EmploymentTypeSchema
+    # employment_type: EmploymentTypeSchema
     # salary_currency: Optional[CurrencySchema]
     # salary_bonus_currency: Optional[CurrencySchema]
     duration: str
