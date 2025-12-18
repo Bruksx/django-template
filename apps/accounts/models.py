@@ -577,7 +577,6 @@ class Talent(BaseModel):
             (self.user.email, "Email is missing."),
             (self.user.phone_number, "Phone number is missing."),
             (self.user.gender, "Gender is missing."),
-            (self.photo, "Profile photo is missing."),
             (self.preferred_communication, "Preferred communication method is missing."),
             (self.employment_types.exists(), "Employment types are not selected."),
             (self.work_models, "Work models are not specified."),
