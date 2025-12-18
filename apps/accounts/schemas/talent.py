@@ -50,26 +50,26 @@ class MutateEducationSchema(ModelSchema):
 class MutateExperienceSchema(ModelSchema):
     role: UUID
     uid: Optional[UUID] = None
-    salary_bonus_currency: UUID
-    salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
-    salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
-    salary_currency: UUID
-    employment_type: UUID
+    # salary_bonus_currency: UUID
+    # salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
+    # salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
+    # salary_currency: UUID
+    # employment_type: UUID
     level: Optional[UUID]
     class Meta:
         model = Experience
-        exclude = [*MUTATE_EXCLUDE_FIELDS, "talent"]
+        exclude = [*MUTATE_EXCLUDE_FIELDS, "talent", "salary_bonus_currency", "salary_bonus_type", "salary_type", "salary_currency", "salary", "employment_type"]
 
 class ExperienceSchema(ModelSchema):
     role: Optional[RoleSchema]
     level: Optional[JobLevelSchema]
-    employment_type: EmploymentTypeSchema
-    salary_currency: Optional[CurrencySchema]
-    salary_bonus_currency: Optional[CurrencySchema]
+    # employment_type: EmploymentTypeSchema
+    # salary_currency: Optional[CurrencySchema]
+    # salary_bonus_currency: Optional[CurrencySchema]
     duration: str
     class Meta:
         model = Experience
-        exclude = [*READ_EXCLUDE_FIELDS, "talent"]
+        exclude = [*READ_EXCLUDE_FIELDS, "talent", "salary_bonus_currency", "salary_bonus_type", "salary_type", "salary_currency", "salary", "employment_type"]
 
 
 class SkillSchema(ModelSchema):
