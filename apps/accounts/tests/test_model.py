@@ -212,7 +212,7 @@ class TalentModelTest(TestCase):
 
     def test_is_not_profile_completed(self):
         experience = self.talent.experience_history().first()
-        experience.salary = None
+        experience.role = None
         experience.save()
         self.assertFalse(self.talent.is_profile_completed())
 
