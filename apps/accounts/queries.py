@@ -1,6 +1,5 @@
-from django.db.models import QuerySet, Exists, OuterRef, Q, Value, BooleanField, Case, When
-
 from accounts.models import Talent, Education, Experience, SkillCategory, TalentAvailableDay
+from django.db.models import QuerySet, Exists, OuterRef, Q, Value, BooleanField, Case, When
 
 
 def add_profile_completion_annotation(queryset:QuerySet[Talent]):
@@ -26,10 +25,6 @@ def add_profile_completion_annotation(queryset:QuerySet[Talent]):
                 Q(role__isnull=True) |
                 Q(Q(company__isnull=True) | Q(company="")) |
                 Q(start_date__isnull=True) |
-                Q(salary_type__isnull=True) |
-                Q(salary__isnull=True) |
-                Q(salary_currency__isnull=True) |
-                Q(employment_type__isnull=True) |
                 Q(level__isnull=True)
             )
         ),
@@ -61,7 +56,6 @@ def add_profile_completion_annotation(queryset:QuerySet[Talent]):
                     Q(Q(user__email__isnull=False) & ~Q(user__email="")) &
                     Q(Q(user__phone_number__isnull=False) & ~Q(user__phone_number=""))&
                     Q(user__gender__isnull=False) &
-                    Q(photo__isnull=False) &
                     Q(preferred_communication__isnull=False) &
                     Q(Q(work_models__isnull=False) & ~Q(work_models=[])) &
                     Q(Q(availability_timezone__isnull=False) & ~Q(availability_timezone="")) &
