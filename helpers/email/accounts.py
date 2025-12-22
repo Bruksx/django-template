@@ -1,3 +1,5 @@
+from typing import List
+
 from django.conf import settings
 
 from helpers.email.utils import send_email, render_html_email
@@ -25,3 +27,12 @@ def send_customer_case_email(sender,reason: str, subject:str, description, lang=
     html_file = f"accounts/{lang}/customer_case_email.html"
     html_content = render_html_email(html_file, context)
     send_email(subject=subject, emails=["contact@1840andco.com"], html_body=html_content)
+
+
+def send_incomplete_profile_reminder_email(emails: List[str], lang='en'):
+    context = {
+        "link": f"{settings.FRONTEND_URL}talent/profile"
+    }
+    html_file = f"accounts/{lang}/incomplete_profile_reminder.html"
+    html_file = render_html_email(html_file, context)
+    send_email(subject="Incomplete Profile Reminder", emails=emails, html_body=html_file)
