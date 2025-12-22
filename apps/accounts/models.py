@@ -8,7 +8,10 @@ from typing import Tuple, Optional
 from uuid import UUID
 
 import jwt
-from config.settings import SECRET_KEY
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
+    BusinessSize, BusinessUserStatusType, CaseReasonType
+from core.enums import SalaryType
+from core.models import BaseModel, State, City
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -19,16 +22,13 @@ from django.db.models.functions import Concat, Cast, Round
 from django.db.models.signals import pre_save
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from helpers.utils import delete_s3_item
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
 from ninja_jwt.tokens import RefreshToken
+from notification.enums import NotificationGroup
 from timezone_field import TimeZoneField
 
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessSize, BusinessUserStatusType, CaseReasonType
-from core.enums import SalaryType
-from core.models import BaseModel, State, City
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
-from notification.enums import NotificationGroup
+from config.settings import SECRET_KEY
+from helpers.utils import delete_s3_item
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -563,10 +563,10 @@ class Talent(BaseModel):
         ).exists()
 
         # Check skills
-        all_category_ids = SkillCategory.objects.only("name").distinct("name").values_list("name", flat=True)
-        has_skills = True
-        for cat in all_category_ids:
-            has_skills &= self.skills.filter(category__name__iexact=cat).exists()
+        # all_category_ids = SkillCategory.objects.only("name").distinct("name").values_list("name", flat=True)
+        # has_skills = True
+        # for cat in all_category_ids:
+        #     has_skills &= self.skills.filter(category__name__iexact=cat).exists()
 
         # Field validations
         validations = [
@@ -590,7 +590,6 @@ class Talent(BaseModel):
             (self.bio, "Bio is missing."),
             (self.linkedin, "LinkedIn profile is missing."),
             (self.notice_period, "Notice period is missing."),
-            (has_skills, "Skills are incomplete."),
             (self.cv, "CV is missing."),
         ]
 

@@ -1,16 +1,16 @@
 from accounts.models import Talent, Education, Experience, SkillCategory, TalentAvailableDay
-from django.db.models import QuerySet, Exists, OuterRef, Q, Value, BooleanField, Case, When
+from django.db.models import QuerySet, Exists, OuterRef, Q, Value, Case, When
 
 
 def add_profile_completion_annotation(queryset:QuerySet[Talent]):
-    TalentSkill = Talent.skills.through
+    # TalentSkill = Talent.skills.through
     TalentEmploymentTypes = Talent.employment_types.through
     all_category_ids = SkillCategory.objects.only("name").distinct("name").values_list("name", flat=True)
-    has_skills_filter = Q()
-    for cat in all_category_ids:
-        has_skills_filter &= Q(Exists(TalentSkill.objects.filter(
-            talent__id=OuterRef("id"), skill__category__name__iexact=cat))
-        )
+    # has_skills_filter = Q()
+    # for cat in all_category_ids:
+    #     has_skills_filter &= Q(Exists(TalentSkill.objects.filter(
+    #         talent__id=OuterRef("id"), skill__category__name__iexact=cat))
+    #     )
     return queryset.annotate(
         has_education=Exists(
             Education.objects.filter(talent_id=OuterRef("id")).exclude(
@@ -28,11 +28,6 @@ def add_profile_completion_annotation(queryset:QuerySet[Talent]):
                 Q(level__isnull=True)
             )
         ),
-        has_skills=Case(
-            When(has_skills_filter, then=Value(True)),
-            default=Value(False),
-            output_field=BooleanField()
-        ),
         has_availability=Exists(
             TalentAvailableDay.objects.filter(talent__id=OuterRef("id"))
     ),
@@ -44,7 +39,6 @@ def add_profile_completion_annotation(queryset:QuerySet[Talent]):
                 Q(
                     has_education=True,
                     has_experience=True,
-                    has_skills=True,
                     has_employment_types=True
                 ) &
                 Q(
