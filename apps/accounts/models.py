@@ -1258,6 +1258,13 @@ class CustomTalentAvailableDayManager(SoftDeleteManager):
         for obj in objs:
             pre_save.send(sender=self.model, instance=obj, created=True, raw=False, using=self.db)
         return super().bulk_update(objs, *args, **kwargs)
+    
+    def create(self, **kwargs):
+        obj = self.model(**kwargs)
+        pre_save.send(sender=self.model, instance=obj, created=True, raw=False, using=self.db
+        )
+        obj.save(using=self.db)
+        return obj
 
 
 class TalentAvailableDay(BaseModel):
