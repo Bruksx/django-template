@@ -1,6 +1,7 @@
+import logging
+
 from django.core.management.base import BaseCommand
 from django_q.management.commands.qcluster import Command as QClusterCommand
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -10,9 +11,10 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         from monkeypatches.q_cluster import schedule_cron_tasks
         from apps.jobs.scheduler import tasks as job_tasks
+        from apps.accounts.scheduler import tasks as account_tasks
         from apps.notification.scheduler import tasks as notification_tasks
         # you may add other cron tasks here
-        tasks = (*job_tasks, *notification_tasks)
+        tasks = (*account_tasks, *job_tasks, *notification_tasks)
 
         schedule_cron_tasks(tasks)
 
