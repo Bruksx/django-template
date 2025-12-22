@@ -228,6 +228,11 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
                 day = available_day['day']
                 if not talent_user.talentavailableday_set.filter(day=day).exists():
                     TalentAvailableDay.objects.create(**available_day, talent=talent_user)
+                    
+    if data.get("skills"):
+        del data["skills"]
+    if data.get("business_models"):
+        del data["business_models"]
     user.update(**user_data)
     return talent_user.update(**data)
     
