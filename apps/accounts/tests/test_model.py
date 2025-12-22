@@ -221,7 +221,7 @@ class TalentModelTest(TestCase):
         queryset = add_profile_completion_annotation(queryset)
         self.assertEqual(queryset.filter(complete_profile=True).count(), 1)
         experience = self.talent.experience_history().first()
-        experience.salary = None
+        experience.level = None
         experience.save()
         self.assertEqual(queryset.filter(complete_profile=True).count(), 0)
 
