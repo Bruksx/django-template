@@ -1,10 +1,144 @@
-<!DOCTYPE html>
+{% load static %}
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Title</title>
-</head>
-<body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Complete Your Profile</title>
+  </head>
+  <body
+    style="
+      font-family: Arial, Helvetica, sans-serif;
+      background-color: #e7effa;
+      padding: 20px;
+      margin: 0;
+    "
+  >
+    <div
+      style="
+        max-width: 660px;
+        margin: 0 auto;
+        padding: 20px 20px 80px;
+        background-color: white;
+        box-shadow: 0px 0px 15px rgba(0, 0, 3, 0.1);
+      "
+    >
+      <!-- Header Image -->
+      <img
+        alt="Complete Your Profile Header"
+        src="{% static 'img/share_job/header-image.png' %}"
+        style="width: 100%; height: auto; max-height: 200px"
+      />
 
-</body>
+      <!-- Preheader Text -->
+      <div
+        style="
+          margin-top: 20px;
+          font-weight: 600;
+          font-size: 24px;
+          text-align: center;
+        "
+      >
+        You’re one step away from finding your next job, complete your profile!
+      </div>
+
+      <!-- Email Body -->
+      <div style="margin-top: 40px">
+        <p
+          style="
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: #323232;
+          "
+        >
+          Hi dear,
+        </p>
+
+        <p
+          style="
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: #323232;
+          "
+        >
+          You're just a few steps away from getting the most out of your 1840
+          GTC profile.
+        </p>
+
+        <p
+          style="
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: #323232;
+          "
+        >
+          We're thrilled that you're joining 1840 GTC, a global talent community
+          connecting top professionals with exciting opportunities. By
+          completing your profile, you'll become a member and make it easier for
+          us to match you with opportunities that fit your skills, show your
+          experience to businesses actively looking for talent like you, and let
+          you message companies that reach out to you first.
+        </p>
+
+        <p
+          style="
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 10px;
+            color: #323232;
+            font-weight: 600;
+          "
+        >
+          A complete profile means you will:
+        </p>
+
+        <ul
+          style="
+            font-size: 16px;
+            line-height: 1.8;
+            margin-bottom: 20px;
+            color: #323232;
+            padding-left: 20px;
+          "
+        >
+          <li>Be considered for roles that truly fit your skills</li>
+          <li>Be visible to businesses actively looking for talent like you</li>
+          <li>Move faster when the right opportunity arises</li>
+        </ul>
+
+        <p
+          style="
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: #323232;
+          "
+        >
+          It only takes a few minutes and it makes a big difference in the
+          opportunities you'll be matched with.
+        </p>
+
+        <!-- Login and Complete your Profile Button -->
+        <div style="margin-top: 100px; text-align: center">
+          <a
+            href="{{ link }}"
+            style="
+              background-color: #266b5b;
+              color: white;
+              padding: 15px 40px;
+              border-radius: 5px;
+              text-decoration: none;
+              font-size: 16px;
+              font-weight: 500;
+            "
+          >
+            Login and Complete your Profile
+          </a>
+        </div>
+      </div>
+    </div>
+  </body>
 </html>
