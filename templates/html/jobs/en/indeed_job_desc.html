@@ -290,79 +290,59 @@
                 <div class="non-negotiable-list">
                     {% if non_negotiable.skills %}
                         <span>Skills</span>
-                        <ul class="info-list">
-                    {% for skill in non_negotiable.skills %}
-                        <li>
-                            <div class="info-list-row">
-                              <p class="info-list-label">{{ skill.category }}:</p>
-                                {% for skill in skill.skills %}
-                                    <span style="text-align: right; max-width: 55%">{{ skill.name }}</span>
-                                {% endfor %}
-                            </div>
-                        </li>
-                    {% endfor %}
-                </ul>
+
                     {% endif %}
 
                     {% if non_negotiable.job_level %}
                         <span>Job Level</span>
-                        <p>• {{non_negotiable.job_level.name}}</p>
+
                     {% endif %}
 
                     {% if non_negotiable.role %}
                         <span>Role</span>
-                        <p>• {{non_negotiable.role.name}}</p>
+
                     {% endif %}
 
                    {% if non_negotiable.business_models %}
                     {% for business_model in non_negotiable.business_models %}
                         <span>Business Model</span>
-                        <p>• {{business_model.name}}</p>
+
                     {% endfor %}
                 {% endif %}
 
                 {% if non_negotiable.work_structure %}
                     <span>Work Structure</span>
-                    <p>• {{non_negotiable.work_structure}}</p>
+
                 {% endif %}
 
                 {% if non_negotiable.years_of_experience %}
-                    <span>Years of Experience</span>
-                    <p>• {{non_negotiable.years_of_experience}}</p>
+                    <span>Years of Experience </span>
+
                 {% endif %}
 
                 {% if non_negotiable.first_language %}
                     <span>First Language</span>
-                    <p>• {{non_negotiable.first_language.name}}</p>
+
                 {% endif %}
 
                 {% if non_negotiable.secondary_language %}
                     <span>Secondary Language</span>
-                    <p>• {{non_negotiable.secondary_language.name}}</p>
+
                 {% endif %}
 
                 {% if non_negotiable.education_level %}
                     <span>Education Level</span>
-                    <p>• {{non_negotiable.education_level.level}}</p>
+
                 {% endif %}
 
                 {% if non_negotiable.location %}
                     <span>Location</span>
-                    <p>• {{non_negotiable.location.name}}</p>
+
                 {% endif %}
 
                 {% if non_negotiable.working_hours %}
                     <span>Working Hours</span>
-                    <ul class="info-list">
-                  {% for availability in non_negotiable.working_hours %}
-                  <li>
-                    <div class="info-list-row">
-                      <p class="info-list-label">{{availability.day}}:</p>
-                      <span style="font-size: 0.875rem">{{availability.start_time}} - {{availability.end_time}}</span>
-                    </div>
-                  </li>
-                  {% endfor %}
-                </ul>
+
                 {% endif %}
                 </div>
               </div>
@@ -411,7 +391,7 @@
                   <li>
                     <div class="info-list-row">
                       <p class="info-list-label">Years of Experience:</p>
-                      <span>{{ job.years_of_experience }}</span>
+                      <span>{{ job.years_of_experience }} {% if job.years_of_experience == 1 %} Year {% else %} Years {% endif %}</span>
                     </div>
                   </li>
                   <li>
@@ -425,7 +405,7 @@
                   <li>
                     <div class="info-list-row">
                       <p class="info-list-label">Minimum Education Level:</p>
-                      <span>{{ job.education_level.level }}</span>
+                      <span>{{ job.minimum_education_level.level }}</span>
                     </div>
                   </li>
                   <li>
@@ -449,12 +429,18 @@
                                 {% endfor %}
                             </div>
                         </li>
+                        <li>
+                            <div class="info-list-row">
+                              <p class="info-list-label">Additional Skills:</p>
+                               <span>{{ job.additional_skills }}</span>
+                            </div>
+                        </li>
                     {% endfor %}
                 </ul>
               </div>
 
               <div class="section-content">
-                <p class="section-title">Additional Requirements</p>
+                <p class="section-title">Requirements</p>
                 <ul class="info-list">
                   <li>
                     <div class="info-list-row">
@@ -490,68 +476,6 @@
                 <p class="section-title">Salary & Benefits</p>
                 <ul class="info-list">
                   <li>
-                    <div
-                      class="info-list-row"
-                      style="flex-direction: column; align-items: flex-start"
-                    >
-                      <p class="info-list-label">Payment Structure:</p>
-                      <div
-                        style="
-                          display: flex;
-                          align-items: center;
-                          gap: 0.5rem;
-                          margin-top: 0.25rem;
-                        "
-                      >
-                        <span>{{ salary_type }}</span
-                        ><span
-                          style="
-                            width: 0.25rem;
-                            height: 0.25rem;
-                            border-radius: 50%;
-                            background-color: rgba(0, 0, 0, 0.7);
-                          "
-                        ></span
-                        ><span>{{ salary_currency }} {{ salary_min }} - {{ salary_currency }} {{ salary_max }}</span>
-                      </div>
-                    </div>
-                  </li>
-                  <li>
-                    <div
-                      class="info-list-row"
-                      style="flex-direction: column; align-items: flex-start"
-                    >
-                      <p class="info-list-label">Bonus Structure:</p>
-                      <div
-                        style="
-                          display: flex;
-                          align-items: center;
-                          gap: 0.5rem;
-                          margin-top: 0.25rem;
-                        "
-                      >
-                        <span>{{ salary_bonus_type }}</span
-                        ><span
-                          style="
-                            width: 0.25rem;
-                            height: 0.25rem;
-                            border-radius: 50%;
-                            background-color: rgba(0, 0, 0, 0.7);
-                          "
-                        ></span
-                        ><span>{{ salary_bonus_currency }} {{ salary_bonus_min }} - {{ salary_bonus_currency }} {{ salary_bonus_max }}</span>
-                      </div>
-                    </div>
-                  </li>
-                  <li>
-                    <div class="info-list-row">
-                      <p class="info-list-label">Additional Benefits:</p>
-                      {% for benefit in additional_benefits %}
-                        <span>{{ benefit }}</span>
-                      {% endfor %}
-                    </div>
-                  </li>
-                  <li>
                     <div class="info-list-row">
                       <p class="info-list-label">Break:</p>
                       <div
@@ -566,6 +490,9 @@
 
               <div class="section-content">
                 <p class="section-title">Working Hours</p>
+                {% if job.flexible_availability is True %}
+                <span>Flexible working hours</span>
+                {% else %}
                 <ul class="info-list">
                   {% for availability in job.availability %}
                   <li>
@@ -576,6 +503,7 @@
                   </li>
                   {% endfor %}
                 </ul>
+                {% endif %}
               </div>
             </div>
           </div>
