@@ -3,26 +3,27 @@ from datetime import date, timezone, datetime
 from decimal import Decimal
 
 import pytz
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase
+
 from accounts.enums import BusinessUserRoleType, Days
 from accounts.enums import PreferredCommunicationType
 from accounts.models import SkillCategory
 from accounts.models import User, Talent, Skill, Department, Experience, Role, Education, EducationLevel, \
-    BusinessUser, Business, Country, TalentAvailableDay, BusinessIndustry, State, City
+    BusinessUser, Business, Country, TalentAvailableDay, BusinessIndustry, City
+from accounts.queries import add_profile_completion_annotation
 from accounts.schemas.talent import TalentSkillSchema, MonthlyChartSchema, TalentAvailableDaySchema
 from chats.models import Conversation, Message
 from core.models import Currency, Language
 from core.models import State
-from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
 from factories import JobPostFactory, TalentFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
     BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, ConversationFactory, \
     MessageFactory, ExperienceFactory, WorkflowStageFactory
 from jobs.enums import LunchBreakEnum, WorkStructureEnum, PhaseType, JobStatusType
-from jobs.models import JobLevel, EmploymentType, Job, JobPost, RequiredAttribute, BusinessModel, AvailableDay, \
+from jobs.models import JobLevel, EmploymentType, Job, JobPost, BusinessModel, AvailableDay, \
     JobApplication, JobInterview, SavedJob
+from jobs.services import handle_stage_update
 from settings.models import WorkFlowStage
-
-from apps.accounts.queries import add_profile_completion_annotation
 
 
 class TalentModelTest(TestCase):
@@ -530,7 +531,7 @@ class BusinessModelTests(TestCase):
                                    :self.sub_data]
         applications = JobApplication.objects.filter(id__in=last_sub_application_ids)
         for application in applications:
-            application.update(stage=self.hired_stage)
+            handle_stage_update(application, [application.stage, self.hired_stage], self.business_user)
         data = self.business.time_to_hire_via_stage()
         self.assertNotEqual(data, list())
         self.assertIn("role", data[0])

@@ -1574,14 +1574,11 @@ class TalentListJobPostSchema2(TalentListJobPostSchema):
         return JobApplication.objects.filter(job_post=job_post, applicant=obj).first()
 
 
-class UpdateApplicationSchema(ModelSchema):
-    class Meta:
-        model = JobApplication
-        fields = ("stage",)
-    stage: Optional[UUID]
+class UpdateApplicationSchema(Schema):
+    stages: List[UUID]
 
 class BulkUpdateApplicationSchema(Schema):
-    stage: Optional[UUID]
+    stages: List[UUID]
     uids: List[UUID]
 
 

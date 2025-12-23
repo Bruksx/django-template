@@ -40,9 +40,9 @@ from .schemas import (
     TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2, AddRoleSchema
 )
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
-    update_bulk__job_posts_service, send_email_on_stage_update, create_job_post_service, \
+    update_bulk__job_posts_service, create_job_post_service, \
     bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
-    get_talents_by_job_posts_service
+    get_talents_by_job_posts_service, handle_stage_update
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -604,12 +604,15 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
 @transaction.atomic
 def update_application(request, application_uid:UUID, data:job_schemas.UpdateApplicationSchema):
     IsBusinessUser.check(request)
-    application = JobApplication.objects.filter(uid=application_uid, job_post__job__created_by__business=request.user.businessuser.business).first()
-    if not application:
-        raise HttpError(404, "This application does not exist")
-    previous_stage = application.stage
-    application.update(**data.dict())
-    send_email_on_stage_update(application=application, previous_stage=previous_stage, business_user=request.user.businessuser)
+    business_user = request.user.businessuser
+    if not data.stages:
+        raise HttpError(400, "Stages cannot be empty")
+    if len(data.stages) < 2:
+        raise HttpError(400, "Stages must contain at least two stages")
+
+    application = JobApplication.objects.filter(uid=application_uid, job_post__job__created_by__business=business_user.business).first()
+    stages = list(WorkFlowStage.objects.filter(uid__in=data.stages, created_by__business=business_user.business).order_by("phase_order", "order"))
+    application = handle_stage_update(application=application, stages=stages, business_user=business_user)
     return application
 
 
@@ -617,11 +620,15 @@ def update_application(request, application_uid:UUID, data:job_schemas.UpdateApp
 @transaction.atomic
 def bulk_update_application(request, data:job_schemas.BulkUpdateApplicationSchema):
     IsBusinessUser.check(request)
-    applications = JobApplication.objects.filter(uid__in=data.uids, job_post__job__created_by__business=request.user.businessuser.business).iterator()
+    business_user = request.user.businessuser
+    if not data.stages:
+        raise HttpError(400, "Stages cannot be empty")
+    if len(data.stages) < 2:
+        raise HttpError(400, "Stages must contain at least two stages")
+    applications = JobApplication.objects.filter(uid__in=data.uids, job_post__job__created_by__business=business_user.business).iterator()
+    stages = list(WorkFlowStage.objects.filter(uid__in=data.stages, created_by__business=business_user.business).order_by("phase_order", "order"))
     for application in applications:
-        previous_stage = application.stage
-        application.update(stage=data.stage)
-        async_task(send_email_on_stage_update, application=application, previous_stage=previous_stage, business_user=request.user.businessuser)
+        handle_stage_update(application=application, stages=stages, business_user=business_user, raise_exception=False)
     return JobApplication.objects.filter(uid__in=data.uids)
 
 

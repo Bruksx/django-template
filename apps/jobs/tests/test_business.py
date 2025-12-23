@@ -4,18 +4,21 @@ from decimal import Decimal, ROUND_HALF_UP
 from random import choice
 from uuid import uuid4
 
+from django.db import models
+from django.test import TestCase
+from django.utils import timezone
+from future.backports.datetime import timedelta
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
+
 from accounts.enums import Days
 from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent, \
     EducationLevel, SkillCategory, Experience, TalentAvailableDay
 from core.models import City, State
 from core.models import Currency
-from django.db import models
-from django.test import TestCase
-from django.utils import timezone
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
     JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, CountryFactory, ScreeningQuestionFactory, \
     AnswerFactory, CurrencyFactory, ExperienceFactory
-from future.backports.datetime import timedelta
 from jobs.business_views import router
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
@@ -23,8 +26,6 @@ from jobs.models import (
     BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage, JobPostTag
 )
 from jobs.queries import add_application_match_score
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
 from settings.models import WorkFlowStage
 
 
@@ -1862,28 +1863,43 @@ class UpdateJobApplicationTest(TestCase):
         self.url = lambda application_id: f"job-posts/applications/{application_id}"
 
 
-    def test_job_applications_update(self):
+    def test_job_applications_update_forward(self):
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
+        stages = WorkflowStageFactory.create_batch(3, phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
-            "stage": str(stage.uid)
+            "stages": [str(self.stage.uid), *list(map(lambda x:str(x.uid), stages))]
         }
         response = self.client.patch(self.url(self.application.uid), headers=headers, json=data)
         self.assertEqual(response.status_code, 200)
         self.application.refresh_from_db()
-        self.assertEqual(self.application.stage.uid, stage.uid)
+        self.assertIn(str(self.application.stage.uid), data["stages"][1:])
 
+    def test_job_applications_update_backward(self):
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        self.application.stage = WorkflowStageFactory.create(created_by=self.business_user, phase=PhaseType.INTERVIEW.value)
+        self.application.save()
+        self.application.refresh_from_db()
+        stages = WorkflowStageFactory.create_batch(3, phase=PhaseType.SCREENING.value, created_by=self.business_user)
+        data = {
+            "stages": [*list(map(lambda x:str(x.uid), stages)), str(self.application.stage.uid)]
+        }
+        response = self.client.patch(self.url(self.application.uid), headers=headers, json=data)
+        self.assertEqual(response.status_code, 200)
+        self.application.refresh_from_db()
+        self.assertIn(str(self.application.stage.uid), data["stages"][:-1])
 
     def test_by_another_business_user(self):
         business_user = BusinessUserFactory.create()
         headers = {
             "authorization": f"Bearer {business_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
+        stages = WorkflowStageFactory.create_batch(3, phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
-            "stage": str(stage.uid)
+            "stages": [str(self.stage.uid), *list(map(lambda x:str(x.uid), stages))]
         }
         response = self.client.patch(self.url(self.application.uid), headers=headers, json=data)
         self.assertEqual(response.status_code, 404)
@@ -1893,9 +1909,9 @@ class UpdateJobApplicationTest(TestCase):
         headers = {
             "authorization": f"Bearer {talent_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
+        stage = WorkflowStageFactory.create_batch(3, phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
-            "stage": str(stage.uid)
+            "stages": [str(self.stage.uid), *list(map(lambda x:str(x.uid), stage))]
         }
         response = self.client.patch(self.url(self.application.uid), headers=headers, json=data)
         self.assertEqual(response.status_code, 403)
@@ -1904,9 +1920,9 @@ class UpdateJobApplicationTest(TestCase):
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
         }
-        stage = WorkflowStageFactory.create(phase=PhaseType.SCREENING.value, created_by=self.business_user)
+        stage = WorkflowStageFactory.create_batch(3, phase=PhaseType.SCREENING.value, created_by=self.business_user)
         data = {
-            "stage": str(stage.uid)
+            "stages": [str(self.stage.uid), *list(map(lambda x:str(x.uid), stage))]
         }
         response = self.client.patch(self.url(uuid4()), headers=headers, json=data)
         self.assertEqual(response.status_code, 404)
