@@ -2,24 +2,24 @@ from datetime import date, timedelta
 from typing import Optional
 from uuid import UUID
 
+from accounts.enums import MeetingType
 from accounts.enums import UserType, AuthType
 from accounts.models import Talent, TalentAvailableDay
 from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
-from django.db import transaction
-from auth.services import validate_login
 from auth.schema import OptionalLoginSchema
+from auth.services import validate_login
+from django.db import transaction
 from django.utils import timezone
 from ninja import Router, PatchDict, UploadedFile, File
 from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.enums import MeetingType
 from config.permissions import IsBusinessUser
 from config.permissions import IsTalentUser
 from helpers.email.auth import send_verification_code
-from helpers.utils import convert_base64_to_image_file, validate_password, delete_s3_item, to_utc
+from helpers.utils import convert_base64_to_image_file, validate_password, delete_s3_item
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from services import meeting
@@ -153,10 +153,18 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
         user_data["phone_number"] = data.pop("phone_number")
     if "phone_code" in data:
         user_data["phone_code"] = data.pop("phone_code")
-    if "skills" in data and data["skills"]:
-        talent_user.skills.set(data.pop("skills"))
-    if "business_models" in data and data["business_models"]:
-        talent_user.business_models.set(data.pop("business_models"))
+    if "skills" in data:
+        if data["skills"]:
+            talent_user.skills.set(data.pop("skills"))
+        else:
+            data.pop("skills", None)
+            talent_user.skills.clear()
+    if "business_models" in data:
+        if data["business_models"]:
+            talent_user.business_models.set(data.pop("business_models"))
+        else:
+            data.pop("business_models", None)
+            talent_user.business_models.clear()
     if "experience_history" in data and data["experience_history"]:
         uids = list()
         for experience in data.pop("experience_history"):
