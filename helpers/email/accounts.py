@@ -29,9 +29,10 @@ def send_customer_case_email(sender,reason: str, subject:str, description, lang=
     send_email(subject=subject, emails=["contact@1840andco.com"], html_body=html_content)
 
 
-def send_incomplete_profile_reminder_email(emails: List[str], lang='en'):
+def send_incomplete_profile_reminder_email(emails: List[str], name: str=None, lang='en'):
     context = {
-        "link": f"{settings.FRONTEND_URL}talent/profile"
+        "link": f"{settings.FRONTEND_URL}talent/profile",
+        "name": name
     }
     html_file = f"accounts/{lang}/incomplete_profile_reminder.html"
     html_file = render_html_email(html_file, context)
