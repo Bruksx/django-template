@@ -264,11 +264,11 @@ class UpdateTalentProfileTests(TestCase):
         self.assertEqual(self.talent.talentavailableday_set.last().start_time, time(hour=9, minute=0))
         self.assertEqual(self.talent.talentavailableday_set.last().end_time, time(hour=17, minute=0))
         # Assert skills
-        self.assertTrue(self.talent.skills.filter(uid__in=self.data["skills"]).exists())
+        self.assertEqual(self.talent.skills.count(), len(self.data["skills"]))
         # Assert additional skills
         self.assertListEqual(self.talent.additional_skills, self.data["additional_skills"])
         # Assert business models
-        self.assertTrue(self.talent.business_models.filter(uid__in=self.data["business_models"]).exists())
+        self.assertEqual(self.talent.business_models.count(), len(self.data["business_models"]))
 
     def test_partial_profile_update(self):
         self.assertTrue(self.talent.visible)
