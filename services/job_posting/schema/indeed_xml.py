@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
+from html import unescape
 from typing import Optional
 from urllib.parse import quote_plus
 from xml.sax.saxutils import escape
@@ -405,8 +406,8 @@ class JobBase:
         el = SubElement(parent, tag)
         if text and str(text).strip():
             content = str(text).strip()
-            if escape_text:
-                content = escape(content)
+            if escape_text is False:
+                content = unescape(content)
         else:
             content = ""
         el.text = f"<![CDATA[{content}]]>"
@@ -426,7 +427,7 @@ class JobBase:
         self.add_element(job_el, "postalcode", self.postalcode)
         self.add_element(job_el, "streetaddress", self.streetaddress)
         self.add_element(job_el, "email", self.email)
-        self.add_element(job_el, "description", self.description, escape_text=False)
+        self.add_element(job_el, "description", self.description)
         self.add_element(job_el, "salary", self.salary)
         self.add_element(job_el, "education", self.education)
         self.add_element(job_el, "jobtype", self.jobtype)
