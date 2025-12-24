@@ -1,3 +1,4 @@
+import json
 from datetime import date, timedelta
 from typing import Optional
 from uuid import UUID
@@ -12,6 +13,7 @@ from auth.schema import OptionalLoginSchema
 from auth.services import validate_login
 from django.db import transaction
 from django.utils import timezone
+from django_q.models import Schedule
 from ninja import Router, PatchDict, UploadedFile, File
 from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
@@ -60,8 +62,14 @@ def create_account(request, data: talent_schemas.ValidateTalentOTPSchema):
                                     auth_mode=AuthType.EMAIL.value,
                                type=UserType.TALENT.value,
                                email_verified=True, is_active=True)
-    Talent.objects.create(
+    talent = Talent.objects.create(
         user=user
+    )
+    Schedule.objects.create(
+        func='helpers.email.accounts.send_incomplete_profile_reminder_email',
+        schedule_type=Schedule.ONCE,
+        next_run=talent.created_at + timedelta(days=1),
+        kwargs=json.dumps({"emails": [user.email], "name": user.first_name})
     )
     return user
 
