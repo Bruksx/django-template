@@ -1,8 +1,10 @@
-from django.contrib import admin
+from django.contrib import admin, messages
+from django.utils.safestring import mark_safe
 from .models import (
     EmploymentType, JobPost, JobLevel, Job, BusinessModel, ScreeningQuestion, QuestionOption, JobApplication,
-    AvailableDay, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage, 
+    AvailableDay, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage, JobPostExport
 )
+from .services import export_job_posts_excel
 
 
 class RequiredSecondaryLanguageInline(admin.TabularInline):
@@ -34,21 +36,33 @@ class RequiredAttributeAdmin(admin.ModelAdmin):
     inlines = [RequiredSecondaryLanguageInline, RequiredSkillInline]
 
 
-from django.contrib import admin
-from .models import JobPost
-
-
 class JobPostAdmin(admin.ModelAdmin):
     list_display = (
         "uid",
+        "job__uid",
         "job__title",
         "status",
         "country",
     )
     search_fields = (
-        "job__uid",
         "uid",
+        "job__uid",
     )
+
+    actions = ["export_all_jobposts",]
+
+    def export_all_jobposts(self, request, queryset):
+        export = export_job_posts_excel()
+        self.message_user(
+            request,
+            mark_safe(
+                f'Successfully exported job posts'
+                f'<a href="{export.file.url}" target="_blank"> Download file</a>'
+            ),
+            level=messages.SUCCESS,
+        )
+
+    export_all_jobposts.short_description = "Export all JobPosts to excel"
 
 
 admin.site.register(JobPost, JobPostAdmin)
@@ -60,6 +74,7 @@ admin.site.register(ScreeningQuestion)
 admin.site.register(QuestionOption)
 admin.site.register(AvailableDay)
 admin.site.register(RequiredAttribute, RequiredAttributeAdmin)
+admin.site.register(JobPostExport)
 
 
 
