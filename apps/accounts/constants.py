@@ -150,7 +150,7 @@ DEPARTMENT_AND_SKILLS = [
     {
         "Industry": "General Industries",
         "Department": "Public Relations (PR) and Communications",
-        "Roles": "Public Relations Manager\nCommunications Specialist\nPR Coordinator\nMedia Relations Manager\nCorporate Communications Manager\nPublicist\nContent Writer\nPress Secretary\nCommunications Director\nCopywriter\nCrisis Communications Specialist\nInternal Communications Manager",
+        "Roles": "Public Relations Manager\nCommunications Specialist\nPR Coordinator\nMedia Relations Manager\nCorporate Communications Manager\nPublicist\nContent Writer\nPress Secretary\nCommunications Director\nCopywriter\nCrisis Communications Specialist\nInternal Communications Manager\nNews Editor",
         "Tools/Platforms": "Meltwater, Cision, Mention, TrendKite (now Cision), LinkedIn, Facebook, Instagram, TikTok, Twitter",
         "Common Methodologies/Frameworks": "Crisis Communication Plans, Media Relations Strategies, Social Media Management, Stakeholder Analysis, Reputation Management, Integrated Marketing Communication (IMC), Thought Leadership, Public Affairs",
         "General Skills": "Media Relations, Crisis Communication, Brand Development, Content Creation, Press Release Writing, Public Speaking, Social Media Strategy, Stakeholder Engagement, Speechwriting, Community Outreach, Corporate Communication, Editing and Proofreading",
