@@ -77,6 +77,7 @@ class UpdateEmailTemplateSchema(CreateEmailTemplateSchema):
     template: Optional[str]
     personal: Optional[bool]
     delays : Optional[int]
+    is_html: Optional[bool]
 
 
 
@@ -90,7 +91,7 @@ class EmailTemplateListSchema(ModelSchema):
     can_be_deleted: Optional[bool] = None
     class Meta:
         model = EmailTemplate
-        fields = ("uid", "name", "personal","created_at")
+        fields = ("uid", "name", "personal","created_at", "is_html")
 
     @staticmethod
     def resolve_can_be_deleted(obj, context):
