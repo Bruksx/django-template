@@ -313,6 +313,8 @@ class EmailTemplateFactory(BaseModelFactory):
     delays = factory.Iterator([0, 1, 2, 3, 4, 5])
     bcc = factory.lazy_attribute(lambda _: [fake.email() for x in range(5)])
     cc = factory.lazy_attribute(lambda _: [fake.email() for x in range(5)])
+    is_html = factory.Iterator([True, False])
+
 
 class SavedJobFactory(BaseModelFactory):
     class Meta:
