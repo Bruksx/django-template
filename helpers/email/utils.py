@@ -67,8 +67,7 @@ def send_template_email(subject:str, body:str, emails:List[str], from_user:str, 
         bcc = []
     if not cc:
         cc = []
-    if not html_content:
-        html_content = render_html_email("email_template.html", dict(body=body))
+    html_content = render_html_email("email_template.html", dict(body=body, html_content=html_content))
     if "test" in sys.argv:
         return
     retries = 3

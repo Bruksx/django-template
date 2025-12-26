@@ -60,7 +60,7 @@ class EmailTemplate(BaseModel):
         subject = self.convert_to_template(str(self.subject),is_html=self.is_html).render(Context(context))
         message = self.convert_to_template(str(self.template),is_html=self.is_html).render(Context(context))
         attachments = [attachment.file.url for attachment in self.emailtemplateattachment_set.all()]
-        if self.is_html:
+        if self.is_html is True:
             body = strip_tags(message)
             html_content = message
         else:
