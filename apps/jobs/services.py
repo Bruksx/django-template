@@ -1,9 +1,12 @@
+from io import BytesIO
 from typing import List
 from uuid import UUID
+from openpyxl import Workbook
 
 from accounts.models import Skill
 from core.models import Language
 from django.conf import settings
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import QuerySet, Window, F, Q, OuterRef, Exists
 from django.db.models.functions import RowNumber
@@ -12,7 +15,8 @@ from django.utils import timezone
 from jobs.enums import PhaseType, JobStatusType, QuestionTypeEnum
 from jobs.models import (
     JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job, RequiredSecondaryLanguage,
-    RequiredSkill, BusinessModel, JobPost, QuestionOption, JobPostTag, TalentApplicationStageTimeline
+    RequiredSkill, BusinessModel, JobPost, QuestionOption, JobPostTag, TalentApplicationStageTimeline,
+    JobPostExport,
 )
 from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema, MutateOptionSchema
 from ninja.errors import HttpError
@@ -422,4 +426,53 @@ def handle_stage_update(application: JobApplication, stages: List[WorkFlowStage]
         return None
 
 
+def export_job_posts_excel():
+    job_posts = JobPost.objects.order_by("-job__created_at")
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Job Posts"
 
+    ws.append([
+        "Job UID",
+        "Job Title",
+        "Country",
+        "Province",
+        "City",
+    ])
+
+    job_posts = job_posts.select_related("job", "country", "province")
+
+    for job_post in job_posts:
+        role_name = job_post.job.role.name if job_post.job.role else ""
+        ws.append([
+            str(job_post.uid),
+            job_post.job.title or role_name,
+            job_post.country.name if job_post.country else "",
+            job_post.province.name if job_post.province else "",
+            job_post.city,
+        ])
+    
+    column_widths = {
+        "A": 40,
+        "B": 30,
+        "C": 30, 
+        "D": 30,
+        "E": 30
+    }
+
+    for col, width in column_widths.items():
+        ws.column_dimensions[col].width = width
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    export = JobPostExport()
+    timestamp = timezone.now().strftime("%B %d, %Y at %I:%M %p")
+    filename = f"job_posts_export{timestamp}.xlsx"
+    export.file.save(
+        filename,
+        ContentFile(output.read()),
+        save=True
+    )
+
+    return export

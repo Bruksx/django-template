@@ -940,3 +940,5 @@ class JobAlert(BaseModel):
         return
 
 
+class JobPostExport(BaseModel):
+    file = models.FileField(upload_to="job-post-export")
