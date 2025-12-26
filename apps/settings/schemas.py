@@ -1,13 +1,12 @@
 from typing import List, Optional
 from uuid import UUID
 
-from ninja import Field, UploadedFile, Form
+from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS
+from jobs.enums import PhaseType
+from ninja import Field, UploadedFile
 from ninja import ModelSchema, Schema
 from ninja.errors import HttpError
 from pydantic import EmailStr, validate_email
-
-from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS
-from jobs.enums import PhaseType
 from settings.enums import PlaceHolderType
 from settings.models import EmailTemplate, EmailTemplateAttachment, WorkFlowStage
 
@@ -53,9 +52,9 @@ class CreateEmailTemplateSchema(ModelSchema):
             if "placeholders" in data:
                 data["placeholders"] = cls.validate_placeholders(data["placeholders"])
             if "subject" in data:
-                EmailTemplate.convert_to_template(data["subject"])
+                EmailTemplate.convert_to_template(data["subject"], data.get("is_html", False))
             if "template" in data:
-                EmailTemplate.convert_to_template(data["template"])
+                EmailTemplate.convert_to_template(data["template"], data.get("is_html", False))
 
             if instance:
                 placeholders = instance.placeholders if "placeholders" not in data else data["placeholders"]
@@ -65,7 +64,7 @@ class CreateEmailTemplateSchema(ModelSchema):
                 placeholders = data["placeholders"]
                 subject = data["subject"]
                 template = data["template"]
-            EmailTemplate.validate_placeholder_usage(placeholders, subject, template)
+            EmailTemplate.validate_placeholder_usage(placeholders, subject, template,is_html=data.get("is_html", False))
             return True
         except Exception as e:
             if raise_exception is True:
