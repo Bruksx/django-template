@@ -514,6 +514,7 @@ class JobCreationTest(TestCase):
                 {
                     "country": str(self.country1.uid),
                     "province": str(self.province.uid),
+                    "city": "surulere",
                     "postal_code": "500000",
                     "share_compensation": True,
                     "status": JobStatusType.POSTED.value,
@@ -537,6 +538,7 @@ class JobCreationTest(TestCase):
                 {
                     "country": str(self.country2.uid),
                     "province": str(self.province.uid),
+                    "city": "ojo",
                     "postal_code": "500000",
                     "share_compensation": False,
                     "benefits": [
@@ -605,6 +607,8 @@ class JobCreationTest(TestCase):
         # Check job posts
         job_posts = JobPost.objects.filter(job=job).order_by("id")
         self.assertEqual(job_posts.count(), 2)
+        self.assertEqual(jobposts[0].city, "surulere")
+        self.assertEqual(jobposts[1].city, "ojo")
         self.assertEqual(job_posts[0].country.code, self.country1.code)
 
         # Check screening questions
@@ -683,6 +687,7 @@ class JobUpdateTest(TestCase):
                         "Holiday",
                         "Paid time off"
                     ],
+                    "city": "ojo",
                     "status": JobStatusType.DRAFT.value,
                     "salary_currency": str(self.currency.uid),
                     "salary_bonus_currency": str(self.currency.uid),
@@ -728,6 +733,7 @@ class JobUpdateTest(TestCase):
 
         job_post = self.job_posts[0]
         job_post.refresh_from_db()
+        self.assertEqual(job_post.city, "ojo")
         self.assertEqual(job_post.benefits, self.test_data["job_posts"][0]["benefits"])
         self.assertEqual(job_post.status, self.test_data["job_posts"][0]["status"])
         self.assertEqual(str(job_post.salary_currency.uid), self.test_data["job_posts"][0]["salary_currency"])
