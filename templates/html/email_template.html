@@ -2,7 +2,7 @@
 {% block content %}
     <div style="width: 100%;">
         {%  if html_content %}
-        {{html_content| force_escape}}
+        {{html_content| safe}}
         {% else %}
         {{body| safe}}
         {% endif %}
