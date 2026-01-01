@@ -4,22 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title></title>
-
-    <style>
-      /* Mobile styles */
-      @media only screen and (max-width: 600px) {
-        .footer-column {
-          display: block !important;
-          width: 100% !important;
-          padding: 10px 0 !important;
-          border-left: none !important;
-        }
-        .footer-divider {
-          border-top: 1px solid #dddddd !important;
-          margin: 10px 0 !important;
-        }
-      }
-    </style>
   </head>
   <body
     style="
@@ -40,7 +24,6 @@
         border: 1px solid #dddddd;
         border-radius: 8px;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        text-align: center;
       "
     >
       <!-- Header Image -->
@@ -68,126 +51,157 @@
         style="background-color: #f7f7f7; border-top: 1px solid #dddddd"
       >
         <tr>
-          <td style="padding: 20px">
-            <table width="100%" cellpadding="0" cellspacing="0">
-              <tr>
-                <!-- Logo -->
-                <td
-                  class="footer-column"
-                  valign="top"
-                  style="padding-right: 20px; padding-bottom: 10px"
-                >
-                  <img
-                    alt="logo"
-                    src="{% static 'img/base/logo.png' %}"
-                    style="
-                      width: 120px;
-                      height: auto;
-                      display: block;
-                      max-width: 100%;
-                    "
-                  />
-                </td>
+          <td style="padding: 20px; font-size: 0">
+            <div
+              style="
+                display: inline-block;
+                width: 100%;
+                max-width: 160px;
+                vertical-align: top;
+                font-size: 14px;
+              "
+            >
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="padding: 0 10px 20px 0">
+                    <img
+                      alt="logo"
+                      src="{% static 'img/base/logo.png' %}"
+                      style="
+                        width: 105px;
+                        height: auto;
+                        display: block;
+                        max-width: 100%;
+                      "
+                    />
+                  </td>
+                </tr>
+              </table>
+            </div>
 
-                <!-- Left Column -->
-                <td
-                  class="footer-column"
-                  valign="top"
-                  style="
-                    padding-right: 20px;
-                    padding-bottom: 10px;
-                    font-size: 12px;
-                    font-weight: 500;
-                    color: #333333;
-                  "
-                >
-                  <p style="margin: 0 0 5px 0">Let us help you scale!</p>
-                  <p style="margin: 0 0 5px 0">
-                    Finance, Marketing, Sales, DevOps, Contact Center
-                  </p>
-
-                  <a
-                    href="https://1840andco.com"
+            <div
+              style="
+                display: inline-block;
+                width: 100%;
+                max-width: 220px;
+                vertical-align: top;
+                font-size: 14px;
+              "
+            >
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td
                     style="
-                      color: #083b38;
-                      text-decoration: none;
-                      font-weight: bold;
+                      padding-bottom: 20px;
+
+                      font-size: 12px;
+                      font-weight: 500;
+                      color: #333333;
                     "
-                    >Visit: 1840andco.com</a
                   >
-                </td>
+                    <p style="margin: 0 0 5px 0">Let us help you scale!</p>
+                    <p style="margin: 0 0 10px 0">
+                      Finance, Marketing, Sales, DevOps, Contact Center
+                    </p>
+                    <a
+                      href="https://1840andco.com"
+                      style="
+                        color: #083b38;
+                        text-decoration: none;
+                        font-weight: bold;
+                      "
+                      >Visit: 1840andco.com</a
+                    >
+                  </td>
+                </tr>
+              </table>
+            </div>
 
-                <!-- Right Column -->
-                <td
-                  class="footer-column footer-divider"
-                  valign="top"
-                  style="
-                    border-left: 1px solid #dddddd;
-                    padding-left: 20px;
-                    font-size: 12px;
-                    font-weight: 500;
-                    color: #333333;
-                  "
-                >
-                  <p style="margin: 0 0 5px 0">Creative Planning Plaza</p>
-                  <p style="margin: 0 0 5px 0">Building 2, Suite 300 5440</p>
-                  <p style="margin: 0 0 5px 0">West 110th Street Overland</p>
-                  <p style="margin: 0 0 10px 0">Park, KS 66211</p>
+            <div
+              style="
+                display: inline-block;
+                width: 100%;
+                max-width: max-content;
+                vertical-align: top;
+                font-size: 14px;
+                border-left: 1px solid #dddddd;
+              "
+            >
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td
+                    style="
+                      padding: 0 0 10px 20px;
+                      font-size: 12px;
+                      font-weight: 500;
+                      color: #333333;
+                    "
+                  >
+                    <p style="margin: 0 0 5px 0">Creative Planning Plaza</p>
+                    <p style="margin: 0 0 5px 0">Building 2, Suite 300 5440</p>
+                    <p style="margin: 0 0 5px 0">West 110th Street Overland</p>
+                    <p style="margin: 0 0 10px 0">Park, KS 66211</p>
 
-                  <!-- Social Icons -->
-                  <table cellpadding="0" cellspacing="0">
-                    <tr>
-                      <td style="padding-right: 10px">
-                        <a href="https://www.facebook.com/1840andCompany/">
-                          <img
-                            alt="facebook"
-                            src="{% static 'img/base/facebook.png' %}"
-                            width="16"
-                            height="16"
-                            style="display: block; border: 0"
-                          />
-                        </a>
-                      </td>
-                      <td style="padding-right: 10px">
-                        <a href="https://twitter.com/1840andCompany">
-                          <img
-                            alt="twitter"
-                            src="{% static 'img/base/twitter.png' %}"
-                            width="16"
-                            height="16"
-                            style="display: block; border: 0"
-                          />
-                        </a>
-                      </td>
-                      <td style="padding-right: 10px">
-                        <a
-                          href="https://www.linkedin.com/company/1840-company/"
-                        >
-                          <img
-                            alt="linkedin"
-                            src="{% static 'img/base/linkedin.png' %}"
-                            width="16"
-                            height="16"
-                            style="display: block; border: 0"
-                          />
-                        </a>
-                      </td>
-                      <td>
-                        <a href="https://www.instagram.com/1840andco/">
-                          <img
-                            alt="instagram"
-                            src="{% static 'img/base/instagram.png' %}"
-                            width="16"
-                            height="16"
-                            style="display: block; border: 0"
-                          />
-                        </a>
-                      </td>
-                    </tr>
-                  </table>
-                </td>
-              </tr>
+                    <!-- Social Icons -->
+                    <table cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding-right: 10px">
+                          <a href="https://www.facebook.com/1840andCompany/">
+                            <img
+                              alt="facebook"
+                              src="{% static 'img/base/facebook.png' %}"
+                              width="16"
+                              height="16"
+                              style="display: block; border: 0"
+                            />
+                          </a>
+                        </td>
+                        <td style="padding-right: 10px">
+                          <a href="https://twitter.com/1840andCompany">
+                            <img
+                              alt="twitter"
+                              src="{% static 'img/base/twitter.png' %}"
+                              width="16"
+                              height="16"
+                              style="display: block; border: 0"
+                            />
+                          </a>
+                        </td>
+                        <td style="padding-right: 10px">
+                          <a
+                            href="https://www.linkedin.com/company/1840-company/"
+                          >
+                            <img
+                              alt="linkedin"
+                              src="{% static 'img/base/linkedin.png' %}"
+                              width="16"
+                              height="16"
+                              style="display: block; border: 0"
+                            />
+                          </a>
+                        </td>
+                        <td>
+                          <a href="https://www.instagram.com/1840andco/">
+                            <img
+                              alt="instagram"
+                              src="{% static 'img/base/instagram.png' %}"
+                              width="16"
+                              height="16"
+                              style="display: block; border: 0"
+                            />
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </div>
+            <!--[if mso]>
+            </td>
+            </tr>
             </table>
+            <![endif]-->
           </td>
         </tr>
       </table>
