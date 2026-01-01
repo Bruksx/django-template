@@ -3,29 +3,29 @@ from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
 
-from config.permissions import IsBusinessUser
+from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
+from accounts.schemas.talent import SkillSchema, AddSkillSchema
+from chats.schemas import ResponseSchema
 from django.db import transaction
 from django.db.models import Q, Count, Exists, Subquery, OuterRef, Case, When, F, Value
 from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from helpers.email.jobs import send_indeed_apply_email
-from helpers.utils import convert_base64_to_image_file, sanitize_html_secure
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
 from ninja import Router, PatchDict, Query
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
-from services.job_posting.schema.indeed import IndeedApplicationDataPatch
-
-from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
-from accounts.schemas.talent import SkillSchema, AddSkillSchema
-from chats.schemas import ResponseSchema
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from settings.models import WorkFlowStage
+
+from config.permissions import IsBusinessUser
+from helpers.email.jobs import send_indeed_apply_email
+from helpers.utils import convert_base64_to_image_file, sanitize_html_secure
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
+from services.job_posting.schema.indeed import IndeedApplicationDataPatch
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
@@ -513,12 +513,36 @@ def job_list(request, page_size=50, page=1, filters: BusinessJobFilterQuerySchem
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
     context = dict(business=business_user.business)
-    queryset = Job.objects.prefetch_related("jobpost_set").annotate(jobpost_count=Count('jobpost')).filter(created_by__business=business_user.business,
-                                                                                                           jobpost_count__gt=0)
+    queryset = Job.objects.prefetch_related("jobpost_set").filter(created_by__business=business_user.business)
     filters = filters.convert_to_schema()
     context = filters.get_context(context=context)
     request.context = context
-    queryset = filters.get_queryset(queryset=queryset)
+    jobpost_filter = Q()
+
+    if context.get("status"):
+        jobpost_filter &= Q(jobpost__status=context["status"])
+
+    if context.get("statuses"):
+        jobpost_filter &= Q(jobpost__status__in=context["statuses"])
+
+    if context.get("country"):
+        jobpost_filter &= Q(jobpost__country__uid=context["country"])
+
+    if context.get("province"):
+        jobpost_filter &= Q(jobpost__province__uid=context["province"])
+
+    if context.get("city"):
+        jobpost_filter &= Q(jobpost__city__iexact=context["city"])
+
+    if context.get("recruiter"):
+        jobpost_filter &= Q(jobpost__recruiter__uid__in=context["recruiter"])
+
+    if context.get("posted_by"):
+        jobpost_filter &= Q(jobpost__posted_by__uid__in=context["posted_by"])
+
+    queryset = (filters.get_queryset(queryset=queryset)
+                .annotate(jobpost_count=Count('jobpost', filter=jobpost_filter, distinct=True))
+                .filter(jobpost_count__gt=0))
 
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(
