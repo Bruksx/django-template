@@ -746,7 +746,7 @@ class Business(BaseModel):
 
     def total_location_of_hires(self, start_date:date=None, end_date:date=None, role_id: UUID=None, client: str=None):
         from jobs.models import JobPost
-        queryset = JobPost.objects.filter(recruiter__business=self, jobapplication__stage__phase=PhaseType.HIRED.value)
+        queryset = JobPost.objects.filter(jobapplication__stage__created_by__business=self, jobapplication__stage__phase=PhaseType.HIRED.value)
         if start_date and not end_date:
             queryset = queryset.filter(jobapplication__stage_date_updated__gte=start_date)
         elif end_date and not start_date:
@@ -764,7 +764,7 @@ class Business(BaseModel):
         from jobs.models import JobApplication
         total_hires = self.total_hires(start_date, end_date, role_id, client)
         performance = JobApplication.objects\
-                .filter(stage__phase=PhaseType.HIRED.value, recruiter__business=self)
+                .filter(stage__phase=PhaseType.HIRED.value, stage__created_by__business=self)
         if start_date and not end_date:
             performance = performance.filter(stage_date_updated__gte=start_date)
         elif end_date and not start_date:
