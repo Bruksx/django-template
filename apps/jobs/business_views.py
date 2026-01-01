@@ -520,25 +520,25 @@ def job_list(request, page_size=50, page=1, filters: BusinessJobFilterQuerySchem
     jobpost_filter = Q()
 
     if context.get("status"):
-        jobpost_filter &= Q(jobposts__status=context["status"])
+        jobpost_filter &= Q(jobpost__status=context["status"])
 
     if context.get("statuses"):
-        jobpost_filter &= Q(jobposts__status__in=context["statuses"])
+        jobpost_filter &= Q(jobpost__status__in=context["statuses"])
 
     if context.get("country"):
-        jobpost_filter &= Q(jobposts__country__uid=context["country"])
+        jobpost_filter &= Q(jobpost__country__uid=context["country"])
 
     if context.get("province"):
-        jobpost_filter &= Q(jobposts__province__uid=context["province"])
+        jobpost_filter &= Q(jobpost__province__uid=context["province"])
 
     if context.get("city"):
-        jobpost_filter &= Q(jobposts__city__iexact=context["city"])
+        jobpost_filter &= Q(jobpost__city__iexact=context["city"])
 
     if context.get("recruiter"):
-        jobpost_filter &= Q(jobposts__recruiter__uid__in=context["recruiter"])
+        jobpost_filter &= Q(jobpost__recruiter__uid__in=context["recruiter"])
 
     if context.get("posted_by"):
-        jobpost_filter &= Q(jobposts__posted_by__uid__in=context["posted_by"])
+        jobpost_filter &= Q(jobpost__posted_by__uid__in=context["posted_by"])
 
     queryset = (filters.get_queryset(queryset=queryset)
                 .annotate(jobpost_count=Count('jobpost', filter=jobpost_filter, distinct=True))
