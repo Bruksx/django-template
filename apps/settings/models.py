@@ -1,3 +1,4 @@
+import html
 import json
 import re
 from datetime import datetime, timedelta
@@ -67,7 +68,7 @@ class EmailTemplate(BaseModel):
             body = message
             html_content = None
         data = dict(
-                    subject=subject,
+                    subject=html.unescape(subject),
                     body=body,
                     html_content=html_content,
                     emails=to,
