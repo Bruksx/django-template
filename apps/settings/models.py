@@ -8,6 +8,7 @@ from core.models import BaseModel
 from django.db import models
 from django.db.models import Q, Avg
 from django.template import Context, TemplateSyntaxError
+from django.utils.html import strip_tags
 from django_q.models import Schedule
 from jobs.enums import PhaseType
 from settings.patch import CustomHTMLTemplate as Template
@@ -28,8 +29,10 @@ class EmailTemplate(BaseModel):
     delays = models.PositiveSmallIntegerField(default=0)
     bcc = models.JSONField(default=list)
     cc = models.JSONField(default=list)
+    is_html = models.BooleanField(default=False)
 
-    regex = r"<([^>]*)>"
+    regex = r"<([^>]*)>" # this regex finds <placeholders>
+    html_regex = r"\{\{([^}]*)\}\}" # this regex finds {{placeholders}}
 
     def attachments(self):
         return self.emailtemplateattachment_set.all()
@@ -54,12 +57,19 @@ class EmailTemplate(BaseModel):
                     context=context,
                 ))).__dict__)
             return
-        subject = self.convert_to_template(str(self.subject)).render(Context(context))
-        message = self.convert_to_template(str(self.template)).render(Context(context))
+        subject = self.convert_to_template(str(self.subject),is_html=self.is_html).render(Context(context))
+        message = self.convert_to_template(str(self.template),is_html=self.is_html).render(Context(context))
         attachments = [attachment.file.url for attachment in self.emailtemplateattachment_set.all()]
+        if self.is_html is True:
+            body = strip_tags(message)
+            html_content = message
+        else:
+            body = message
+            html_content = None
         data = dict(
                     subject=subject,
-                    body=message,
+                    body=body,
+                    html_content=html_content,
                     emails=to,
                     bcc=self.bcc,
                     cc=self.cc,
@@ -94,20 +104,22 @@ class EmailTemplate(BaseModel):
         return True
 
     @classmethod
-    def convert_to_template(cls, text: str)-> Template:
+    def convert_to_template(cls, text: str, is_html: bool = False)-> Template:
+        regex = cls.html_regex if is_html is True else cls.regex
         match_func = lambda match: f"{{{{{cls.convert_placeholder_to_key(match.group(1))}}}}}"
         try:
-            return Template(re.sub(cls.regex, match_func, text))
+            return Template(re.sub(regex, match_func, text))
         except TemplateSyntaxError:
           raise ValueError("Invalid template syntax")
 
     @classmethod
-    def validate_placeholder_usage(cls, placeholders:List[str], subject:str, template:str):
-        subject_placeholders = re.findall(cls.regex, subject)
+    def validate_placeholder_usage(cls, placeholders:List[str], subject:str, template:str, is_html:bool = False):
+        regex = cls.html_regex if is_html is True else cls.regex
+        subject_placeholders = re.findall(regex, subject)
         if not cls.validate_placeholders(members=subject_placeholders, placeholders=placeholders,
                                          raise_exception=False):
             raise ValueError("Invalid placeholders in subject")
-        template_placeholders = re.findall(cls.regex, template)
+        template_placeholders = re.findall(regex, template)
         if not cls.validate_placeholders(members=template_placeholders, placeholders=placeholders,
                                          raise_exception=False):
             raise ValueError("Invalid placeholders in template")
