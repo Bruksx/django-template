@@ -1510,6 +1510,85 @@ class BusinessJobFilterSchema(Schema):
         return queryset
 
 
+class PublicJobPostFilterQuerySchema(Schema):
+    search: Optional[str] = ""
+    work_structure:Optional[str] = Field(None, description=f"work structure enums: {', '.join(WorkStructureEnum.values())}")
+    country: Optional[str] = Field(None, description="country uuid")
+    employment_type: Optional[str] = Field(None, description="employment type uuid")
+
+    def convert_to_schema(self):
+        return PublicJobPostFilterSchema(
+            search=self.search if self.search else None,
+            work_structure=self.work_structure,
+            country=self.country,
+            employment_type=self.employment_type,
+        )
+
+class PublicJobPostFilterSchema(Schema):
+    search: Optional[str] = None
+    work_structure:Optional[WorkStructureEnum] = None
+    country: Optional[UUID] = None
+    employment_type: Optional[UUID] = None
+
+    def get_queryset(self, queryset=None, extra_sorts:List[str]=None)->QuerySet:
+        """
+         get jobs queryset based on this filter
+
+         Args:
+             queryset: Job post queryset
+             extra_sorts: extra sort fields based on model fields
+
+        Returns:
+            Job post queryset
+        """
+        if not queryset:
+            queryset = JobPost.objects.select_related('job','country','province', 'job__employment_type', 'job__role').filter(status=JobStatusType.POSTED.value)
+        if self.search:
+            queryset = queryset.filter(job__role__name__icontains=self.search)
+
+        if self.country:
+            queryset = queryset.filter(country__uid=self.country)
+
+        if self.work_structure:
+            queryset = queryset.filter(job__work_structure=self.work_structure.value)
+
+        if self.employment_type:
+            queryset = queryset.filter(job__employment_type__uid=self.employment_type)
+        # queryset = queryset.annotate(
+        #     row_number=Window(
+        #         expression=RowNumber(),
+        #         partition_by=[F("job_id")],
+        #
+        #     )
+        # ).filter(row_number=1)
+        return queryset.order_by("country")
+
+
+class PublicJobPostListSchema(ModelSchema):
+    role: Optional[str]
+    work_structure: Optional[str] = Field(alias="job.work_structure")
+    employment_type: Optional[str]
+    country: Optional[str] = Field(None, alias="get_country")
+    city: Optional[str] = Field(None, alias="get_city")
+    province: Optional[str] = Field(None, alias="get_province")
+
+    class Meta:
+        model = JobPost
+        fields = ["uid", ]
+
+    @staticmethod
+    def resolve_role(obj):
+        if not obj.job.role:
+            return None
+        return obj.job.role.name
+
+    @staticmethod
+    def resolve_employment_type(obj):
+        if not obj.job.employment_type:
+            return None
+        return obj.job.employment_type.name
+
+
 class TalentJobApplicationWithdrawalSchema(Schema):
        feedback_type: WithdrawalFeedbackType
        feedback: str
