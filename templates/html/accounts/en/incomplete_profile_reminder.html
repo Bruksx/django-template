@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>Complete Your Profile</title>
+    <style>
+      @media only screen and (max-width: 600px) {
+        .cta-button {
+          font-size: 14px !important;
+          padding: 12px 20px !important;
+        }
+      }
+    </style>
   </head>
   <body
     style="
@@ -52,7 +60,7 @@
             color: #323232;
           "
         >
-          Hi {% if name %}{{ name }}{% else %}dear{% endif %},
+          Hi {{ first_name }},
         </p>
 
         <p
@@ -124,7 +132,8 @@
         <!-- Login and Complete your Profile Button -->
         <div style="margin-top: 100px; text-align: center">
           <a
-            href="{{ link }}"
+            href="{{ login_link }}"
+            class="cta-button"
             style="
               background-color: #266b5b;
               color: white;
@@ -133,6 +142,7 @@
               text-decoration: none;
               font-size: 16px;
               font-weight: 500;
+              display: inline-block;
             "
           >
             Login and Complete your Profile
