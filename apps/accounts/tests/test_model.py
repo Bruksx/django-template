@@ -3,9 +3,6 @@ from datetime import date, timezone, datetime
 from decimal import Decimal
 
 import pytz
-from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
-
 from accounts.enums import BusinessUserRoleType, Days
 from accounts.enums import PreferredCommunicationType
 from accounts.models import SkillCategory
@@ -16,6 +13,8 @@ from accounts.schemas.talent import TalentSkillSchema, MonthlyChartSchema, Talen
 from chats.models import Conversation, Message
 from core.models import Currency, Language
 from core.models import State
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase
 from factories import JobPostFactory, TalentFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
     BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, ConversationFactory, \
     MessageFactory, ExperienceFactory, WorkflowStageFactory
@@ -211,9 +210,11 @@ class TalentModelTest(TestCase):
         self.assertTrue(self.talent.is_profile_completed(raise_exception=True))
 
     def test_is_not_profile_completed(self):
-        experience = self.talent.experience_history().first()
-        experience.role = None
-        experience.save()
+        # experience = self.talent.experience_history().first()
+        # experience.role = None
+        # experience.save()
+        self.talent.country = None
+        self.talent.save()
         self.assertFalse(self.talent.is_profile_completed())
 
     def test_profile_complete_annotation(self):
