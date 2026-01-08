@@ -547,20 +547,20 @@ class Talent(BaseModel):
 
     def is_profile_completed(self, raise_exception=False):
         # Check education
-        has_education = self.education_set.exclude(
-            Q(level__isnull=True) |
-            Q(Q(major__isnull=True) | Q(major="")) |
-            Q(Q(university__isnull=True) | Q(university="")) |
-            Q(start_date__isnull=True)
-        ).exists()
-
-        # Check experience
-        has_experience = self.experience_set.exclude(
-            Q(role__isnull=True) |
-            Q(Q(company__isnull=True) | Q(company="")) |
-            Q(start_date__isnull=True) |
-            Q(level__isnull=True)
-        ).exists()
+        # has_education = self.education_set.exclude(
+        #     Q(level__isnull=True) |
+        #     Q(Q(major__isnull=True) | Q(major="")) |
+        #     Q(Q(university__isnull=True) | Q(university="")) |
+        #     Q(start_date__isnull=True)
+        # ).exists()
+        #
+        # # Check experience
+        # has_experience = self.experience_set.exclude(
+        #     Q(role__isnull=True) |
+        #     Q(Q(company__isnull=True) | Q(company="")) |
+        #     Q(start_date__isnull=True) |
+        #     Q(level__isnull=True)
+        # ).exists()
 
         # Check skills
         # all_category_ids = SkillCategory.objects.only("name").distinct("name").values_list("name", flat=True)
@@ -570,26 +570,26 @@ class Talent(BaseModel):
 
         # Field validations
         validations = [
-            (has_experience, "Experience not provided or incomplete."),
-            (has_education, "Education not provided or incomplete."),
+            # (has_experience, "Experience not provided or incomplete."),
+            # (has_education, "Education not provided or incomplete."),
             (self.user.first_name, "First name is missing."),
             (self.user.last_name, "Last name is missing."),
             (self.user.email, "Email is missing."),
             (self.user.phone_number, "Phone number is missing."),
             (self.user.gender, "Gender is missing."),
-            (self.preferred_communication, "Preferred communication method is missing."),
-            (self.employment_types.exists(), "Employment types are not selected."),
-            (self.work_models, "Work models are not specified."),
-            ((self.talentavailableday_set.exists() or self.flexible_availability is True),
-             "Availability information is missing."),
-            (self.availability_timezone, "Availability timezone is missing."),
+            # (self.preferred_communication, "Preferred communication method is missing."),
+            # (self.employment_types.exists(), "Employment types are not selected."),
+            # (self.work_models, "Work models are not specified."),
+            # ((self.talentavailableday_set.exists() or self.flexible_availability is True),
+            #  "Availability information is missing."),
+            # (self.availability_timezone, "Availability timezone is missing."),
             (self.country, "Country is missing."),
-            (self.native_language, "Native language is missing."),
-            (self.state, "State is missing."),
-            (self.postal_code, "Postal code is missing."),
-            (self.bio, "Bio is missing."),
-            (self.linkedin, "LinkedIn profile is missing."),
-            (self.notice_period, "Notice period is missing."),
+            # (self.native_language, "Native language is missing."),
+            # (self.state, "State is missing."),
+            # (self.postal_code, "Postal code is missing."),
+            # (self.bio, "Bio is missing."),
+            # (self.linkedin, "LinkedIn profile is missing."),
+            # (self.notice_period, "Notice period is missing."),
             (self.cv, "CV is missing."),
         ]
 
