@@ -8,10 +8,7 @@ from typing import Tuple, Optional
 from uuid import UUID
 
 import jwt
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessSize, BusinessUserStatusType, CaseReasonType
-from core.enums import SalaryType
-from core.models import BaseModel, State, City
+from config.settings import SECRET_KEY
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -22,13 +19,16 @@ from django.db.models.functions import Concat, Cast, Round
 from django.db.models.signals import pre_save
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
+from helpers.utils import delete_s3_item
 from ninja_jwt.tokens import RefreshToken
-from notification.enums import NotificationGroup
 from timezone_field import TimeZoneField
 
-from config.settings import SECRET_KEY
-from helpers.utils import delete_s3_item
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
+    BusinessSize, BusinessUserStatusType, CaseReasonType
+from core.enums import SalaryType
+from core.models import BaseModel, State, City
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
+from notification.enums import NotificationGroup
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -1215,8 +1215,9 @@ class Education(BaseModel):
     level = models.ForeignKey("accounts.EducationLevel", on_delete=models.SET_NULL, null=True, default=None)
     start_date = models.DateField()
     end_date = models.DateField(null=True, default=None)
-    major = models.CharField(max_length=64)
-    university = models.CharField(max_length=64)
+    major = models.CharField(max_length=100)
+    certification = models.CharField(max_length=100, blank=True)
+    university = models.CharField(max_length=100)
 
 
 class Experience(BaseModel):

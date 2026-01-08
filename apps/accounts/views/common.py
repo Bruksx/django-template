@@ -1,5 +1,17 @@
 from typing import List
 
+from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
+from helpers.email.accounts import send_customer_case_email
+from helpers.email.auth import send_verification_code
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
+from ninja import Router, Query
+from ninja.errors import HttpError
+from ninja_extra import paginate
+from ninja_jwt.authentication import JWTAuth
+
 from accounts.constants import university_list, major_list, major_certification_dictionary, major_certification_list
 from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode, Industry, Business
 from accounts.schemas import common as common_schemas
@@ -7,19 +19,7 @@ from accounts.schemas import talent as talent_schemas
 from accounts.schemas.business import TalentFilterQuerySchema
 from accounts.schemas.common import CompanyListSchema, MajorSchema
 from core.schemas import GenericNameAndUidSchema
-from django.db import transaction
-from django.db.models import Q
-from django.utils import timezone
-from ninja import Router, Query
-from ninja.errors import HttpError
-from ninja_extra import paginate
-from ninja_jwt.authentication import JWTAuth
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
-
-from helpers.email.accounts import send_customer_case_email
-from helpers.email.auth import send_verification_code
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
 
 router = Router(tags=["Common Account APIs"])
 
@@ -153,8 +153,6 @@ def get_companies(request, search=""):
         queryset = queryset.filter(name__icontains=search)
     return queryset.distinct("name").order_by("name")
 
-
-
 @router.get("universities", response=List[str], tags=["Common"])
 def get_universities(request, search=""):
     if search:
@@ -166,7 +164,6 @@ def get_majors(request, search=""):
     if search:
         return [x for x in major_list if search.lower() in str(x).lower()]
     return major_list
-
 
 @router.get("certifications", response=List[str], tags=["Common"])
 def get_certifications(request, major=""):
