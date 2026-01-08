@@ -325,7 +325,7 @@ class JobPost(BaseModel):
         return self.tags.values_list("name", flat=True)
 
     @cached_property
-    def code(self, length=22):
+    def get_code(self, length=22):
         base = string.digits + string.ascii_letters
         num = self.uid.int
         chars = []
