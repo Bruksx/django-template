@@ -1,3 +1,4 @@
+import string
 from functools import cached_property
 
 from django.db import models
@@ -323,7 +324,16 @@ class JobPost(BaseModel):
     def get_tags(self):
         return self.tags.values_list("name", flat=True)
 
-    
+    @cached_property
+    def get_code(self, length=22):
+        base = string.digits + string.ascii_letters
+        num = self.uid.int
+        chars = []
+        while num:
+            num, rem = divmod(num, 62)
+            chars.append(base[rem])
+        return ''.join(chars[::-1]).rjust(length, '0')
+
     def copy(self):
         return JobPost.objects.create(
             job=self.job,
