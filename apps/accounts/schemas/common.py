@@ -1,12 +1,11 @@
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
-
-from ninja import ModelSchema, Schema
-from pydantic import EmailStr, Field
 
 from accounts.enums import CaseReasonType
 from accounts.models import User, CustomerCase, Business
 from core.schemas import READ_EXCLUDE_FIELDS
+from ninja import ModelSchema, Schema
+from pydantic import EmailStr, Field
 
 
 class UserSchema(ModelSchema):
@@ -105,3 +104,9 @@ class CompanyListSchema(ModelSchema):
     class Meta:
         model = Business
         fields = ['uid', 'name']
+
+
+class MajorSchema(Schema):
+    major: str
+    certifications: List[str]
+
