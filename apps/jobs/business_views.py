@@ -37,7 +37,8 @@ from .schemas import (
     DepartmentSchema, RoleSchema, SkillCategorySchema, GenericNameAndUidSchema,
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
-    TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2, AddRoleSchema
+    TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2, AddRoleSchema,
+    PublicJobPostListSchema, PublicJobPostFilterQuerySchema
 )
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, create_job_post_service, \
@@ -552,6 +553,63 @@ def job_list(request, page_size=50, page=1, filters: BusinessJobFilterQuerySchem
         roles=queryset.count(),
         posts= filters.filter_job_posts(context, business_user.business.job_posts()).filter(job__in=queryset).count()
     )
+
+@router.get("", response=JobWorkflowViewPaginatedSchema, auth=JWTAuth())
+def job_list(request, page_size=50, page=1, filters: BusinessJobFilterQuerySchema = Query(...)
+             ):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    context = dict(business=business_user.business)
+    queryset = Job.objects.prefetch_related("jobpost_set").filter(created_by__business=business_user.business)
+    filters = filters.convert_to_schema()
+    context = filters.get_context(context=context)
+    request.context = context
+    jobpost_filter = Q()
+
+    if context.get("status"):
+        jobpost_filter &= Q(jobpost__status=context["status"])
+
+    if context.get("statuses"):
+        jobpost_filter &= Q(jobpost__status__in=context["statuses"])
+
+    if context.get("country"):
+        jobpost_filter &= Q(jobpost__country__uid=context["country"])
+
+    if context.get("province"):
+        jobpost_filter &= Q(jobpost__province__uid=context["province"])
+
+    if context.get("city"):
+        jobpost_filter &= Q(jobpost__city__iexact=context["city"])
+
+    if context.get("recruiter"):
+        jobpost_filter &= Q(jobpost__recruiter__uid__in=context["recruiter"])
+
+    if context.get("posted_by"):
+        jobpost_filter &= Q(jobpost__posted_by__uid__in=context["posted_by"])
+
+    queryset = (filters.get_queryset(queryset=queryset)
+                .annotate(jobpost_count=Count('jobpost', filter=jobpost_filter, distinct=True))
+                .filter(jobpost_count__gt=0))
+
+    pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
+    return pagination_class(page_size).paginate_queryset(
+        queryset=queryset.order_by("-created_at"),
+        request=request,
+        pagination=pagination,
+        roles=queryset.count(),
+        posts= filters.filter_job_posts(context, business_user.business.job_posts()).filter(job__in=queryset).count()
+    )
+
+@router.get("public/job-posts", response=PaginatedResponseSchema[PublicJobPostListSchema])
+def public_job_post_list(request, page_size=50, page=1, filters: PublicJobPostFilterQuerySchema = Query(...)):
+    filters = filters.convert_to_schema()
+    pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
+    return pagination_class(page_size).paginate_queryset(
+        queryset=filters.get_queryset(),
+        request=request,
+        pagination=pagination,
+    )
+
 
 
 @router.get("{job_uid}", response=job_schemas.FullJobDetailSchema, auth=JWTAuth())
