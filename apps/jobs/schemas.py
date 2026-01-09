@@ -1518,23 +1518,23 @@ class BusinessJobFilterSchema(Schema):
 
 class PublicJobPostFilterQuerySchema(Schema):
     search: Optional[str] = ""
-    work_structure:Optional[str] = Field(None, description=f"work structure enums: {', '.join(WorkStructureEnum.values())}")
-    country: Optional[str] = Field(None, description="country uuid")
-    employment_type: Optional[str] = Field(None, description="employment type uuid")
+    work_structure:Optional[str] = Field("", description=f"comma separated work structure enums: {', '.join(WorkStructureEnum.values())}")
+    country: Optional[str] = Field("", description="comma separated country uuids")
+    employment_type: Optional[str] = Field("", description="comma separated employment type uuids")
 
     def convert_to_schema(self):
         return PublicJobPostFilterSchema(
             search=self.search if self.search else None,
-            work_structure=self.work_structure,
-            country=self.country,
-            employment_type=self.employment_type,
+            work_structure=self.work_structure.split(",") if self.work_structure else [],
+            country=self.country.split(",") if self.country else [],
+            employment_type=self.employment_type.split(",") if self.employment_type else []
         )
 
 class PublicJobPostFilterSchema(Schema):
     search: Optional[str] = None
-    work_structure:Optional[WorkStructureEnum] = None
-    country: Optional[UUID] = None
-    employment_type: Optional[UUID] = None
+    work_structure:Optional[List[WorkStructureEnum]] = []
+    country: Optional[List[UUID]] = []
+    employment_type: Optional[List[UUID]] = []
 
     def get_queryset(self, queryset=None, extra_sorts:List[str]=None)->QuerySet:
         """
@@ -1553,13 +1553,14 @@ class PublicJobPostFilterSchema(Schema):
             queryset = queryset.filter(job__role__name__icontains=self.search)
 
         if self.country:
-            queryset = queryset.filter(country__uid=self.country)
+            queryset = queryset.filter(country__uid__in=self.country)
 
         if self.work_structure:
-            queryset = queryset.filter(job__work_structure=self.work_structure.value)
+            ws = [ws.value for ws in self.work_structure]
+            queryset = queryset.filter(job__work_structure__in=ws)
 
         if self.employment_type:
-            queryset = queryset.filter(job__employment_type__uid=self.employment_type)
+            queryset = queryset.filter(job__employment_type__uid__in=self.employment_type)
         # queryset = queryset.annotate(
         #     row_number=Window(
         #         expression=RowNumber(),
