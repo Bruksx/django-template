@@ -10,7 +10,7 @@ def send_invite_to_apply_email(job_post, emails: List[str]=None, lang="en"):
 	if not job_post.job.get_title:
 		return
 	html = f'jobs/{lang}/invite.html'
-	frontend_job_url = f"{settings.FRONTEND_URL}job-details"
+	frontend_job_url = f"{settings.FRONTEND_URL}jobs-listing"
 	context = {
 		'link': f"{frontend_job_url}/{job_post.uid}",
 		'role': job_post.job.get_title,
@@ -23,7 +23,7 @@ def send_indeed_apply_email(job_post, email, first_name, last_name, lang="en"):
 	if not job_post.job.get_title:
 		return
 	html = f'jobs/{lang}/indeed_apply.html'
-	frontend_job_url = f"{settings.FRONTEND_URL}job-details"
+	frontend_job_url = f"{settings.FRONTEND_URL}jobs-listing"
 	role = job_post.job.get_title
 	context = {
 		'link': f"{frontend_job_url}/{job_post.uid}",
@@ -39,7 +39,7 @@ def send_shared_job_email(job_post, emails: List[str]=None, lang="en"):
 	if not emails:
 		return
 	html = f'jobs/{lang}/share_job.html'
-	frontend_job_url = f"{settings.FRONTEND_URL}job-details"
+	frontend_job_url = f"{settings.FRONTEND_URL}jobs-listing"
 	context = {
 		'talent': "User",
 		'company_logo': job_post.job.logo_url(),
