@@ -191,7 +191,7 @@ def get_description(job_post, job) -> str:
     # Tech + Language
     extra = []
     if job.technological_requirement:
-        if str(job.technological_requirement).lower() == "either":
+        if str(job.technological_requirement).lower().startswith("either"):
             value = "Windows or Mac"
         else:
             value = str(job.technological_requirement).title()

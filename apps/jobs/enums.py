@@ -10,7 +10,7 @@ class WorkStructureEnum(BaseEnum):
 class TechnologicalRequirementsEnum(BaseEnum):
     WINDOWS = "windows"
     MACBOOK = "macbook"
-    EITHER = "either"
+    EITHER = "either mac or windows"
 
 
 class LunchBreakEnum(BaseEnum):
