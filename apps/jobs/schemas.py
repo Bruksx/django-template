@@ -1371,7 +1371,7 @@ class TalentJobFilterSchema(Schema):
         if not extra_sorts:
             extra_sorts = []
         from jobs.queries import add_job_post_annotations
-        queryset = add_job_post_annotations(queryset, talent)
+        queryset = add_job_post_annotations(queryset, talent).filter(status=JobStatusType.POSTED.value, can_apply=True)
         return order_job_posts(queryset,  self.sort_by, *extra_sorts, distinct=self.distinct)
 
 
