@@ -1,3 +1,4 @@
+import logging
 from copy import copy
 from datetime import datetime
 from typing import List, Literal
@@ -1045,16 +1046,16 @@ class MatchScoreSchema(Schema):
     location_score: Optional[float] = 0
     computed_match_score: Optional[float] = 0
     requires_location: Optional[bool] = False
-    missing_compulsory_secondary_language: bool
-    requires_role: bool
-    missing_required_skill: bool 
-    requires_job_level: bool
-    requires_experience: bool
-    requires_minimum_education: bool
-    requires_work_structure: bool
-    requires_tech_requirements: bool
-    missing_work_schedule: bool
-    missing_required_business_model: bool
+    missing_compulsory_secondary_language: Optional[bool] = False
+    requires_role: Optional[bool] = False
+    missing_required_skill: Optional[bool] = False
+    requires_job_level: Optional[bool] = False
+    requires_experience: Optional[bool] = False
+    requires_minimum_education: Optional[bool] = False
+    requires_work_structure: Optional[bool] = False
+    requires_tech_requirements: Optional[bool] = False
+    missing_work_schedule: Optional[bool] = False
+    missing_required_business_model: Optional[bool] = False
     tools_platform_count: Optional[int] = 0
     tools_platform_intercept_count: Optional[int] = 0
     methodologies_count: Optional[int] = 0
@@ -1196,7 +1197,11 @@ class TalentJobPostListSchema(ModelSchema):
 
     @staticmethod
     def resolve_match_obj(obj, context):
-        return MatchScoreSchema.from_orm(obj)
+        try:
+            return MatchScoreSchema.from_orm(obj)
+        except Exception as e:
+            logging.error(e)
+            return MatchScoreSchema()
 
 
 
