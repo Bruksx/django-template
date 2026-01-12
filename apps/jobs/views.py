@@ -91,10 +91,10 @@ def job_posts_for_talent(request, filters:TalentJobFilterQuerySchema = Query(...
     queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(status=JobStatusType.POSTED.value)
     queryset = add_job_post_annotations(queryset, talent).filter(can_apply=True)
     try:
-        if queryset.count() == 0:
+        if queryset.count() > 0:
             print("annotations: ", queryset[0].computed_match_score)
     except:
-        pass
+        print("annotations: ", "annotations not computed")
     return filters.get_queryset(talent=talent, queryset=queryset)
 
 
