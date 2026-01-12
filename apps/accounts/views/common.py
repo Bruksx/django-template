@@ -12,12 +12,12 @@ from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.constants import university_list, major_list, major_certification_dictionary, major_certification_list
+from accounts.constants import university_list, major_list, certification_list
 from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode, Industry, Business
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
 from accounts.schemas.business import TalentFilterQuerySchema
-from accounts.schemas.common import CompanyListSchema, MajorSchema
+from accounts.schemas.common import CompanyListSchema
 from core.schemas import GenericNameAndUidSchema
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 
@@ -166,12 +166,8 @@ def get_majors(request, search=""):
     return major_list
 
 @router.get("certifications", response=List[str], tags=["Common"])
-def get_certifications(request, major=""):
-    return major_certification_dictionary.get(major, [])
-
-@router.get("full-majors", response=List[MajorSchema], tags=["Common"])
-def get_full_majors(request, search=""):
+def get_certifications(request, search=""):
     if search:
-        return [x for x in major_certification_list if search.lower() in str(x["major"]).lower()]
-    return major_certification_list
+        return [x for x in certification_list if search.lower() in str(x).lower()]
+    return certification_list
 

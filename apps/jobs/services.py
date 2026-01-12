@@ -1,10 +1,8 @@
+import logging
 from io import BytesIO
 from typing import List
 from uuid import UUID
-from openpyxl import Workbook
 
-from accounts.models import Skill
-from core.models import Language
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
@@ -12,6 +10,13 @@ from django.db.models import QuerySet, Window, F, Q, OuterRef, Exists
 from django.db.models.functions import RowNumber
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from helpers.utils import upload_to_s3, upload_to_server, sort_params_function
+from monkeypatches.q_cluster import async_task
+from ninja.errors import HttpError
+from openpyxl import Workbook
+
+from accounts.models import Skill
+from core.models import Language
 from jobs.enums import PhaseType, JobStatusType, QuestionTypeEnum
 from jobs.models import (
     JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job, RequiredSecondaryLanguage,
@@ -19,12 +24,8 @@ from jobs.models import (
     JobPostExport,
 )
 from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema, MutateOptionSchema
-from ninja.errors import HttpError
 from notification.notifications import send_talents_job_matching_notification
 from settings.models import WorkFlowStage
-
-from helpers.utils import upload_to_s3, upload_to_server, sort_params_function
-from monkeypatches.q_cluster import async_task
 
 
 def get_talent_job_recommendations(talent, business=None, search="", distinct=False):
@@ -153,6 +154,11 @@ def order_job_posts(queryset, sorts:List[str]=None, *extra_sort_params:List[str]
                 order_by=[F("computed_match_score").desc()]  # highest score first
             )
         ).filter(row_number=1).order_by(*sort_values)
+    try:
+        if queryset.count() > 0:
+            logging.critical(f"annotations: {queryset[0].computed_match_score}")
+    except:
+        logging.critical("annotations: annotations not computed")
     return queryset.order_by(*sort_values)
 
 

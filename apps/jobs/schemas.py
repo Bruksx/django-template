@@ -4,20 +4,22 @@ from typing import List, Literal
 from typing import Optional
 from uuid import UUID
 
+from django.db.models import QuerySet, Q, Count
+from django.utils import timezone
+from helpers.email.utils import send_email
+from monkeypatches.q_cluster import async_task
+from ninja import ModelSchema
+from ninja.errors import HttpError
+from ninja.schema import Schema
+from pydantic import Field, EmailStr
+
 from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from accounts.schemas.business import BusinessUserListSchema
 from core.enums import SalaryType
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
-from django.db.models import QuerySet, Q, Count
-from django.utils import timezone
-from ninja import ModelSchema
-from ninja.errors import HttpError
-from ninja.schema import Schema
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
-from pydantic import Field, EmailStr
 from settings.models import WorkFlowStage
-
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType
 from .models import BusinessModel, JobApplication, Answer, JobInvite
@@ -1045,16 +1047,16 @@ class MatchScoreSchema(Schema):
     location_score: Optional[float] = 0
     computed_match_score: Optional[float] = 0
     requires_location: Optional[bool] = False
-    missing_compulsory_secondary_language: bool
-    requires_role: bool
-    missing_required_skill: bool 
-    requires_job_level: bool
-    requires_experience: bool
-    requires_minimum_education: bool
-    requires_work_structure: bool
-    requires_tech_requirements: bool
-    missing_work_schedule: bool
-    missing_required_business_model: bool
+    missing_compulsory_secondary_language: Optional[bool] = False
+    requires_role: Optional[bool] = False
+    missing_required_skill: Optional[bool] = False
+    requires_job_level: Optional[bool] = False
+    requires_experience: Optional[bool] = False
+    requires_minimum_education: Optional[bool] = False
+    requires_work_structure: Optional[bool] = False
+    requires_tech_requirements: Optional[bool] = False
+    missing_work_schedule: Optional[bool] = False
+    missing_required_business_model: Optional[bool] = False
     tools_platform_count: Optional[int] = 0
     tools_platform_intercept_count: Optional[int] = 0
     methodologies_count: Optional[int] = 0
@@ -1197,7 +1199,6 @@ class TalentJobPostListSchema(ModelSchema):
     @staticmethod
     def resolve_match_obj(obj, context):
         return MatchScoreSchema.from_orm(obj)
-
 
 
 class TalentJobPostSchema(JobPostListSchema):
@@ -1369,7 +1370,9 @@ class TalentJobFilterSchema(Schema):
             queryset = queryset.exclude(id__in=applied_jobs_id)
         if not extra_sorts:
             extra_sorts = []
-        return order_job_posts(queryset, self.sort_by, *extra_sorts, distinct=self.distinct)
+        from jobs.queries import add_job_post_annotations
+        queryset = add_job_post_annotations(queryset, talent).filter(status=JobStatusType.POSTED.value, can_apply=True)
+        return order_job_posts(queryset,  self.sort_by, *extra_sorts, distinct=self.distinct)
 
 
 class BusinessJobFilterQuerySchema(Schema):
