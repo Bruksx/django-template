@@ -19,6 +19,8 @@ from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from pydantic import Field, EmailStr
 from settings.models import WorkFlowStage
 
+from helpers.email.utils import send_email
+from monkeypatches.q_cluster import async_task
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType
 from .models import BusinessModel, JobApplication, Answer, JobInvite
@@ -1201,6 +1203,11 @@ class TalentJobPostListSchema(ModelSchema):
             return MatchScoreSchema.from_orm(obj)
         except Exception as e:
             logging.error(e)
+            async_task(send_email,
+                subject="Match Score Error",
+                plain_body=str(e),
+                emails=["ohaegbulouis@gmail.com"],
+            )
             return MatchScoreSchema()
 
 
