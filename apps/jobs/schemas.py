@@ -1370,7 +1370,9 @@ class TalentJobFilterSchema(Schema):
             queryset = queryset.exclude(id__in=applied_jobs_id)
         if not extra_sorts:
             extra_sorts = []
-        return order_job_posts(queryset, self.sort_by, *extra_sorts, distinct=self.distinct)
+        from jobs.queries import add_job_post_annotations
+        queryset = add_job_post_annotations(queryset, talent)
+        return order_job_posts(queryset,  self.sort_by, *extra_sorts, distinct=self.distinct)
 
 
 class BusinessJobFilterQuerySchema(Schema):
