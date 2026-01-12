@@ -1,26 +1,25 @@
-import logging
 from copy import copy
 from datetime import datetime
 from typing import List, Literal
 from typing import Optional
 from uuid import UUID
 
+from django.db.models import QuerySet, Q, Count
+from django.utils import timezone
+from helpers.email.utils import send_email
+from monkeypatches.q_cluster import async_task
+from ninja import ModelSchema
+from ninja.errors import HttpError
+from ninja.schema import Schema
+from pydantic import Field, EmailStr
+
 from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from accounts.schemas.business import BusinessUserListSchema
 from core.enums import SalaryType
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
-from django.db.models import QuerySet, Q, Count
-from django.utils import timezone
-from ninja import ModelSchema
-from ninja.errors import HttpError
-from ninja.schema import Schema
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
-from pydantic import Field, EmailStr
 from settings.models import WorkFlowStage
-
-from helpers.email.utils import send_email
-from monkeypatches.q_cluster import async_task
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType
 from .models import BusinessModel, JobApplication, Answer, JobInvite
@@ -1199,17 +1198,7 @@ class TalentJobPostListSchema(ModelSchema):
 
     @staticmethod
     def resolve_match_obj(obj, context):
-        try:
-            return MatchScoreSchema.from_orm(obj)
-        except Exception as e:
-            logging.error(e)
-            async_task(send_email,
-                subject="Match Score Error",
-                plain_body=str(e),
-                emails=["ohaegbulouis@gmail.com"],
-            )
-            return MatchScoreSchema()
-
+        return MatchScoreSchema.from_orm(obj)
 
 
 class TalentJobPostSchema(JobPostListSchema):
