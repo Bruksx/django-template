@@ -1,3 +1,4 @@
+import logging
 from copy import copy
 from datetime import datetime
 from typing import List, Literal
@@ -1370,6 +1371,11 @@ class TalentJobFilterSchema(Schema):
             queryset = queryset.exclude(id__in=applied_jobs_id)
         if not extra_sorts:
             extra_sorts = []
+        try:
+            if queryset.count() > 0:
+                logging.critical(f"annotations: {queryset[0].computed_match_score}")
+        except:
+            logging.critical("annotations: annotations not computed")
         return order_job_posts(queryset, self.sort_by, *extra_sorts, distinct=self.distinct)
 
 
