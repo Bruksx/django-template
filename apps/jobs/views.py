@@ -1,3 +1,4 @@
+import logging
 from typing import List, Literal, Union
 from uuid import UUID
 
@@ -92,9 +93,9 @@ def job_posts_for_talent(request, filters:TalentJobFilterQuerySchema = Query(...
     queryset = add_job_post_annotations(queryset, talent).filter(can_apply=True)
     try:
         if queryset.count() > 0:
-            print("annotations: ", queryset[0].computed_match_score)
+            logging.critical(f"annotations: {queryset[0].computed_match_score}")
     except:
-        print("annotations: ", "annotations not computed")
+        logging.critical("annotations: annotations not computed")
     return filters.get_queryset(talent=talent, queryset=queryset)
 
 
