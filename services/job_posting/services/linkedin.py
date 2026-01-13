@@ -154,7 +154,7 @@ def get_description(job_post, job) -> str:
     if job.responsibilities:
         parts.append("Responsibilities\n")
         parts.append(html_to_text(job.responsibilities))
-        parts.append("\n")
+        parts.append("\n\n")
 
     # Salary & Benefits
     salary_parts = []
