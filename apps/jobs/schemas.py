@@ -954,7 +954,7 @@ class OtherApplicationSchema(ModelSchema):
 
 class JobApplicationListSchema(ModelSchema):
     location:Optional[str] = Field(None, alias="job_post.get_country")
-    role:Optional[GenericNameAndUidSchema] = Field(alias="applicant.role")
+    role:Optional[GenericNameAndUidSchema] = Field(alias="applicant.get_role")
     experience:int
     match:int
     phase:str
