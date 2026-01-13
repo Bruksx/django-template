@@ -1699,4 +1699,4 @@ class TalentScreeningResultSchema(ModelSchema):
 
     class Meta:
         model = JobApplication
-        fields = ["updated_at"]
+        fields = ["uid", "updated_at"]
