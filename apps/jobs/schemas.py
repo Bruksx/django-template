@@ -4,22 +4,20 @@ from typing import List, Literal
 from typing import Optional
 from uuid import UUID
 
-from django.db.models import QuerySet, Q, Count
-from django.utils import timezone
-from helpers.email.utils import send_email
-from monkeypatches.q_cluster import async_task
-from ninja import ModelSchema
-from ninja.errors import HttpError
-from ninja.schema import Schema
-from pydantic import Field, EmailStr
-
 from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from accounts.schemas.business import BusinessUserListSchema
 from core.enums import SalaryType
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
+from django.db.models import QuerySet, Q, Count
+from django.utils import timezone
+from ninja import ModelSchema
+from ninja.errors import HttpError
+from ninja.schema import Schema
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+from pydantic import Field, EmailStr
 from settings.models import WorkFlowStage
+
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType
 from .models import BusinessModel, JobApplication, Answer, JobInvite
@@ -82,8 +80,8 @@ class MutateJobPostSchema(ModelSchema):
     status: Optional[JobStatusType] = None
     salary_currency: Optional[UUID] = None
     salary_bonus_currency: Optional[UUID] = None
-    salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
-    salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
+    salary_type: Optional[SalaryType] = None
+    salary_bonus_type: Optional[SalaryType] = None
     tags: List[str] = []
 
 
@@ -101,10 +99,10 @@ class UpdateJobPostSchema(ModelSchema):
     benefits: List[str]
     recruiter: Optional[UUID] = None
     status: Optional[JobStatusType] = None
-    salary_currency: Optional[UUID]
-    salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
-    salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
-    salary_bonus_currency: Optional[UUID]
+    salary_currency: Optional[UUID] = None
+    salary_type: Optional[SalaryType] = None
+    salary_bonus_type: Optional[SalaryType] = None
+    salary_bonus_currency: Optional[UUID] = None
     tags: List[str] = []
     
     
@@ -127,10 +125,11 @@ class MutateJobPostListSchema(ModelSchema):
     salary_max: Optional[float]
     salary_bonus_min: Optional[float]
     salary_bonus_max: Optional[float]
-    salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
-    salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
+    salary_type: Optional[SalaryType] = None
+    salary_bonus_type: Optional[SalaryType] = None
     tags: List[str] = Field(alias="get_tags")
     code: str = Field(alias="get_code")
+    about: Optional[str] = Field(None, alias="get_about")
     
 
     class Meta:
