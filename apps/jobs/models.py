@@ -320,6 +320,8 @@ class JobPost(BaseModel):
     edited_at = models.DateTimeField(null=True)
     
     promotion_code = models.CharField(max_length=200, null=True, blank=True)
+    linked_in_tags = models.JSONField(default=list)
+
 
     def get_tags(self):
         return self.tags.values_list("name", flat=True)
