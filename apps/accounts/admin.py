@@ -1,6 +1,7 @@
 from django.contrib import admin
 from . import models
 from django.contrib import messages
+from helpers.email.accounts import send_incomplete_profile_reminder_email
 
 
 class DepartmentInline(admin.TabularInline):
@@ -43,18 +44,22 @@ class UserAdmin(admin.ModelAdmin):
     list_display = ('email', 'type', 'first_name', 'last_name',)
     search_fields = ('email', 'first_name', 'last_name',)
     ordering = ('-created_at',)
+    actions = ("send_incomplete_profile_mail",)
+
+    def send_incomplete_profile_mail(self, request, qs):
+        emails = [user.email for user in qs]
+        send_incomplete_profile_reminder_email(emails)
+        messages.success(request, f"Successfully sent reminder emails")
 
     def get_queryset(self, request):
         return models.User.global_objects.all()
 
     def delete_model(self, request, obj):
-        messages.warning(request, f"Permanently deleting: {obj.email}")
+        messages.warning(request, f"Permanently deleted: {obj.email}")
         return obj.hard_delete()
     
-    """def delete_queryset(self, request, queryset):
-        users = ", ".join(queryset.values_list('email', flat=True))
-        messages.warning(request, f"Deleting Users: {users}")
-        return queryset.hard_delete()"""
+    send_incomplete_profile_mail.short_description = "Send Incomplete Profile Mail"
+
 
 
 class EducationLevelAdmin(admin.ModelAdmin):
