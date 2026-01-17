@@ -22,7 +22,7 @@ from settings.models import WorkFlowStage
 
 from config.permissions import IsBusinessUser
 from helpers.email.jobs import send_indeed_apply_email
-from helpers.utils import convert_base64_to_image_file, sanitize_html_secure
+from helpers.utils import convert_base64_to_image_file
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from services.job_posting.schema.indeed import IndeedApplicationDataPatch
@@ -368,8 +368,8 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
         data["lunch_break"] = data["lunch_break"].value
     if data.get("technological_requirement"):
         data["technological_requirement"] = data["technological_requirement"].value
-    if data.get("responsibilities"):
-        data["responsibilities"] = sanitize_html_secure(data["responsibilities"])
+    # if data.get("responsibilities"):
+    #     data["responsibilities"] = sanitize_html_secure(data["responsibilities"])
 
     job = Job.objects.create(**data)
     job.business_models.set(business_models)
@@ -435,8 +435,8 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
         data["lunch_break"] = data["lunch_break"].value
     if data.get("technological_requirement"):
         data["technological_requirement"] = data["technological_requirement"].value
-    if data.get("responsibilities"):
-        data["responsibilities"] = sanitize_html_secure(data["responsibilities"])
+    # if data.get("responsibilities"):
+    #     data["responsibilities"] = sanitize_html_secure(data["responsibilities"])
 
     if logo:
         logo_data = JobLogoSchema(**logo)

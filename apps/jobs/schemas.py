@@ -83,6 +83,7 @@ class MutateJobPostSchema(ModelSchema):
     salary_type: Optional[SalaryType] = None
     salary_bonus_type: Optional[SalaryType] = None
     tags: List[str] = []
+    linkedin_tags: List[str] = []
 
 
 
@@ -104,6 +105,7 @@ class UpdateJobPostSchema(ModelSchema):
     salary_bonus_type: Optional[SalaryType] = None
     salary_bonus_currency: Optional[UUID] = None
     tags: List[str] = []
+    linkedin_tags: List[str] = []
     
     
     class Meta:
@@ -128,6 +130,7 @@ class MutateJobPostListSchema(ModelSchema):
     salary_type: Optional[SalaryType] = None
     salary_bonus_type: Optional[SalaryType] = None
     tags: List[str] = Field(alias="get_tags")
+    linkedin_tags: List[str]
     code: str = Field(alias="get_code")
     about: Optional[str] = Field(None, alias="get_about")
     
@@ -464,6 +467,7 @@ class JobPostDetailSchema(ModelSchema):
     province: GenericNameAndUidSchema | None
     about: Optional[str] = Field(None, alias="get_about")
     tags: List[str] = Field(alias="get_tags")
+    linkedin_tags: List[str]
     code: str = Field(alias="get_code")
     
 
@@ -629,6 +633,7 @@ class JobPostListSchema(ModelSchema):
     province: Optional[str] = Field(None, alias="get_province")
     about: Optional[str] = Field(None, alias="get_about")
     tags: List[str] = Field(alias="get_tags")
+    linkedin_tags: List[str]
     code: str = Field(alias="get_code")
     
 
@@ -857,6 +862,7 @@ class JobPostFullDetailSchema(ModelSchema):
     province: Optional[GenericNameAndUidSchema] = None
     about: Optional[str] = Field(None, alias="get_about")
     tags: List[str] = Field(alias="get_tags")
+    linkedin_tags: List[str]
     code: str = Field(alias="get_code")
     
 
@@ -1086,6 +1092,7 @@ class TalentJobPostListSchema(ModelSchema):
     date_applied: Optional[datetime] = None
     about: Optional[str] = Field(None, alias="get_about")
     tags: List[str] = Field(alias="get_tags")
+    linkedin_tags: List[str]
     code: str = Field(alias="get_code")
 
 
