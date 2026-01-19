@@ -8,7 +8,10 @@ from typing import Tuple, Optional
 from uuid import UUID
 
 import jwt
-from config.settings import SECRET_KEY
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
+    BusinessSize, BusinessUserStatusType, CaseReasonType
+from core.enums import SalaryType
+from core.models import BaseModel, State, City
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -19,16 +22,13 @@ from django.db.models.functions import Concat, Cast, Round
 from django.db.models.signals import pre_save
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from helpers.utils import delete_s3_item
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
 from ninja_jwt.tokens import RefreshToken
+from notification.enums import NotificationGroup
 from timezone_field import TimeZoneField
 
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessSize, BusinessUserStatusType, CaseReasonType
-from core.enums import SalaryType
-from core.models import BaseModel, State, City
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
-from notification.enums import NotificationGroup
+from config.settings import SECRET_KEY
+from helpers.utils import delete_s3_item
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -573,10 +573,11 @@ class Talent(BaseModel):
             # (has_experience, "Experience not provided or incomplete."),
             # (has_education, "Education not provided or incomplete."),
             (self.user.first_name, "First name is missing."),
+            (self.role, "Role is missing"),
             (self.user.last_name, "Last name is missing."),
             (self.user.email, "Email is missing."),
             (self.user.phone_number, "Phone number is missing."),
-            (self.user.gender, "Gender is missing."),
+            #(self.user.gender, "Gender is missing."),
             # (self.preferred_communication, "Preferred communication method is missing."),
             # (self.employment_types.exists(), "Employment types are not selected."),
             # (self.work_models, "Work models are not specified."),

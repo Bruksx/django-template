@@ -82,6 +82,7 @@ class TalentModelTest(TestCase):
         )
         self.talent.photo = SimpleUploadedFile("t.jpg", b'rggggg', "image/jpg")
         self.talent.cv = SimpleUploadedFile("c.pdf", b'rggggg', "application/pdf")
+        self.talent.role = self.role
         self.talent.employment_types.add(self.employment_type)
         self.talent.skills.set(
             Skill.objects.filter(category__name__in=(SkillCategory.objects.only('name').values_list('name', flat=True))))
