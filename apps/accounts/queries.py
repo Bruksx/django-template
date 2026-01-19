@@ -49,7 +49,6 @@ def add_profile_completion_annotation(queryset:QuerySet[Talent]):
                     Q(Q(user__last_name__isnull=False) & ~Q(user__last_name=""))&
                     Q(Q(user__email__isnull=False) & ~Q(user__email="")) &
                     Q(Q(user__phone_number__isnull=False) & ~Q(user__phone_number=""))&
-                    Q(user__gender__isnull=False) &
                     Q(preferred_communication__isnull=False) &
                     Q(Q(work_models__isnull=False) & ~Q(work_models=[])) &
                     Q(Q(availability_timezone__isnull=False) & ~Q(availability_timezone="")) &
