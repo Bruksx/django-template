@@ -1,4 +1,3 @@
-from apps.jobs.models import JobPost
 from config import settings
 from helpers.utils import datetime_to_epoch_milliseconds, html_to_text
 
@@ -103,13 +102,13 @@ def experience_level_mapper(experience_level):
     ).get(experience_level, ExperienceLevelEnum.NOT_APPLICABLE.value)
 
 
-def get_description(job_post:JobPost, job) -> str:
+def get_description(job_post, job) -> str:
     parts = []
     # handle promotional tag
     promotion_tag = job_post.linkedin_tags[0] if job_post.linkedin_tags else None
     if promotion_tag:
         parts.append(f"{promotion_tag} \n\n")
-        
+
     # About Job
     if job_post.get_about():
         about = job_post.get_about()
