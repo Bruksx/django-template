@@ -607,8 +607,8 @@ class JobCreationTest(TestCase):
         # Check job posts
         job_posts = JobPost.objects.filter(job=job).order_by("id")
         self.assertEqual(job_posts.count(), 2)
-        self.assertEqual(jobposts[0].city, "surulere")
-        self.assertEqual(jobposts[1].city, "ojo")
+        self.assertEqual(job_posts[0].city, "surulere")
+        self.assertEqual(job_posts[1].city, "ojo")
         self.assertEqual(job_posts[0].country.code, self.country1.code)
 
         # Check screening questions

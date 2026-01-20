@@ -104,6 +104,11 @@ def experience_level_mapper(experience_level):
 
 def get_description(job_post, job) -> str:
     parts = []
+    # handle promotional tag
+    promotion_tag = job_post.linkedin_tags[0] if job_post.linkedin_tags else None
+    if promotion_tag:
+        parts.append(f"{promotion_tag} \n\n")
+
     # About Job
     if job_post.get_about():
         about = job_post.get_about()
