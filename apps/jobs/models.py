@@ -384,9 +384,9 @@ class JobPost(BaseModel):
         return self.province.name
     
     def get_about(self):
-        if not self.about:
-            return self.job.about
-        return self.about
+        if not self.job.about:
+            return self.about
+        return self.job.about
     
     
 
