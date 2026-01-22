@@ -321,6 +321,19 @@ class SendEmailSchema(Schema):
     subject: str
     body : str
     from_email: str
+    email_template: Optional[UUID] = None
+
+    def get_email_engine(self, context):
+        from settings.services import PersonalEmailEngine
+        return PersonalEmailEngine(
+            emails=self.emails[0].split(','),
+            subject=self.subject,
+            body=self.body,
+            from_email=self.from_email,
+            email_template=context.get("email_template"),
+            recruiter=context.get("recruiter"),
+            attachments=context.get("attachments")
+        )
 
 class SendBulkChatSchema(Schema):
     talent_uids: List[str] = Field(description="List of talent UIDs")

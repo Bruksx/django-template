@@ -62,7 +62,7 @@ def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_b
 
 
 def send_template_email(subject:str, body:str, emails:List[str], from_user:str, attachment_urls:List[str]=None,
-                        bcc:List[str]=None, cc:List[str]=None, html_content:str=None):
+                        bcc:List[str]=None, cc:List[str]=None, html_content:str=None, attachments:list=None):
     if not bcc:
         bcc = []
     if not cc:
@@ -105,6 +105,10 @@ def send_template_email(subject:str, body:str, emails:List[str], from_user:str, 
                     response = requests.get(url)
                     response.raise_for_status()
                     email.attach(f"{url.split('/')[-1]}", response.content, mimetype=response.headers['Content-Type'])
+
+            if attachments:
+                for attachment in attachments:
+                    email.attach(attachment.name, attachment.read(), attachment.content_type)
             email.attach_alternative(html_content, "text/html")
             email.send(fail_silently=False)
             return
