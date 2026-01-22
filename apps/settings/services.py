@@ -3,12 +3,12 @@ import html
 import json
 from typing import List, Optional
 
+from accounts.models import Talent, BusinessUser
 from django.template import Context
 from django.utils.html import strip_tags
-
-from accounts.models import Talent, BusinessUser
 from ninja.errors import HttpError
 from settings.models import EmailTemplate
+
 from helpers.email.utils import send_email, send_template_email
 from helpers.loggers import LogSchema, Logger
 from monkeypatches.q_cluster import async_task
@@ -55,7 +55,17 @@ class PersonalEmailEngine:
             talent = Talent.objects.filter(user__email=email).first()
             if not talent:
                 continue
-            self.send_individual_email(talent, attachments)
+            async_task(self.send_individual_email,
+                     from_email=self.from_email,
+                       emails=[email],
+                       subject=self.subject,
+                       body=self.body,
+                       email_template=self.email_template,
+                       recruiter=self.recruiter,
+                       talent=talent,
+                       template_attachments=attachments,
+                       attachments=self.attachments
+            )
 
 
     def send_bulk_email(self):
@@ -65,17 +75,16 @@ class PersonalEmailEngine:
                    from_user=self.from_email)
         return
 
+    @staticmethod
+    def send_individual_email(from_email, emails, subject, body, email_template, recruiter: BusinessUser, talent: Talent, template_attachments: List[str]=None, attachments: list=None):
+        converter = email_template.convert_placeholder_to_key
+        context = {converter(placeholder): talent.placeholders_mapper(placeholder, recruiter) for placeholder in
+                   email_template.placeholder}
+        keys = map(email_template.convert_key_to_placeholder, context.keys())
 
+        email_template.send_email(context=context, to=emails, sender=from_email)
 
-    def send_individual_email(self, talent: Talent, attachments: List[str]=None):
-        converter = self.email_template.convert_placeholder_to_key
-        context = {converter(placeholder): talent.placeholders_mapper(placeholder, self.recruiter) for placeholder in
-                   self.email_template.placeholder}
-        keys = map(self.email_template.convert_key_to_placeholder, context.keys())
-
-        self.email_template.send_email(context=context, to=self.emails, sender=self.from_email)
-
-        is_valid_placeholders = self.email_template.validate_placeholders(placeholders=self.email_template.placeholders,
+        is_valid_placeholders = email_template.validate_placeholders(placeholders=email_template.placeholders,
                                                                           members=list(keys),
                                                                           raise_exception=False)
         if not is_valid_placeholders:
@@ -83,14 +92,14 @@ class PersonalEmailEngine:
                 sender="Personal Email Template Model",
                 title="Unable to send template email due to invalid placeholders",
                 description=json.dumps(dict(
-                    template_uid=str(self.email_template.uid),
-                    placeholders=self.email_template.placeholders,
+                    template_uid=str(email_template.uid),
+                    placeholders=email_template.placeholders,
                     context=context,
                 ))).__dict__)
             return
 
-        subject = self.email_template.convert_to_template(str(self.subject), is_html=True).render(Context(context))
-        message = self.email_template.convert_to_template(str(self.body), is_html=True).render(Context(context))
+        subject = email_template.convert_to_template(str(subject), is_html=True).render(Context(context))
+        message = email_template.convert_to_template(str(body), is_html=True).render(Context(context))
 
         body = strip_tags(message)
         html_content = message
@@ -98,17 +107,17 @@ class PersonalEmailEngine:
             subject=html.unescape(subject),
             body=body,
             html_content=html_content,
-            emails=self.emails,
-            bcc=self.email_template.bcc,
-            cc=self.email_template.cc,
-            from_user=self.from_email
+            emails=emails,
+            bcc=email_template.bcc,
+            cc=email_template.cc,
+            from_user=from_email
         )
-        if self.attachments:
-            data["attachments"] = self.attachments
         if attachments:
-            data["attachment_urls"] = attachments
+            data["attachments"] = attachments
+        if template_attachments:
+            data["attachment_urls"] = template_attachments
 
-        async_task(send_template_email, **data)
+        send_template_email(**data)
         return
 
 

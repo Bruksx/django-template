@@ -464,24 +464,20 @@ def get_business_industries(request):
 
 @router.post("email-talents", auth=JWTAuth())
 def send_email_to_talents(request, data:SendEmailSchema=Form(), attachments: List[UploadedFile]=None):
-    try:
-        from settings.models import EmailTemplate
-        IsBusinessUser.check(request)
-        email_template = None
-        if data.email_template:
-            email_template = EmailTemplate.objects.filter(uid=data.email_template).first()
-            if not email_template:
-                raise HttpError(404, "Email template not found")
-        recruiter = request.user.businessuser
-        email_engine = data.get_email_engine(context=dict(
-            email_template=email_template,
-            recruiter=recruiter,
-            attachments=attachments
-        ))
-        email_engine.send()
-        return Response(status=200, data={"message": "Email sent successfully"})
-    finally:
-        del email_engine
+    from settings.models import EmailTemplate
+    IsBusinessUser.check(request)
+    email_template = None
+    if data.email_template:
+        email_template = EmailTemplate.objects.filter(uid=data.email_template).first()
+        if not email_template:
+            raise HttpError(404, "Email template not found")
+    recruiter = request.user.businessuser
+    data.get_email_engine(context=dict(
+        email_template=email_template,
+        recruiter=recruiter,
+        attachments=attachments
+    )).send()
+    return Response(status=200, data={"message": "Email sent successfully"})
 
 @router.post("message-talents", auth=JWTAuth())
 def send_bulk_chat_message_to_talents(request, data:SendBulkChatSchema=Form(), attachments: List[UploadedFile]=None):
