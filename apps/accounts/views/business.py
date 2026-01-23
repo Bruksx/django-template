@@ -466,14 +466,8 @@ def get_business_industries(request):
 def send_email_to_talents(request, data:SendEmailSchema=Form(), attachments: List[UploadedFile]=None):
     from settings.models import EmailTemplate
     IsBusinessUser.check(request)
-    email_template = None
-    if data.email_template:
-        email_template = EmailTemplate.objects.filter(uid=data.email_template).first()
-        if not email_template:
-            raise HttpError(404, "Email template not found")
     recruiter = request.user.businessuser
     data.get_email_engine(context=dict(
-        email_template=email_template,
         recruiter=recruiter,
         attachments=attachments
     )).send()
