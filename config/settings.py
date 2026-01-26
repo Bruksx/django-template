@@ -365,3 +365,5 @@ APPLE_CONFIG = {
     "APPLE_SCOPE": ["name", "email"],
     "RESPONSE_HANDLER_CLASS": "users.services.AppleSignInResponseHandler",
 }
+
+AI_SERVICE_BASE_URL = os.environ["AI_SERVICE_BASE_URL"]
