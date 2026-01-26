@@ -25,6 +25,8 @@ from helpers.utils import convert_base64_to_image_file, validate_password, delet
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from services import meeting
+from services.ai import parse_cv
+from services.ai.schema import ParsedTalentProfileSchema
 
 router = Router(tags=["Account"])
 
@@ -262,10 +264,10 @@ def change_talent_password(request, data: talent_schemas.TalentChangePasswordSch
     user.save()
     return Response(status=200, data={"message": "Password changed successfully"})
 
-@router.post("cv", auth=JWTAuth())
-def upload_talent_cv(request, file: Optional[UploadedFile] = File(None)):
+@router.post("cv", auth=JWTAuth(), response=ParsedTalentProfileSchema)
+def upload_talent_cv(request, file: Optional[UploadedFile] = File(None), parse="false"):
     IsTalentUser.check(request)
-    talent_user = request.user.talent
+    talent_user: Talent = request.user.talent
     if not file:
         if talent_user.cv:
             delete_s3_item(talent_user.cv.url)
@@ -274,6 +276,11 @@ def upload_talent_cv(request, file: Optional[UploadedFile] = File(None)):
     if file.name.split(".")[-1] != "pdf":
         raise HttpError(400, "This file type is not supported. Only PDF files")
     talent_user.update(cv=file)
+    if parse.lower() == "true":
+        if not talent_user.cv:
+           raise HttpError(400, "No CV available for parsing")
+        parsed_data = parse_cv(talent_user.cv.url)
+        return parsed_data
     return Response(status=200, data={"message": "CV uploaded successfully"})
 
 @router.post("profile-pic", auth=JWTAuth())
