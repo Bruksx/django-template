@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from html import unescape
 from typing import Optional
-from urllib.parse import quote_plus
 from xml.sax.saxutils import escape
 
 from core.enums import SalaryType
@@ -55,11 +54,7 @@ class JobBase:
     apijobid: Optional[str] = None
     location: Optional[str] =   None
 
-
-
-
     def get_indeed_apply_data(self):
-
         data = dict(
             indeed_apply_apiToken=INDEED_APPLY_API_TOKEN,
             indeed_apply_jobTitle=self.title,
@@ -69,16 +64,18 @@ class JobBase:
             indeed_apply_jobUrl=self.url,
             indeed_apply_postUrl=INDEED_APPLY_POST_URL(self.apijobid)
         )
+
         params = []
 
         for key, value in data.items():
             if value is None:
                 value = ""
             key = key.replace('_', '-')
-            encoded_value = quote_plus(str(value))  # URL encode the value
-            params.append(f"{key}={encoded_value}")
+            params.append(f"{key}={value}")  # NO escaping
 
         return "&".join(params)
+
+
 
     @staticmethod
     def _build_description(job_post: JobPost, job: Job) -> str:
