@@ -399,7 +399,7 @@ class JobBase:
             )
 
     @staticmethod
-    def add_element(parent, tag: str, text: str, escape_text: bool = False):
+    def add_element(parent, tag: str, text: str, escape_text: bool = False, omit_cdata: bool = False):
         el = SubElement(parent, tag)
         if text and str(text).strip():
             content = str(text).strip()
@@ -407,7 +407,10 @@ class JobBase:
                 content = unescape(content)
         else:
             content = ""
-        el.text = f"<![CDATA[{content}]]>"
+        if omit_cdata is True:
+            el.text = content
+        else:
+            el.text = f"<![CDATA[{content}]]>"
 
     def to_xml(self):
         job_el = Element( "job")
@@ -415,7 +418,7 @@ class JobBase:
         self.add_element(job_el, "date", self.date.isoformat())
         self.add_element(job_el, "referencenumber", self.referencenumber)
         self.add_element(job_el, "requisitionid", self.requisitionid)
-        self.add_element(job_el, "url", self.url)
+        self.add_element(job_el, "url", self.url, omit_cdata=True)
         self.add_element(job_el, "company", self.company)
         self.add_element(job_el, "sourcename", self.sourcename)
         self.add_element(job_el, "city", self.city)
@@ -442,7 +445,7 @@ class JobBase:
             self.add_element(job_el, "billingId", self.billingId)
         if self.apijobid:
             self.add_element(job_el, "apijobid", self.apijobid)
-        self.add_element(job_el, "indeed-apply-data", self.get_indeed_apply_data())
+        self.add_element(job_el, "indeed-apply-data", self.get_indeed_apply_data(), omit_cdata=True)
         return job_el
 
 
