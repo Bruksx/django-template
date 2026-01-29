@@ -1,21 +1,21 @@
 from typing import List, Optional
 from datetime import date
 from ninja import Schema
+from uuid import UUID
 
 
 class SkillSchema(Schema):
-    id: Optional[str] = None
     name: Optional[str] = None
     department_id: Optional[str] = None
     category_id: Optional[str] = None
     custom: Optional[bool] = None
-    _match_score: Optional[float] = None
     uid: Optional[str] = None
 
 
 class AdditionalSkillSchema(Schema):
-    name: Optional[str] = None
+    skill: Optional[str] = None
     custom: Optional[bool] = None
+    category_id: Optional[str] = None
 
 
 class ExperienceHistorySchema(Schema):
