@@ -8,6 +8,7 @@ class SkillSchema(Schema):
     name: Optional[str] = None
     department_id: Optional[str] = None
     category_id: Optional[str] = None
+    category_name: Optional[str] = None
     custom: Optional[bool] = None
     uid: Optional[str] = None
 
@@ -16,6 +17,7 @@ class AdditionalSkillSchema(Schema):
     skill: Optional[str] = None
     custom: Optional[bool] = None
     category_id: Optional[str] = None
+    category_name: Optional[str] = None
 
 
 class ExperienceHistorySchema(Schema):
