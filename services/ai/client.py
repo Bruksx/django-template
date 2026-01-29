@@ -24,7 +24,6 @@ class GtcAiClient:
     def post(self, path: str, params: dict = None, json: dict=None):
         url = self._build_url(path)
         response = self.session.post(url, json=json, timeout=self.timeout, params=params)
-        print(response.json())
         self._raise_for_status(response)
         return response
 

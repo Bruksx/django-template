@@ -8,4 +8,5 @@ def parse_cv(cv_url: str) -> ParsedTalentProfileSchema:
         "accounts/talents/profile/cv/parse",
         params={"url": cv_url},
     )
-    return ParsedTalentProfileSchema(**response.json())
+    data = ParsedTalentProfileSchema(**response.json())
+    return data

@@ -279,6 +279,7 @@ def upload_talent_cv(request, file: Optional[UploadedFile] = File(None), parse="
     if parse.lower() == "true":
         if not talent_user.cv:
            raise HttpError(400, "No CV available for parsing")
+
         parsed_data = parse_cv(talent_user.cv.url)
         return parsed_data
     return Response(status=200, data={"message": "CV uploaded successfully"})
