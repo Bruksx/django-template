@@ -445,7 +445,7 @@ class JobBase:
             self.add_element(job_el, "billingId", self.billingId)
         if self.apijobid:
             self.add_element(job_el, "apijobid", self.apijobid)
-        self.add_element(job_el, "indeed-apply-data", self.get_indeed_apply_data(), omit_cdata=True)
+        self.add_element(job_el, "indeed-apply-data", self.get_indeed_apply_data())
         return job_el
 
 
