@@ -491,3 +491,29 @@ def export_job_posts_excel():
     )
 
     return export
+
+
+def handle_application_stage(application, business_user, stage=None, advance:bool=True, raise_exception:bool=True):
+    try:
+        if not stage:
+            if advance is True:
+                stage = application.stage.next_stages().first()
+            else:
+                stage = application.stage.previous_stages().last()
+        if not stage:
+            raise HttpError(404, "Stage not found")
+        previous_stage = application.stage
+        application.stage = stage
+        application.stage_date_updated = timezone.now()
+        application.save()
+        async_task(send_email_on_stage_update, application=application, previous_stage=previous_stage,
+                   business_user=business_user)
+        return application
+    except Exception as e:
+        if raise_exception:
+            raise e
+        return None
+
+def handle_applications_stage(applications, business_user, stage=None, advance:bool=True):
+    for application in applications:
+        async_task(handle_application_stage, application, business_user, stage, advance, raise_exception=False)

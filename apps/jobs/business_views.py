@@ -27,7 +27,7 @@ from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationE
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from settings.models import WorkFlowStage
 from . import schemas as job_schemas
-from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
+from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType, UpdateQuickReviewType
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication, AvailableDay,
     ScreeningQuestion, QuestionOption, Answer, JobInvite, JobPostTag
@@ -38,12 +38,12 @@ from .schemas import (
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
     TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2, AddRoleSchema,
-    PublicJobPostListSchema, PublicJobPostFilterQuerySchema
+    PublicJobPostListSchema, PublicJobPostFilterQuerySchema, UpdateQuickReviewSchema, QuickReviewFilterQuerySchema
 )
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, create_job_post_service, \
     bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
-    get_talents_by_job_posts_service, handle_stage_update, delete_job_post_tags
+    get_talents_by_job_posts_service, handle_stage_update, delete_job_post_tags, handle_application_stage, handle_applications_stage
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -814,6 +814,37 @@ def get_job_tags(request):
     business = request.user.businessuser.business
     return JobPostTag.objects.filter(business=business).order_by("name")
 
+
+@router.get("applications/quick-reviews", auth=JWTAuth(), response=List[UUID])
+def get_quick_reviews(request, filters:QuickReviewFilterQuerySchema = Query(...)):
+    IsBusinessUser.check(request)
+    filters = filters.convert_to_schema()
+    queryset = (JobApplication.objects.filter(job_post__job__created_by__business=request.user.businessuser.business)
+            .filter(Q(stage__isnull=True)| Q(stage__phase=PhaseType.NEW.value))
+            .order_by("-created_at"))
+    if filters.job:
+        queryset = queryset.filter(job_post__job__uid=filters.job)
+    if filters.job_posts:
+        queryset = queryset.filter(job_post__uid__in=filters.job_posts)
+    return queryset.values_list("uid", flat=True)
+
+@router.post("applications/quick-reviews", auth=JWTAuth())
+def update_quick_review(request, data: UpdateQuickReviewSchema):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    applications = JobApplication.objects.filter(uid__in=data.applications, job_post__job__created_by__business=request.user.businessuser.business)
+    if not applications.exists():
+        raise HttpError(404, "This application does not exist")
+    stage = None
+    if data.action == UpdateQuickReviewType.REJECT:
+        stage = WorkFlowStage.objects.filter(created_by__business=request.user.businessuser.business, phase=PhaseType.REJECTED.value).first()
+        if not stage:
+            raise HttpError(404, "Reject stage does not exist")
+    if len(data.applications) == 1:
+        handle_application_stage(applications.first(), business_user, stage, data.action == UpdateQuickReviewType.ADVANCE)
+    else:
+        handle_applications_stage(applications, business_user, stage, data.action == UpdateQuickReviewType.ADVANCE)
+    return Response(status=200, data={"message": "Applications updated successfully"})
 
 @router.delete("jobposts/tags", tags=['Common'], auth=JWTAuth())
 def delete_job_tags(request, data: List[str]):

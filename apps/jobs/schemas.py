@@ -19,7 +19,7 @@ from pydantic import Field, EmailStr
 from settings.models import WorkFlowStage
 
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
-    WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType
+    WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType, UpdateQuickReviewType
 from .models import BusinessModel, JobApplication, Answer, JobInvite
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
 from .models import (
@@ -1706,3 +1706,22 @@ class TalentScreeningResultSchema(ModelSchema):
     class Meta:
         model = JobApplication
         fields = ["uid", "updated_at"]
+
+
+class UpdateQuickReviewSchema(Schema):
+    action: UpdateQuickReviewType
+    applications: List[UUID]
+
+class QuickReviewFilterSchema(Schema):
+    job: Optional[UUID] = None
+    job_posts: Optional[List[UUID]] = None
+
+class QuickReviewFilterQuerySchema(Schema):
+    job: Optional[str] = Field(None, description="job uuid")
+    job_posts: Optional[str] = Field("", description="job posts uuids separated by comma")
+
+    def convert_to_schema(self):
+        return QuickReviewFilterSchema(
+            job=self.job if self.job else None,
+            job_posts=self.job_posts.split(",") if self.job_posts else [],
+        )
