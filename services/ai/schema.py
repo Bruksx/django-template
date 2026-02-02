@@ -2,6 +2,7 @@ from typing import List, Optional
 from datetime import date
 from ninja import Schema
 from uuid import UUID
+from apps.core.schemas import CountrySchema
 
 
 class SkillSchema(Schema):
@@ -52,7 +53,7 @@ class ParsedTalentProfileSchema(Schema):
     phone_number: Optional[str] = None
     whatsapp_number: Optional[str] = None
     viber_number: Optional[str] = None
-    country: Optional[str] = None
+    country: Optional[CountrySchema] = None
     state: Optional[str] = None
     city: Optional[str] = None
     postal_code: Optional[str] = None
