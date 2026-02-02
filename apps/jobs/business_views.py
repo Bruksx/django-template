@@ -43,7 +43,7 @@ from .schemas import (
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, create_job_post_service, \
     bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
-    get_talents_by_job_posts_service, handle_stage_update, handle_application_stage, handle_applications_stage
+    get_talents_by_job_posts_service, handle_stage_update, delete_job_post_tags, handle_application_stage, handle_applications_stage
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -815,8 +815,6 @@ def get_job_tags(request):
     return JobPostTag.objects.filter(business=business).order_by("name")
 
 
-
-
 @router.get("applications/quick-reviews", auth=JWTAuth(), response=List[UUID])
 def get_quick_reviews(request, filters:QuickReviewFilterQuerySchema = Query(...)):
     IsBusinessUser.check(request)
@@ -848,7 +846,9 @@ def update_quick_review(request, data: UpdateQuickReviewSchema):
         handle_applications_stage(applications, business_user, stage, data.action == UpdateQuickReviewType.ADVANCE)
     return Response(status=200, data={"message": "Applications updated successfully"})
 
-
-
-
-
+@router.delete("jobposts/tags", tags=['Common'], auth=JWTAuth())
+def delete_job_tags(request, data: List[str]):
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
+    delete_job_post_tags(data, business)
+    return Response(status=204, data=dict(message="Job Post Tags deleted successfully"))

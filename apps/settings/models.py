@@ -127,7 +127,7 @@ class EmailTemplate(BaseModel):
         return True
 
     def in_use(self):
-        return self.workflowstage_set.exists()
+        return not self.personal and self.workflowstage_set.exists()
 
     def can_be_deleted(self, business_user):
         if self.in_use():
