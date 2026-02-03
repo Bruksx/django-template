@@ -281,7 +281,7 @@ def upload_talent_cv(request, file: Optional[UploadedFile] = File(None), parse="
            raise HttpError(400, "No CV available for parsing")
 
         parsed_data = parse_cv(talent_user.cv.url)
-        return parsed_data
+        return Response(parsed_data)
     return Response(status=200, data={"message": "CV uploaded successfully"})
 
 @router.post("profile-pic", auth=JWTAuth())
