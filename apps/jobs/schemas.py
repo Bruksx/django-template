@@ -792,6 +792,21 @@ class JobFullListSchema(ModelSchema):
         return None
 
 
+class ExportJobPostSchema(ModelSchema):
+    job_posts: List[JobPostListSchema]
+    role: Optional[str]
+    client: str = Field(alias="hiring_company_name")
+
+    class Meta:
+        model = Job
+        fields = []
+
+
+
+
+
+
+
 class FullJobDetailSchema(JobDetailSchema, JobFullListSchema):
     job_posts: List[MutateJobPostListSchema]
     @staticmethod
@@ -829,6 +844,9 @@ class JobFullWorkflowViewSchema(JobFullListSchema):
     @staticmethod
     def resolve_workflow_data(obj, context):
         return obj.workflow_stage_data()
+
+    def export_to_excel(self):
+        return export_rows_to_excel(self)
 
 class JobWorkflowViewPaginatedSchema(PaginatedResponseSchema[JobFullWorkflowViewSchema]):
     roles: int

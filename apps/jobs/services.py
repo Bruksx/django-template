@@ -6,11 +6,11 @@ from uuid import UUID
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
-from django.db.models import QuerySet, Window, F, Q, OuterRef, Exists
+from django.db.models import QuerySet, Window, F, Q, OuterRef, Exists, Count
 from django.db.models.functions import RowNumber
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from helpers.utils import upload_to_s3, upload_to_server, sort_params_function
+from helpers.utils import upload_to_s3, upload_to_server, sort_params_function, export_rows_to_excel
 from monkeypatches.q_cluster import async_task
 from ninja.errors import HttpError
 from openpyxl import Workbook
@@ -482,3 +482,26 @@ def export_job_posts_excel():
     )
 
     return export
+
+
+def export_job_posts_to_excel(jobs:QuerySet[Job], context:dict):
+
+    jobs = jobs.select_related("role", ).annotate(applicants=Count("jobapplication"), ).only(
+        ''
+    ).
+    title = "Job Posts"
+    headers = [
+       "Role",
+       "Client",
+       "Location",
+       "Applicants",
+       "Status",
+       "Recruiter",
+       "Date Posted"
+   ]
+   rows = []
+   for job in jobs:
+
+
+
+   return export_rows_to_excel(rows=rows, title)

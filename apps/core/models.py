@@ -1,11 +1,11 @@
 import uuid
 
+from core.patches.monkeypatches import patched_set
 from django.db.models.fields.related_descriptors import ForwardManyToOneDescriptor, ManyToManyDescriptor
 from django_softdelete.managers import SoftDeleteManager, SoftDeleteQuerySet
 from django_softdelete.models import SoftDeleteModel
 
 from monkeypatches.patched_related_descriptors import ManyToManyDescriptor as PatchedManyToManyDescriptor
-from core.patches.monkeypatches import patched_set
 
 ForwardManyToOneDescriptor.__set__ = patched_set
 ManyToManyDescriptor.related_manager_cls = PatchedManyToManyDescriptor.related_manager_cls
@@ -118,3 +118,8 @@ class GTCSettings(BaseModel):
     @classmethod
     def get_settings(cls):
         return GTCSettings.objects.get_or_create(id=1)
+
+
+
+class Exports(BaseModel):
+    file = models.FileField(upload_to="exports")

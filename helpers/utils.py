@@ -23,6 +23,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db.models import QuerySet
 from ninja.errors import HttpError
+from openpyxl import Workbook
 
 from helpers.loggers import Logger
 from monkeypatches.response import Response
@@ -511,3 +512,35 @@ def html_to_text(html: str) -> str:
     # 6. Normalize whitespace and strip
     lines = [line.strip() for line in html.splitlines()]
     return '\n'.join([line for line in lines if line])
+
+def export_rows_to_excel(rows:List[list], headers: list[str], title:str):
+    from apps.core.models import Exports
+    wb = Workbook()
+    ws = wb.active
+    ws.title = title
+
+    ws.append(headers)
+    header_length = len(headers)
+    column_widths = {string.ascii_uppercase[i]: 0 for i in range(header_length)}
+    mapper = {i: string.ascii_uppercase[i] for i in range(header_length)}
+    for row in rows:
+        for i, cell in enumerate(row):
+            column_widths[mapper[i]] = max(column_widths[mapper[i]], len(str(cell)))
+        ws.append(row)
+
+    for col, width in column_widths.items():
+        ws.column_dimensions[col].width = width
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    export = Exports()
+    timestamp = timezone.now().strftime("%B %d, %Y at %I:%M %p")
+    filename = f"{title.replace(' ', '_').lower()}_{timestamp}.xlsx"
+    export.file.save(
+        filename,
+        ContentFile(output.read()),
+        save=True
+    )
+
+    return export.file.url
