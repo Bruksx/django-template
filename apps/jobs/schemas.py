@@ -4,20 +4,20 @@ from typing import List, Literal
 from typing import Optional
 from uuid import UUID
 
-from accounts.enums import Days
-from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
-from accounts.schemas.business import BusinessUserListSchema
-from core.enums import SalaryType
-from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
 from django.db.models import QuerySet, Q, Count
 from django.utils import timezone
 from ninja import ModelSchema
 from ninja.errors import HttpError
 from ninja.schema import Schema
-from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from pydantic import Field, EmailStr
-from settings.models import WorkFlowStage
 
+from accounts.enums import Days
+from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
+from accounts.schemas.business import BusinessUserListSchema
+from core.enums import SalaryType
+from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+from settings.models import WorkFlowStage
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType, UpdateQuickReviewType
 from .models import BusinessModel, JobApplication, Answer, JobInvite
@@ -791,7 +791,6 @@ class JobFullListSchema(ModelSchema):
             return obj.created_by.user.fullname
         return None
 
-
 class FullJobDetailSchema(JobDetailSchema, JobFullListSchema):
     job_posts: List[MutateJobPostListSchema]
     @staticmethod
@@ -829,6 +828,9 @@ class JobFullWorkflowViewSchema(JobFullListSchema):
     @staticmethod
     def resolve_workflow_data(obj, context):
         return obj.workflow_stage_data()
+
+    def export_to_excel(self):
+        return export_rows_to_excel(self)
 
 class JobWorkflowViewPaginatedSchema(PaginatedResponseSchema[JobFullWorkflowViewSchema]):
     roles: int
@@ -1393,6 +1395,7 @@ class BusinessJobFilterQuerySchema(Schema):
     recruiter: Optional[str] = Field("", description="comma separated recruiter uuids")
     posted_by : Optional[str] = Field("", description="comma separated recruiter uuids")
     tags: Optional[str] = Field("", description="comma separated tag uuids")
+    to_excel: Optional[bool] = False
 
 
     def convert_to_schema(self):
@@ -1408,6 +1411,7 @@ class BusinessJobFilterQuerySchema(Schema):
             recruiter=self.recruiter.split(",") if self.recruiter else [],
             posted_by=self.posted_by.split(",") if self.posted_by else [],
             tags=self.tags.split(",") if self.tags else [],
+            to_excel=self.to_excel
         )
 
 class BusinessJobFilterSchema(Schema):
@@ -1422,6 +1426,7 @@ class BusinessJobFilterSchema(Schema):
     recruiter: Optional[List[UUID]] = []
     posted_by: Optional[List[UUID]] = []
     tags: Optional[List[UUID]] = []
+    to_excel: Optional[bool] = False
 
     def get_queryset(self, queryset=None, extra_sorts:List[str]=None)->QuerySet:
         """
