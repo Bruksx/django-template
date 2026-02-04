@@ -1706,3 +1706,17 @@ class TalentScreeningResultSchema(ModelSchema):
     class Meta:
         model = JobApplication
         fields = ["uid", "updated_at"]
+
+
+class AIJobDescriptionGeneratorRequestSchema(Schema):
+    prompt: Optional[str] = None
+
+
+class AIJobDescriptionGeneratorResponseSchema(Schema):
+    job_title: str
+    job_description: str
+    key_responsibilities: List[str]
+    required_qualifications: List[str]
+    preferred_qualifications: List[str]
+    skills: List[str]
+    experience_level: str

@@ -3,29 +3,30 @@ from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
 
-from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
-from accounts.schemas.talent import SkillSchema, AddSkillSchema
-from chats.schemas import ResponseSchema
+from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q, Count, Exists, Subquery, OuterRef, Case, When, F, Value
 from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from ninja import Router, PatchDict, Query
+from helpers.email.jobs import send_indeed_apply_email
+from helpers.utils import convert_base64_to_image_file, upload_to_s3, delete_s3_item
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
+from ninja import Router, PatchDict, Query, UploadedFile, Form
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
+from services.ai import generate_job_description, JobDescriptionSchema
+from services.job_posting.schema.indeed import IndeedApplicationDataPatch
+
+from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
+from accounts.schemas.talent import SkillSchema, AddSkillSchema
+from chats.schemas import ResponseSchema
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from settings.models import WorkFlowStage
-
-from config.permissions import IsBusinessUser
-from helpers.email.jobs import send_indeed_apply_email
-from helpers.utils import convert_base64_to_image_file
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
-from services.job_posting.schema.indeed import IndeedApplicationDataPatch
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
@@ -38,7 +39,8 @@ from .schemas import (
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
     TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2, AddRoleSchema,
-    PublicJobPostListSchema, PublicJobPostFilterQuerySchema
+    PublicJobPostListSchema, PublicJobPostFilterQuerySchema,
+    AIJobDescriptionGeneratorResponseSchema, AIJobDescriptionGeneratorRequestSchema
 )
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, create_job_post_service, \
@@ -813,3 +815,35 @@ def get_job_tags(request):
     IsBusinessUser.check(request)
     business = request.user.businessuser.business
     return JobPostTag.objects.filter(business=business).order_by("name")
+
+
+@router.post("ai/generate-description", auth=JWTAuth(), response=AIJobDescriptionGeneratorResponseSchema)
+def ai_job_description_generator(request, body: AIJobDescriptionGeneratorRequestSchema = Form(),  file: UploadedFile=None):
+    IsBusinessUser.check(request)
+    data = dict(prompt=body.prompt)
+    url = None
+    if file:
+        if file.name.split(".")[-1] not in ["pdf", "doc", "docx", "txt"]:
+            raise HttpError(400, "File must be a PDF, DOC, DOCX or TXT file")
+        url = upload_to_s3([file], 'AI/job-description-generator')
+        if not url:
+            raise HttpError(400, "Failed to upload file")
+        url = url[0]
+        data["file_url"] = url
+    if (not data.get("prompt") and not data.get("file_url")) or (data.get("prompt") and data.get("file_url")):
+        raise HttpError(400, "Prompt or file is required")
+
+    data = generate_job_description(**data).dict()
+    if url:
+        async_task(delete_s3_item, url)
+    if data.get("error"):
+        data = data.pop("error")
+        raise HttpError(400, data)
+    data.pop("error")
+    return data
+
+
+
+
+
+
