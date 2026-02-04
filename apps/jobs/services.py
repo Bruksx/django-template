@@ -3,20 +3,16 @@ from io import BytesIO
 from typing import List
 from uuid import UUID
 
+from accounts.models import Skill
+from core.models import Language
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
-from django.db.models import QuerySet, Window, F, Q, OuterRef, Exists, Count
-from django.db.models.functions import RowNumber
+from django.db.models import QuerySet, Window, F, Q, OuterRef, Exists, Count, Case, When, Value, Func, \
+    CharField
+from django.db.models.functions import RowNumber, Cast
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from helpers.utils import upload_to_s3, upload_to_server, sort_params_function, export_rows_to_excel
-from monkeypatches.q_cluster import async_task
-from ninja.errors import HttpError
-from openpyxl import Workbook
-
-from accounts.models import Skill
-from core.models import Language
 from jobs.enums import PhaseType, JobStatusType, QuestionTypeEnum
 from jobs.models import (
     JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job, RequiredSecondaryLanguage,
@@ -24,8 +20,13 @@ from jobs.models import (
     JobPostExport,
 )
 from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema, MutateOptionSchema
+from ninja.errors import HttpError
 from notification.notifications import send_talents_job_matching_notification
+from openpyxl import Workbook
 from settings.models import WorkFlowStage
+
+from helpers.utils import upload_to_s3, upload_to_server, sort_params_function, export_rows_to_excel
+from monkeypatches.q_cluster import async_task
 
 
 def get_talent_job_recommendations(talent, business=None, search="", distinct=False):
@@ -484,13 +485,10 @@ def export_job_posts_excel():
     return export
 
 
-def export_job_posts_to_excel(jobs:QuerySet[Job], context:dict):
-
-    jobs = jobs.select_related("role", ).annotate(applicants=Count("jobapplication"), ).only(
-        ''
-    ).
+def export_job_posts_to_excel(jobs:QuerySet[Job], background:bool=False):
     title = "Job Posts"
     headers = [
+        "UID",
        "Role",
        "Client",
        "Location",
@@ -498,10 +496,52 @@ def export_job_posts_to_excel(jobs:QuerySet[Job], context:dict):
        "Status",
        "Recruiter",
        "Date Posted"
-   ]
-   rows = []
-   for job in jobs:
+    ]
+    rows = []
+    bold_rows = []
+    count = 2
+    for job in jobs.select_related("role").annotate(
+        role_name=Case(
+            When(role__isnull=True, then=Value("")),
+            default="role__name",
+        )
+    ).order_by("-created_at"):
+        job_posts = job.jobpost_set.select_related("country", "recruiter__user").annotate(
+            applicants=Count("jobapplication"),
+            recruiter_name=Case(
+                When(recruiter__isnull=True, then=Value("")),
+                default="recruiter__user__fullname",
+            ),
+            date_posted_excel=Case(
+                When(created_at__isnull=True, then=Value("")),
+                default=Func(
+                    'date_posted',
+                    function='TO_CHAR',
+                    template="TO_CHAR(%(expressions)s, 'DD-MM-YYYY')",
+                    output_field=CharField()
+                )
+            ),
+            uid_str=Cast("uid", output_field=CharField()),
 
+        ).distinct().values_list("uid_str","country__name", "applicants", "status", "recruiter_name", "date_posted_excel")
+        job_post_count = job_posts.count()
+        rows.append([
+            "Job",
+            job.role_name,
+            job.hiring_company_name,
+            job_posts.first()[1] if job_post_count == 1 else "Multiple",
+            JobApplication.objects.filter(job_post__job_id=job.id).count(),
+            job_posts.first()[3] if job_post_count == 1 else "Multiple",
+            job_posts.first()[4] if job_post_count == 1 else "Multiple",
+            job_posts.first()[5] if job_post_count == 1 else "Multiple" ,
 
+        ])
+        bold_rows.append(count)
+        count += 1
+        for job_post in job_posts:
+            rows.append([job_post[0],job.role_name, job.hiring_company_name, *job_post[1:]])
+            count += 1
+        rows.append(["", "", "", "", "", "", "", ""])
+        count += 1
 
-   return export_rows_to_excel(rows=rows, title)
+    return export_rows_to_excel(rows=rows, headers=headers, title=title, bold_rows=bold_rows, background=background)

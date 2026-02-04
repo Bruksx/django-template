@@ -6,7 +6,7 @@ import re
 import string
 import traceback
 import uuid
-from datetime import timezone, time, datetime
+from datetime import time, datetime
 from io import BytesIO
 from sys import getsizeof
 from typing import Optional, List
@@ -22,8 +22,11 @@ from botocore.exceptions import NoCredentialsError
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db.models import QuerySet
+from django.http import HttpResponse
+from django.utils import timezone
 from ninja.errors import HttpError
 from openpyxl import Workbook
+from openpyxl.styles import Font
 
 from helpers.loggers import Logger
 from monkeypatches.response import Response
@@ -513,8 +516,8 @@ def html_to_text(html: str) -> str:
     lines = [line.strip() for line in html.splitlines()]
     return '\n'.join([line for line in lines if line])
 
-def export_rows_to_excel(rows:List[list], headers: list[str], title:str):
-    from apps.core.models import Exports
+def export_rows_to_excel(rows:List[list], headers: list[str], title:str, bold_rows:List[int]=None, background=True):
+    from core.models import Exports
     wb = Workbook()
     ws = wb.active
     ws.title = title
@@ -529,18 +532,31 @@ def export_rows_to_excel(rows:List[list], headers: list[str], title:str):
         ws.append(row)
 
     for col, width in column_widths.items():
-        ws.column_dimensions[col].width = width
+        ws.column_dimensions[col].width = width + 3
+
+    if bold_rows:
+        for row in bold_rows:
+            for cell in ws[row]:
+                cell.font = Font(bold=True)
 
     output = BytesIO()
     wb.save(output)
     output.seek(0)
-    export = Exports()
     timestamp = timezone.now().strftime("%B %d, %Y at %I:%M %p")
     filename = f"{title.replace(' ', '_').lower()}_{timestamp}.xlsx"
-    export.file.save(
-        filename,
-        ContentFile(output.read()),
-        save=True
-    )
+    if background is True:
+        export = Exports()
+        export.file.save(
+            filename,
+            ContentFile(output.read()),
+            save=True
+        )
 
-    return export.file.url
+        return export.file.url
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    wb.save(response)
+    return response

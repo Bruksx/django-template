@@ -43,7 +43,7 @@ from .schemas import (
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, create_job_post_service, \
     bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
-    get_talents_by_job_posts_service, handle_stage_update
+    get_talents_by_job_posts_service, handle_stage_update, export_job_posts_to_excel
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -544,7 +544,8 @@ def job_list(request, page_size=50, page=1, filters: BusinessJobFilterQuerySchem
     queryset = (filters.get_queryset(queryset=queryset)
                 .annotate(jobpost_count=Count('jobpost', filter=jobpost_filter, distinct=True))
                 .filter(jobpost_count__gt=0))
-
+    if filters.to_excel is True:
+        return export_job_posts_to_excel(queryset)
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(
         queryset=queryset.order_by("-created_at"),
