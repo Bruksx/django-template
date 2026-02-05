@@ -25,11 +25,12 @@ from jobs.models import (
     BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage, JobPostTag
 )
 from jobs.queries import add_application_match_score
+from jobs.schemas import AIJobSalaryGeneratorResponseSchema
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 from settings.models import WorkFlowStage
 
-from services.ai import JobDescriptionSchema
+from services.ai import JobDescriptionSchema, JobSalaryResponseSchema
 
 
 class EmploymentTypeListTests(TestCase):
@@ -2939,3 +2940,48 @@ class AIJobDescriptionAPITest(TestCase):
                                         headers={"Authorization": f"Bearer {self.business_user.user.token}"})
             self.assertEqual(response.status_code, 400)
             self.assertEqual(response.data, {"detail": mock_generate_job_description.return_value.error})
+            
+            
+            
+class AIJobSalaryAPITest(TestCase):
+    def setUp(self):
+        super().setUp()
+        self.client = TestClient(router)
+        self.url =  "ai/generate-salary"
+        user = UserFactory()
+        self.role = Role.objects.first()
+        self.country = Country.objects.first()
+        self.state = State.objects.first()
+        self.job_level = JobLevel.objects.first()
+        self.skills = Skill.objects.all()[:5]
+        self.department = Department.objects.first()
+        self.employment_type = EmploymentType.objects.first()
+        business = BusinessFactory(created_by=user)
+        self.business_user = BusinessUserFactory(business=business, user=user)
+        self.maxDiff = None
+        self.test_data = {
+            "role": str(self.role.uid),
+            "job_description": "We are looking for a Senior Backend Engineer responsible for building scalable APIs.",
+            "country": str(self.country.uid),
+            "state": str(self.state.uid),
+            "job_level": str(self.job_level.uid),
+            "skills": [
+               str(skill.uid) for skill in self.skills
+            ],
+            "department": str(self.department.uid),
+            "employment_type": str(self.employment_type.uid)
+        }
+
+
+    def test_generate_salary_success(self):
+        with patch("jobs.business_views.generate_job_post_salary") as mock_job_post_salary:
+            mock_job_post_salary.return_value = JobSalaryResponseSchema.example()
+            response = self.client.post(self.url,
+                                        json=self.test_data,
+                                        headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+
+            self.assertEqual(response.status_code, 200)
+            expected_response = AIJobSalaryGeneratorResponseSchema.example()
+            self.assertEqual(response.data, expected_response)
+
+

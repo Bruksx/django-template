@@ -3,30 +3,32 @@ from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
 
-from config.permissions import IsBusinessUser
+from accounts.models import Country
+from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
+from accounts.schemas.talent import SkillSchema, AddSkillSchema
+from chats.schemas import ResponseSchema
+from core.models import State, Currency
 from django.db import transaction
 from django.db.models import Q, Count, Exists, Subquery, OuterRef, Case, When, F, Value
 from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from helpers.email.jobs import send_indeed_apply_email
-from helpers.utils import convert_base64_to_image_file, upload_to_s3, delete_s3_item
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
 from ninja import Router, PatchDict, Query, UploadedFile, Form
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
-from services.ai import generate_job_description, JobDescriptionSchema
-from services.job_posting.schema.indeed import IndeedApplicationDataPatch
-
-from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
-from accounts.schemas.talent import SkillSchema, AddSkillSchema
-from chats.schemas import ResponseSchema
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from settings.models import WorkFlowStage
+
+from config.permissions import IsBusinessUser
+from helpers.email.jobs import send_indeed_apply_email
+from helpers.utils import convert_base64_to_image_file, upload_to_s3, delete_s3_item
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
+from services.ai import generate_job_description, generate_job_post_salary, JobSalaryRequestSchema
+from services.job_posting.schema.indeed import IndeedApplicationDataPatch
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from .models import (
@@ -40,7 +42,8 @@ from .schemas import (
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
     TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2, AddRoleSchema,
     PublicJobPostListSchema, PublicJobPostFilterQuerySchema,
-    AIJobDescriptionGeneratorResponseSchema, AIJobDescriptionGeneratorRequestSchema
+    AIJobDescriptionGeneratorResponseSchema, AIJobDescriptionGeneratorRequestSchema, AIJobSalaryGeneratorRequestSchema,
+    AIJobSalaryGeneratorResponseSchema
 )
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, create_job_post_service, \
@@ -841,6 +844,73 @@ def ai_job_description_generator(request, body: AIJobDescriptionGeneratorRequest
         raise HttpError(400, data)
     data.pop("error")
     return data
+
+@router.post("ai/generate-salary", auth=JWTAuth(), response=AIJobSalaryGeneratorResponseSchema)
+def ai_job_salary_generator(request, data: AIJobSalaryGeneratorRequestSchema):
+    IsBusinessUser.check(request)
+
+    role = Role.objects.filter(uid=data.role).select_related("department__industry").first()
+    country = Country.objects.filter(uid=data.country).first()
+    state = State.objects.filter(uid=data.state).first()
+    job_level = JobLevel.objects.filter(uid=data.job_level).first()
+    skills = Skill.objects.filter(uid__in=data.skills).values_list("name", flat=True)
+    department = Department.objects.filter(uid=data.department).select_related("industry").first()
+    employment_type = EmploymentType.objects.filter(uid=data.employment_type).first()
+
+    if not role:
+        raise HttpError(404, "This role does not exist")
+    if not country:
+        raise HttpError(404, "This country does not exist")
+    if not state:
+        raise HttpError(404, "This state does not exist")
+    if not job_level:
+        raise HttpError(404, "This job level does not exist")
+    if not skills:
+        raise HttpError(404, "These skills do not exist")
+    if not department:
+        raise HttpError(404, "This department does not exist")
+    if not employment_type:
+        raise HttpError(404, "This employment type does not exist")
+
+
+
+    ai_response = generate_job_post_salary(
+        data=JobSalaryRequestSchema(
+            job_title=role.name,
+            job_description=data.job_description,
+            location=f"{state.name} {country.name}",
+            experience_level=job_level.name,
+            skills=skills,
+            industry=role.department.industry.name if not department else department.industry.name,
+            employment_type=employment_type.name
+        )
+    )
+    currency = Currency.objects.filter(abbreviation__iexact=ai_response.currency).first()
+
+    return{
+        "salary_options": AIJobSalaryGeneratorResponseSchema.build_salary_options(
+            ai_response.annual_salary_min,
+            ai_response.annual_salary_max,
+            ai_response.hourly_rate_min,
+            ai_response.hourly_rate_max,
+        ),
+        "bonus_salary_options": AIJobSalaryGeneratorResponseSchema.build_salary_options(
+            ai_response.bonus_annual_salary_min,
+            ai_response.bonus_annual_salary_max,
+            ai_response.bonus_hourly_rate_min,
+            ai_response.bonus_hourly_rate_max,
+        ),
+        "currency": {
+            "uid": currency.uid,
+            "name": currency.name,
+        },
+    }
+
+
+
+
+
+
 
 
 
