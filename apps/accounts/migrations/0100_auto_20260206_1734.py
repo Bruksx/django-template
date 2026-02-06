@@ -8,22 +8,22 @@ from accounts.schemas.talent import WorkStructureEnum
 def fix_work_models(apps, schema_editor):
     Talent = apps.get_model("accounts", "Talent")
 
-    invalid_talents = Talent.objects.filter(
-        RawSQL(
+    invalid_talents = Talent.objects.annotate(
+        has_invalid=RawSQL(
             """
             EXISTS (
                 SELECT 1
-                FROM jsonb_array_elements_text(work_structure) AS elem
+                FROM jsonb_array_elements_text(work_models) AS elem
                 WHERE elem NOT IN (%s, %s, %s)
             )
             """,
-            (
-                WorkStructureEnum.REMOTE.value,
-                WorkStructureEnum.HYBRID.value,
-                WorkStructureEnum.IN_OFFICE.value,
-            ),
+            (WorkStructureEnum.REMOTE.value,
+            WorkStructureEnum.HYBRID.value,
+            WorkStructureEnum.IN_OFFICE.value,)
         )
-    )
+        ).filter(
+            has_invalid=True
+        )
 
     for talent in invalid_talents.iterator():
         talent.work_structure = [
