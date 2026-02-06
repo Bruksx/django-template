@@ -27,14 +27,14 @@ def fix_work_models(apps, schema_editor):
 
     for talent in invalid_talents.iterator():
         talent.work_structure = [
-            v for v in talent.work_structure
+            v for v in talent.work_models
             if v in {
                 WorkStructureEnum.REMOTE.value,
                 WorkStructureEnum.HYBRID.value,
                 WorkStructureEnum.IN_OFFICE.value,
             }
         ]
-        talent.save(update_fields=["work_structure"])
+        talent.save(update_fields=["work_models"])
 
 
 class Migration(migrations.Migration):
