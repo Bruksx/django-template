@@ -2,23 +2,22 @@ import uuid
 from datetime import time
 from decimal import Decimal, ROUND_HALF_UP
 from random import choice
+from unittest.mock import patch
 from uuid import uuid4
-
-from django.db import models
-from django.test import TestCase
-from django.utils import timezone
-from future.backports.datetime import timedelta
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import Days
 from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent, \
     EducationLevel, SkillCategory, Experience, TalentAvailableDay
 from core.models import City, State
 from core.models import Currency
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import models
+from django.test import TestCase
+from django.utils import timezone
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
     JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, CountryFactory, ScreeningQuestionFactory, \
     AnswerFactory, CurrencyFactory, ExperienceFactory
+from future.backports.datetime import timedelta
 from jobs.business_views import router
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType, UpdateQuickReviewType
 from jobs.models import (
@@ -26,7 +25,12 @@ from jobs.models import (
     BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage, JobPostTag
 )
 from jobs.queries import add_application_match_score
+from jobs.schemas import AIJobSalaryGeneratorResponseSchema
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
 from settings.models import WorkFlowStage
+
+from services.ai import JobDescriptionSchema, JobSalaryResponseSchema
 
 
 class EmploymentTypeListTests(TestCase):
@@ -2992,4 +2996,91 @@ class QuickReviewAPITests(TestCase):
         response = self.client.get(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 0)
+
+class AIJobDescriptionAPITest(TestCase):
+    def setUp(self):
+        super().setUp()
+        self.client = TestClient(router)
+        self.url =  "ai/generate-description"
+        user = UserFactory()
+        business = BusinessFactory(created_by=user)
+        self.business_user = BusinessUserFactory(business=business, user=user)
+        self.test_data ={"prompt":"test", "file": SimpleUploadedFile("test.txt", b"test")}
+
+
+
+    def test_generate_description_only_prompt(self):
+        with patch("jobs.business_views.generate_job_description") as mock_generate_job_description:
+            self.test_data.pop("file")
+            mock_generate_job_description.return_value = JobDescriptionSchema.example()
+            response = self.client.post(self.url,
+                                        data=self.test_data, format="multipart/form-data",
+                                        headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+            self.assertEqual(response.status_code, 200)
+            expected_response = JobDescriptionSchema.example().dict()
+            expected_response.pop("error")
+            self.assertEqual(response.data, expected_response)
+
+
+    def test_generate_description_without_prompt_or_file(self):
+        response = self.client.post(self.url,
+                                    format="multipart/form-data",
+                                    headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data, {"detail": "Prompt or file is required"})
+
+
+    def test_generate_description_when_generation_error(self):
+        with patch("jobs.business_views.generate_job_description") as mock_generate_job_description:
+            self.test_data.pop("file")
+            mock_generate_job_description.return_value = JobDescriptionSchema.example(with_error=True)
+            response = self.client.post(self.url,
+                                        data=self.test_data, format="multipart/form-data",
+                                        headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.data, {"detail": mock_generate_job_description.return_value.error})
+
+
+
+class AIJobSalaryAPITest(TestCase):
+    def setUp(self):
+        super().setUp()
+        self.client = TestClient(router)
+        self.url =  "ai/generate-salary"
+        user = UserFactory()
+        self.role = Role.objects.first()
+        self.country = Country.objects.first()
+        self.state = State.objects.first()
+        self.job_level = JobLevel.objects.first()
+        self.skills = Skill.objects.all()[:5]
+        self.department = Department.objects.first()
+        self.employment_type = EmploymentType.objects.first()
+        business = BusinessFactory(created_by=user)
+        self.business_user = BusinessUserFactory(business=business, user=user)
+        self.maxDiff = None
+        self.test_data = {
+            "role": str(self.role.uid),
+            "job_description": "We are looking for a Senior Backend Engineer responsible for building scalable APIs.",
+            "country": str(self.country.uid),
+            "state": str(self.state.uid),
+            "job_level": str(self.job_level.uid),
+            "skills": [
+               str(skill.uid) for skill in self.skills
+            ],
+            "department": str(self.department.uid),
+            "employment_type": str(self.employment_type.uid)
+        }
+
+
+    def test_generate_salary_success(self):
+        with patch("jobs.business_views.generate_job_post_salary") as mock_job_post_salary:
+            mock_job_post_salary.return_value = JobSalaryResponseSchema.example()
+            response = self.client.post(self.url,
+                                        json=self.test_data,
+                                        headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+
+            self.assertEqual(response.status_code, 200)
+            expected_response = AIJobSalaryGeneratorResponseSchema.example()
+            self.assertEqual(response.data, expected_response)
+
 
