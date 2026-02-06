@@ -89,7 +89,7 @@ jobs:
             cd /home
             source environment/venv/bin/activate
             cd code/GTC-backend
-            git pull
+            git pull origin2 staging
             pip install -r requirements.txt
             python manage.py migrate
             python manage.py collectstatic --noinput
@@ -116,7 +116,7 @@ jobs:
             cd /home
             source environment/venv/bin/activate
             cd code/GTC-backend
-            git pull
+            git pull origin2 master
             pip install -r requirements.txt
             python manage.py migrate
             python manage.py collectstatic --noinput
