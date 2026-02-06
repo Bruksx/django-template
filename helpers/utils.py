@@ -6,7 +6,8 @@ import re
 import string
 import traceback
 import uuid
-from datetime import time, datetime
+from datetime import timezone, time, datetime
+from html import unescape
 from io import BytesIO
 from sys import getsizeof
 from typing import Optional, List
@@ -511,10 +512,9 @@ def html_to_text(html: str) -> str:
     html = re.sub(r'&gt;', '>', html)
     html = re.sub(r'&quot;', '"', html)
     html = re.sub(r'&#39;', "'", html)
-
     # 6. Normalize whitespace and strip
     lines = [line.strip() for line in html.splitlines()]
-    return '\n'.join([line for line in lines if line])
+    return '\n'.join([unescape(line) for line in lines if line])
 
 def export_rows_to_excel(rows:List[list], headers: list[str], title:str, bold_rows:List[int]=None, background=True):
     from core.models import Exports
