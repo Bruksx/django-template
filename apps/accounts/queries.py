@@ -42,7 +42,7 @@ def add_profile_completion_annotation(queryset:QuerySet[Talent]):
                     Q(Q(user__email__isnull=False) & ~Q(user__email="")) &
                     Q(Q(user__phone_number__isnull=False) & ~Q(user__phone_number="")) &
                     Q(country__isnull=False) &
-                    Q(role___isnull=False) &
+                    Q(role__isnull=False) &
                     Q(cv__isnull=False)
                 ),
                 then=Value(True)

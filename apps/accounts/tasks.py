@@ -29,7 +29,7 @@ def remind_incomplete_profiles_task(batch_size=200):
 
 def send_weekly_report_of_candidates():
     queryset = add_profile_completion_annotation(
-        Talent.objects.all
+        Talent.objects.all()
     )
     completed = queryset.filter(complete_profile=True).count()
     semi_completed = queryset.filter(semi_complete_profile=True).count()
