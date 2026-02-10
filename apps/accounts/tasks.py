@@ -4,6 +4,7 @@ from accounts.models import Talent, User
 from accounts.queries import add_profile_completion_annotation
 from django.utils import timezone
 
+from config import settings
 from helpers.email.accounts import send_incomplete_profile_reminder_email
 from helpers.email.utils import send_email
 
@@ -31,6 +32,8 @@ def remind_incomplete_profiles_task(batch_size=200):
 
 
 def send_weekly_report_of_candidates():
+    if settings.DEBUG is True:
+        return
     last_week = timezone.now() - timedelta(days=7)
     queryset = add_profile_completion_annotation(
         Talent.objects.all()
