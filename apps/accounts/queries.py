@@ -34,37 +34,48 @@ def add_profile_completion_annotation(queryset:QuerySet[Talent]):
         has_employment_types=Exists(
             TalentEmploymentTypes.objects.filter(talent__id=OuterRef("id"))
         ),
-        complete_profile=Case(
+        semi_complete_profile=Case(
             When(
                 Q(
-                    has_education=True,
-                    has_experience=True,
-                    has_employment_types=True
-                ) &
-                Q(
-                    Q(has_availability=True)|Q(flexible_availability=True)
-                ) &
-                Q(
-                    Q(Q(user__first_name__isnull=False) & ~Q(user__first_name=""))&
-                    Q(Q(user__last_name__isnull=False) & ~Q(user__last_name=""))&
+                    Q(Q(user__first_name__isnull=False) & ~Q(user__first_name="")) &
+                    Q(Q(user__last_name__isnull=False) & ~Q(user__last_name="")) &
                     Q(Q(user__email__isnull=False) & ~Q(user__email="")) &
-                    Q(Q(user__phone_number__isnull=False) & ~Q(user__phone_number=""))&
-                    Q(preferred_communication__isnull=False) &
-                    Q(Q(work_models__isnull=False) & ~Q(work_models=[])) &
-                    Q(Q(availability_timezone__isnull=False) & ~Q(availability_timezone="")) &
+                    Q(Q(user__phone_number__isnull=False) & ~Q(user__phone_number="")) &
                     Q(country__isnull=False) &
-                    Q(native_language__isnull=False) &
-                    Q(state__isnull=False) &
-                    Q(Q(postal_code__isnull=False) & ~Q(postal_code="")) &
-                    Q(Q(bio__isnull=False) & ~Q(bio="")) &
-                    Q(linkedin__isnull=False) &
-                    Q(notice_period__isnull=False) &
+                    Q(role__isnull=False) &
                     Q(cv__isnull=False)
                 ),
                 then=Value(True)
             ),
             default=Value(False)
-        )
+        ),
+        complete_profile=Case(
+            When(
+                Q(
+                    semi_complete_profile=True,
+                    has_education=True,
+                    has_experience=True,
+                    has_employment_types=True
+                ) &
+                Q(
+                    Q(has_availability=True) | Q(flexible_availability=True)
+                ) &
+                Q(
+                    Q(preferred_communication__isnull=False) &
+                    Q(Q(work_models__isnull=False) & ~Q(work_models=[])) &
+                    Q(Q(availability_timezone__isnull=False) & ~Q(availability_timezone="")) &
+                    Q(native_language__isnull=False) &
+                    Q(state__isnull=False) &
+                    Q(Q(postal_code__isnull=False) & ~Q(postal_code="")) &
+                    Q(Q(bio__isnull=False) & ~Q(bio="")) &
+                    Q(linkedin__isnull=False) &
+                    Q(notice_period__isnull=False)
+                ),
+                then=Value(True)
+            ),
+            default=Value(False)
+        ),
+
 
     )
 
