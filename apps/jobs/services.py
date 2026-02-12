@@ -6,11 +6,12 @@ from uuid import UUID
 from accounts.models import Skill
 from core.models import Language
 from django.conf import settings
+from django.contrib.postgres.aggregates import StringAgg
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import QuerySet, Window, F, Q, OuterRef, Exists, Count, Case, When, Value, Func, \
     CharField
-from django.db.models.functions import RowNumber, Cast
+from django.db.models.functions import RowNumber, Cast, Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from jobs.enums import PhaseType, JobStatusType, QuestionTypeEnum
@@ -25,6 +26,7 @@ from notification.notifications import send_talents_job_matching_notification
 from openpyxl import Workbook
 from settings.models import WorkFlowStage
 
+from config.settings import FRONTEND_URL
 from helpers.utils import upload_to_s3, upload_to_server, sort_params_function, export_rows_to_excel
 from monkeypatches.q_cluster import async_task
 
@@ -485,7 +487,7 @@ def export_job_posts_excel():
     return export
 
 
-def export_job_posts_to_excel(jobs:QuerySet[Job], background:bool=False):
+def export_job_posts_to_excel2(jobs:QuerySet[Job], background:bool=False):
     title = "Job Posts"
     headers = [
         "UID",
@@ -545,3 +547,116 @@ def export_job_posts_to_excel(jobs:QuerySet[Job], background:bool=False):
         count += 1
 
     return export_rows_to_excel(rows=rows, headers=headers, title=title, bold_rows=bold_rows, background=background)
+
+def export_job_posts_to_excel(filter_query, background:bool=False):
+    job_url = lambda job_post_uid: f"{FRONTEND_URL}jobs-listing/{job_post_uid}"
+    title = "Job Posts"
+    headers = [
+        "Posting ID",
+        "Role",
+        "Date Created (UTC)",
+        "Status (Posted/Paused/Draft/Closed)",
+        "Tags",
+        "Linkedin Tag",
+        "Employment Type",
+        "Hiring Company",
+        "Department",
+        "Work Structure (Remote/Hybrid/Onsite)",
+        "Primary Location",
+        "State Province or Territory",
+        "City",
+        "Postal Code",
+        "Assign Recruiter",
+        "Application",
+        "External Link/ Job Application Link",
+        "Internal Notes"
+
+    ]
+    empty_header = [" " for _ in headers]
+    rows = []
+    job_posts = JobPost.objects.filter(filter_query).select_related("job",
+       "job__role", "job__employment_type", "job__department",
+        "country", "province", "recruiter__user").annotate(
+        applicants=Count("jobapplication"),
+        role=Case(
+            When(job__role__isnull=True, then=Value('')),
+            default="job__role__name"
+        ),
+        recruiter_name=Case(
+            When(recruiter__isnull=True, then=Value("")),
+            default="recruiter__user__fullname",
+        ),
+        date_posted_excel=Case(
+            When(date_posted__isnull=True, then=Value("")),
+            default=Func(
+                'date_posted',
+                function='TO_CHAR',
+                template="TO_CHAR(%(expressions)s, 'DD-MM-YYYY')",
+                output_field=CharField()
+            )
+        ),
+        date_created_excel=Case(
+            When(created_at__isnull=True, then=Value("")),
+            default=Func(
+                'created_at',
+                function='TO_CHAR',
+                template="TO_CHAR(%(expressions)s, 'DD-MM-YYYY HH12:MI AM')",
+                output_field=CharField()
+            )
+        ),
+        tag_names=Coalesce(
+            StringAgg(
+                "tags__name",
+                delimiter=", ",
+                distinct=True,
+            ),
+            Value("", output_field=CharField()),
+            output_field=CharField(),
+        ),
+        linkedin_tag=Case(
+            When(linkedin_tags__len__gt=0, then=Func(
+                F("linkedin_tags"),
+                function="jsonb_array_elements_text",
+                template="(%(expressions)s->>0)",
+                output_field=CharField(),
+            )),
+            default=Value(""),
+            output_field=CharField(),
+        ),
+        employment_type=Case(
+            When(job__employment_type__isnull=True, then=Value('')),
+            default="job__employment_type__name",
+            output_field=CharField(),
+        ),
+        department=Case(
+            When(job__department__isnull=True, then=Value('')),
+            default="job__department__name",
+            output_field=CharField(),
+        ),
+        uid_str=Cast("uid", output_field=CharField())
+
+    ).order_by("job", "-created_at").distinct().values_list("job_id",
+                            "uid_str",
+                             "role",
+                            "date_created_excel",
+                             "status",
+                             "tag_names",
+                             "linkedin_tag",
+                             "employment_type",
+                             "job__hiring_company_name",
+                             "department",
+                             "job__work_structure",
+                             "country__name",
+                             "province__name",
+                             "city",
+                             "postal_code",
+                             "recruiter_name",
+                             "applicants")
+    current_job = None
+    for job_post in job_posts:
+        if current_job is not None and current_job != job_post[0]:
+            rows.append(empty_header)
+        rows.append([*job_post[1:], job_url(job_post[1]), "" ])
+
+
+    return export_rows_to_excel(rows=rows, headers=headers, title=title, background=background)
