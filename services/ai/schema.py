@@ -1,5 +1,6 @@
 from datetime import date
 from typing import List, Optional
+from uuid import UUID
 
 from ninja import Schema
 
@@ -86,37 +87,51 @@ class ParsedTalentProfileSchema(Schema):
 
 
 
+class GenericNameUIDSchema(Schema):
+    name: str
+    uid: UUID
+
+class SkillSchema(GenericNameUIDSchema):
+    category_name: str
+    department_id: int
+
 class JobDescriptionSchema(Schema):
-    job_title: str
+    role: GenericNameUIDSchema
     job_description: str
-    key_responsibilities: List[str]
-    required_qualifications: List[str]
-    preferred_qualifications: List[str]
-    skills: List[str]
-    experience_level: str
+    responsibilities: List[str]
+    skills: List[SkillSchema]
+    job_level: GenericNameUIDSchema
+    additional_skills: List[str]
     error: Optional[str] = None
 
 
     @classmethod
     def example(cls, with_error=False):
+        from accounts.models import Skill
         return cls(
-            job_title='A sample job',
+            role=GenericNameUIDSchema(name="A sample job", uid=UUID(int=1)),
             job_description="A sample job description",
-            key_responsibilities=[
+            responsibilities=[
                 "A sample key responsibility"
             ],
-            required_qualifications=[
-                "A sample required qualification"
-            ],
-            preferred_qualifications=[
-                "A sample preferred qualification"
-            ],
             skills=[
-                "A sample skill"
+                SkillSchema(name=skill.name, uid=skill.uid, category_name=skill.category.name, department_id=skill.department_id)
+               for skill in Skill.objects.all()[:5]
             ],
-            experience_level="A sample experience level",
+            job_level=GenericNameUIDSchema(name="VP of Engineering", uid=UUID(int=5)),
+            additional_skills=[
+                "A sample additional skill"
+            ],
             error=None if not with_error else "A sample error"
         )
+
+    def get_skills(self):
+        from accounts.models import SkillCategory, Department
+        data = {category: [] for category in SkillCategory.objects.values_list("name", flat=True)}
+        for skill in self.skills:
+            department = GenericNameUIDSchema.from_orm(Department.objects.filter(id=skill.department_id).first()).dict()
+            data[skill.category_name].append(dict(name=skill.name, uid=str(skill.uid), department= department))
+        return [{"category": category, "skills": skills} for category, skills in data.items()]
 
 class JobSalaryResponseSchema(Schema):
     hourly_rate_min: float
@@ -151,6 +166,5 @@ class JobSalaryRequestSchema(Schema):
     job_description: str
     location: str
     experience_level: str
-    skills: List[str]
     industry: str
     employment_type: str

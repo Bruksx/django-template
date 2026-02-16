@@ -1,11 +1,10 @@
+from accounts.models import Talent, SkillCategory, Experience, Education, TalentAvailableDay
 from django.db.models import (
     OuterRef, Exists, Case, When, Value, FloatField, Q, F, ExpressionWrapper, Count, Subquery, IntegerField,
     BooleanField, CharField
 )
 from django.db.models.functions import Coalesce, Cast
 from django.db.models.query import QuerySet
-
-from accounts.models import Talent, SkillCategory, Experience, Education, TalentAvailableDay
 from jobs.models import (
     JobPost, RequiredAttribute, RequiredSecondaryLanguage, RequiredSkill, JobApplication, Job, AvailableDay,
 )
@@ -338,7 +337,7 @@ def add_job_post_annotations(queryset: QuerySet[JobPost], talent: Talent) -> Que
             output_field=FloatField()
         ),
         can_apply=Case(
-            When(Q(requires_location=True) & Q(location_score=0.0), then=Value(False)),
+            When(Q(location_score=0.0), then=Value(False)),
             default=Value(True),
             output_field=BooleanField()
         ),
@@ -748,7 +747,7 @@ def add_application_match_score(queryset: QuerySet[JobApplication], job_post:Job
             output_field=FloatField()
         ),
         can_apply=Case(
-            When(Q(requires_location=True) & Q(location_score=0.0), then=Value(False)),
+            When(Q(location_score=0.0), then=Value(False)),
             default=Value(True),
             output_field=BooleanField()
         ),
