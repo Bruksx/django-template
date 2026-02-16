@@ -891,14 +891,22 @@ def ai_job_description_generator(request, body: AIJobDescriptionGeneratorRequest
     if (not data.get("prompt") and not data.get("file_url")) or (data.get("prompt") and data.get("file_url")):
         raise HttpError(400, "Prompt or file is required")
 
-    data = generate_job_description(**data).dict()
+    data = generate_job_description(**data)
+    result = AIJobDescriptionGeneratorResponseSchema(
+        role=GenericNameAndUidSchema(uid=data.role.uid, name=data.role.name) if data.role else None,
+        job_description=data.job_description,
+        responsibilities=f'<ul>{"".join(map(lambda x: f"<li>{x}</li>", data.responsibilities))}</ul>',
+        skills=data.get_skills(),
+        job_level=GenericNameAndUidSchema(uid=data.job_level.uid, name=data.job_level.name) if data.job_level else None,
+        additional_skills=data.additional_skills
+    )
     if url:
         async_task(delete_s3_item, url)
-    if data.get("error"):
-        data = data.pop("error")
+    if data.error:
+        data = data.error
         raise HttpError(400, data)
-    data.pop("error")
-    return data
+    del data
+    return result
 
 @router.post("ai/generate-salary", auth=JWTAuth(), response=AIJobSalaryGeneratorResponseSchema)
 def ai_job_salary_generator(request, data: AIJobSalaryGeneratorRequestSchema):
@@ -908,7 +916,6 @@ def ai_job_salary_generator(request, data: AIJobSalaryGeneratorRequestSchema):
     country = Country.objects.filter(uid=data.country).first()
     state = State.objects.filter(uid=data.state).first()
     job_level = JobLevel.objects.filter(uid=data.job_level).first()
-    skills = Skill.objects.filter(uid__in=data.skills).values_list("name", flat=True)
     department = Department.objects.filter(uid=data.department).select_related("industry").first()
     employment_type = EmploymentType.objects.filter(uid=data.employment_type).first()
 
@@ -920,8 +927,6 @@ def ai_job_salary_generator(request, data: AIJobSalaryGeneratorRequestSchema):
         raise HttpError(404, "This state does not exist")
     if not job_level:
         raise HttpError(404, "This job level does not exist")
-    if not skills:
-        raise HttpError(404, "These skills do not exist")
     if not department:
         raise HttpError(404, "This department does not exist")
     if not employment_type:
@@ -935,7 +940,6 @@ def ai_job_salary_generator(request, data: AIJobSalaryGeneratorRequestSchema):
             job_description=data.job_description,
             location=f"{state.name} {country.name}",
             experience_level=job_level.name,
-            skills=skills,
             industry=role.department.industry.name if not department else department.industry.name,
             employment_type=employment_type.name
         )

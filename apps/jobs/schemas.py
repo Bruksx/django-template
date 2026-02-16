@@ -1743,13 +1743,12 @@ class AIJobDescriptionGeneratorRequestSchema(Schema):
 
 
 class AIJobDescriptionGeneratorResponseSchema(Schema):
-    job_title: str
+    role: GenericNameAndUidSchema
     job_description: str
-    key_responsibilities: List[str]
-    required_qualifications: List[str]
-    preferred_qualifications: List[str]
-    skills: List[str]
-    experience_level: str
+    responsibilities: str
+    skills: List[JobSkillSchema]
+    job_level: Optional[GenericNameAndUidSchema]
+    additional_skills: List[str]
 
 class AIJobSalaryItemSchema(Schema):
     salary_type: str = Field(examples=SalaryType.values())
@@ -1874,6 +1873,5 @@ class AIJobSalaryGeneratorRequestSchema(Schema):
     country: UUID
     state: UUID
     job_level: UUID
-    skills: List[UUID]
     department: UUID
     employment_type: UUID
