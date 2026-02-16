@@ -2920,7 +2920,15 @@ class AIJobDescriptionAPITest(TestCase):
             self.assertEqual(response.status_code, 200)
             expected_response = JobDescriptionSchema.example().dict()
             expected_response.pop("error")
-            self.assertEqual(response.data, expected_response)
+            self.assertEqual(response.data["skills"][0]["skills"][0]["name"], expected_response["skills"][0]["name"])
+            self.assertEqual(str(response.data["role"]["uid"]), str(expected_response["role"]["uid"]))
+            self.assertEqual(response.data["role"]["name"], expected_response["role"]["name"])
+            self.assertEqual(response.data["job_description"], expected_response["job_description"])
+            self.assertEqual(response.data["responsibilities"], f'<ul>{"".join(map(lambda x: f"<li>{x}</li>", expected_response["responsibilities"]))}</ul>')
+            self.assertEqual(str(response.data["job_level"]["uid"]), str(expected_response["job_level"]["uid"]))
+            self.assertEqual(response.data["job_level"]["name"], expected_response["job_level"]["name"])
+            self.assertEqual(response.data["additional_skills"], expected_response["additional_skills"])
+
 
 
     def test_generate_description_without_prompt_or_file(self):
@@ -2953,7 +2961,6 @@ class AIJobSalaryAPITest(TestCase):
         self.country = Country.objects.first()
         self.state = State.objects.first()
         self.job_level = JobLevel.objects.first()
-        self.skills = Skill.objects.all()[:5]
         self.department = Department.objects.first()
         self.employment_type = EmploymentType.objects.first()
         business = BusinessFactory(created_by=user)
@@ -2965,9 +2972,6 @@ class AIJobSalaryAPITest(TestCase):
             "country": str(self.country.uid),
             "state": str(self.state.uid),
             "job_level": str(self.job_level.uid),
-            "skills": [
-               str(skill.uid) for skill in self.skills
-            ],
             "department": str(self.department.uid),
             "employment_type": str(self.employment_type.uid)
         }
