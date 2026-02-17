@@ -48,7 +48,7 @@ def send_weekly_report_of_candidates():
 
     send_email(
         subject="Talent Completion Profile Weekly Report",
-        emails=["bryan@1840andco.com", ],
+        emails=["bryan@1840andco.com", "ohaegbulouis@gmail.com", "Khurshidu@1840andco.com", "emilyph@1840andco.com"],
         plain_body=f"""
 Total Number of Talents Today: {total} \n
 Total Number of Talents Last Week: {total_last_week} \n\n
