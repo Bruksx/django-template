@@ -16,7 +16,7 @@ def add_more_roles(apps, schema_editor):
         if Role.objects.filter(department=department, custom=False).count() >= len(obj["Roles"].split("\n")):
             continue
         for role_name in obj["Roles"].split("\n"):
-            if Role.filter(name__iexact=role_name.strip(), department=department).exists():
+            if Role.objects.filter(name__iexact=role_name.strip(), department=department).exists():
                 continue
             Role.objects.create(name=role_name.strip().title(), department=department)
 
