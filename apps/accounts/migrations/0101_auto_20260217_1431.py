@@ -4,7 +4,7 @@ from accounts.constants import DEPARTMENT_AND_SKILLS
 from django.db import migrations
 
 
-def add_more_roles(apps, schema_editor):
+def add_more_roles_v2(apps, schema_editor):
     Industry = apps.get_model("accounts", "Industry")
     Department = apps.get_model("accounts", "Department")
     Role = apps.get_model("accounts", "Role")
@@ -25,5 +25,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(add_more_roles),
+        migrations.RunPython(add_more_roles_v2),
     ]
