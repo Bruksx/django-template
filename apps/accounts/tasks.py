@@ -41,6 +41,9 @@ def send_weekly_report_of_candidates():
     total = queryset.count()
     total_last_week = queryset.exclude(created_at__gt=last_week).count()
 
+    total_completed = queryset.filter(complete_profile=True).count()
+    total_semi_completed = queryset.filter(semi_complete_profile=True).count()
+    total_incompleted = queryset.filter(semi_complete_profile=False).count()
 
     completed = queryset.filter(complete_profile=True, created_at__gt=last_week).count()
     semi_completed = queryset.filter(semi_complete_profile=True, created_at__gt=last_week).count()
@@ -58,4 +61,22 @@ Number of talents with complete profiles:   {completed}\n
 Number of talents with semi complete profiles:   {semi_completed}\n
 Number of talents with incomplete profiles:    {incompleted}\n
         """
+    )
+
+    send_email(
+        subject="Talent Completion Profile Weekly Report",
+        emails=["ohaegbulouis@gmail.com", "khurshidu@1840andco.com"],
+        plain_body=f"""
+    Total Number of Talents Today: {total} \n
+    Total Number of Talents Last Week: {total_last_week} \n\n
+    Total Number of Talents Completed: {total_completed} \n
+    Total Number of Talents Semi Completed: {total_semi_completed} \n
+    Total Number of Talents Incompleted: {total_incompleted} \n\n
+    
+
+    This Week's Data \n\n
+    Number of talents with complete profiles:   {completed}\n
+    Number of talents with semi complete profiles:   {semi_completed}\n
+    Number of talents with incomplete profiles:    {incompleted}\n
+            """
     )
