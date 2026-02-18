@@ -4,6 +4,7 @@ import os
 import random
 import re
 import string
+import sys
 import traceback
 import uuid
 from datetime import timezone, time, datetime
@@ -123,8 +124,9 @@ def html_to_pdf3(source_html):
         print(f"Error during PDF conversion: {e}")
         return None
 
-@test_env_decorator(True)
 def delete_s3_item(key):
+    if "test" in sys.argv:
+        return True
     from boto3.session import Session
 
     if not settings.USE_AWS_S3:
