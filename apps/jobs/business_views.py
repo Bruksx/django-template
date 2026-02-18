@@ -49,9 +49,10 @@ from .schemas import (
     AIJobSalaryGeneratorResponseSchema
 )
 from .services import (set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
-    update_bulk__job_posts_service, create_job_post_service, \
-    bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
-    get_talents_by_job_posts_service, handle_stage_update, export_job_posts_to_excel, delete_job_post_tags, handle_application_stage, handle_applications_stage)
+                       update_bulk__job_posts_service, create_job_post_service, \
+                       bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
+                       get_talents_by_job_posts_service, handle_stage_update, export_job_posts_to_excel,
+                       delete_job_post_tags, handle_application_stage, handle_applications_stage)
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -886,7 +887,6 @@ def ai_job_description_generator(request, body: AIJobDescriptionGeneratorRequest
         url = upload_to_s3([file], 'AI/job-description-generator')
         if not url:
             raise HttpError(400, "Failed to upload file")
-        url = url[0]
         data["file_url"] = url
     if (not data.get("prompt") and not data.get("file_url")) or (data.get("prompt") and data.get("file_url")):
         raise HttpError(400, "Prompt or file is required")
