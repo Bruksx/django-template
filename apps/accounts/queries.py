@@ -42,7 +42,6 @@ def add_profile_completion_annotation(queryset:QuerySet[Talent]):
                     Q(Q(user__email__isnull=False) & ~Q(user__email="")) &
                     Q(Q(user__phone_number__isnull=False) & ~Q(user__phone_number="")) &
                     Q(country__isnull=False) &
-                    Q(role__isnull=False) &
                     Q(cv__isnull=False)
                 ),
                 then=Value(True)
@@ -66,6 +65,7 @@ def add_profile_completion_annotation(queryset:QuerySet[Talent]):
                     Q(Q(availability_timezone__isnull=False) & ~Q(availability_timezone="")) &
                     Q(native_language__isnull=False) &
                     Q(state__isnull=False) &
+                    Q(role__isnull=False) &
                     Q(Q(postal_code__isnull=False) & ~Q(postal_code="")) &
                     Q(Q(bio__isnull=False) & ~Q(bio="")) &
                     Q(linkedin__isnull=False) &

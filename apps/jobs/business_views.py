@@ -831,7 +831,6 @@ def ai_job_description_generator(request, body: AIJobDescriptionGeneratorRequest
         url = upload_to_s3([file], 'AI/job-description-generator')
         if not url:
             raise HttpError(400, "Failed to upload file")
-        url = url[0]
         data["file_url"] = url
     if (not data.get("prompt") and not data.get("file_url")) or (data.get("prompt") and data.get("file_url")):
         raise HttpError(400, "Prompt or file is required")
