@@ -528,7 +528,7 @@ def job_list(request, page_size=50, page=1, filters: BusinessJobFilterQuerySchem
     context = filters.get_context(context=context)
     request.context = context
     jobpost_filter = Q()
-    export_job_post_filter = Q()
+    export_job_post_filter = Q(job__created_by__business=business_user.business)
 
     if context.get("status"):
         jobpost_filter &= Q(jobpost__status=context["status"])
