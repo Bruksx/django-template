@@ -788,7 +788,7 @@ class SavedJob(BaseModel):
     talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE, null=True)
 
     def __str__(self) -> str:
-        return f"{self.job_post} ({self.user})"
+        return f"{self.job_post} ({self.talent.user})"
 
 
 class JobDraft(BaseModel):

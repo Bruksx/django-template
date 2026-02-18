@@ -1,5 +1,6 @@
 from xml.etree import ElementTree as ET
 
+from django.db.models import Q
 from jobs.enums import JobStatusType
 from jobs.models import JobPost
 
@@ -16,13 +17,21 @@ def generate_job_post_xml()->bytes:
     return ET.tostring(root, encoding="utf-8", method="xml")
 
 
-def generate_job_post_xml_stream():
+def generate_job_post_xml_stream(staffing=False):
     yield '<?xml version="1.0" encoding="UTF-8"?>\n'
     yield '<jobs>\n'
+
+    query = Q(status=JobStatusType.POSTED.value)
+    if staffing is True:
+        query &= Q(country__name__in=["Canada", "United States"])
+    else:
+        query &= ~Q(country__name__in=["Canada", "United States"])
+
 
     queryset = (JobPost.objects
                 .select_related(
                     'job',
+                    'country',
                     'job__employment_type',
                     'job__department',
                     'job__job_level',
@@ -36,10 +45,9 @@ def generate_job_post_xml_stream():
                     'job__skills',
                     'job__availableday_set',
                 )
-                .filter(status=JobStatusType.POSTED.value)
+                .filter(query)
                 .order_by("-refresh_order")
                 .iterator(chunk_size=500)  # DB-level chunking
-
             )
 
 
