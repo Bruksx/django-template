@@ -321,6 +321,21 @@ class SendEmailSchema(Schema):
     subject: str
     body : str
     from_email: str
+    has_placeholder: bool
+    attachment_urls: List[str]
+
+    def get_email_engine(self, context):
+        from settings.services import PersonalEmailEngine
+        return PersonalEmailEngine(
+            emails=self.emails[0].split(','),
+            subject=self.subject,
+            body=self.body,
+            from_email=self.from_email,
+            recruiter=context.get("recruiter"),
+            attachments=context.get("attachments"),
+            attachment_urls=self.attachment_urls[0].split(','),
+            has_placeholder=self.has_placeholder
+        )
 
 class SendBulkChatSchema(Schema):
     talent_uids: List[str] = Field(description="List of talent UIDs")

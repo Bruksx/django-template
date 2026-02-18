@@ -4,19 +4,19 @@ import re
 from datetime import datetime, timedelta
 from typing import List
 
-from accounts.enums import BusinessUserRoleType
-from core.models import BaseModel
 from django.db import models
 from django.db.models import Q, Avg
 from django.template import Context, TemplateSyntaxError
 from django.utils.html import strip_tags
 from django_q.models import Schedule
-from jobs.enums import PhaseType
-from settings.patch import CustomHTMLTemplate as Template
-
 from helpers.email.utils import send_template_email
 from helpers.loggers import Logger, LogSchema
 from monkeypatches.q_cluster import async_task
+
+from accounts.enums import BusinessUserRoleType
+from core.models import BaseModel
+from jobs.enums import PhaseType
+from settings.patch import CustomHTMLTemplate as Template
 
 
 class EmailTemplate(BaseModel):
@@ -127,7 +127,7 @@ class EmailTemplate(BaseModel):
         return True
 
     def in_use(self):
-        return self.workflowstage_set.exists()
+        return not self.personal and self.workflowstage_set.exists()
 
     def can_be_deleted(self, business_user):
         if self.in_use():
@@ -185,7 +185,7 @@ class WorkFlowStage(BaseModel):
             created_by__business=self.created_by.business,
             phase_order__lte=self.phase_order
         ).filter(Q(order__lt=self.order, phase_order=self.phase_order) |
-                 ~Q(phase_order=self.phase_order))
+                 ~Q(phase_order=self.phase_order)).order_by("phase_order", "order")
 
     def previous_stages_after_stage(self, stage):
         """
@@ -209,7 +209,10 @@ class WorkFlowStage(BaseModel):
             created_by__business=self.created_by.business,
             phase_order__gte=self.phase_order
         ).filter(Q(order__gt=self.order, phase_order=self.phase_order) |
-                 ~Q(phase_order=self.phase_order))
+                 ~Q(phase_order=self.phase_order)).order_by("phase_order", "order")
+
+
+
 
     def next_stages_before_stage(self, stage):
         """
