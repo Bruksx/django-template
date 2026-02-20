@@ -38,7 +38,8 @@ sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 SECRET_KEY = os.environ['SECRET_KEY']
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True if os.environ['DEBUG'].lower() == "true" else False
+#DEBUG = True if os.environ['DEBUG'].lower() == "true" else False
+DEBUG = True
 
 ALLOWED_HOSTS = [
     "gtc-staging.1840andco.com",
