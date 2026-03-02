@@ -4,6 +4,7 @@ import os
 import random
 import re
 import string
+import sys
 import traceback
 import uuid
 from datetime import timezone, time, datetime
@@ -23,8 +24,13 @@ from botocore.exceptions import NoCredentialsError
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db.models import QuerySet
+from django.http import HttpResponse
+from django.utils import timezone
 from ninja.errors import HttpError
+from openpyxl import Workbook
+from openpyxl.styles import Font
 
+from helpers.decorators import test_env_decorator
 from helpers.loggers import Logger
 from monkeypatches.response import Response
 
@@ -122,9 +128,11 @@ def html_to_pdf3(source_html):
         print(f"Error during PDF conversion: {e}")
         return None
 
-
 def delete_s3_item(key):
     from boto3.session import Session
+
+    if "test" in sys.argv:
+        return True
 
     if not settings.USE_AWS_S3:
         Logger.info(msg=dict(sender="Helper Utils", title="AWS S3 DELETE Info",
@@ -165,6 +173,8 @@ def delete_s3_item(key):
                               description=f"Failed to delete S3 object {key}: {str(e)}"), exc_info=True)
         raise  # Just 'raise' to preserve stack trace
 
+
+@test_env_decorator(["https://s3.amazonaws.com/ample.jpg"])
 def upload_to_s3(files, folder_name):
     if not settings.USE_AWS_S3:
         return
@@ -508,6 +518,52 @@ def html_to_text(html: str) -> str:
     html = re.sub(r'&gt;', '>', html)
     html = re.sub(r'&quot;', '"', html)
     html = re.sub(r'&#39;', "'", html)
+
     # 6. Normalize whitespace and strip
     lines = [line.strip() for line in html.splitlines()]
     return '\n'.join([unescape(line) for line in lines if line])
+
+def export_rows_to_excel(rows:List[list], headers: list[str], title:str, bold_rows:List[int]=None, background=True):
+    from core.models import Exports
+    wb = Workbook()
+    ws = wb.active
+    ws.title = title
+
+    ws.append(headers)
+    header_length = len(headers)
+    column_widths = {string.ascii_uppercase[i]: 0 for i in range(header_length)}
+    mapper = {i: string.ascii_uppercase[i] for i in range(header_length)}
+    for row in rows:
+        for i, cell in enumerate(row):
+            column_widths[mapper[i]] = max(column_widths[mapper[i]], len(str(cell)))
+        ws.append(row)
+
+    for col, width in column_widths.items():
+        ws.column_dimensions[col].width = width + 3
+
+    if bold_rows:
+        for row in bold_rows:
+            for cell in ws[row]:
+                cell.font = Font(bold=True)
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    timestamp = timezone.now().strftime("%B %d, %Y at %I:%M %p")
+    filename = f"{title.replace(' ', '_').lower()}_{timestamp}.xlsx"
+    if background is True:
+        export = Exports()
+        export.file.save(
+            filename,
+            ContentFile(output.read()),
+            save=True
+        )
+
+        return export.file.url
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    wb.save(response)
+    return response

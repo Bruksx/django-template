@@ -1,19 +1,19 @@
 import string
 from functools import cached_property
 
-from accounts.enums import Days
-from accounts.models import Talent, TalentAvailableDay
-from core.enums import SalaryType
-from core.models import BaseModel, Language
 from django.db import models
 from django.db.models import F, Q, Count, IntegerField, When, Case, Value
 from django.db.models.functions import Coalesce, Now, Extract, Cast
 from django.db.models.signals import pre_save
 from django_softdelete.managers import SoftDeleteManager
-from jobs.managers import JobManager
-from settings.enums import PlaceHolderType
 from timezone_field import TimeZoneField
 
+from accounts.enums import Days
+from accounts.models import Talent, TalentAvailableDay
+from core.enums import SalaryType
+from core.models import BaseModel, Language
+from jobs.managers import JobManager
+from settings.enums import PlaceHolderType
 from .db_functions import Epoch
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
     JobStatusType, ScreeningResultStatusType
@@ -955,3 +955,4 @@ class JobAlert(BaseModel):
 
 class JobPostExport(BaseModel):
     file = models.FileField(upload_to="job-post-export")
+

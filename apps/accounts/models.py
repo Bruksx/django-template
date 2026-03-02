@@ -603,6 +603,29 @@ class Talent(BaseModel):
 
         return True
 
+    def placeholders_mapper(self, placeholder:str, recruiter):
+        from settings.enums import PlaceHolderType
+        if placeholder == PlaceHolderType.YOUR_COMPANY_NAME.value:
+            if not recruiter:
+                return ""
+            return recruiter.business.name
+        elif placeholder == PlaceHolderType.CANDIDATE_FULLNAME.value:
+            return self.user.fullname
+        elif placeholder == PlaceHolderType.CANDIDATE_FIRST_NAME.value:
+            return self.user.first_name
+        elif placeholder == PlaceHolderType.YOUR_FIRST_NAME.value:
+            if not recruiter:
+                return ""
+            return recruiter.user.first_name
+        elif placeholder == PlaceHolderType.CANDIDATE_PHONE_NUMBER.value:
+            return self.user.get_phone()
+        elif placeholder == PlaceHolderType.YOUR_FULL_NAME.value:
+            if not recruiter:
+                return ""
+            return recruiter.user.fullname
+        else:
+            return ""
+
     def get_role(self):
         if self.role:
             return self.role
