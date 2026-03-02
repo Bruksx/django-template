@@ -50,7 +50,6 @@ class MutateEducationSchema(ModelSchema):
 class MutateExperienceSchema(ModelSchema):
     role: UUID
     uid: Optional[UUID] = None
-    operating_system: Optional[TechnologicalRequirementsEnum] = None
     # salary_bonus_currency: UUID
     # salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
     # salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
@@ -64,7 +63,6 @@ class MutateExperienceSchema(ModelSchema):
 class ExperienceSchema(ModelSchema):
     role: Optional[RoleSchema]
     level: Optional[JobLevelSchema]
-    operating_system: Optional[TechnologicalRequirementsEnum]
     # employment_type: EmploymentTypeSchema
     # salary_currency: Optional[CurrencySchema]
     # salary_bonus_currency: Optional[CurrencySchema]
@@ -113,6 +111,7 @@ class UpdateTalentProfileSchema2(ModelSchema):
     last_name: Optional[str] = None
     preferred_communication: Optional[PreferredCommunicationType|str] = None
     phone_code: Optional[str] = None
+    operating_system: Optional[TechnologicalRequirementsEnum] = None
     phone_number: Optional[str] = None
     country: Optional[UUID] = None
     state: Optional[UUID] = None
@@ -185,6 +184,7 @@ class TalentUserSchema(ModelSchema):
     employment_types: Optional[List[EmploymentTypeSchema]]
     work_models: Optional[List[WorkStructureEnum]]
     skills: List[TalentSkillSchema]
+    operating_system: Optional[TechnologicalRequirementsEnum]
     business_models: List[BusinessModelSchema]
     experience_history: List[ExperienceSchema]
     education_history: List[EducationSchema]
