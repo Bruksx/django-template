@@ -155,6 +155,8 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
         user_data["first_name"] = data.pop("first_name", None)
     if "last_name" in data:
         user_data["last_name"] = data.pop("last_name", None)
+    if "operating_system" in data:
+        data["operating_system"] = data["operating_system"].value if type(data["operating_system"]) is not str else data["operating_system"]
     if "gender" in data:
         user_data["gender"] = data.pop("gender", None)
     if "photo" in data:
@@ -182,10 +184,6 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
             currently_works = experience.get("currently_works_here", False)
             start_date = experience.get("start_date", None)
             end_date = experience.get("end_date", None)
-            if experience.get("operating_system"):
-                experience["operating_system"] = experience["operating_system"].value if type(experience["operating_system"]) is not str else experience[
-                    "operating_system"
-                ]
             if experience.get("salary_type"):
                 experience["salary_type"] = experience["salary_type"].value if type(experience["salary_type"]) is not str else experience[
                     "salary_type"]
