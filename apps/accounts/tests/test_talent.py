@@ -163,6 +163,7 @@ class UpdateTalentProfileTests(TestCase):
           "instagram": "johndoe_official",
           "linkedin": "john-doe-123",
           "facebook": "john.doe.123",
+          "operating_system": TechnologicalRequirementsEnum.MACBOOK.value,
           "twitter_x": "johndoe",
           "native_language": str(self.native_language.uid),
           "additional_languages": [str(language.uid) for language in self.additional_languages],
@@ -189,7 +190,6 @@ class UpdateTalentProfileTests(TestCase):
               "salary_bonus": 15000,
               "start_date": "2022-01-15",
               "end_date": "2024-12-31",
-              "operating_system": TechnologicalRequirementsEnum.MACBOOK.value,
               "currently_works_here": False
             }
           ],
