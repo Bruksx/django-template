@@ -235,6 +235,7 @@ class Talent(BaseModel):
     linkedin = models.URLField(null=True)
     facebook = models.URLField(null=True)
     twitter_x = models.URLField(null=True)
+    operating_system = models.CharField(max_length=100, null=True, choices=TechnologicalRequirementsEnum.choices())
     cv = models.FileField(upload_to="cvs", null=True)
     photo = models.ImageField(upload_to="talents", null=True)
     notice_period_type = models.CharField(max_length=50, choices=NoticePeriodType.choices(),
@@ -1265,7 +1266,6 @@ class Experience(BaseModel):
     start_date = models.DateField(null=True)
     end_date = models.DateField(null=True, default=None)
     currently_works_here = models.BooleanField()
-    operating_system = models.CharField(max_length=100, null=True, choices=TechnologicalRequirementsEnum.choices())
 
     def duration(self):
         end_date = self.end_date if self.end_date else timezone.now().date()
