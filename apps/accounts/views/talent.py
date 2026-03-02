@@ -182,6 +182,10 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
             currently_works = experience.get("currently_works_here", False)
             start_date = experience.get("start_date", None)
             end_date = experience.get("end_date", None)
+            if experience.get("operating_system"):
+                experience["operating_system"] = experience["operating_system"].value if type(experience["operating_system"]) is not str else experience[
+                    "operating_system"
+                ]
             if experience.get("salary_type"):
                 experience["salary_type"] = experience["salary_type"].value if type(experience["salary_type"]) is not str else experience[
                     "salary_type"]
