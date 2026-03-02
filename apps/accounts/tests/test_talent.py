@@ -14,7 +14,7 @@ from django.test import TestCase
 from factories import WorkflowStageFactory, TalentFactory, BusinessUserFactory, CountryFactory, IndustryFactory, \
     LanguageFactory, EducationFactory, EducationLevelFactory, RoleFactory, ExperienceFactory, SkillFactory, \
     BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory
-from jobs.enums import LunchBreakEnum, PhaseType, JobStatusType
+from jobs.enums import LunchBreakEnum, PhaseType, JobStatusType, TechnologicalRequirementsEnum
 from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, AvailableDay, \
     JobApplication, JobInterview
 from ninja.testing import TestClient
@@ -189,6 +189,7 @@ class UpdateTalentProfileTests(TestCase):
               "salary_bonus": 15000,
               "start_date": "2022-01-15",
               "end_date": "2024-12-31",
+              "operating_system": TechnologicalRequirementsEnum.MACBOOK.value,
               "currently_works_here": False
             }
           ],

@@ -22,7 +22,8 @@ from django.db.models.functions import Concat, Cast, Round
 from django.db.models.signals import pre_save
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum, \
+    TechnologicalRequirementsEnum
 from ninja_jwt.tokens import RefreshToken
 from notification.enums import NotificationGroup
 from timezone_field import TimeZoneField
@@ -1241,6 +1242,7 @@ class Experience(BaseModel):
     start_date = models.DateField(null=True)
     end_date = models.DateField(null=True, default=None)
     currently_works_here = models.BooleanField()
+    operating_system = models.CharField(max_length=100, null=True, choices=TechnologicalRequirementsEnum.choices())
 
     def duration(self):
         end_date = self.end_date if self.end_date else timezone.now().date()

@@ -10,7 +10,7 @@ from core.enums import SalaryType
 from core.schemas import GenericNameAndUidSchema
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema, \
     EducationLevelSchema, CountrySchema
-from jobs.enums import WorkStructureEnum
+from jobs.enums import WorkStructureEnum, TechnologicalRequirementsEnum
 from jobs.schemas import JobLevelSchema, EmploymentTypeSchema, BusinessModelSchema
 from ninja import Schema, ModelSchema, PatchDict
 from pydantic import Field, EmailStr
@@ -50,6 +50,7 @@ class MutateEducationSchema(ModelSchema):
 class MutateExperienceSchema(ModelSchema):
     role: UUID
     uid: Optional[UUID] = None
+    operating_system: Optional[TechnologicalRequirementsEnum] = None
     # salary_bonus_currency: UUID
     # salary_bonus_type: Optional[SalaryType] = SalaryType.ANNUALLY
     # salary_type: Optional[SalaryType] = SalaryType.ANNUALLY
@@ -63,6 +64,7 @@ class MutateExperienceSchema(ModelSchema):
 class ExperienceSchema(ModelSchema):
     role: Optional[RoleSchema]
     level: Optional[JobLevelSchema]
+    operating_system: Optional[TechnologicalRequirementsEnum]
     # employment_type: EmploymentTypeSchema
     # salary_currency: Optional[CurrencySchema]
     # salary_bonus_currency: Optional[CurrencySchema]
