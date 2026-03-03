@@ -1340,7 +1340,7 @@ class TalentJobFilterSchema(Schema):
             Job post queryset
         """
         from jobs.services import order_job_posts
-        if not queryset:
+        if queryset is None:
             queryset = JobPost.objects.select_related("job", "country").all()
         if self.search:
             queryset = queryset.filter(job__role__name__icontains=self.search)
@@ -1446,7 +1446,7 @@ class BusinessJobFilterSchema(Schema):
         Returns:
             Job post queryset
         """
-        if not queryset:
+        if queryset is None:
             queryset = Job.objects.prefetch_related("jobpost_set").annotate(jobpost_count=Count('jobpost')).filter(
                 jobpost_count__gt=0)
         if self.search:
@@ -1567,7 +1567,7 @@ class PublicJobPostFilterSchema(Schema):
         Returns:
             Job post queryset
         """
-        if not queryset:
+        if queryset is None:
             queryset = JobPost.objects.select_related('job','country','province', 'job__employment_type', 'job__role').filter(status=JobStatusType.POSTED.value)
         if self.search:
             queryset = queryset.filter(job__role__name__icontains=self.search)
