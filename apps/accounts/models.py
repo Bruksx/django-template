@@ -22,7 +22,8 @@ from django.db.models.functions import Concat, Cast, Round
 from django.db.models.signals import pre_save
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum, \
+    TechnologicalRequirementsEnum
 from ninja_jwt.tokens import RefreshToken
 from notification.enums import NotificationGroup
 from timezone_field import TimeZoneField
@@ -234,6 +235,7 @@ class Talent(BaseModel):
     linkedin = models.URLField(null=True)
     facebook = models.URLField(null=True)
     twitter_x = models.URLField(null=True)
+    operating_system = models.CharField(max_length=100, null=True, choices=TechnologicalRequirementsEnum.choices())
     cv = models.FileField(upload_to="cvs", null=True)
     photo = models.ImageField(upload_to="talents", null=True)
     notice_period_type = models.CharField(max_length=50, choices=NoticePeriodType.choices(),
@@ -601,6 +603,29 @@ class Talent(BaseModel):
                 return False
 
         return True
+
+    def placeholders_mapper(self, placeholder:str, recruiter):
+        from settings.enums import PlaceHolderType
+        if placeholder == PlaceHolderType.YOUR_COMPANY_NAME.value:
+            if not recruiter:
+                return ""
+            return recruiter.business.name
+        elif placeholder == PlaceHolderType.CANDIDATE_FULLNAME.value:
+            return self.user.fullname
+        elif placeholder == PlaceHolderType.CANDIDATE_FIRST_NAME.value:
+            return self.user.first_name
+        elif placeholder == PlaceHolderType.YOUR_FIRST_NAME.value:
+            if not recruiter:
+                return ""
+            return recruiter.user.first_name
+        elif placeholder == PlaceHolderType.CANDIDATE_PHONE_NUMBER.value:
+            return self.user.get_phone()
+        elif placeholder == PlaceHolderType.YOUR_FULL_NAME.value:
+            if not recruiter:
+                return ""
+            return recruiter.user.fullname
+        else:
+            return ""
 
     def get_role(self):
         if self.role:
