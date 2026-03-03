@@ -424,7 +424,7 @@ def delete_business_user(request, business_user_uid):
     created_jobs = Job.objects.filter(created_by=staff_user)
     business_user = BusinessUser.objects.filter(business=business).exclude(id=staff_user.id).order_by("?").first()
     if not business_user and (created_jobs.exists()):
-        raise HttpError(403, "This user has created some jobs/job posts and cannot be deleted")
+        raise HttpError(403, "This user has created some jobs and cannot be deleted")
     created_jobs.update(created_by=business_user)
     staff_user.user.delete_account()
     return Response(status=201, data={"message": "User updated successfully"})
