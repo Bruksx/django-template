@@ -261,6 +261,7 @@ class Job(BaseModel):
         except Exception as e:
             Logger.critical(LogSchema(title="Workflow stage data error", sender="job.workflow_stage_data",
                                       description=str(e), data=dict()).__dict__)
+            return []
 
 
 class JobPost(BaseModel):
@@ -438,6 +439,7 @@ class JobPost(BaseModel):
         except Exception as e:
             Logger.critical(LogSchema(title="Workflow stage data error", sender="jobpost.workflow_stage_data",
                                       description=str(e), data=dict()).__dict__)
+            return []
 
     def view(self):
         metric, _ = JobPostMetrics.objects.get_or_create(job_post=self)
