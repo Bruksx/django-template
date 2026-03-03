@@ -4,6 +4,8 @@ from typing import Optional, Any
 from attr import dataclass
 from django.db.backends.base.base import logger
 
+from helpers.email.utils import send_email
+
 
 class LogType(Enum):
     CRITICAL = 50
@@ -31,6 +33,12 @@ class Logger:
             msg = LogSchema(**msg)
             # we can do whatever here to handle the log.
             # For example: we can send the log to a file or a database
+            send_email(f'Error - {msg.title}', ["ohaegbulouis@gmail.com"],
+                       f"""
+Sender: {msg.sender}
+Data: {msg.data}
+Description: {msg.description}
+""")
             return logger.log(log_type.value, f"{cls.name} ({log_type.name}): {msg.__dict__}", *args, **kwargs)
         except TypeError as e:
             cls.critical(dict(
