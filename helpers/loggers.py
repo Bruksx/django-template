@@ -4,8 +4,6 @@ from typing import Optional, Any
 from attr import dataclass
 from django.db.backends.base.base import logger
 
-from helpers.email.utils import send_email
-
 
 class LogType(Enum):
     CRITICAL = 50
@@ -28,6 +26,7 @@ class Logger:
 
     @classmethod
     def __execute_function(cls, log_type:LogType, msg:dict,  *args, **kwargs):
+        from helpers.email.utils import send_email
         try:
 
             msg = LogSchema(**msg)
