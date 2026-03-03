@@ -415,12 +415,17 @@ def delete_business_user(request, business_user_uid):
                 JobPost.objects.filter(
                     job__pk=OuterRef("pk"), recruiter=staff_user
                 )
-            )
+            ),
         ).filter(
             is_recruiter=True
     ).exists()
     if has_jobs and staff_user.status != BusinessUserStatusType.PENDING.value:
         raise HttpError(403, "Not Allowed! Please reassign all jobs allocated to this user before proceeding with deletion")
+    created_jobs = Job.objects.filter(created_by=staff_user)
+    business_user = BusinessUser.objects.filter(business=business).exclude(id=staff_user.id).order_by("?").first()
+    if not business_user and (created_jobs.exists()):
+        raise HttpError(403, "This user has created some jobs/job posts and cannot be deleted")
+    created_jobs.update(created_by=business_user)
     staff_user.user.delete_account()
     return Response(status=201, data={"message": "User updated successfully"})
 
