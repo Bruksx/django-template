@@ -56,3 +56,7 @@ class ActionType(BaseEnum):
 class ScreeningResultStatusType(BaseEnum):
     PASS = "Pass"
     FAIL =  "Fail"
+
+class UpdateQuickReviewType(BaseEnum):
+    ADVANCE = "advance"
+    REJECT = "reject"
