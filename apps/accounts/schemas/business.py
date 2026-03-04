@@ -332,8 +332,8 @@ class SendEmailSchema(Schema):
             body=self.body,
             from_email=self.from_email,
             recruiter=context.get("recruiter"),
-            attachments=context.get("attachments", list()),
-            attachment_urls=self.attachment_urls[0].split(','),
+            attachments=context.get("attachments"),
+            attachment_urls=self.attachment_urls[0].split(',') if self.attachment_urls else list(),
             has_placeholder=self.has_placeholder
         )
 
