@@ -59,8 +59,6 @@ class PersonalEmailEngine:
             context = {converter(placeholder): talent.placeholders_mapper(placeholder, recruiter) for placeholder in
                        placeholders}
 
-            EmailTemplate.send_email(context=context, to=emails, sender=from_email)
-
             subject = EmailTemplate.convert_to_template(str(subject), is_html=True).render(Context(context))
             message = EmailTemplate.convert_to_template(str(body), is_html=True).render(Context(context))
 
