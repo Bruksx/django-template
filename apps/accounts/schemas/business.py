@@ -321,7 +321,7 @@ class SendEmailSchema(Schema):
     subject: str
     body : str
     from_email: str
-    has_placeholder: bool
+    placeholders: Optional[List[str]] = None
     attachment_urls: Optional[List[str]] = None
 
     def get_email_engine(self, context):
@@ -333,8 +333,8 @@ class SendEmailSchema(Schema):
             from_email=self.from_email,
             recruiter=context.get("recruiter"),
             attachments=context.get("attachments"),
-            attachment_urls=self.attachment_urls[0].split(',') if self.attachment_urls else list(),
-            has_placeholder=self.has_placeholder
+            placeholders=self.placeholders[0].split(",") if self.placeholders else list(),
+            attachment_urls=self.attachment_urls[0].split(',') if self.attachment_urls else list()
         )
 
 class SendBulkChatSchema(Schema):
