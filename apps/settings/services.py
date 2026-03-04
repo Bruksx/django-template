@@ -23,7 +23,7 @@ class PersonalEmailEngine:
     attachment_urls: Optional[List[str]] = None
 
     def send(self):
-        if not self.has_placeholder:
+        if self.has_placeholder is False:
             self.send_bulk_email()
             return
         attachments = [attachment.file.url for attachment in EmailTemplate.emailtemplateattachment_set.all()]
