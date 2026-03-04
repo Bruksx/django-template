@@ -331,9 +331,6 @@ class SendEmailSchema(Schema):
         urls = self.attachment_urls[0] if self.attachment_urls else None
         urls = urls.split(",") if urls else list()
 
-        if urls:
-            urls = urls.split(",")
-
         return PersonalEmailEngine(
             emails=self.emails[0].split(','),
             subject=self.subject,
