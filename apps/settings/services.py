@@ -1,6 +1,5 @@
 import dataclasses
 import html
-from sys import exc_info
 from typing import List, Optional
 
 from accounts.models import Talent, BusinessUser
@@ -16,7 +15,7 @@ from monkeypatches.q_cluster import async_task
 @dataclasses.dataclass
 class PersonalEmailEngine:
     emails: List[str]
-    has_placeholder: bool
+    placeholders: List[str]
     recruiter: BusinessUser  #UUID
     from_email: Optional[str] = None
     subject: Optional[str] = None
@@ -25,7 +24,7 @@ class PersonalEmailEngine:
     attachment_urls: Optional[List[str]] = None
 
     def send(self):
-        if self.has_placeholder is False:
+        if self.placeholders:
             self.send_bulk_email()
             return
         for email in self.emails:
@@ -39,6 +38,7 @@ class PersonalEmailEngine:
                        body=self.body,
                        recruiter=self.recruiter,
                        talent=talent,
+                       placeholders=self.placeholders,
                        template_attachments=self.attachment_urls,
                        attachments=self.attachments
             )
@@ -52,12 +52,12 @@ class PersonalEmailEngine:
         return
 
     @staticmethod
-    def send_individual_email(from_email, emails, subject, body, recruiter: BusinessUser, talent: Talent, template_attachments: List[str]=None, attachments: list=None):
+    def send_individual_email(from_email, emails, subject, body, recruiter: BusinessUser, talent: Talent, placeholders:List[str]=None, template_attachments: List[str]=None, attachments: list=None):
         data = dict()
         try:
             converter = EmailTemplate.convert_placeholder_to_key
             context = {converter(placeholder): talent.placeholders_mapper(placeholder, recruiter) for placeholder in
-                       EmailTemplate.placeholder}
+                       placeholders}
 
             EmailTemplate.send_email(context=context, to=emails, sender=from_email)
 
