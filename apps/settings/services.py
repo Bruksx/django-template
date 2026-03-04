@@ -26,7 +26,6 @@ class PersonalEmailEngine:
         if self.has_placeholder is False:
             self.send_bulk_email()
             return
-        attachments = [attachment.file.url for attachment in EmailTemplate.emailtemplateattachment_set.all()]
         for email in self.emails:
             talent = Talent.objects.filter(user__email=email).first()
             if not talent:
@@ -38,7 +37,7 @@ class PersonalEmailEngine:
                        body=self.body,
                        recruiter=self.recruiter,
                        talent=talent,
-                       template_attachments=attachments,
+                       template_attachments=self.attachment_urls,
                        attachments=self.attachments
             )
 
