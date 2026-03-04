@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from html import unescape
 from typing import Optional
-from urllib.parse import quote_plus
 from xml.sax.saxutils import escape
 
 from core.enums import SalaryType
@@ -20,7 +19,7 @@ from helpers.utils import alert_bug_via_email, html_to_text
 BASE_FRONTEND_URL = settings.FRONTEND_URL
 BASE_BACKEND_URL = settings.BACKEND_URL
 
-JOB_POST_URL = lambda job_post_uid: f"{BASE_FRONTEND_URL}jobs-listing/{job_post_uid}"
+JOB_POST_URL = lambda job_post_uid: f"{BASE_FRONTEND_URL}jobs-listing/{job_post_uid}?source=Indeed"
 
 SCREENING_QUESTIONS_URL = lambda job_uid: f"{BASE_BACKEND_URL}/business/jobs/{job_uid}/indeed/screener-questions"
 INDEED_EMAIL = settings.INDEED_EMAIL
@@ -55,11 +54,7 @@ class JobBase:
     apijobid: Optional[str] = None
     location: Optional[str] =   None
 
-
-
-
     def get_indeed_apply_data(self):
-
         data = dict(
             indeed_apply_apiToken=INDEED_APPLY_API_TOKEN,
             indeed_apply_jobTitle=self.title,
@@ -69,16 +64,18 @@ class JobBase:
             indeed_apply_jobUrl=self.url,
             indeed_apply_postUrl=INDEED_APPLY_POST_URL(self.apijobid)
         )
+
         params = []
 
         for key, value in data.items():
             if value is None:
                 value = ""
             key = key.replace('_', '-')
-            encoded_value = quote_plus(str(value))  # URL encode the value
-            params.append(f"{key}={encoded_value}")
+            params.append(f"{key}={value}")  # NO escaping
 
         return "&".join(params)
+
+
 
     @staticmethod
     def _build_description(job_post: JobPost, job: Job) -> str:
@@ -402,7 +399,7 @@ class JobBase:
             )
 
     @staticmethod
-    def add_element(parent, tag: str, text: str, escape_text: bool = False):
+    def add_element(parent, tag: str, text: str, escape_text: bool = False, omit_cdata: bool = False):
         el = SubElement(parent, tag)
         if text and str(text).strip():
             content = str(text).strip()
@@ -410,7 +407,10 @@ class JobBase:
                 content = unescape(content)
         else:
             content = ""
-        el.text = f"<![CDATA[{content}]]>"
+        if omit_cdata is True:
+            el.text = content
+        else:
+            el.text = f"<![CDATA[{content}]]>"
 
     def to_xml(self):
         job_el = Element( "job")

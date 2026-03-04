@@ -1,19 +1,22 @@
 import string
 from functools import cached_property
 
-from accounts.enums import Days
-from accounts.models import Talent, TalentAvailableDay
-from core.enums import SalaryType
-from core.models import BaseModel, Language
 from django.db import models
 from django.db.models import F, Q, Count, IntegerField, When, Case, Value
 from django.db.models.functions import Coalesce, Now, Extract, Cast
 from django.db.models.signals import pre_save
 from django_softdelete.managers import SoftDeleteManager
+from timezone_field import TimeZoneField
+
+from accounts.enums import Days
+from accounts.models import Talent, TalentAvailableDay
+from core.enums import SalaryType
+from core.models import BaseModel, Language
 from jobs.managers import JobManager
 from settings.enums import PlaceHolderType
 from timezone_field import TimeZoneField
 
+from helpers.loggers import Logger, LogSchema
 from .db_functions import Epoch
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
     JobStatusType, ScreeningResultStatusType
@@ -250,10 +253,15 @@ class Job(BaseModel):
     def workflow_stage_data(self):
         from settings.models import WorkFlowStage
         business = self.created_by.business
-        return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
-                annotate(applications=Count('jobapplication', filter=Q(jobapplication__job_post__job=self, jobapplication__deleted_at__isnull=True),
-                                            distinct=True)).order_by('phase_order', 'order')
-                .values("uid", "phase", "name", "applications"))
+        try:
+            return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
+                    annotate(applications=Count('jobapplication', filter=Q(jobapplication__job_post__job=self, jobapplication__deleted_at__isnull=True),
+                                                distinct=True)).order_by('phase_order', 'order')
+                    .values("uid", "phase", "name", "applications"))
+        except Exception as e:
+            Logger.critical(LogSchema(title="Workflow stage data error", sender="job.workflow_stage_data",
+                                      description=str(e), data=dict()).__dict__)
+            return []
 
 
 class JobPost(BaseModel):
@@ -421,12 +429,17 @@ class JobPost(BaseModel):
 
     def workflow_stage_data(self):
         from settings.models import WorkFlowStage
-        business = self.job.created_by.business
-        return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
-                annotate(applications=Count("jobapplication", filter=Q(jobapplication__job_post=self, jobapplication__deleted_at__isnull=True),
-                                            distinct=True)).order_by('phase_order', 'order')
-                .values("uid", "phase", "name", "applications")
-                )
+        try:
+            business = self.job.created_by.business
+            return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
+                    annotate(applications=Count("jobapplication", filter=Q(jobapplication__job_post=self, jobapplication__deleted_at__isnull=True),
+                                                distinct=True)).order_by('phase_order', 'order')
+                    .values("uid", "phase", "name", "applications")
+                    )
+        except Exception as e:
+            Logger.critical(LogSchema(title="Workflow stage data error", sender="jobpost.workflow_stage_data",
+                                      description=str(e), data=dict()).__dict__)
+            return []
 
     def view(self):
         metric, _ = JobPostMetrics.objects.get_or_create(job_post=self)
@@ -788,7 +801,7 @@ class SavedJob(BaseModel):
     talent = models.ForeignKey("accounts.Talent", on_delete=models.CASCADE, null=True)
 
     def __str__(self) -> str:
-        return f"{self.job_post} ({self.user})"
+        return f"{self.job_post} ({self.talent.user})"
 
 
 class JobDraft(BaseModel):
@@ -955,3 +968,4 @@ class JobAlert(BaseModel):
 
 class JobPostExport(BaseModel):
     file = models.FileField(upload_to="job-post-export")
+
