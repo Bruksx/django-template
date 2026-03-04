@@ -20,7 +20,6 @@ from notification import notifications
 from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
 from helpers.email.auth import send_verification_code
-from helpers.email.utils import send_email
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
@@ -470,9 +469,13 @@ def get_business_industries(request):
 
 @router.post("email-talents", auth=JWTAuth())
 def send_email_to_talents(request, data:SendEmailSchema=Form(), attachments: List[UploadedFile]=None):
+    from settings.models import EmailTemplate
     IsBusinessUser.check(request)
-    async_task(send_email, subject=data.subject, emails=data.emails[0].split(","), plain_body=data.body, attachments=attachments,
-               from_user=data.from_email)
+    recruiter = request.user.businessuser
+    data.get_email_engine(context=dict(
+        recruiter=recruiter,
+        attachments=attachments
+    )).send()
     return Response(status=200, data={"message": "Email sent successfully"})
 
 @router.post("message-talents", auth=JWTAuth())
