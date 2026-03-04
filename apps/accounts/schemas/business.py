@@ -322,7 +322,7 @@ class SendEmailSchema(Schema):
     body : str
     from_email: str
     has_placeholder: bool
-    attachment_urls: List[str]
+    attachment_urls: Optional[List[str]] = None
 
     def get_email_engine(self, context):
         from settings.services import PersonalEmailEngine
@@ -332,7 +332,7 @@ class SendEmailSchema(Schema):
             body=self.body,
             from_email=self.from_email,
             recruiter=context.get("recruiter"),
-            attachments=context.get("attachments"),
+            attachments=context.get("attachments", list()),
             attachment_urls=self.attachment_urls[0].split(','),
             has_placeholder=self.has_placeholder
         )
