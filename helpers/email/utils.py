@@ -57,7 +57,7 @@ def batch_send(func, **kwargs):
 
 
 def send_actual_email(subject:str, emails:List[str], html_body:str = None, plain_body:str=None,
-               attachments:list=None, from_user:str=None, retries=3):
+               attachments:list=None, from_user:str=None,attachment_urls:List[str]=None, retries=3):
     for retry in range(retries):
         try:
             body = plain_body or strip_tags(html_body)
@@ -72,6 +72,11 @@ def send_actual_email(subject:str, emails:List[str], html_body:str = None, plain
             if attachments:
                 for attachment in attachments:
                     email.attach(attachment.name, attachment.read(), attachment.content_type)
+            if attachment_urls:
+                for url in attachment_urls:
+                    response = requests.get(url)
+                    response.raise_for_status()
+                    email.attach(f"{url.split('/')[-1]}", response.content, mimetype=response.headers['Content-Type'])
             email.send(fail_silently=False)
             return
         except Exception as e:
@@ -84,7 +89,7 @@ def send_actual_email(subject:str, emails:List[str], html_body:str = None, plain
 
 
 def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_body:str=None,
-               attachments:list=None, from_user:str=None):
+               attachments:list=None, from_user:str=None, attachment_urls:List[str]=None):
     if "test" in sys.argv:
         return
     correct_emails = list()
@@ -106,12 +111,13 @@ def send_email(subject:str, emails:List[EmailStr], html_body:str = None, plain_b
             else:
                 from_user = f"{user} from {company}"
 
-    batch_send(send_actual_email, subject=subject, emails=emails, html_body=html_body, plain_body=plain_body, attachments=attachments, from_user=from_user)
+    batch_send(send_actual_email, subject=subject, emails=emails, html_body=html_body, plain_body=plain_body,
+               attachments=attachments, attachment_urls=attachment_urls,from_user=from_user)
 
 
 
 def send_actual_template_email(subject:str, body:str, emails:List[str], from_user:str, attachment_urls:List[str]=None,
-                        bcc:List[str]=None, cc:List[str]=None, html_content:str=None, retries=3):
+                        bcc:List[str]=None, cc:List[str]=None, html_content:str=None, attachments:list=None, retries=3):
     for retry in range(retries):
         try:
             email = EmailMultiAlternatives(
@@ -129,6 +135,10 @@ def send_actual_template_email(subject:str, body:str, emails:List[str], from_use
                     response = requests.get(url)
                     response.raise_for_status()
                     email.attach(f"{url.split('/')[-1]}", response.content, mimetype=response.headers['Content-Type'])
+
+            if attachments:
+                for attachment in attachments:
+                    email.attach(attachment.name, attachment.read(), attachment.content_type)
             email.attach_alternative(html_content, "text/html")
             email.send(fail_silently=False)
             return
@@ -142,7 +152,7 @@ def send_actual_template_email(subject:str, body:str, emails:List[str], from_use
 
 
 def send_template_email(subject:str, body:str, emails:List[str], from_user:str, attachment_urls:List[str]=None,
-                        bcc:List[str]=None, cc:List[str]=None, html_content:str=None):
+                        bcc:List[str]=None, cc:List[str]=None, html_content:str=None, attachments:list=None):
     if not bcc:
         bcc = []
     if not cc:
@@ -168,7 +178,7 @@ def send_template_email(subject:str, body:str, emails:List[str], from_user:str, 
             from_user = f"{user} from {company}"
 
     batch_send(send_actual_template_email, subject=subject, body=body, emails=emails, from_user=from_user, attachment_urls=attachment_urls,
-               bcc=bcc, cc=cc, html_content=html_content)
+               bcc=bcc, cc=cc, html_content=html_content, attachments=attachments)
 
 
 
