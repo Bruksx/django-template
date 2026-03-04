@@ -24,7 +24,7 @@ class PersonalEmailEngine:
     attachment_urls: Optional[List[str]] = None
 
     def send(self):
-        if self.placeholders:
+        if not self.placeholders:
             self.send_bulk_email()
             return
         for email in self.emails:
