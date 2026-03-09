@@ -1266,6 +1266,7 @@ class Experience(BaseModel):
     start_date = models.DateField(null=True)
     end_date = models.DateField(null=True, default=None)
     currently_works_here = models.BooleanField()
+    description = models.TextField(blank=True)
 
     def duration(self):
         end_date = self.end_date if self.end_date else timezone.now().date()
