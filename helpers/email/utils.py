@@ -12,7 +12,7 @@ from pydantic import EmailStr
 from helpers.loggers import Logger
 from helpers.utils import is_valid_email
 
-BATCH_SIZE = 1
+BATCH_SIZE = 40
 
 
 def _chunk_list(data, size):
