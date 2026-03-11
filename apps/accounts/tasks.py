@@ -27,7 +27,7 @@ def remind_incomplete_profiles_task(batch_size=200):
             .values_list("email", flat=True)
         )
 
-        send_incomplete_profile_reminder_email(emails=emails)
+        # send_incomplete_profile_reminder_email(emails=emails)
 
 
 
