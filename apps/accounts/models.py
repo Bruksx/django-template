@@ -1240,7 +1240,7 @@ class Education(BaseModel):
     start_date = models.DateField()
     end_date = models.DateField(null=True, default=None)
     major = models.CharField(max_length=100)
-    certification = models.CharField(max_length=100, blank=True)
+    certification = models.CharField(max_length=100, blank=True, null=True)
     university = models.CharField(max_length=100)
 
 
