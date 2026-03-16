@@ -1,19 +1,10 @@
-from typing import List, Literal, Union
+from typing import List, Literal, Union, Optional
 from uuid import UUID
 
-from config.permissions import IsTalentUser, IsBusinessUser
+import pytz
+from accounts.models import Talent
 from django.db import transaction
 from django.db.models import Q
-from helpers.utils import delete_s3_item
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
-from ninja import Router, UploadedFile
-from ninja.errors import HttpError
-from ninja.params import Query
-from ninja_extra.pagination import paginate
-from ninja_jwt.authentication import JWTAuth
-
-from accounts.models import Talent
 from jobs import tasks
 from jobs.enums import JobStatusType, PhaseType
 from jobs.models import (
@@ -26,9 +17,19 @@ from jobs.schemas import TalentJobPostListSchema, TalentJobApplicationWithdrawal
     InviteToApplySchema, TalentScreeningResultSchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service, \
     get_screening_questions_service, get_talent_screening_results
+from ninja import Router, UploadedFile
+from ninja.errors import HttpError
+from ninja.params import Query
+from ninja_extra.pagination import paginate
+from ninja_jwt.authentication import JWTAuth
 from notification import notifications
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+
+from config.permissions import IsTalentUser, IsBusinessUser
+from helpers.utils import delete_s3_item
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
 
 router = Router()
 
@@ -280,3 +281,9 @@ def set_job_alert(request, job_post_id:UUID, action: Literal["on", "off"]):
 def get_screening_questions(request, job_uid: UUID):
     IsTalentUser.check(request)
     return get_screening_questions_service(request, job_uid)
+
+@router.get("timezones", response=List[str], tags=["Common"])
+def get_timezones(request, search: Optional[str] = None):
+    if search:
+        return [tz for tz in pytz.all_timezones if search.lower() in tz.lower()]
+    return list(pytz.all_timezones)
