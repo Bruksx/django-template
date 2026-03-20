@@ -5,7 +5,7 @@ from django.db import migrations
 
 
 def  update_stages(apps, schema_editor):
-    from accounts.services import create_business_workflows
+    from accounts.services.business import create_business_workflows
     from jobs.enums import PhaseType
     
     Business = apps.get_model("accounts", "Business")
