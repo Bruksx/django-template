@@ -12,10 +12,12 @@ from django.db.models import Q, Exists, OuterRef
 from django.shortcuts import get_object_or_404
 from jobs.models import Job, JobPost, BusinessModel
 from jobs.schemas import BusinessUserJobSchema
-from ninja import Router, UploadedFile, PatchDict, Form
+from ninja import Router, UploadedFile, PatchDict, Form, Query
 from ninja.errors import HttpError
+from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
 from notification import notifications
+from paginations import CustomPaginatedResponseSchema, CustomPageNumberPaginationExtra
 
 from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
@@ -25,11 +27,17 @@ from monkeypatches.response import Response
 from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
+from ..schemas.admin import PipelineDashboardSchema, DashboardFilter, ApplicantDashboardSchema, \
+    RecruitmentDashboardSchema, ApplicationPipelineRatioSchema, RecentHiresSchema, StuckApplicationSchema, \
+    PaginatedRecruiterHireSchema, TimeSeriesDashboardFilter, ApplicationHiresGraphItemSchema
 from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema, TalentFilterListSchema, \
     SendBulkChatSchema
+from ..services.business import pipeline_dashboard_data, applicant_dashboard_data, recruitment_dashboard_data
+from ..services.common import application_pipeline_ratio, recent_hires, stuck_applications, recruiter_hires_graph_data, \
+    application_hires_graph_data
 
 router = Router(tags=["Business Account"])
-
+pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
 
 @router.post("initiate-account-creation")
 def initiate_account_creation(request, data: common_schema.RegisterSchema):
@@ -469,7 +477,6 @@ def get_business_industries(request):
 
 @router.post("email-talents", auth=JWTAuth())
 def send_email_to_talents(request, data:SendEmailSchema=Form(), attachments: List[UploadedFile]=None):
-    from settings.models import EmailTemplate
     IsBusinessUser.check(request)
     recruiter = request.user.businessuser
     data.get_email_engine(context=dict(
@@ -643,6 +650,61 @@ def delete_talent_filter(request, talent_filter_uid: UUID):
     talent_filter.delete()
     return Response(status=204, data={"message": "Talent filter deleted successfully"})
 
+@router.get("pipeline-dashboard", tags=["Business Dashboard"], auth=JWTAuth(), response=PipelineDashboardSchema)
+def get_pipeline_dashboard_data(request, filters:DashboardFilter=Query(...)):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    return pipeline_dashboard_data(**filters.dict(), business=business_user.business)
+
+@router.get("applicant-dashboard", tags=["Business Dashboard"], auth=JWTAuth(), response=ApplicantDashboardSchema)
+def get_applicant_dashboard_data(request, filters:DashboardFilter=Query(...)):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    return applicant_dashboard_data(**filters.dict(), business=business_user.business)
+
+@router.get("recruitment-dashboard", tags=["Business Dashboard"], auth=JWTAuth(), response=RecruitmentDashboardSchema)
+def get_recruitment_dashboard_data(request, filters:DashboardFilter=Query(...)):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    return recruitment_dashboard_data(**filters.dict(), business=business_user.business)
+
+@router.get("application-pipeline-ratio", tags=["Business Dashboard"], auth=JWTAuth(), response=List[ApplicationPipelineRatioSchema])
+def get_application_pipeline_ratio_data(request, filters:DashboardFilter=Query(...)):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    return application_pipeline_ratio(**filters.dict(), business=business_user.business)
 
 
+@router.get("recent-hires", auth=JWTAuth(),  tags=["Business Dashboard"], response=CustomPaginatedResponseSchema[RecentHiresSchema], )
+@paginate(CustomPageNumberPaginationExtra, page_size=50)
+def get_recent_hires(request, filters:DashboardFilter=Query(...)):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    return recent_hires(**filters.dict(), business=business_user.business)
 
+
+@router.get("stuck-applications", auth=JWTAuth(),  tags=["Business Dashboard"], response=CustomPaginatedResponseSchema[StuckApplicationSchema], )
+@paginate(CustomPageNumberPaginationExtra, page_size=50)
+def get_stuck_applications(request, filters:DashboardFilter=Query(...)):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    return stuck_applications(**filters.dict(), business=business_user.business)
+
+@router.get("recruiter-hiring-data", auth=JWTAuth(),  tags=["Business Dashboard"], response=CustomPaginatedResponseSchema[PaginatedRecruiterHireSchema], )
+def get_recruiter_hiring_data(request, filters:DashboardFilter=Query(...), page: int = 1, page_size: int = 50):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    queryset, count = recruiter_hires_graph_data(**filters.dict(), business=business_user.business)
+    pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
+    return pagination_class(page_size).paginate_queryset(
+        queryset=queryset,
+        request=request,
+        pagination=pagination,
+        total_hires=count
+    )
+
+@router.get("application-hires-graph-data", auth=JWTAuth(),  tags=["Business Dashboard"], response=List[ApplicationHiresGraphItemSchema])
+def get_application_hires_graph_data(request, filters: TimeSeriesDashboardFilter=Query(...)):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    return application_hires_graph_data(**filters.dict(), business=business_user.business)

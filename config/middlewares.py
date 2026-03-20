@@ -4,6 +4,8 @@ from urllib.parse import parse_qsl
 
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
+from django.core.cache import cache
+from django.utils import timezone
 from ninja_jwt.authentication import JWTBaseAuthentication
 
 from helpers.utils import is_valid_uuid
@@ -97,7 +99,7 @@ class RequestTimingMiddleware:
         return response
 
 
-from django.db import connections, close_old_connections
+from django.db import close_old_connections
 
 class DatabaseConnectionMiddleware:
     def __init__(self, get_response):
@@ -117,4 +119,34 @@ class DatabaseConnectionMiddleware:
             logger = logging.getLogger(__name__)
             logger.error(f"Error closing connections: {e}")
 
+        return response
+
+
+class LogUserLastLoginConnectionMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        # Process the request (view execution, including any transaction.atomic)
+        response = self.get_response(request)
+
+        # Log the last login time of the user
+        if not request.user.is_authenticated:
+            return response
+        logger = logging.getLogger(__name__)
+        last_login = cache.get(f"last_login_{request.user.id}")
+        if not last_login:
+            last_login = request.user.last_login
+
+        if last_login.date == timezone.now().date():
+            return response
+        request.user.last_login = timezone.now()
+        request.user.save()
+        last_login = request.user.last_login
+        cache.set(
+            key=f"last_login_{request.user.id}",
+            value=last_login,
+            timeout=3600
+        )
+        logger.info(f"User {request.user} logged in at {last_login}")
         return response
