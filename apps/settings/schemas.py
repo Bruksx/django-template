@@ -1,6 +1,8 @@
 from typing import List, Optional
 from uuid import UUID
 
+from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS
+from jobs.enums import PhaseType
 from ninja import Field, UploadedFile
 from ninja import ModelSchema, Schema
 from ninja.errors import HttpError
@@ -20,6 +22,7 @@ class CreateEmailTemplateSchema(ModelSchema):
                                default=None)
     cc: Optional[str] = Field(examples=["bob@examples.com"], description="emails separated by commas without spacing",
                               default=None)
+    is_html: Optional[bool] = Field(default=False)
     class Meta:
         model = EmailTemplate
         exclude = [*MUTATE_EXCLUDE_FIELDS, "created_by", "uid"]
@@ -74,11 +77,11 @@ class CreateEmailTemplateSchema(ModelSchema):
 
 
 class UpdateEmailTemplateSchema(CreateEmailTemplateSchema):
-    subject: Optional[str] = None
-    template: Optional[str] = None
-    personal: Optional[bool] = None
-    delays : Optional[int] = None
-    is_html: Optional[bool] = False
+    subject: Optional[str]
+    template: Optional[str]
+    personal: Optional[bool]
+    delays : Optional[int]
+
 
 
 

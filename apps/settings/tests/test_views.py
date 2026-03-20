@@ -1,3 +1,6 @@
+import logging
+
+from accounts.enums import BusinessUserRoleType
 from accounts.enums import BusinessUserRoleType
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
@@ -161,7 +164,8 @@ class TestUpdateEmailTemplate(TestCase):
         self.test_data["subject"] = "hello <candidate>!"
         response = self.client.post(self.url(self.email_template.uid), self.test_data,
                                    headers=headers, format="multipart/form-data")
-
+        logging.critical(response.content)
+        logging.critical(response.json())
         self.assertEqual(response.status_code, 400)
 
 

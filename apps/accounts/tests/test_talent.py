@@ -14,7 +14,7 @@ from django.test import TestCase
 from factories import WorkflowStageFactory, TalentFactory, BusinessUserFactory, CountryFactory, IndustryFactory, \
     LanguageFactory, EducationFactory, EducationLevelFactory, RoleFactory, ExperienceFactory, SkillFactory, \
     BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory
-from jobs.enums import LunchBreakEnum, PhaseType, JobStatusType
+from jobs.enums import LunchBreakEnum, PhaseType, JobStatusType, TechnologicalRequirementsEnum
 from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, AvailableDay, \
     JobApplication, JobInterview
 from ninja.testing import TestClient
@@ -163,6 +163,7 @@ class UpdateTalentProfileTests(TestCase):
           "instagram": "johndoe_official",
           "linkedin": "john-doe-123",
           "facebook": "john.doe.123",
+          "operating_system": TechnologicalRequirementsEnum.MACBOOK.value,
           "twitter_x": "johndoe",
           "native_language": str(self.native_language.uid),
           "additional_languages": [str(language.uid) for language in self.additional_languages],
