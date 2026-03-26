@@ -1538,25 +1538,30 @@ class BusinessJobFilterSchema(Schema):
 
 class PublicJobPostFilterQuerySchema(Schema):
     search: Optional[str] = ""
-    work_structure:Optional[str] = Field("", description=f"comma separated work structure enums: {', '.join(WorkStructureEnum.values())}")
+    work_structure: Optional[str] = Field("",
+                                          description=f"comma separated work structure enums: {', '.join(WorkStructureEnum.values())}")
     country: Optional[str] = Field("", description="comma separated country uuids")
     employment_type: Optional[str] = Field("", description="comma separated employment type uuids")
+    region: Optional[str] = Field("", description="optional: north-america")
 
     def convert_to_schema(self):
         return PublicJobPostFilterSchema(
             search=self.search if self.search else None,
             work_structure=self.work_structure.split(",") if self.work_structure else [],
             country=self.country.split(",") if self.country else [],
-            employment_type=self.employment_type.split(",") if self.employment_type else []
+            employment_type=self.employment_type.split(",") if self.employment_type else [],
+            region=self.region if self.region else None
         )
+
 
 class PublicJobPostFilterSchema(Schema):
     search: Optional[str] = None
-    work_structure:Optional[List[WorkStructureEnum]] = []
+    work_structure: Optional[List[WorkStructureEnum]] = []
     country: Optional[List[UUID]] = []
     employment_type: Optional[List[UUID]] = []
+    region: Optional[str] = None
 
-    def get_queryset(self, queryset=None, extra_sorts:List[str]=None)->QuerySet:
+    def get_queryset(self, queryset=None, extra_sorts: List[str] = None) -> QuerySet:
         """
          get jobs queryset based on this filter
 
@@ -1568,7 +1573,15 @@ class PublicJobPostFilterSchema(Schema):
             Job post queryset
         """
         if queryset is None:
-            queryset = JobPost.objects.select_related('job','country','province', 'job__employment_type', 'job__role').filter(status=JobStatusType.POSTED.value)
+            queryset = JobPost.objects.select_related('job', 'country', 'province', 'job__employment_type',
+                                                      'job__role').filter(status=JobStatusType.POSTED.value)
+
+        if self.region:
+            if self.region == "north-america":
+                queryset = queryset.filter(country__name__in=["Canada", "United States"])
+        else:
+            queryset = queryset.exclude(country__name__in=["Canada", "United States"])
+
         if self.search:
             queryset = queryset.filter(job__role__name__icontains=self.search)
 
