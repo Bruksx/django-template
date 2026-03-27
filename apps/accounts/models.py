@@ -17,6 +17,7 @@ from django.db.models import Q, Count, F, Value, Avg, IntegerField, Exists, Oute
 from django.db.models.functions import Concat, Cast, Round
 from django.db.models.signals import pre_save
 from django.utils import timezone
+from django.utils.functional import cached_property
 from django_softdelete.managers import SoftDeleteManager
 from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum, \
     TechnologicalRequirementsEnum
@@ -78,6 +79,11 @@ class User(AbstractUser, BaseModel):
     phone_code = models.CharField(max_length=50, null=True)
     email = models.EmailField(unique=True, null=True)
     email_verified = models.BooleanField(default=False)
+
+    secondary_email = models.EmailField(unique=True, null=True)
+    secondary_email_verified = models.BooleanField(default=False)
+
+
     type = models.CharField(max_length=50, null=True, choices=UserType.choices())
     username = models.CharField(max_length=50, null=True)
     auth_mode = models.CharField(max_length=50, choices=AuthType.choices(),
@@ -1190,9 +1196,19 @@ class BusinessUser(BaseModel):
     role = models.CharField(max_length=100, choices=BusinessUserRoleType.choices(), blank=True)
     status = models.CharField(max_length=100, choices=BusinessUserStatusType.choices(),
                               default=BusinessUserStatusType.ACTIVE.value)
+    default_sender_email = models.EmailField(null=True)
 
     def __str__(self) -> str:
         return f"{self.user.first_name} {self.user.last_name}"
+
+    @cached_property
+    def emails(self):
+        emails = []
+        if self.user.email_verified is True and self.user.email:
+            emails.append(self.user.email)
+        if self.user.secondary_email_verified is True and self.user.secondary_email:
+            emails.append(self.user.secondary_email)
+        return emails
 
     def get_added_by(self):
         if not self.added_by:

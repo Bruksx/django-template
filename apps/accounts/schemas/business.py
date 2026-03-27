@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Optional, List, TypedDict, Any
+from typing import Optional, List, TypedDict, Any, Literal
 from uuid import UUID
 
 from accounts.enums import BusinessUserRoleType
@@ -16,6 +16,7 @@ from pydantic import EmailStr, Field
 
 class ValidateOTPSchema(Schema):
     email: EmailStr
+    secondary_email: Optional[EmailStr] = None
     otp: str
     first_name: str
     last_name: str
@@ -290,12 +291,16 @@ class BusinessUserListSchema(ModelSchema):
     first_name: str = Field(alias="user.first_name")
     last_name: str = Field(alias="user.last_name")
     email: EmailStr = Field(alias="user.email")
+    email_verified: bool = Field(alias="user.email_verified")
+    secondary_email: Optional[EmailStr] = Field(alias="user.secondary_email")
+    secondary_email_verified: Optional[bool] = Field(alias="user.secondary_email_verified")
+    emails: List[EmailStr]
     user_uid: UUID = Field(alias="user.uid")
     added_by: Optional[str] = Field(alias="get_added_by")
     last_active: Optional[date]
     class Meta:
         model = BusinessUser
-        fields = ("role", "uid", "status", "created_at")
+        fields = ("role", "uid", "status", "created_at", "default_sender_email")
 
 
 class AddBusinessUserSchema(Schema):
@@ -505,3 +510,8 @@ class TransferRoleSchema(Schema):
 
 class ReassignJobPostInputSchema(Schema):
     nominee_uid: UUID
+
+
+class EmailActionSchema(Schema):
+    email: EmailStr
+    action: Literal["remove", "make_default_sender"]

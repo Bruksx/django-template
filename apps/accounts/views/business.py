@@ -69,6 +69,7 @@ def create_account(request, data: business_schema.ValidateOTPSchema):
         last_name=data.last_name,
         type=UserType.BUSINESS.value,
         email=data.email.lower().strip(),
+        secondary_email=data.secondary_email,
         username=None,
         email_verified=True,
         phone_number=data.phone_number,
@@ -682,6 +683,23 @@ def get_recent_hires(request, filters:DashboardFilter=Query(...)):
     business_user = request.user.businessuser
     return recent_hires(**filters.dict(), business=business_user.business)
 
+@router.post("email-action", auth=JWTAuth(), tags=["Business Account"], response=business_schema.BusinessUserListSchema)
+def handle_email_action(request, data: business_schema.EmailActionSchema):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    if data.action == "remove" and str(business_user.user.email).lower() == str(data.email).lower():
+        raise HttpError(400, "Cannot remove primary email")
+    if data.action == "remove" and str(data.email).lower() != str(business_user.user.secondary_email).lower():
+        raise HttpError(400, "This email is not secondary email")
+    if data.action == "make_default_sender" and data.email not in business_user.emails:
+        raise HttpError(400, "This email is not verified")
+    if data.action == "make_default_sender":
+        business_user.default_sender_email = data.email
+        business_user.save()
+    elif data.action == "remove":
+        business_user.user.secondary_email = None
+        business_user.user.save()
+    return business_user
 
 @router.get("stuck-applications", auth=JWTAuth(),  tags=["Business Dashboard"], response=CustomPaginatedResponseSchema[StuckApplicationSchema], )
 @paginate(CustomPageNumberPaginationExtra, page_size=50)
