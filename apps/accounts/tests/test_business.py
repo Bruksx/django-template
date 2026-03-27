@@ -1,20 +1,20 @@
 from urllib.parse import urlencode
 from uuid import uuid4
 
-from django.test import TestCase
 import jwt
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
-
 from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, BusinessSize
 from accounts.models import User, VerificationCode, Business, BusinessUser, BusinessIndustry, Country, TalentFilter
 from accounts.views.business import router
+from django.test import TestCase
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
-    WorkflowStageFactory, UserFactory, RoleFactory, IndustryFactory, LanguageFactory, EducationLevelFactory, SkillFactory, \
+    WorkflowStageFactory, UserFactory, RoleFactory, IndustryFactory, LanguageFactory, EducationLevelFactory, \
+    SkillFactory, \
     TalentFilterFactory
 from jobs.enums import PhaseType, JobStatusType, WorkStructureEnum
 from jobs.models import JobApplication
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
 from settings.models import WorkFlowStage
 
 
@@ -54,6 +54,7 @@ class ValidateOtpTests(TestCase):
     def test_validate_otp_incorrect_otp(self):
         self.user_data["otp"] = "6543"  
         response = self.client.post(self.url, json=self.user_data)
+        print("response: ", response.content)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(User.objects.count(), 0)
         self.assertEqual(Business.objects.count(), 0)
@@ -1203,3 +1204,201 @@ class TransferBusinessUserRoleTest(TestCase):
         self.assertEqual(self.from_user.role, BusinessUserRoleType.ADMIN.value)
         self.assertEqual(self.to_user.role, BusinessUserRoleType.TEAM_MEMBER.value)
         self.assertEqual(other_user.role, BusinessUserRoleType.ADMIN.value)
+
+
+class HandleEmailActionTestCase(TestCase):
+    def setUp(self):
+        """Set up test data for email action tests."""
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.url = "/email-action"
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_make_default_sender_success(self):
+        """Test successfully setting a verified email as default sender."""
+        # Set up user with verified secondary email
+        self.business_user.user.secondary_email = "secondary@example.com"
+        self.business_user.user.secondary_email_verified = True
+        self.business_user.user.save()
+        
+        data = {
+            "email": "secondary@example.com",
+            "action": "make_default_sender"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify the default sender email was updated
+        self.business_user.refresh_from_db()
+        self.assertEqual(self.business_user.default_sender_email, "secondary@example.com")
+
+    def test_make_default_sender_with_primary_email(self):
+        """Test setting primary email as default sender when verified."""
+        # Ensure primary email is verified
+        self.business_user.user.email_verified = True
+        self.business_user.user.save()
+        
+        data = {
+            "email": self.business_user.user.email,
+            "action": "make_default_sender"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify the default sender email was updated
+        self.business_user.refresh_from_db()
+        self.assertEqual(self.business_user.default_sender_email, self.business_user.user.email)
+
+    def test_make_default_sender_unverified_email_fails(self):
+        """Test that unverified email cannot be set as default sender."""
+        # Set up user with unverified secondary email
+        self.business_user.user.secondary_email = "unverified@example.com"
+        self.business_user.user.secondary_email_verified = False
+        self.business_user.user.save()
+        
+        data = {
+            "email": "unverified@example.com",
+            "action": "make_default_sender"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "This email is not verified")
+
+    def test_make_default_sender_nonexistent_email_fails(self):
+        """Test that non-existent email cannot be set as default sender."""
+        data = {
+            "email": "nonexistent@example.com",
+            "action": "make_default_sender"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "This email is not verified")
+
+    def test_remove_secondary_email_success(self):
+        """Test successfully removing secondary email."""
+        # Set up user with verified secondary email
+        self.business_user.user.secondary_email = "secondary@example.com"
+        self.business_user.user.secondary_email_verified = True
+        self.business_user.user.save()
+        
+        data = {
+            "email": "secondary@example.com",
+            "action": "remove"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify the secondary email was removed
+        self.business_user.user.refresh_from_db()
+        self.assertIsNone(self.business_user.user.secondary_email)
+
+    def test_remove_primary_email_fails(self):
+        """Test that primary email cannot be removed."""
+        data = {
+            "email": self.business_user.user.email,
+            "action": "remove"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "Cannot remove primary email")
+
+    def test_remove_non_secondary_email_fails(self):
+        """Test that non-secondary email cannot be removed."""
+        # Set up user with a different secondary email
+        self.business_user.user.secondary_email = "different@example.com"
+        self.business_user.user.save()
+        
+        data = {
+            "email": "other@example.com",
+            "action": "remove"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "This email is not secondary email")
+
+    def test_remove_email_when_no_secondary_email_fails(self):
+        """Test removing email when user has no secondary email."""
+        # Ensure user has no secondary email
+        self.business_user.user.secondary_email = None
+        self.business_user.user.save()
+        
+        data = {
+            "email": "some@example.com",
+            "action": "remove"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "This email is not secondary email")
+
+    def test_unauthorized_user_access_fails(self):
+        """Test that unauthorized user cannot access email action endpoint."""
+        data = {
+            "email": "test@example.com",
+            "action": "make_default_sender"
+        }
+        
+        response = self.client.post(self.url, json=data)
+        self.assertEqual(response.status_code, 401)
+
+    def test_invalid_action_fails(self):
+        """Test that invalid action type fails validation."""
+        data = {
+            "email": "test@example.com",
+            "action": "invalid_action"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 422)  # Validation error
+
+    def test_missing_action_fails(self):
+        """Test that missing action fails validation."""
+        data = {
+            "email": "test@example.com"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 422)  # Validation error
+
+    def test_missing_email_fails(self):
+        """Test that missing email fails validation."""
+        data = {
+            "action": "make_default_sender"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 422)  # Validation error
+
+    def test_case_insensitive_email_matching(self):
+        """Test that email matching is case insensitive."""
+        # Set up user with verified secondary email in lowercase
+        self.business_user.user.secondary_email = "secondary@example.com"
+        self.business_user.user.secondary_email_verified = True
+        self.business_user.user.save()
+        
+        # Test with uppercase email
+        data = {
+            "email": "SECONDARY@EXAMPLE.COM",
+            "action": "remove"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify the secondary email was removed
+        self.business_user.user.refresh_from_db()
+        self.assertIsNone(self.business_user.user.secondary_email)
