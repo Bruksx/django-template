@@ -2,11 +2,13 @@ import datetime
 from typing import List
 
 from accounts.constants import university_list, major_list, certification_list
+from accounts.enums import UserType
 from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode, Industry, Business
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
 from accounts.schemas.business import TalentFilterQuerySchema
 from accounts.schemas.common import CompanyListSchema
+from accounts.schemas.common import TokenSchema
 from core.schemas import GenericNameAndUidSchema
 from django.db import transaction
 from django.db.models import Q
@@ -17,8 +19,6 @@ from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 
-from apps.accounts.enums import UserType
-from apps.accounts.schemas.common import TokenSchema
 from helpers.email.accounts import send_customer_case_email
 from helpers.email.auth import send_verification_code
 from helpers.utils import Secret
