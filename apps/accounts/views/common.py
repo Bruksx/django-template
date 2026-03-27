@@ -1,11 +1,14 @@
+import datetime
 from typing import List
 
 from accounts.constants import university_list, major_list, certification_list
+from accounts.enums import UserType
 from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode, Industry, Business
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
 from accounts.schemas.business import TalentFilterQuerySchema
 from accounts.schemas.common import CompanyListSchema
+from accounts.schemas.common import TokenSchema
 from core.schemas import GenericNameAndUidSchema
 from django.db import transaction
 from django.db.models import Q
@@ -16,9 +19,9 @@ from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 
-from apps.accounts.enums import UserType
 from helpers.email.accounts import send_customer_case_email
 from helpers.email.auth import send_verification_code
+from helpers.utils import Secret
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 
@@ -178,3 +181,20 @@ def get_certifications(request, search=""):
         return [x for x in certification_list if search.lower() in str(x).lower()]
     return certification_list
 
+@router.post("verify-email", tags=["Common Account APIs"])
+@transaction.atomic
+def verify_email(request, data:TokenSchema):
+    verification_data = Secret.decrypt_dict(data.token)
+    if not verification_data:
+        raise HttpError(400, "Invalid token")
+    if not verification_data.get("expiry_time"):
+        raise HttpError(400, "Invalid token")
+    expiry_time = datetime.datetime.fromisoformat(verification_data["expiry_time"])
+    if timezone.now() > expiry_time:
+        raise HttpError(400, "Token has expired")
+    verification_type = verification_data.pop("verification_type")
+    if verification_type == "secondary_email":
+        user_id = verification_data.pop("user_id")
+        secondary_email = verification_data.pop("secondary_email")
+        User.objects.filter(id=user_id).update(secondary_email=secondary_email, secondary_email_verified=True)
+    return Response(data={"message": "email verified successfully"})

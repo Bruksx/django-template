@@ -514,4 +514,4 @@ class ReassignJobPostInputSchema(Schema):
 
 class EmailActionSchema(Schema):
     email: EmailStr
-    action: Literal["remove", "make_default_sender"]
+    action: Literal["remove", "make_default_sender", "update"]
