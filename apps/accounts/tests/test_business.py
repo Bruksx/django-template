@@ -1383,6 +1383,119 @@ class HandleEmailActionTestCase(TestCase):
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 422)  # Validation error
 
+    def test_update_secondary_email_success(self):
+        """Test successfully updating/adding a new secondary email."""
+        data = {
+            "email": "newsecondary@example.com",
+            "action": "update"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify the secondary email was added but not verified
+        self.business_user.user.refresh_from_db()
+        self.assertEqual(self.business_user.user.secondary_email, "newsecondary@example.com")
+        self.assertFalse(self.business_user.user.secondary_email_verified)
+
+    def test_update_email_already_exists_fails(self):
+        """Test that updating an email that already exists fails."""
+        # Create another user with the email
+        other_user = UserFactory.create(email="existing@example.com")
+        
+        data = {
+            "email": "existing@example.com",
+            "action": "update"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "Email already exists")
+
+    def test_update_email_already_exists_as_secondary_fails(self):
+        """Test that updating an email that exists as secondary email fails."""
+        # Create another user with the secondary email
+        other_user = UserFactory.create()
+        other_user.secondary_email = "existingsecondary@example.com"
+        other_user.save()
+        
+        data = {
+            "email": "existingsecondary@example.com",
+            "action": "update"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "Email already exists")
+
+    def test_update_existing_verified_email_no_change(self):
+        """Test that updating an already verified email doesn't change anything."""
+        # Set up user with verified secondary email
+        self.business_user.user.secondary_email = "secondary@example.com"
+        self.business_user.user.secondary_email_verified = True
+        self.business_user.user.save()
+        
+        data = {
+            "email": "secondary@example.com",
+            "action": "update"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify no changes were made
+        self.business_user.user.refresh_from_db()
+        self.assertEqual(self.business_user.user.secondary_email, "secondary@example.com")
+        self.assertTrue(self.business_user.user.secondary_email_verified)
+
+    def test_remove_default_sender_email_fails(self):
+        """Test that default sender email cannot be removed."""
+        # Set up default sender email
+        self.business_user.default_sender_email = "default@example.com"
+        self.business_user.user.secondary_email = "default@example.com"
+        self.business_user.user.save()
+        self.business_user.save()
+        
+        data = {
+            "email": "default@example.com",
+            "action": "remove"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "This email is your default sender email")
+
+    def test_update_default_sender_email_fails(self):
+        """Test that default sender email cannot be updated again."""
+        # Set up default sender email
+        self.business_user.default_sender_email = "default@example.com"
+        self.business_user.save()
+        
+        data = {
+            "email": "default@example.com",
+            "action": "update"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "This email is your default sender email")
+
+    def test_case_insensitive_default_sender_check(self):
+        """Test that default sender email check is case insensitive."""
+        # Set up default sender email
+        self.business_user.default_sender_email = "default@example.com"
+        self.business_user.save()
+        
+        # Test with uppercase email
+        data = {
+            "email": "DEFAULT@EXAMPLE.COM",
+            "action": "remove"
+        }
+        
+        response = self.client.post(self.url, json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "This email is your default sender email")
+
     def test_case_insensitive_email_matching(self):
         """Test that email matching is case insensitive."""
         # Set up user with verified secondary email in lowercase

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from enum import Enum
 from typing import List, Optional
 from uuid import UUID
@@ -10,6 +10,7 @@ from core.schemas import GenericNameAndUidSchema
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from jobs.models import Job, JobPost, BusinessModel
 from jobs.schemas import BusinessUserJobSchema
 from ninja import Router, UploadedFile, PatchDict, Form, Query
@@ -21,7 +22,8 @@ from paginations import CustomPaginatedResponseSchema, CustomPageNumberPaginatio
 
 from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
-from helpers.email.auth import send_verification_code
+from helpers.email.auth import send_verification_code, send_email_verification_code
+from helpers.utils import Secret
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
@@ -687,18 +689,33 @@ def get_recent_hires(request, filters:DashboardFilter=Query(...)):
 def handle_email_action(request, data: business_schema.EmailActionSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
+    if data.action in ("remove", "update") and str(data.email).lower() == str(business_user.default_sender_email).lower():
+        raise HttpError(400, "This email is your default sender email")
     if data.action == "remove" and str(business_user.user.email).lower() == str(data.email).lower():
         raise HttpError(400, "Cannot remove primary email")
     if data.action == "remove" and str(data.email).lower() != str(business_user.user.secondary_email).lower():
         raise HttpError(400, "This email is not secondary email")
     if data.action == "make_default_sender" and data.email not in business_user.emails:
         raise HttpError(400, "This email is not verified")
+    if data.action == "update" and User.objects.filter(Q(email__iexact=data.email)|Q(secondary_email__iexact=data.email)).exclude(id=business_user.user_id).exists():
+        raise HttpError(400, "Email already exists")
     if data.action == "make_default_sender":
         business_user.default_sender_email = data.email
         business_user.save()
     elif data.action == "remove":
         business_user.user.secondary_email = None
         business_user.user.save()
+    elif data.action == "update" and data.email not in business_user.emails:
+        business_user.user.secondary_email = data.email
+        business_user.user.secondary_email_verified = False
+        business_user.user.save()
+        token = Secret.encrypt_dict(dict(
+            user_id=business_user.user_id,
+            secondary_email=data.email,
+            verification_type="secondary_email",
+            expiry_time=str((timezone.now() + timedelta(hours=24)).isoformat())
+        ))
+        async_task(send_email_verification_code, email=data.email, token=token, fullname=business_user.user.fullname, company=business_user.business.name)
     return business_user
 
 @router.get("stuck-applications", auth=JWTAuth(),  tags=["Business Dashboard"], response=CustomPaginatedResponseSchema[StuckApplicationSchema], )
