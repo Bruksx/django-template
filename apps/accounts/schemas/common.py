@@ -113,3 +113,7 @@ class MajorSchema(Schema):
     major: str
     certifications: List[str]
 
+
+class TokenSchema(Schema):
+    token: str
+

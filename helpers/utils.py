@@ -1,4 +1,6 @@
 import base64
+import hashlib
+import json
 import logging
 import os
 import random
@@ -20,6 +22,7 @@ import ijson
 import pdfkit
 import psutil
 from botocore.exceptions import NoCredentialsError
+from cryptography.fernet import Fernet
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db.models import QuerySet
@@ -511,3 +514,31 @@ def html_to_text(html: str) -> str:
     # 6. Normalize whitespace and strip
     lines = [line.strip() for line in html.splitlines()]
     return '\n'.join([unescape(line) for line in lines if line])
+
+
+class Secret:
+    @staticmethod
+    def __derive_key__() -> bytes:
+        from config.settings import SECRET_KEY
+        # Convert your app secret into a 32-byte key
+        return base64.urlsafe_b64encode(
+            hashlib.sha256(SECRET_KEY.encode()).digest()
+        )
+
+    @classmethod
+    def encrypt_dict(cls, data: dict) -> str:
+        key = cls.__derive_key__()
+        f = Fernet(key)
+        json_data = json.dumps(data).encode()
+        encrypted = f.encrypt(json_data)
+        return encrypted.decode()
+
+    @classmethod
+    def decrypt_dict(cls, token: str) -> Optional[dict]:
+        try:
+            key = cls.__derive_key__()
+            f = Fernet(key)
+            decrypted = f.decrypt(token.encode())
+            return json.loads(decrypted.decode())
+        except Exception:
+            return None
