@@ -321,11 +321,16 @@ class SendEmailSchema(Schema):
     subject: str
     body : str
     from_email: str
-    has_placeholder: bool
-    attachment_urls: List[str]
+    placeholders: Optional[List[str]] = None
+    attachment_urls: Optional[List[str]] = None
 
     def get_email_engine(self, context):
         from settings.services import PersonalEmailEngine
+        placeholders = str(self.placeholders[0]) if self.placeholders else None
+        placeholders = placeholders.split(",") if placeholders else list()
+        urls = self.attachment_urls[0] if self.attachment_urls else None
+        urls = urls.split(",") if urls else list()
+
         return PersonalEmailEngine(
             emails=self.emails[0].split(','),
             subject=self.subject,
@@ -333,8 +338,8 @@ class SendEmailSchema(Schema):
             from_email=self.from_email,
             recruiter=context.get("recruiter"),
             attachments=context.get("attachments"),
-            attachment_urls=self.attachment_urls[0].split(','),
-            has_placeholder=self.has_placeholder
+            placeholders=placeholders,
+            attachment_urls=urls
         )
 
 class SendBulkChatSchema(Schema):

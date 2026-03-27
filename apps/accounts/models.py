@@ -1,5 +1,4 @@
 import random
-import random
 import secrets
 import string
 from datetime import timedelta, date, datetime
@@ -8,27 +7,29 @@ from typing import Tuple, Optional
 from uuid import UUID
 
 import jwt
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessSize, BusinessUserStatusType, CaseReasonType
-from core.enums import SalaryType
-from core.models import BaseModel, State, City
+from config.settings import SECRET_KEY
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Q, Count, F, Value, Avg, IntegerField, Exists, OuterRef, Sum, When, Case
+from django.db.models import Q, Count, F, Value, Avg, IntegerField, Exists, OuterRef, When, Case, Sum
 from django.db.models.functions import Concat, Cast, Round
 from django.db.models.signals import pre_save
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum, \
+    TechnologicalRequirementsEnum
+from helpers.utils import delete_s3_item
 from ninja_jwt.tokens import RefreshToken
-from notification.enums import NotificationGroup
 from timezone_field import TimeZoneField
 
-from config.settings import SECRET_KEY
-from helpers.utils import delete_s3_item
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
+    BusinessSize, BusinessUserStatusType, CaseReasonType
+from core.enums import SalaryType
+from core.models import BaseModel, State, City
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
+from notification.enums import NotificationGroup
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -234,6 +235,7 @@ class Talent(BaseModel):
     linkedin = models.URLField(null=True)
     facebook = models.URLField(null=True)
     twitter_x = models.URLField(null=True)
+    operating_system = models.CharField(max_length=100, null=True, choices=TechnologicalRequirementsEnum.choices())
     cv = models.FileField(upload_to="cvs", null=True)
     photo = models.ImageField(upload_to="talents", null=True)
     notice_period_type = models.CharField(max_length=50, choices=NoticePeriodType.choices(),
@@ -1240,7 +1242,7 @@ class Education(BaseModel):
     start_date = models.DateField()
     end_date = models.DateField(null=True, default=None)
     major = models.CharField(max_length=100)
-    certification = models.CharField(max_length=100, blank=True)
+    certification = models.CharField(max_length=100, blank=True, null=True)
     university = models.CharField(max_length=100)
 
 
@@ -1264,6 +1266,7 @@ class Experience(BaseModel):
     start_date = models.DateField(null=True)
     end_date = models.DateField(null=True, default=None)
     currently_works_here = models.BooleanField()
+    description = models.TextField(blank=True)
 
     def duration(self):
         end_date = self.end_date if self.end_date else timezone.now().date()

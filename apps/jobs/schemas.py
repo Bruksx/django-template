@@ -8,16 +8,22 @@ from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from accounts.schemas.business import BusinessUserListSchema
 from core.enums import SalaryType
+from core.models import Currency
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
 from django.db.models import QuerySet, Q, Count
 from django.utils import timezone
 from ninja import ModelSchema
 from ninja.errors import HttpError
 from ninja.schema import Schema
-from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from pydantic import Field, EmailStr
-from settings.models import WorkFlowStage
 
+from accounts.enums import Days
+from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
+from accounts.schemas.business import BusinessUserListSchema
+from core.enums import SalaryType
+from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+from settings.models import WorkFlowStage
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType, UpdateQuickReviewType
 from .models import BusinessModel, JobApplication, Answer, JobInvite
@@ -791,7 +797,6 @@ class JobFullListSchema(ModelSchema):
             return obj.created_by.user.fullname
         return None
 
-
 class FullJobDetailSchema(JobDetailSchema, JobFullListSchema):
     job_posts: List[MutateJobPostListSchema]
     @staticmethod
@@ -829,6 +834,9 @@ class JobFullWorkflowViewSchema(JobFullListSchema):
     @staticmethod
     def resolve_workflow_data(obj, context):
         return obj.workflow_stage_data()
+
+    def export_to_excel(self):
+        return export_rows_to_excel(self)
 
 class JobWorkflowViewPaginatedSchema(PaginatedResponseSchema[JobFullWorkflowViewSchema]):
     roles: int
@@ -1332,7 +1340,7 @@ class TalentJobFilterSchema(Schema):
             Job post queryset
         """
         from jobs.services import order_job_posts
-        if not queryset:
+        if queryset is None:
             queryset = JobPost.objects.select_related("job", "country").all()
         if self.search:
             queryset = queryset.filter(job__role__name__icontains=self.search)
@@ -1393,6 +1401,7 @@ class BusinessJobFilterQuerySchema(Schema):
     recruiter: Optional[str] = Field("", description="comma separated recruiter uuids")
     posted_by : Optional[str] = Field("", description="comma separated recruiter uuids")
     tags: Optional[str] = Field("", description="comma separated tag uuids")
+    to_excel: Optional[bool] = False
 
 
     def convert_to_schema(self):
@@ -1408,6 +1417,7 @@ class BusinessJobFilterQuerySchema(Schema):
             recruiter=self.recruiter.split(",") if self.recruiter else [],
             posted_by=self.posted_by.split(",") if self.posted_by else [],
             tags=self.tags.split(",") if self.tags else [],
+            to_excel=self.to_excel
         )
 
 class BusinessJobFilterSchema(Schema):
@@ -1422,6 +1432,7 @@ class BusinessJobFilterSchema(Schema):
     recruiter: Optional[List[UUID]] = []
     posted_by: Optional[List[UUID]] = []
     tags: Optional[List[UUID]] = []
+    to_excel: Optional[bool] = False
 
     def get_queryset(self, queryset=None, extra_sorts:List[str]=None)->QuerySet:
         """
@@ -1435,7 +1446,7 @@ class BusinessJobFilterSchema(Schema):
         Returns:
             Job post queryset
         """
-        if not queryset:
+        if queryset is None:
             queryset = Job.objects.prefetch_related("jobpost_set").annotate(jobpost_count=Count('jobpost')).filter(
                 jobpost_count__gt=0)
         if self.search:
@@ -1527,25 +1538,30 @@ class BusinessJobFilterSchema(Schema):
 
 class PublicJobPostFilterQuerySchema(Schema):
     search: Optional[str] = ""
-    work_structure:Optional[str] = Field("", description=f"comma separated work structure enums: {', '.join(WorkStructureEnum.values())}")
+    work_structure: Optional[str] = Field("",
+                                          description=f"comma separated work structure enums: {', '.join(WorkStructureEnum.values())}")
     country: Optional[str] = Field("", description="comma separated country uuids")
     employment_type: Optional[str] = Field("", description="comma separated employment type uuids")
+    region: Optional[str] = Field("", description="optional: north-america")
 
     def convert_to_schema(self):
         return PublicJobPostFilterSchema(
             search=self.search if self.search else None,
             work_structure=self.work_structure.split(",") if self.work_structure else [],
             country=self.country.split(",") if self.country else [],
-            employment_type=self.employment_type.split(",") if self.employment_type else []
+            employment_type=self.employment_type.split(",") if self.employment_type else [],
+            region=self.region if self.region else None
         )
+
 
 class PublicJobPostFilterSchema(Schema):
     search: Optional[str] = None
-    work_structure:Optional[List[WorkStructureEnum]] = []
+    work_structure: Optional[List[WorkStructureEnum]] = []
     country: Optional[List[UUID]] = []
     employment_type: Optional[List[UUID]] = []
+    region: Optional[str] = None
 
-    def get_queryset(self, queryset=None, extra_sorts:List[str]=None)->QuerySet:
+    def get_queryset(self, queryset=None, extra_sorts: List[str] = None) -> QuerySet:
         """
          get jobs queryset based on this filter
 
@@ -1556,8 +1572,16 @@ class PublicJobPostFilterSchema(Schema):
         Returns:
             Job post queryset
         """
-        if not queryset:
-            queryset = JobPost.objects.select_related('job','country','province', 'job__employment_type', 'job__role').filter(status=JobStatusType.POSTED.value)
+        if queryset is None:
+            queryset = JobPost.objects.select_related('job', 'country', 'province', 'job__employment_type',
+                                                      'job__role').filter(status=JobStatusType.POSTED.value)
+
+        if self.region:
+            if self.region == "north-america":
+                queryset = queryset.filter(country__name__in=["Canada", "United States"])
+        else:
+            queryset = queryset.exclude(country__name__in=["Canada", "United States"])
+
         if self.search:
             queryset = queryset.filter(job__role__name__icontains=self.search)
 
@@ -1725,3 +1749,142 @@ class QuickReviewFilterQuerySchema(Schema):
             job=self.job if self.job else None,
             job_posts=self.job_posts.split(",") if self.job_posts else [],
         )
+
+
+class AIJobDescriptionGeneratorRequestSchema(Schema):
+    prompt: Optional[str] = None
+
+
+class AIJobDescriptionGeneratorResponseSchema(Schema):
+    role: GenericNameAndUidSchema
+    job_description: str
+    responsibilities: str
+    skills: List[JobSkillSchema]
+    job_level: Optional[GenericNameAndUidSchema]
+    additional_skills: List[str]
+
+class AIJobSalaryItemSchema(Schema):
+    salary_type: str = Field(examples=SalaryType.values())
+    salary_min: float
+    salary_max: float
+
+    @staticmethod
+    def salary_item(salary_type, salary_min, salary_max):
+        return {
+            "salary_type": salary_type.value,
+            "salary_min": round(salary_min, 1),
+            "salary_max": round(salary_max, 1),
+        }
+
+class AIJobSalaryGeneratorResponseSchema(Schema):
+    salary_options: List[AIJobSalaryItemSchema]
+    bonus_salary_options : List[AIJobSalaryItemSchema]
+    currency: GenericNameAndUidSchema
+
+    @staticmethod
+    def build_salary_options(annual_min, annual_max, hourly_min, hourly_max):
+        return [
+            AIJobSalaryItemSchema.salary_item(SalaryType.ANNUALLY, annual_min, annual_max),
+            AIJobSalaryItemSchema.salary_item(SalaryType.HOURLY, hourly_min, hourly_max),
+            AIJobSalaryItemSchema.salary_item(SalaryType.BI_MONTHLY, annual_min / 6, annual_max / 6),
+            AIJobSalaryItemSchema.salary_item(SalaryType.BI_WEEKLY, annual_min / 24, annual_max / 24),
+            AIJobSalaryItemSchema.salary_item(SalaryType.DAILY, hourly_min * 8, hourly_max * 8),
+            AIJobSalaryItemSchema.salary_item(SalaryType.MONTHLY, annual_min / 12, annual_max / 12),
+            AIJobSalaryItemSchema.salary_item(SalaryType.WEEKLY, annual_min / 48, annual_max / 48)
+        ]
+
+    @classmethod
+    def example(cls):
+        currency = Currency.objects.filter(abbreviation__iexact="USD").first()
+        return {
+                "salary_options": [
+                    {
+                        "salary_type": SalaryType.ANNUALLY.value,
+                        "salary_min": round(90000.0, 1),
+                        "salary_max": round(170000.0, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.HOURLY.value,
+                        "salary_min": round(45.0, 1),
+                        "salary_max": round(85.0, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.BI_MONTHLY.value,
+                        "salary_min": round(90000.0 / 6, 1),
+                        "salary_max": round(170000.0 / 6, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.BI_WEEKLY.value,
+                        "salary_min": round(90000.0 / 24, 1),
+                        "salary_max": round(170000.0 / 24, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.DAILY.value,
+                        "salary_min": round(45.0 * 8, 1),
+                        "salary_max": round(85.0 * 8, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.MONTHLY.value,
+                        "salary_min": round(90000.0 / 12, 1),
+                        "salary_max": round(170000.0 / 12, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.WEEKLY.value,
+                        "salary_min": round(90000.0 / 48, 1),
+                        "salary_max": round(170000.0 / 48, 1),
+                    },
+                ],
+
+                "bonus_salary_options": [
+                    {
+                        "salary_type": SalaryType.ANNUALLY.value,
+                        "salary_min": round(8000.0, 1),
+                        "salary_max": round(25000.0, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.HOURLY.value,
+                        "salary_min": round(5.0, 1),
+                        "salary_max": round(15.0, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.BI_MONTHLY.value,
+                        "salary_min": round(8000.0 / 6, 1),
+                        "salary_max": round(25000.0 / 6, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.BI_WEEKLY.value,
+                        "salary_min": round(8000.0 / 24, 1),
+                        "salary_max": round(25000.0 / 24, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.DAILY.value,
+                        "salary_min": round(5.0 * 8, 1),
+                        "salary_max": round(15.0 * 8, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.MONTHLY.value,
+                        "salary_min": round(8000.0 / 12, 1),
+                        "salary_max": round(25000.0 / 12, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.WEEKLY.value,
+                        "salary_min": round(8000.0 / 48, 1),
+                        "salary_max": round(25000.0 / 48, 1),
+                    },
+                ],
+
+                "currency": {
+                    "uid": str(currency.uid),
+                    "name": currency.name,
+                }
+            }
+
+
+class AIJobSalaryGeneratorRequestSchema(Schema):
+    role: UUID
+    job_description: str
+    country: UUID
+    state: UUID
+    job_level: UUID
+    department: UUID
+    employment_type: UUID

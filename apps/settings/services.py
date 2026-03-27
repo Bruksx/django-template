@@ -8,13 +8,14 @@ from django.utils.html import strip_tags
 from settings.models import EmailTemplate
 
 from helpers.email.utils import send_email, send_template_email
+from helpers.loggers import Logger, LogSchema
 from monkeypatches.q_cluster import async_task
 
 
 @dataclasses.dataclass
 class PersonalEmailEngine:
     emails: List[str]
-    has_placeholder: bool
+    placeholders: List[str]
     recruiter: BusinessUser  #UUID
     from_email: Optional[str] = None
     subject: Optional[str] = None
@@ -23,10 +24,9 @@ class PersonalEmailEngine:
     attachment_urls: Optional[List[str]] = None
 
     def send(self):
-        if not self.has_placeholder:
+        if not self.placeholders:
             self.send_bulk_email()
             return
-        attachments = [attachment.file.url for attachment in EmailTemplate.emailtemplateattachment_set.all()]
         for email in self.emails:
             talent = Talent.objects.filter(user__email=email).first()
             if not talent:
@@ -38,7 +38,8 @@ class PersonalEmailEngine:
                        body=self.body,
                        recruiter=self.recruiter,
                        talent=talent,
-                       template_attachments=attachments,
+                       placeholders=self.placeholders,
+                       template_attachments=self.attachment_urls,
                        attachments=self.attachments
             )
 
@@ -51,32 +52,39 @@ class PersonalEmailEngine:
         return
 
     @staticmethod
-    def send_individual_email(from_email, emails, subject, body, recruiter: BusinessUser, talent: Talent, template_attachments: List[str]=None, attachments: list=None):
-        converter = EmailTemplate.convert_placeholder_to_key
-        context = {converter(placeholder): talent.placeholders_mapper(placeholder, recruiter) for placeholder in
-                   EmailTemplate.placeholder}
+    def send_individual_email(from_email, emails, subject, body, recruiter: BusinessUser, talent: Talent, placeholders:List[str]=None, template_attachments: List[str]=None, attachments: list=None):
+        data = dict()
+        try:
+            converter = EmailTemplate.convert_placeholder_to_key
+            context = {converter(placeholder): talent.placeholders_mapper(placeholder, recruiter) for placeholder in
+                       placeholders}
 
-        EmailTemplate.send_email(context=context, to=emails, sender=from_email)
+            subject = EmailTemplate.convert_to_template(str(subject), is_html=True).render(Context(context))
+            message = EmailTemplate.convert_to_template(str(body), is_html=True).render(Context(context))
 
-        subject = EmailTemplate.convert_to_template(str(subject), is_html=True).render(Context(context))
-        message = EmailTemplate.convert_to_template(str(body), is_html=True).render(Context(context))
+            body = strip_tags(message)
+            html_content = message
+            data = dict(
+                subject=html.unescape(subject),
+                body=body,
+                html_content=html_content,
+                emails=emails,
+                from_user=from_email
+            )
+            if attachments:
+                data["attachments"] = attachments
+            if template_attachments:
+                data["attachment_urls"] = template_attachments
 
-        body = strip_tags(message)
-        html_content = message
-        data = dict(
-            subject=html.unescape(subject),
-            body=body,
-            html_content=html_content,
-            emails=emails,
-            from_user=from_email
-        )
-        if attachments:
-            data["attachments"] = attachments
-        if template_attachments:
-            data["attachment_urls"] = template_attachments
-
-        send_template_email(**data)
-        return
+            send_template_email(**data)
+            return
+        except Exception as e:
+            Logger.critical(LogSchema(
+                title="Unable to send individual template email",
+                data=data,
+                description=str(e),
+                sender="PersonalEmailEngine.send_individual_email"
+            ).__dict__, exc_info=True)
 
 
 
