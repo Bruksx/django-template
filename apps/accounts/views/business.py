@@ -26,7 +26,7 @@ from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
 from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema, TalentFilterListSchema, \
-    SendBulkChatSchema
+    SendBulkChatSchema, BusinessUserListSchema
 
 router = Router(tags=["Business Account"])
 
@@ -61,6 +61,7 @@ def create_account(request, data: business_schema.ValidateOTPSchema):
         last_name=data.last_name,
         type=UserType.BUSINESS.value,
         email=data.email.lower().strip(),
+        secondary_email=data.secondary_email,
         username=None,
         email_verified=True,
         phone_number=data.phone_number,
@@ -643,6 +644,21 @@ def delete_talent_filter(request, talent_filter_uid: UUID):
     talent_filter.delete()
     return Response(status=204, data={"message": "Talent filter deleted successfully"})
 
-
-
+@router.post("email-action", auth=JWTAuth(), tags=["Business Account"], response=BusinessUserListSchema)
+def handle_email_action(request, data: business_schema.EmailActionSchema):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    if data.action == "remove" and str(business_user.user.email).lower() == str(data.email).lower():
+        raise HttpError(400, "Cannot remove primary email")
+    if data.action == "remove" and str(data.email).lower() != str(business_user.user.secondary_email).lower():
+        raise HttpError(400, "This email is not secondary email")
+    if data.action == "make_default_sender" and data.email not in business_user.emails:
+        raise HttpError(400, "This email is not verified")
+    if data.action == "make_default_sender":
+        business_user.default_sender_email = data.email
+        business_user.save()
+    elif data.action == "remove":
+        business_user.user.secondary_email = None
+        business_user.user.save()
+    return business_user
 

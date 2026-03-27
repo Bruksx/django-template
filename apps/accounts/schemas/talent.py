@@ -160,7 +160,7 @@ class UserSchema(ModelSchema):
 
     class Meta:
         model = User
-        fields = ["uid", "email", "first_name", "last_name", "phone_number", "phone_code",
+        fields = ["uid", "email", "secondary_email", "first_name", "last_name", "phone_number", "phone_code",
                   "gender"]
 
 class LoggedInUserSchema(UserSchema):
@@ -266,6 +266,7 @@ class TalentUserListSchema(ModelSchema):
     first_name: str =  Field(alias="user.first_name")
     last_name: str = Field(alias="user.last_name")
     email: EmailStr = Field(alias="user.email")
+    secondary_email: Optional[EmailStr] = Field(alias="user.secondary_email")
     user_uid: UUID = Field(alias="user.uid")
     role: Optional[RoleSchema] = Field(None, alias="get_role")
     country: Optional[CountrySchema]
