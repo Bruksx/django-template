@@ -683,7 +683,7 @@ def get_recent_hires(request, filters:DashboardFilter=Query(...)):
     business_user = request.user.businessuser
     return recent_hires(**filters.dict(), business=business_user.business)
 
-@router.post("email-action", auth=JWTAuth(), tags=["Business Account"], response=BusinessUserListSchema)
+@router.post("email-action", auth=JWTAuth(), tags=["Business Account"], response=business_schema.BusinessUserListSchema)
 def handle_email_action(request, data: business_schema.EmailActionSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
