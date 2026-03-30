@@ -16,5 +16,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        assign_default_sender_email
+        migrations.RunPython(assign_default_sender_email)
     ]
