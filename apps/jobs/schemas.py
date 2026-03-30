@@ -1565,11 +1565,8 @@ class PublicJobPostFilterSchema(Schema):
             queryset = JobPost.objects.select_related('job', 'country', 'province', 'job__employment_type',
                                                       'job__role').filter(status=JobStatusType.POSTED.value)
 
-        if self.region:
-            if self.region == "north-america":
-                queryset = queryset.filter(country__name__in=["Canada", "United States"])
-        else:
-            queryset = queryset.exclude(country__name__in=["Canada", "United States"])
+        if self.region == "north-america":
+            queryset = queryset.filter(country__name__in=["Canada", "United States"])
 
         if self.search:
             queryset = queryset.filter(job__role__name__icontains=self.search)
