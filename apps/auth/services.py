@@ -331,5 +331,6 @@ def handle_social_login(data: SocialAuthSchema)->User:
         Talent.objects.create(user=user)
     elif data.user_type == UserType.BUSINESS:
         business = Business.objects.create(created_by=user)
-        BusinessUser.objects.create(user=user, role=BusinessUserRoleType.OWNER.value, business=business)
+        BusinessUser.objects.create(user=user, role=BusinessUserRoleType.OWNER.value, business=business,
+                                    default_sender_email=user.email)
     return user
