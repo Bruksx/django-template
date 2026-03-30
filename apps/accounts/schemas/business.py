@@ -294,6 +294,9 @@ class BusinessUserListSchema(ModelSchema):
     email_verified: bool = Field(alias="user.email_verified")
     secondary_email: Optional[EmailStr] = Field(alias="user.secondary_email")
     secondary_email_verified: Optional[bool] = Field(alias="user.secondary_email_verified")
+    phone_number: Optional[str] = Field(alias="user.phone_number")
+    phone_code: Optional[str] = Field(alias="user.phone_code")
+
     emails: List[EmailStr]
     user_uid: UUID = Field(alias="user.uid")
     added_by: Optional[str] = Field(alias="get_added_by")
