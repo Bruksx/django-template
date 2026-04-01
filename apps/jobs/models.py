@@ -29,9 +29,9 @@ class EmploymentType(BaseModel):
     def __str__(self) -> str:
         return self.name
 
-    def fullname(self):
+    def fullname(self, public=False):
         if self.parent:
-            return f"{self.parent.name} ({self.name})"
+            return self.parent.name if public is True else f"{self.parent.name} ({self.name})"
         return self.name
 
 
