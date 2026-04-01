@@ -1612,7 +1612,7 @@ class PublicJobPostListSchema(ModelSchema):
     def resolve_employment_type(obj):
         if not obj.job.employment_type:
             return None
-        return obj.job.employment_type.fullname()
+        return obj.job.employment_type.fullname(public=True)
 
 
 class TalentJobApplicationWithdrawalSchema(Schema):
