@@ -44,7 +44,8 @@ from .schemas import (
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
     TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2, AddRoleSchema,
-    PublicJobPostListSchema, PublicJobPostFilterQuerySchema, UpdateQuickReviewSchema, QuickReviewFilterQuerySchema,
+    OtherApplicationSchema, PublicJobPostListSchema, PublicJobPostFilterQuerySchema, UpdateQuickReviewSchema,
+    QuickReviewFilterQuerySchema,
     AIJobDescriptionGeneratorResponseSchema, AIJobDescriptionGeneratorRequestSchema, AIJobSalaryGeneratorRequestSchema,
     AIJobSalaryGeneratorResponseSchema
 )
@@ -882,6 +883,18 @@ def delete_job_tags(request, data: List[str]):
     business = request.user.businessuser.business
     delete_job_post_tags(data, business)
     return Response(status=204, data=dict(message="Job Post Tags deleted successfully"))
+
+
+@router.get("applications/{application_uid}/other-applications", tags=["Business Jobs"], auth=JWTAuth(), response=PaginatedResponseSchema[OtherApplicationSchema])
+@paginate(PageNumberPaginationExtra, page_size=50)
+def get_other_applications(request, application_uid: UUID):
+    IsBusinessUser.check(request)
+    queryset = JobApplication.objects.filter(job_post__job__created_by__business=request.user.businessuser.business)
+    application = queryset.filter(uid=application_uid).first()
+    if not application:
+        raise HttpError(404, "This application does not exist")
+    return queryset.filter(applicant=application.applicant).exclude(uid=application_uid).order_by("-created_at")
+
 
 
 
