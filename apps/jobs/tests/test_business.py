@@ -4,21 +4,18 @@ from decimal import Decimal, ROUND_HALF_UP
 from random import choice
 from uuid import uuid4
 
-from django.db import models
-from django.test import TestCase
-from django.utils import timezone
-from future.backports.datetime import timedelta
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
-
 from accounts.enums import Days
 from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent, \
     EducationLevel, SkillCategory, Experience, TalentAvailableDay
 from core.models import City, State
 from core.models import Currency
+from django.db import models
+from django.test import TestCase
+from django.utils import timezone
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
     JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, CountryFactory, ScreeningQuestionFactory, \
     AnswerFactory, CurrencyFactory, ExperienceFactory
+from future.backports.datetime import timedelta
 from jobs.business_views import router
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
 from jobs.models import (
@@ -26,7 +23,222 @@ from jobs.models import (
     BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage, JobPostTag
 )
 from jobs.queries import add_application_match_score
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
 from settings.models import WorkFlowStage
+
+
+class GetOtherApplicationsTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(business=self.business)
+        self.other_business = BusinessFactory.create()
+        self.other_business_user = BusinessUserFactory.create(business=self.other_business)
+        
+        # Create talent
+        self.talent = TalentFactory.create()
+        
+        # Create jobs and job posts for the business
+        self.job1 = JobFactory.create(created_by=self.business_user)
+        self.job2 = JobFactory.create(created_by=self.business_user)
+        self.job3 = JobFactory.create(created_by=self.other_business_user)  # Different business
+        
+        self.job_post1 = JobPostFactory.create(job=self.job1)
+        self.job_post2 = JobPostFactory.create(job=self.job2)
+        self.job_post3 = JobPostFactory.create(job=self.job3)
+        
+        # Create applications by the same talent
+        self.application1 = JobApplicationFactory.create(
+            job_post=self.job_post1,
+            applicant=self.talent,
+            recruiter=self.business_user
+        )
+        self.application2 = JobApplicationFactory.create(
+            job_post=self.job_post2,
+            applicant=self.talent,
+            recruiter=self.business_user
+        )
+        self.application3 = JobApplicationFactory.create(
+            job_post=self.job_post3,
+            applicant=self.talent,
+            recruiter=self.other_business_user
+        )
+        
+        # Create another talent with applications
+        self.other_talent = TalentFactory.create()
+        self.other_application = JobApplicationFactory.create(
+            job_post=self.job_post1,
+            applicant=self.other_talent,
+            recruiter=self.business_user
+        )
+        
+        self.url = lambda application_uid: f"applications/{application_uid}/other-applications"
+
+    def test_get_other_applications_success(self):
+        """Test getting other applications by the same talent for the same business"""
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.application1.uid), headers=headers)
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        # Should return the other application by the same talent for the same business
+        self.assertIn('results', data)
+        self.assertEqual(len(data['results']), 1)
+        self.assertEqual(data['results'][0]['uid'], str(self.application2.uid))
+
+    def test_get_other_applications_no_other_applications(self):
+        """Test when talent has no other applications for the same business"""
+        # Create a new talent with only one application
+        single_talent = TalentFactory.create()
+        single_application = JobApplicationFactory.create(
+            job_post=self.job_post1,
+            applicant=single_talent,
+            recruiter=self.business_user
+        )
+        
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(single_application.uid), headers=headers)
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        self.assertIn('results', data)
+        self.assertEqual(len(data['results']), 0)
+
+    def test_get_other_applications_unauthorized(self):
+        """Test that unauthorized users cannot access the endpoint"""
+        response = self.client.get(self.url(self.application1.uid))
+        
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_other_applications_non_business_user(self):
+        """Test that non-business users cannot access the endpoint"""
+        headers = {
+            "authorization": f"Bearer {self.talent.user.token}"
+        }
+        response = self.client.get(self.url(self.application1.uid), headers=headers)
+        
+        self.assertEqual(response.status_code, 403)
+
+    def test_get_other_applications_application_not_found(self):
+        """Test when application UID doesn't exist"""
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(uuid4()), headers=headers)
+        
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("This application does not exist", response.json()['detail'])
+
+    def test_get_other_applications_different_business_access_denied(self):
+        """Test that business users cannot access applications from other businesses"""
+        headers = {
+            "authorization": f"Bearer {self.other_business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.application1.uid), headers=headers)
+        
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("This application does not exist", response.json()['detail'])
+
+    def test_get_other_applications_multiple_other_applications(self):
+        """Test when talent has multiple other applications for the same business"""
+        # Create additional job posts and applications
+        job4 = JobFactory.create(created_by=self.business_user)
+        job5 = JobFactory.create(created_by=self.business_user)
+        job_post4 = JobPostFactory.create(job=job4)
+        job_post5 = JobPostFactory.create(job=job5)
+        
+        application3 = JobApplicationFactory.create(
+            job_post=self.job_post2,
+            applicant=self.talent,
+            recruiter=self.business_user
+        )
+        application4 = JobApplicationFactory.create(
+            job_post=job_post4,
+            applicant=self.talent,
+            recruiter=self.business_user
+        )
+        application5 = JobApplicationFactory.create(
+            job_post=job_post5,
+            applicant=self.talent,
+            recruiter=self.business_user
+        )
+        
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(application3.uid), headers=headers)
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        # Should return other applications by the same talent for the same business
+        self.assertIn('results', data)
+        self.assertGreater(len(data['results']), 0)
+        
+        # Check that current application is not included
+        returned_uids = [item['uid'] for item in data['results']]
+        self.assertNotIn(str(application3.uid), returned_uids)
+
+    def test_get_other_applications_schema_fields(self):
+        """Test that the response contains the expected schema fields"""
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.application1.uid), headers=headers)
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        if len(data['results']) > 0:
+            item = data['results'][0]
+            expected_fields = [
+                'uid', 'job_logo', 'role', 'location', 
+                'job_stage', 'job_status', 'invited', 'applied_date', 'recruiter'
+            ]
+            
+            for field in expected_fields:
+                self.assertIn(field, item)
+
+    def test_get_other_applications_pagination(self):
+        """Test pagination functionality"""
+        # Create many applications for the same talent
+        for i in range(10):
+            job = JobFactory.create(created_by=self.business_user)
+            job_post = JobPostFactory.create(job=job)
+            JobApplicationFactory.create(
+                job_post=job_post,
+                applicant=self.talent,
+                recruiter=self.business_user
+            )
+        
+        headers = {
+            "authorization": f"Bearer {self.business_user.user.token}"
+        }
+        
+        # Get first application to test with
+        first_app = JobApplication.objects.filter(
+            applicant=self.talent,
+            job_post__job__created_by__business=self.business
+        ).first()
+        
+        response = self.client.get(self.url(first_app.uid), headers=headers)
+        
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        # Check pagination structure
+        self.assertIn('results', data)
+        self.assertIn('count', data)
+        self.assertIn('next_page', data)
+        self.assertIn('previous_page', data)
+        self.assertIn('number_of_pages', data)
 
 
 class EmploymentTypeListTests(TestCase):
