@@ -44,8 +44,8 @@ from .schemas import (
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
     TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2, AddRoleSchema,
-    PublicJobPostListSchema, PublicJobPostFilterQuerySchema, OtherApplicationSchema
-    PublicJobPostListSchema, PublicJobPostFilterQuerySchema, UpdateQuickReviewSchema, QuickReviewFilterQuerySchema,
+    OtherApplicationSchema, PublicJobPostListSchema, PublicJobPostFilterQuerySchema, UpdateQuickReviewSchema,
+    QuickReviewFilterQuerySchema,
     AIJobDescriptionGeneratorResponseSchema, AIJobDescriptionGeneratorRequestSchema, AIJobSalaryGeneratorRequestSchema,
     AIJobSalaryGeneratorResponseSchema
 )
