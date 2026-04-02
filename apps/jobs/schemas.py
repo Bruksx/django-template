@@ -943,6 +943,7 @@ class JobListSchema(ModelSchema):
         fields = ["uid","work_structure", "role"]
 
 class OtherApplicationSchema(ModelSchema):
+    job_logo: Optional[str] = Field(None, alias="job_post.job.business_logo")
     role: Optional[GenericNameAndUidSchema] = Field(alias="job_post.job.role")
     location: Optional[GenericNameAndUidSchema] = Field(alias="job_post.country")
     job_stage: Optional[str]
