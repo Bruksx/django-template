@@ -944,6 +944,7 @@ class JobListSchema(ModelSchema):
 
 class OtherApplicationSchema(ModelSchema):
     job_logo: Optional[str] = Field(None, alias="job_post.job.business_logo")
+    job_company: Optional[str] = Field(None, alias="job_post.job.business_name")
     role: Optional[GenericNameAndUidSchema] = Field(alias="job_post.job.role")
     location: Optional[GenericNameAndUidSchema] = Field(alias="job_post.country")
     job_stage: Optional[str]
@@ -1023,6 +1024,23 @@ class JobApplicationListSchema(ModelSchema):
         if hasattr(obj, "computed_match_score"):
             return 0 if not obj.computed_match_score else int(obj.computed_match_score)
         return int(obj.match) or 0
+
+class JobApplicationDetailSchema(JobApplicationListSchema):
+    strength: Optional[JobMatchSchema] = None
+    weakness: Optional[JobMatchSchema] = None
+    non_negotiable: Optional[JobMatchSchema] = None
+
+    @staticmethod
+    def resolve_strength(obj, context):
+        return obj.job_post.strength(obj.applicant)
+
+    @staticmethod
+    def resolve_weakness(obj, context):
+        return obj.job_post.weakness(obj.applicant)
+
+    @staticmethod
+    def resolve_non_negotiable(obj, context):
+        return obj.job_post.non_negotiable()
 
 
 class StageSchema(GenericNameAndUidSchema):

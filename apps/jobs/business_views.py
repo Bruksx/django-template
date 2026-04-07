@@ -600,11 +600,34 @@ def job_detail(request, job_uid:UUID):
 @router.get("job-posts/applications/{application_uid}", response=job_schemas.JobApplicationListSchema, auth=JWTAuth())
 def view_applicant(request, application_uid: UUID):
     IsBusinessUser.check(request)
-    return (JobApplication.objects
+    application = (JobApplication.objects
             .select_related("stage", "applicant", "applicant__user","applicant__country")
             .annotate(invited=Exists(JobInvite.objects.filter(
             job=OuterRef('job_post__job'), talent=OuterRef('applicant')
-        ))).filter(uid=application_uid).first())
+        ))).filter(uid=application_uid, job_post__job__created_by__business=request.user.businessuser.business).first())
+    
+    if not application:
+        raise HttpError(404, "Application not found")
+    
+    return application
+
+
+@router.get("job-posts/applications/{application_uid}/detail",
+            response=job_schemas.JobApplicationDetailSchema,
+            auth=JWTAuth())
+def view_applicant_detail(request, application_uid: UUID):
+    IsBusinessUser.check(request)
+    application = (JobApplication.objects
+                   .select_related("stage", "applicant", "applicant__user", "applicant__country")
+                   .annotate(invited=Exists(JobInvite.objects.filter(
+        job=OuterRef('job_post__job'), talent=OuterRef('applicant')
+    ))).filter(uid=application_uid, job_post__job__created_by__business=request.user.businessuser.business).first())
+
+    if not application:
+        raise HttpError(404, "Application not found")
+
+    return application
+
 
 @router.get("job-posts/{job_post_uid}/applications", response=PaginatedResponseSchema[job_schemas.JobApplicationListSchema], auth=JWTAuth())
 def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Optional[PhaseType]=None,
