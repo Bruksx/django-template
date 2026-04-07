@@ -635,6 +635,229 @@ class TestApplicationList(TestCase):
         self.assertGreaterEqual(response.data["count"], 1)
 
 
+class TestViewApplicant(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        country = Country.objects.first()
+        self.business = BusinessFactory.create()
+        self.url = lambda application_uid: f"job-posts/applications/{application_uid}"
+        self.detail_url = lambda application_uid: f"job-posts/applications/{application_uid}/detail"
+        self.business_user = BusinessUserFactory.create(user=self.business.created_by, business=self.business)
+        self.other_business_user = BusinessUserFactory.create()
+        self.job = JobFactory.create(created_by=self.business_user)
+        self.job_post = JobPostFactory.create(country=country, job=self.job, recruiter=self.business_user)
+        self.talent = TalentFactory.create(country=country)
+        self.stage = WorkflowStageFactory.create(created_by=self.business_user)
+        self.application = JobApplicationFactory.create(
+            job_post=self.job_post, 
+            applicant=self.talent, 
+            recruiter=self.business_user,
+            stage=self.stage
+        )
+
+    def test_view_applicant_basic_success(self):
+        """Test getting basic applicant details"""
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        # Check basic schema fields
+        expected_basic_fields = [
+            'uid', 'applicant', 'applicant_uid', 'applicant_email', 
+            'applicant_phone', 'experience', 'match', 'phase', 'stage',
+            'invited', 'created_at', 'available_for_schedule'
+        ]
+        for field in expected_basic_fields:
+            self.assertIn(field, data)
+        
+        # Check that detailed fields are not present
+        detailed_fields = ['strength', 'weakness', 'non_negotiable']
+        for field in detailed_fields:
+            self.assertNotIn(field, data)
+
+    def test_view_applicant_detail_success(self):
+        """Test getting detailed applicant details"""
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.detail_url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        # Check that all basic fields are present
+        expected_basic_fields = [
+            'uid', 'applicant', 'applicant_uid', 'applicant_email', 
+            'applicant_phone', 'experience', 'match', 'phase', 'stage',
+            'invited', 'created_at', 'available_for_schedule'
+        ]
+        for field in expected_basic_fields:
+            self.assertIn(field, data)
+        
+        # Check that detailed fields are also present
+        detailed_fields = ['strength', 'weakness', 'non_negotiable']
+        for field in detailed_fields:
+            self.assertIn(field, data)
+
+    def test_view_applicant_unauthorized(self):
+        """Test that unauthorized users cannot access the basic endpoint"""
+        response = self.client.get(self.url(self.application.uid))
+        self.assertEqual(response.status_code, 401)
+
+    def test_view_applicant_detail_unauthorized(self):
+        """Test that unauthorized users cannot access the detail endpoint"""
+        response = self.client.get(self.detail_url(self.application.uid))
+        self.assertEqual(response.status_code, 401)
+
+    def test_view_applicant_talent_forbidden(self):
+        """Test that talent users cannot access the basic endpoint"""
+        headers = {
+            "authorization": f"bearer {self.talent.user.token}"
+        }
+        response = self.client.get(self.url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_view_applicant_detail_talent_forbidden(self):
+        """Test that talent users cannot access the detail endpoint"""
+        headers = {
+            "authorization": f"bearer {self.talent.user.token}"
+        }
+        response = self.client.get(self.detail_url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_view_applicant_different_business_forbidden(self):
+        """Test that business users from other businesses cannot access applications"""
+        headers = {
+            "authorization": f"bearer {self.other_business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("Application not found", response.json()['detail'])
+
+    def test_view_applicant_detail_different_business_forbidden(self):
+        """Test that business users from other businesses cannot access application details"""
+        headers = {
+            "authorization": f"bearer {self.other_business_user.user.token}"
+        }
+        response = self.client.get(self.detail_url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("Application not found", response.json()['detail'])
+
+    def test_view_applicant_not_found(self):
+        """Test when application UID doesn't exist for basic endpoint"""
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(uuid4()), headers=headers)
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("Application not found", response.json()['detail'])
+
+    def test_view_applicant_detail_not_found(self):
+        """Test when application UID doesn't exist for detail endpoint"""
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.detail_url(uuid4()), headers=headers)
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("Application not found", response.json()['detail'])
+
+    def test_view_applicant_data_integrity(self):
+        """Test that the basic endpoint returns correct data"""
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        # Check data integrity
+        self.assertEqual(data['uid'], str(self.application.uid))
+        self.assertEqual(data['applicant'], self.talent.user.fullname)
+        self.assertEqual(data['applicant_uid'], str(self.talent.uid))
+        self.assertEqual(data['applicant_email'], self.talent.user.email)
+        self.assertEqual(data['experience'], int(self.talent.years_of_experience))
+        self.assertEqual(data['phase'], self.stage.phase if self.stage else PhaseType.NEW.value)
+
+    def test_view_applicant_detail_data_integrity(self):
+        """Test that the detail endpoint returns correct data"""
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.detail_url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        # Check data integrity
+        self.assertEqual(data['uid'], str(self.application.uid))
+        self.assertEqual(data['applicant'], self.talent.user.fullname)
+        self.assertEqual(data['applicant_uid'], str(self.talent.uid))
+        self.assertEqual(data['applicant_email'], self.talent.user.email)
+        self.assertEqual(data['experience'], int(self.talent.years_of_experience))
+        self.assertEqual(data['phase'], self.stage.phase if self.stage else PhaseType.NEW.value)
+
+    def test_view_applicant_with_invited_annotation(self):
+        """Test that the invited annotation works correctly for basic endpoint"""
+        from jobs.models import JobInvite
+        
+        # Create a job invite for this talent
+        JobInvite.objects.create(
+            job=self.job,
+            talent=self.talent
+        )
+        
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        self.assertTrue(data['invited'])
+
+    def test_view_applicant_detail_with_invited_annotation(self):
+        """Test that the invited annotation works correctly for detail endpoint"""
+        from jobs.models import JobInvite
+        
+        # Create a job invite for this talent
+        JobInvite.objects.create(
+            job=self.job,
+            talent=self.talent
+        )
+        
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.detail_url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        self.assertTrue(data['invited'])
+
+    def test_view_applicant_without_invited_annotation(self):
+        """Test that invited annotation is false when no invite exists for basic endpoint"""
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        self.assertFalse(data['invited'])
+
+    def test_view_applicant_detail_without_invited_annotation(self):
+        """Test that invited annotation is false when no invite exists for detail endpoint"""
+        headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+        response = self.client.get(self.detail_url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        self.assertFalse(data['invited'])
+
+
 class JobCreationTest(TestCase):
 
     def setUp(self):
