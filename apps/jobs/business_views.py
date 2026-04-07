@@ -1,6 +1,6 @@
 import logging
 from datetime import timedelta
-from typing import Literal, Optional, List
+from typing import Literal, Optional, List, Union
 from uuid import UUID
 
 from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
@@ -575,14 +575,21 @@ def job_detail(request, job_uid:UUID):
         raise HttpError(404, "This job does not exist")
     return job
 
-@router.get("job-posts/applications/{application_uid}", response=job_schemas.JobApplicationListSchema, auth=JWTAuth())
-def view_applicant(request, application_uid: UUID):
+@router.get("job-posts/applications/{application_uid}", response=Union[job_schemas.JobApplicationListSchema, job_schemas.JobApplicationDetailSchema], auth=JWTAuth())
+def view_applicant(request, application_uid: UUID, full: bool = False):
     IsBusinessUser.check(request)
-    return (JobApplication.objects
+    application = (JobApplication.objects
             .select_related("stage", "applicant", "applicant__user","applicant__country")
             .annotate(invited=Exists(JobInvite.objects.filter(
             job=OuterRef('job_post__job'), talent=OuterRef('applicant')
         ))).filter(uid=application_uid).first())
+    
+    if not application:
+        raise HttpError(404, "Application not found")
+    
+    if full:
+        return job_schemas.JobApplicationDetailSchema.from_orm(application)
+    return job_schemas.JobApplicationListSchema.from_orm(application)
 
 @router.get("job-posts/{job_post_uid}/applications", response=PaginatedResponseSchema[job_schemas.JobApplicationListSchema], auth=JWTAuth())
 def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Optional[PhaseType]=None,
