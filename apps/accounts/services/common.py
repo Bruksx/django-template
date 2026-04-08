@@ -43,9 +43,9 @@ def get_application_queryset(business: Optional[Business]=None, start_date: Opti
     elif start_date and end_date:
         queryset = queryset.filter(created_at__range=[start_date, end_date])
     if role:
-        queryset = queryset.filter(job_role___uid=role)
+        queryset = queryset.filter(job_post__job__role___uid=role)
     if client:
-        queryset = queryset.filter(application__job_post__job__hiring_company_name=client)
+        queryset = queryset.filter(job_post__job__hiring_company_name=client)
     return queryset
 
 
