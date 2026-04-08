@@ -1,6 +1,7 @@
 import logging
 import time
 from urllib.parse import parse_qsl
+from datetime import timedelta
 
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
@@ -127,26 +128,19 @@ class LogUserLastLoginConnectionMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        # Process the request (view execution, including any transaction.atomic)
         response = self.get_response(request)
 
-        # Log the last login time of the user
         if not request.user.is_authenticated:
             return response
         logger = logging.getLogger(__name__)
-        last_login = cache.get(f"last_login_{request.user.id}")
-        if not last_login:
-            last_login = request.user.last_login
-
-        if last_login.date == timezone.now().date():
-            return response
-        request.user.last_login = timezone.now()
-        request.user.save()
-        last_login = request.user.last_login
-        cache.set(
-            key=f"last_login_{request.user.id}",
-            value=last_login,
-            timeout=3600
-        )
-        logger.info(f"User {request.user} logged in at {last_login}")
+        now = timezone.now()
+        if request.user.last_login:
+            if now - request.user.last_login >= timedelta(hours=1):
+                request.user.last_login = now
+                request.user.save()
+                logger.info(f"User {request.user} logged in at {now}")
+        else:
+            request.user.last_login = now
+            request.user.save()
+            logger.info(f"User {request.user} logged in at {now}")
         return response
