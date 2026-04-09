@@ -943,6 +943,8 @@ class JobListSchema(ModelSchema):
         fields = ["uid","work_structure", "role"]
 
 class OtherApplicationSchema(ModelSchema):
+    job_logo: Optional[str] = Field(None, alias="job_post.job.business_logo")
+    job_company: Optional[str] = Field(None, alias="job_post.job.business_name")
     role: Optional[GenericNameAndUidSchema] = Field(alias="job_post.job.role")
     location: Optional[GenericNameAndUidSchema] = Field(alias="job_post.country")
     job_stage: Optional[str]
@@ -1022,6 +1024,23 @@ class JobApplicationListSchema(ModelSchema):
         if hasattr(obj, "computed_match_score"):
             return 0 if not obj.computed_match_score else int(obj.computed_match_score)
         return int(obj.match) or 0
+
+class JobApplicationDetailSchema(JobApplicationListSchema):
+    strength: Optional[JobMatchSchema] = None
+    weakness: Optional[JobMatchSchema] = None
+    non_negotiable: Optional[JobMatchSchema] = None
+
+    @staticmethod
+    def resolve_strength(obj, context):
+        return obj.job_post.strength(obj.applicant)
+
+    @staticmethod
+    def resolve_weakness(obj, context):
+        return obj.job_post.weakness(obj.applicant)
+
+    @staticmethod
+    def resolve_non_negotiable(obj, context):
+        return obj.job_post.non_negotiable()
 
 
 class StageSchema(GenericNameAndUidSchema):
@@ -1576,11 +1595,8 @@ class PublicJobPostFilterSchema(Schema):
             queryset = JobPost.objects.select_related('job', 'country', 'province', 'job__employment_type',
                                                       'job__role').filter(status=JobStatusType.POSTED.value)
 
-        if self.region:
-            if self.region == "north-america":
-                queryset = queryset.filter(country__name__in=["Canada", "United States"])
-        else:
-            queryset = queryset.exclude(country__name__in=["Canada", "United States"])
+        if self.region == "north-america":
+            queryset = queryset.filter(country__name__in=["Canada", "United States"])
 
         if self.search:
             queryset = queryset.filter(job__role__name__icontains=self.search)
@@ -1626,7 +1642,7 @@ class PublicJobPostListSchema(ModelSchema):
     def resolve_employment_type(obj):
         if not obj.job.employment_type:
             return None
-        return obj.job.employment_type.name
+        return obj.job.employment_type.fullname(public=True)
 
 
 class TalentJobApplicationWithdrawalSchema(Schema):
