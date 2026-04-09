@@ -2,12 +2,11 @@ from datetime import datetime, timedelta, date
 from typing import Optional
 from uuid import UUID
 
+from accounts.models import Business
 from django.db.models import Func, F, Q
 from django.db.models import Sum, IntegerField, Avg, Count, OuterRef, Exists, Subquery
 from django.db.models.functions import Cast, TruncDate
 from django.utils import timezone
-
-from accounts.models import Business
 from jobs.enums import PhaseType, WithdrawalFeedbackType
 from jobs.models import TalentApplicationStageTimeline, JobApplication, JobApplicationWithdrawal
 
@@ -27,7 +26,7 @@ def get_talent_application_stage_timeline(queryset, business: Optional[Business]
     elif start_date and end_date:
         queryset = queryset.filter(created_at__range=[start_date, end_date])
     if role:
-        queryset = queryset.filter(job_role___uid=role)
+        queryset = queryset.filter(job_role__uid=role)
     if client:
         queryset = queryset.filter(application__job_post__job__hiring_company_name=client)
     return queryset
@@ -43,7 +42,7 @@ def get_application_queryset(business: Optional[Business]=None, start_date: Opti
     elif start_date and end_date:
         queryset = queryset.filter(created_at__range=[start_date, end_date])
     if role:
-        queryset = queryset.filter(job_post__job__role___uid=role)
+        queryset = queryset.filter(job_post__job__role__uid=role)
     if client:
         queryset = queryset.filter(job_post__job__hiring_company_name=client)
     return queryset
@@ -74,14 +73,14 @@ def applicant_to_hire_ratio(business: Optional[Business]=None, start_date: Optio
     queryset = get_application_queryset(business=business, start_date=start_date, end_date=end_date, role=role, client=client)
     total_hired = queryset.filter(stage__phase=PhaseType.HIRED.value).count()
     total_application = queryset.count()
-    return int(total_hired/total_application * 100)
+    return int(total_hired/total_application * 100) if total_application > 0 else 0
 
 
 def applicant_dropout_ratio(business: Optional[Business]=None, start_date: Optional[datetime]=None, end_date: Optional[datetime]=None, role: UUID=None, client: str=None):
     queryset = get_application_queryset(business=business, start_date=start_date, end_date=end_date, role=role, client=client)
     total_rejected = queryset.filter(stage__phase=PhaseType.REJECTED.value).count()
     total_application = queryset.count()
-    return int(total_rejected / total_application * 100)
+    return int(total_rejected / total_application * 100) if total_application > 0 else 0
 
 
 
@@ -139,7 +138,7 @@ def hired_applicants_per_phase_timeline(business: Optional[Business]=None, start
     elif start_date and end_date:
         queryset = queryset.filter(created_at__range=[start_date, end_date])
     if role:
-        queryset = queryset.filter(job_role___uid=role)
+        queryset = queryset.filter(job_role__uid=role)
     if client:
         queryset = queryset.filter(application__job_post__job__hiring_company_name=client)
     queryset = queryset.order_by("stage__phase_order").annotate(phase=InitCap("stage__phase"))
