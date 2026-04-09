@@ -1,17 +1,18 @@
 from urllib.parse import urlencode
 from uuid import uuid4
 
-from django.test import TestCase
 import jwt
+from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, BusinessSize
 from accounts.models import User, VerificationCode, Business, BusinessUser, BusinessIndustry, Country, TalentFilter
 from accounts.views.business import router
-from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
+from factories import BusinessFactory, BusinessUserFactory, CountryFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
-    WorkflowStageFactory, UserFactory, RoleFactory, IndustryFactory, LanguageFactory, EducationLevelFactory, SkillFactory, \
+    WorkflowStageFactory, UserFactory, RoleFactory, IndustryFactory, LanguageFactory, EducationLevelFactory, \
+    SkillFactory, \
     TalentFilterFactory
 from jobs.enums import PhaseType, JobStatusType, WorkStructureEnum
 from jobs.models import JobApplication
@@ -1203,3 +1204,378 @@ class TransferBusinessUserRoleTest(TestCase):
         self.assertEqual(self.from_user.role, BusinessUserRoleType.ADMIN.value)
         self.assertEqual(self.to_user.role, BusinessUserRoleType.TEAM_MEMBER.value)
         self.assertEqual(other_user.role, BusinessUserRoleType.ADMIN.value)
+
+
+class GetPipelineDashboardDataTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_pipeline_dashboard_data_success(self):
+        """Test successful retrieval of pipeline dashboard data"""
+        response = self.client.get("/pipeline-dashboard", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        
+        # Check response structure
+        data = response.json()
+        self.assertIn("avg_days_to_hire", data)
+        self.assertIn("avg_days_to_hire_per_stage", data)
+        self.assertIn("applicant_hire_ratio", data)
+        self.assertIn("dropout_ratio", data)
+        self.assertIn("applicant_per_phase", data)
+        self.assertIn("applicant_per_stage", data)
+        self.assertIn("phase_timeline", data)
+
+    def test_get_pipeline_dashboard_data_unauthorized(self):
+        """Test pipeline dashboard without authentication"""
+        response = self.client.get("/pipeline-dashboard")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_pipeline_dashboard_data_with_filters(self):
+        """Test pipeline dashboard with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client"
+        }
+        response = self.client.get(f"/pipeline-dashboard?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+
+class GetApplicantDashboardDataTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_applicant_dashboard_data_success(self):
+        """Test successful retrieval of applicant dashboard data"""
+        response = self.client.get("/applicant-dashboard", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        
+        # Check response structure
+        data = response.json()
+        self.assertIn("best_applicant_by_job", data)
+        self.assertIn("worst_applicant_by_job", data)
+        self.assertIn("best_applicant_by_client", data)
+        self.assertIn("worst_applicant_by_client", data)
+        self.assertIn("application_by_location", data)
+        self.assertIn("application_by_gender", data)
+        self.assertIn("application_by_experience", data)
+        self.assertIn("withdrawal_reasons", data)
+
+    def test_get_applicant_dashboard_data_unauthorized(self):
+        """Test applicant dashboard without authentication"""
+        response = self.client.get("/applicant-dashboard")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_applicant_dashboard_data_with_filters(self):
+        """Test applicant dashboard with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client"
+        }
+        response = self.client.get(f"/applicant-dashboard?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+
+class GetRecruitmentDashboardDataTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_recruitment_dashboard_data_success(self):
+        """Test successful retrieval of recruitment dashboard data"""
+        response = self.client.get("/recruitment-dashboard", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        
+        # Check response structure
+        data = response.json()
+        self.assertIn("total_applicants", data)
+        self.assertIn("avg_applicants_per_job", data)
+        self.assertIn("avg_applicants_per_client", data)
+        self.assertIn("avg_applicants_per_recruiter", data)
+
+    def test_get_recruitment_dashboard_data_unauthorized(self):
+        """Test recruitment dashboard without authentication"""
+        response = self.client.get("/recruitment-dashboard")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_recruitment_dashboard_data_with_filters(self):
+        """Test recruitment dashboard with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client"
+        }
+        response = self.client.get(f"/recruitment-dashboard?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+
+class GetApplicationPipelineRatioDataTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_application_pipeline_ratio_data_success(self):
+        """Test successful retrieval of application pipeline ratio data"""
+        response = self.client.get("/application-pipeline-ratio", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        
+        # Check response structure - should be a list
+        data = response.json()
+        self.assertIsInstance(data, list)
+
+    def test_get_application_pipeline_ratio_data_unauthorized(self):
+        """Test application pipeline ratio without authentication"""
+        response = self.client.get("/application-pipeline-ratio")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_application_pipeline_ratio_data_with_filters(self):
+        """Test application pipeline ratio with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client"
+        }
+        response = self.client.get(f"/application-pipeline-ratio?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+
+class GetRecentHiresTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_recent_hires_success(self):
+        """Test successful retrieval of recent hires data"""
+        response = self.client.get("/recent-hires", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        
+        # Check response structure - should be paginated
+        data = response.json()
+        self.assertIn("results", data)
+        self.assertIn("count", data)
+        self.assertIn("next", data)
+        self.assertIn("previous", data)
+
+    def test_get_recent_hires_unauthorized(self):
+        """Test recent hires without authentication"""
+        response = self.client.get("/recent-hires")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_recent_hires_with_filters(self):
+        """Test recent hires with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client"
+        }
+        response = self.client.get(f"/recent-hires?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_recent_hires_with_pagination(self):
+        """Test recent hires with pagination parameters"""
+        filters = {
+            "page": 1,
+            "page_size": 10
+        }
+        response = self.client.get(f"/recent-hires?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+
+class GetStuckApplicationsTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_stuck_applications_success(self):
+        """Test successful retrieval of stuck applications data"""
+        response = self.client.get("/stuck-applications", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        
+        # Check response structure - should be paginated
+        data = response.json()
+        self.assertIn("results", data)
+        self.assertIn("count", data)
+        self.assertIn("next", data)
+        self.assertIn("previous", data)
+
+    def test_get_stuck_applications_unauthorized(self):
+        """Test stuck applications without authentication"""
+        response = self.client.get("/stuck-applications")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_stuck_applications_with_filters(self):
+        """Test stuck applications with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client"
+        }
+        response = self.client.get(f"/stuck-applications?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_stuck_applications_with_pagination(self):
+        """Test stuck applications with pagination parameters"""
+        filters = {
+            "page": 1,
+            "page_size": 10
+        }
+        response = self.client.get(f"/stuck-applications?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+
+class GetRecruiterHiringDataTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_recruiter_hiring_data_success(self):
+        """Test successful retrieval of recruiter hiring data"""
+        response = self.client.get("/recruiter-hiring-data", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        
+        # Check response structure - should be paginated
+        data = response.json()
+        self.assertIn("results", data)
+        self.assertIn("count", data)
+        self.assertIn("next", data)
+        self.assertIn("previous", data)
+
+    def test_get_recruiter_hiring_data_unauthorized(self):
+        """Test recruiter hiring data without authentication"""
+        response = self.client.get("/recruiter-hiring-data")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_recruiter_hiring_data_with_filters(self):
+        """Test recruiter hiring data with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client"
+        }
+        response = self.client.get(f"/recruiter-hiring-data?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_recruiter_hiring_data_with_pagination(self):
+        """Test recruiter hiring data with pagination parameters"""
+        filters = {
+            "page": 1,
+            "page_size": 10
+        }
+        response = self.client.get(f"/recruiter-hiring-data?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+
+class GetApplicationHiresGraphDataTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_application_hires_graph_data_success(self):
+        """Test successful retrieval of application hires graph data"""
+        response = self.client.get("/application-hires-graph-data", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        
+        # Check response structure - should be a list
+        data = response.json()
+        self.assertIsInstance(data, list)
+
+    def test_get_application_hires_graph_data_unauthorized(self):
+        """Test application hires graph data without authentication"""
+        response = self.client.get("/application-hires-graph-data")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_application_hires_graph_data_with_filters(self):
+        """Test application hires graph data with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client",
+            "first_date": "2023-01-01",
+            "last_date": "2023-12-31"
+        }
+        response = self.client.get(f"/application-hires-graph-data?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_application_hires_graph_data_with_time_series_filters(self):
+        """Test application hires graph data with time series filters"""
+        filters = {
+            "first_date": "2023-01-01",
+            "last_date": "2023-12-31"
+        }
+        response = self.client.get(f"/application-hires-graph-data?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
