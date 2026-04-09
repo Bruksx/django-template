@@ -6,7 +6,7 @@ def assign_default_sender_email(apps, schema_editor):
     BusinessUser = apps.get_model('accounts', 'BusinessUser')
 
     for user in BusinessUser.objects.filter(default_sender_email__isnull=True):
-        user.default_sender_email = user.email
+        user.default_sender_email = user.user.email
         user.save()
 
 class Migration(migrations.Migration):
