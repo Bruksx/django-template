@@ -86,6 +86,12 @@ class RecruiterCountSchema(Schema):
     recruiter: str
     count: int
 
+    @staticmethod
+    def resolve_recruiter(obj):
+        return obj["recruiter_name"] or "No Recruiter"
+
+
+
 class PaginatedRecruiterHireSchema(PaginatedResponseSchema[RecruiterCountSchema]):
     total_hires: int
 

@@ -32,7 +32,7 @@ def get_talent_application_stage_timeline(queryset, business: Optional[Business]
     return queryset
 
 def get_application_queryset(business: Optional[Business]=None, start_date: Optional[datetime]=None, end_date: Optional[datetime]=None, role: UUID=None, client: str=None):
-    queryset = JobApplication.objects.select_related("stage__created_by__business", "job_post__job", "stage", "applicant__user" )
+    queryset = JobApplication.objects.select_related("stage__created_by__business", "job_post__job", "stage", "applicant__user", "recruiter__user" )
     if business:
         queryset = queryset.filter(stage__created_by__business=business)
     if start_date and not end_date:
@@ -204,7 +204,7 @@ def recruiter_hires_graph_data(business: Optional[Business] = None,
                                      role: Optional[UUID] = None, client: Optional[str] = None):
     queryset = get_application_queryset(business=business, start_date=start_date, end_date=end_date, role=role, client=client)
     queryset = queryset.filter(stage__phase=PhaseType.HIRED.value)
-    graph = queryset.values("recruiter").annotate(count=Count("id")).values("recruiter", "count")
+    graph = queryset.values("recruiter").annotate(count=Count("id"), recruiter_name=F("recruiter__user__fullname")).values("recruiter_name", "count")
     return graph, queryset.count()
 
 def stuck_applications(
