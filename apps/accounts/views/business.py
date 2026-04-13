@@ -725,7 +725,7 @@ def get_stuck_applications(request, filters:DashboardFilter=Query(...)):
     business_user = request.user.businessuser
     return stuck_applications(**filters.dict(), business=business_user.business)
 
-@router.get("recruiter-hiring-data", auth=JWTAuth(),  tags=["Business Dashboard"], response=CustomPaginatedResponseSchema[PaginatedRecruiterHireSchema], )
+@router.get("recruiter-hiring-data", auth=JWTAuth(),  tags=["Business Dashboard"], response=PaginatedRecruiterHireSchema)
 def get_recruiter_hiring_data(request, filters:DashboardFilter=Query(...), page: int = 1, page_size: int = 50):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
