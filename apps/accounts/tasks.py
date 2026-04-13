@@ -5,7 +5,6 @@ from accounts.queries import add_profile_completion_annotation
 from django.utils import timezone
 
 from config import settings
-from helpers.email.accounts import send_incomplete_profile_reminder_email
 from helpers.email.utils import send_email
 
 
@@ -57,8 +56,7 @@ Total Number of Talents Today: {total} \n
 Total Number of Talents Last Week: {total_last_week} \n\n
 
 This Week's Data \n\n
-Number of talents with complete profiles:   {completed}\n
-Number of talents with semi complete profiles:   {semi_completed}\n
+Number of talents with complete profiles:   {completed + semi_completed}\n
 Number of talents with incomplete profiles:    {incompleted}\n
         """
     )
@@ -69,14 +67,12 @@ Number of talents with incomplete profiles:    {incompleted}\n
         plain_body=f"""
     Total Number of Talents Today: {total} \n
     Total Number of Talents Last Week: {total_last_week} \n\n
-    Total Number of Talents Completed: {total_completed} \n
-    Total Number of Talents Semi Completed: {total_semi_completed} \n
+    Total Number of Talents Completed: {total_completed + total_semi_completed} \n
     Total Number of Talents Incompleted: {total_incompleted} \n\n
     
 
     This Week's Data \n\n
-    Number of talents with complete profiles:   {completed}\n
-    Number of talents with semi complete profiles:   {semi_completed}\n
+    Number of talents with complete profiles:   {completed + semi_completed}\n
     Number of talents with incomplete profiles:    {incompleted}\n
             """
     )
