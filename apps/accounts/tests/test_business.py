@@ -2,13 +2,10 @@ from urllib.parse import urlencode
 from uuid import uuid4
 
 import jwt
-from django.test import TestCase
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
-
 from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, BusinessSize
 from accounts.models import User, VerificationCode, Business, BusinessUser, BusinessIndustry, Country, TalentFilter
 from accounts.views.business import router
+from django.test import TestCase
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, JobFactory, JobPostFactory, \
     TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
     WorkflowStageFactory, UserFactory, RoleFactory, IndustryFactory, LanguageFactory, EducationLevelFactory, \
@@ -16,6 +13,8 @@ from factories import BusinessFactory, BusinessUserFactory, CountryFactory, JobF
     TalentFilterFactory
 from jobs.enums import PhaseType, JobStatusType, WorkStructureEnum
 from jobs.models import JobApplication
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
 from settings.models import WorkFlowStage
 
 
