@@ -175,7 +175,7 @@ def application_hires_graph_data(business: Optional[Business] = None,
                                      last_date: Optional[date] = None,
                                      ):
     if not first_date or not last_date:
-        first_date = timezone.now().date() - timedelta(days=10)
+        first_date = timezone.now().date() - timedelta(days=30)
         last_date = timezone.now().date()
     if last_date < first_date:
         return []
