@@ -1,12 +1,10 @@
-from datetime import datetime, timedelta, date
+from collections.abc import Iterable
+from datetime import date, datetime
+from datetime import timedelta
+from math import ceil
 from typing import Optional, Literal
 from uuid import UUID
 
-from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType
-from accounts.models import Business, BusinessUser, User, Talent, BusinessIndustry, Country, BusinessClient, \
-    BannedAccount
-from accounts.queries import add_profile_completion_annotation
-from core.models import PageMetric, APIMetric
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Sum, Exists, OuterRef, F, Case, When, Value, CharField, Count, Subquery, IntegerField, Avg, \
@@ -14,12 +12,17 @@ from django.db.models import Sum, Exists, OuterRef, F, Case, When, Value, CharFi
     Func, Q
 from django.db.models.functions import Coalesce, TruncMonth
 from django.utils import timezone
-from jobs.enums import PhaseType, JobStatusType, WithdrawalFeedbackType
-from jobs.models import JobPost, JobApplication, JobApplicationWithdrawal, JobPostMetrics, Job
-from ninja.errors import HttpError
-
 from helpers.email.auth import send_admin_created_account_email
 from monkeypatches.q_cluster import async_task
+from ninja.errors import HttpError
+
+from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType
+from accounts.models import Business, BusinessUser, User, Talent, BusinessIndustry, Country, BusinessClient, \
+    BannedAccount
+from accounts.queries import add_profile_completion_annotation
+from core.models import PageMetric, APIMetric
+from jobs.enums import PhaseType, JobStatusType, WithdrawalFeedbackType
+from jobs.models import JobPost, JobApplication, JobApplicationWithdrawal, JobPostMetrics, Job
 from . import talent as talent_services
 
 
@@ -617,75 +620,98 @@ def update_talent_user_data(talent_uid: UUID, **kwargs):
     
     return talent_services.update_talent_profile_service(talent, kwargs)
 
-def fill_monthly_gaps(
 
-    data,
-    page: int | None = None,
-    page_size: int | None = None,
-) -> dict | list:
-    # Convert Django QuerySet to list if needed
-    data_list = list(data) if hasattr(data, '__iter__') and not isinstance(data, list) else data
-    
+def normalize_month(value):
+    """Convert anything to date(year, month, 1)"""
+    if isinstance(value, datetime):
+        return date(value.year, value.month, 1)
+    if isinstance(value, date):
+        return value.replace(day=1)
+    raise ValueError(f"Unsupported month type: {type(value)}")
+
+
+def fill_monthly_gaps(data, page=None, page_size=None):
+    # Normalize list
+    if isinstance(data, list):
+        data_list = data
+    elif isinstance(data, Iterable) and not isinstance(data, (str, dict)):
+        data_list = list(data)
+    else:
+        data_list = []
+
     if not data_list:
-        return {"results": [], "count": 0, "number_of_pages": 0, "next": None, "previous": None, "next_page": None, "previous_page": None} if page else []
+        return {
+            "results": [],
+            "count": 0,
+            "number_of_pages": 0,
+            "next_page": None,
+            "previous_page": None,
+        } if page else []
+
+    # Normalize ALL months
+    for row in data_list:
+        row["month"] = normalize_month(row["month"])
+
+    # Sort newest first
+    data_list.sort(key=lambda x: x["month"], reverse=True)
 
     sample = data_list[0]
     zero_fields = {k: 0 for k in sample if k != "month"}
+
     by_month = {row["month"]: row for row in data_list}
 
-    start_year, start_month = data_list[-1]["month"].year, data_list[-1]["month"].month
-    end_year, end_month = data_list[0]["month"].year, data_list[0]["month"].month
+    # 🔥 KEY FIX: start from CURRENT month
+    today = date.today()
+    end = date(today.year, today.month, 1)
 
-    # total months in range
-    total = (end_year - start_year) * 12 + (end_month - start_month) + 1
+    # oldest data point
+    start = data_list[-1]["month"]
 
-    if page is None or page_size is None:
-        # generate everything
-        result = []
-        year, month = end_year, end_month
-        while (year, month) >= (start_year, start_month):
-            key = date(year, month, 1)
-            result.append(by_month.get(key, {"month": key, **zero_fields}))
+    total = (end.year - start.year) * 12 + (end.month - start.month) + 1
+
+    def generate_months(year, month, count):
+        for _ in range(count):
+            yield year, month
             month -= 1
             if month < 1:
                 month = 12
                 year -= 1
+
+    # No pagination
+    if page is None or page_size is None:
+        result = []
+        for y, m in generate_months(end.year, end.month, total):
+            key = date(y, m, 1)
+            result.append(by_month.get(key, {"month": key, **zero_fields}))
         return result
 
-    number_of_pages = (total + page_size - 1) // page_size
-    p = min(max(page, 1), number_of_pages)  # clamp to valid range
-    skip = (p - 1) * page_size  # months to skip from the newest
+    # Pagination
+    number_of_pages = ceil(total / page_size)
+    p = max(1, min(page, number_of_pages))
+    skip = (p - 1) * page_size
 
-    # offset the start point by skip months
-    start_offset = end_year * 12 + end_month - skip
-    cur_year, cur_month = divmod(start_offset, 12)
-    if cur_month == 0:
-        cur_month = 12
-        cur_year -= 1
+    end_index = end.year * 12 + end.month - 1
+    current_index = end_index - skip
+
+    cur_year = current_index // 12
+    cur_month = current_index % 12 + 1
 
     result = []
-    year, month = cur_year, cur_month
-    generated = 0
 
-    while (year, month) >= (start_year, start_month) and generated < page_size:
-        key = date(year, month, 1)
+    for y, m in generate_months(cur_year, cur_month, page_size):
+        if (y, m) < (start.year, start.month):
+            break
+        key = date(y, m, 1)
         result.append(by_month.get(key, {"month": key, **zero_fields}))
-        month -= 1
-        if month < 1:
-            month = 12
-            year -= 1
-        generated += 1
-
-    next_page = p + 1 if p < number_of_pages else None
-    previous_page = p - 1 if p > 1 else None
 
     return {
         "count": total,
         "number_of_pages": number_of_pages,
-        "next_page": next_page,
-        "previous_page": previous_page,
+        "next_page": p + 1 if p < number_of_pages else None,
+        "previous_page": p - 1 if p > 1 else None,
         "results": result,
     }
+
 def get_page_metric_data(
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
@@ -751,8 +777,8 @@ def get_talent_signups_data(
                              .values("month")
                              .annotate(signups=Count('id'))
                              .order_by("-month")
-                             .values("month", "signups"),
-                             page, page_size)
+                             .values("month", "signups"),page, page_size)
+
 
 def get_talent_profile_completion_data(
         start_date: Optional[datetime] = None,
