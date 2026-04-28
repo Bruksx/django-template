@@ -2,6 +2,9 @@ from datetime import date
 from typing import Optional, List, Literal, Generic, T
 from uuid import UUID
 
+from ninja import Schema, ModelSchema
+from pydantic import EmailStr, HttpUrl, Field
+
 from accounts.enums import BusinessUserRoleType, BusinessUserStatusType
 from accounts.models import BusinessUser, Business, Talent
 from accounts.schemas.common import DashboardFilter
@@ -9,9 +12,7 @@ from accounts.schemas.talent import TalentUserSchema, UpdateTalentProfileSchema2
 from core.schemas import GenericNameAndUidSchema
 from jobs.enums import PhaseType, JobStatusType
 from jobs.models import JobApplication
-from ninja import Schema, ModelSchema
 from paginations import CustomPaginatedResponseSchema
-from pydantic import EmailStr, HttpUrl, Field
 
 
 class AdminDashboardFilter(DashboardFilter):
@@ -121,7 +122,7 @@ class BusinessUserListSchema(ModelSchema):
         exclude = ["uid", "created_at", "updated_at", "deleted_at", "business", "added_by"]
 
 class BusinessListSchema(ModelSchema):
-    industry: GenericNameAndUidSchema
+    industry: Optional[GenericNameAndUidSchema] = None
     head_office: str = Field(alias="location")
     registration_date: date = Field(alias="reg_date")
 
