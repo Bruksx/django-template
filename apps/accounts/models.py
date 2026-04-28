@@ -8,10 +8,7 @@ from typing import Tuple, Optional
 from uuid import UUID
 
 import jwt
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessSize, BusinessUserStatusType, CaseReasonType, AdminRoleType
-from core.enums import SalaryType
-from core.models import BaseModel, State, City
+from config.settings import SECRET_KEY
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -22,13 +19,16 @@ from django.db.models.functions import Concat, Cast, Round
 from django.db.models.signals import pre_save
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
+from helpers.utils import delete_s3_item
 from ninja_jwt.tokens import RefreshToken
-from notification.enums import NotificationGroup
 from timezone_field import TimeZoneField
 
-from config.settings import SECRET_KEY
-from helpers.utils import delete_s3_item
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
+    BusinessSize, BusinessUserStatusType, CaseReasonType, AdminRoleType
+from core.enums import SalaryType
+from core.models import BaseModel, State, City
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
+from notification.enums import NotificationGroup
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -552,8 +552,8 @@ class Talent(BaseModel):
         if banned is False:
             self.delete()
         else:
-            self.jobapplication_set.hard_delete()
-            self.jobapplicationwithdrawal_set.hard_delete()
+            self.jobapplication_set.all().hard_delete()
+            self.jobapplicationwithdrawal_set.all().hard_delete()
             self.hard_delete()
 
     def is_profile_completed(self, raise_exception=False):
