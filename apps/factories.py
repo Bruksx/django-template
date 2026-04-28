@@ -9,7 +9,8 @@ from faker import Faker
 
 from accounts.enums import GenderType, PreferredCommunicationType, BusinessUserRoleType, Days
 from accounts.models import User, Talent, Business, BusinessUser, Education, Role, TalentAvailableDay, CustomerCase, \
-    EducationLevel, Industry, Country, Department, Experience, Skill, SkillCategory, BusinessIndustry, TalentFilter
+    EducationLevel, Industry, Country, Department, Experience, Skill, SkillCategory, BusinessIndustry, TalentFilter, \
+    AdminUser
 from chats.models import Conversation, Message
 from notification.enums import EntityActionType, EntityType, NotificationType
 from notification.models import BusinessUserNotificationSettings, Notification
@@ -555,9 +556,17 @@ class TalentFilterFactory(BaseModelFactory):
     def roles(self, create, extracted, **kwargs):
         if not create:
             return
-        
+
         if extracted:
             for role in extracted:
                 self.roles.add(role)
+
+
+class AdminUserFactory(BaseModelFactory):
+    class Meta:
+        model = AdminUser
+
+    user = factory.SubFactory(UserFactory)
+    role = "super_admin"
 
 

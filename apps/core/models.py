@@ -123,3 +123,21 @@ class GTCSettings(BaseModel):
 
 class Exports(BaseModel):
     file = models.FileField(upload_to="exports")
+
+
+class Metric(BaseModel):
+    path = models.CharField(max_length=255)
+    month = models.DateField()
+    count = models.PositiveIntegerField(default=0)
+    total_time = models.FloatField(default=0.0)
+    class Meta:
+        abstract = True
+
+class APIMetric(Metric):
+    class Meta:
+        unique_together = ("path", "month")
+
+
+class PageMetric(Metric):
+    class Meta:
+        unique_together = ("path", "month")

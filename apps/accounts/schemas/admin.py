@@ -1,156 +1,240 @@
-from datetime import datetime, date
-from typing import List, Optional
+from datetime import date
+from typing import Optional, List, Literal, Generic, T
 from uuid import UUID
 
-from ninja import Schema
-from ninja_extra.schemas import PaginatedResponseSchema
-from pydantic import Field
+from accounts.enums import BusinessUserRoleType, BusinessUserStatusType
+from accounts.models import BusinessUser, Business, Talent
+from accounts.schemas.common import DashboardFilter
+from accounts.schemas.talent import TalentUserSchema, UpdateTalentProfileSchema2
+from core.schemas import GenericNameAndUidSchema
+from jobs.enums import PhaseType, JobStatusType
+from jobs.models import JobApplication
+from ninja import Schema, ModelSchema
+from paginations import CustomPaginatedResponseSchema
+from pydantic import EmailStr, HttpUrl, Field
 
 
-class DashboardFilter(Schema):
-    start_date: Optional[datetime] = None
-    end_date: Optional[datetime] = None
-    role: Optional[UUID] = None
-    client: Optional[str] = None
+class AdminDashboardFilter(DashboardFilter):
+    company: Optional[UUID] = None
 
-class TimeSeriesDashboardFilter(DashboardFilter):
-    first_date: Optional[date] = Field(default=None, description="First date window to slide through the graph")
-    last_date: Optional[date] = Field(default=None, description="Last date window to slide through the graph")
-
-
-
-# https://www.figma.com/design/gYKoLL5lKJZ7vXxNzk5ITI/1840-Global-Talent-Cloud?node-id=14020-7836&t=InpFJVdmIQSVJ0Tq-0
-class ItemValueSchema(Schema):
-    item: str
-    value: str
-
-class PhaseCountSchema(Schema):
+class JobPhaseSchema(Schema):
     phase: str
     count: int
+    percentage_diff: float
 
-class StageCountSchema(Schema):
-    stage_name: str
-    count: int
+class BusinessMetricSchema(Schema):
+    total_open_jobs: int
+    total_applications: int
+    total_job_shares: int
+    total_job_views: int
+    total_interview_invitations: int
+    active_clients: int
+    active_users_daily_average: int
+    active_users_last_7_days: int
+    job_phases: List[JobPhaseSchema]
 
-class StageDaySchema(Schema):
-    stage_name: str
-    avg_days_spent: int|float
+class AverageMetricSchema(Schema):
+    month: date
+    average_load_time: float
 
-class PhaseDaySchema(Schema):
-    phase: str
-    avg_days_spent: int|float
-
-class PhaseTimelineSchema(Schema):
-    graph: List[PhaseDaySchema]
-    days_to_hire: int|float
-
-class PipelineDashboardSchema(Schema):
-    avg_days_to_hire: int
-    avg_days_to_hire_per_stage: int
-    applicant_hire_ratio: int
-    dropout_ratio: int
-
-    applicant_per_phase: list[PhaseCountSchema]
-    applicant_per_stage: list[StageCountSchema]
-    phase_timeline: PhaseTimelineSchema
-
-class JobCountSchema(Schema):
-    job: str
-    count: int
-
-class ClientCountSchema(Schema):
-    client: str
-    count: int
-
-class LocationCountSchema(Schema):
-    location: str
-    count: int
-class DemographicCountSchema(Schema):
-    demographics: str
-    count: int
-
-
-class ExperienceCountSchema(Schema):
-    experience: str
-    count: int
+class ProfileCompletionThisWeekSchema(Schema):
+    complete: int
+    semi_complete: int
+    incomplete: int
 
 class WithdrawalReasonSchema(Schema):
     reason: str
     count: int
 
-class WithdrawalReasonsSchema(Schema):
-    graph: List[WithdrawalReasonSchema]
-    count: int
+class TalentMetricSchema(Schema):
+    total_talent_signups: int
+    total_applications: int
+    active_talents: int
+    profile_completion_this_week: ProfileCompletionThisWeekSchema
+    withdrawal_reasons: list[WithdrawalReasonSchema]
+    total_withdrawals: int
 
-class RecruiterCountSchema(Schema):
-    recruiter: str
-    count: int
+class ProfileCompletionSchema(Schema):
+    month: str
+    complete: int
+    semi_complete: int
+    incomplete: int
+
+
+
+class TalentSignupsSchema(Schema):
+    month: date
+    signups: int
+
+class TalentProfileCompletionSchema(Schema):
+    month: date
+    complete: int
+    semi_complete: int
+    incomplete: int
+
+class MutateBusinessUserSchema(Schema):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    role: BusinessUserRoleType
+
+
+class CreateBusinessSchema(ModelSchema):
+    country: Optional[UUID] = None
+    industry: Optional[UUID] = None
+
+    class Meta:
+        model = Business
+        exclude = ["uid", "created_at", "updated_at", "deleted_at", "created_by", "restored_at", "transaction_id", "id"]
+
+
+
+class MutateBusinessSchema(ModelSchema):
+    country: Optional[UUID] = None
+    industry: Optional[UUID] = None
+    name: Optional[str] = None
+    size: Optional[str] = None
+    description: Optional[str] = None
+    instagram: Optional[HttpUrl] = None
+    linkedin: Optional[HttpUrl] = None
+    facebook: Optional[HttpUrl] = None
+    twitter_x: Optional[HttpUrl] = None
+    website: Optional[HttpUrl] = None
+    address: Optional[str] = None
+
+    class Meta:
+        model = Business
+        exclude = ["uid", "created_at", "updated_at", "deleted_at", "created_by", "restored_at", "transaction_id", "id"]
+
+
+class BusinessUserListSchema(ModelSchema):
+    full_name: str = Field(alias="user.fullname")
+    email: EmailStr = Field(alias="user.email")
+    user_access: BusinessUserRoleType = Field(alias="role")
+    status: BusinessUserStatusType
+    last_activity: Optional[date] = Field(alias="last_active")
+    joined_date: date = Field(alias="date_joined")
+
+    class Meta:
+        model = BusinessUser
+        exclude = ["uid", "created_at", "updated_at", "deleted_at", "business", "added_by"]
+
+class BusinessListSchema(ModelSchema):
+    industry: GenericNameAndUidSchema
+    head_office: str = Field(alias="location")
+    registration_date: date = Field(alias="reg_date")
+
+    class Meta:
+        model = Business
+        fields = ["name", "website", "size"]
+
+
+class BusinessActionSchema(Schema):
+    action: Literal["move", "pause", "archive"]
+
+class TalentListSchema(ModelSchema):
+    full_name: str = Field(alias="user.fullname")
+    current_role: Optional[GenericNameAndUidSchema] = Field(None, alias="role")
+    location:str = Field(alias="get_address")
+    email: EmailStr = Field(alias="user.email")
+    applications: int
+    signup_date: date
+
+    class Meta:
+        model = Talent
+        fields = ["uid"]
+
+
 
     @staticmethod
-    def resolve_recruiter(obj):
-        return obj["recruiter_name"] or "No Recruiter"
+    def resolve_applications(obj):
+        return obj.jobapplication_set.count()
+
+    @staticmethod
+    def resolve_signup_date(obj):
+        return obj.created_at.date()
 
 
+class BusinessUserDetailSchema(BusinessUserListSchema):
+    profile_picture: Optional[str] = Field(alias="user.photo_url")
 
-class PaginatedRecruiterHireSchema(PaginatedResponseSchema[RecruiterCountSchema]):
-    total_hires: int
+class BusinessDetailSchema(BusinessListSchema):
+    owner_name: str = Field(alias="created_by.fullname")
+    owner_email: EmailStr = Field(alias="created_by.email")
+    logo: str = Field(alias="get_logo")
 
-class RecruitmentDashboardSchema(Schema):
-    total_applicants: int
-    avg_applicants_per_job: int|float
-    avg_applicants_per_client: int|float
-    avg_applicants_per_recruiter: int|float
+    class Meta:
+        model = Business
+        fields = ["name", "website", "size", "description",
+          "instagram", "linkedin", "facebook", "twitter_x"]
 
-class ApplicantDashboardSchema(Schema):
-    best_applicant_by_job: List[JobCountSchema]
-    worst_applicant_by_job: List[JobCountSchema]
-    best_applicant_by_client: List[ClientCountSchema]
-    worst_applicant_by_client: List[ClientCountSchema]
-    application_by_location: List[LocationCountSchema]
-    application_by_gender: List[DemographicCountSchema]
-    application_by_experience: List[ExperienceCountSchema]
-    # application_by_source: List[ItemValueSchema]
-    withdrawal_reasons: WithdrawalReasonsSchema
+class TalentDetailSchema(TalentUserSchema):
+    ...
 
 
-
-class PlatformHealthDashboardSchema(Schema):
-    active_clients: int # last 30 days
-    active_users_daily_average: int
-    active_users: int # last 7 days
-    system_uptime_percentage: float
-    avg_api_response_time: List[ItemValueSchema]
-    avg_page_response_time: List[ItemValueSchema]
+class MutateTalentDetailSchema(UpdateTalentProfileSchema2):
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
 
 
+class ApplicationListSchema(ModelSchema):
+    job: Optional[str]
+    company: Optional[str]
+    job_status: JobStatusType
+    date_applied: date
+    withdrawals: bool
+    application_status: PhaseType
 
-class ApplicationHiresGraphItemSchema(Schema):
-    day: date
+    class Meta:
+        model = JobApplication
+        fields = ["uid"]
+
+
+class PaginatedApplicationListSchema(CustomPaginatedResponseSchema[ApplicationListSchema]):
     applications: int
-    hires: int
-
-class StuckApplicationSchema(Schema):
-    uid: UUID
-    talent: str
-    job: str
-    client: str
-    phase: str
-    stage_name: str
-    days_in_stage: int|float
-
-
-class RecentHiresSchema(Schema):
-    uid: UUID
-    role: str
-    talent: str
-    hired_by: str
-
-
-class ApplicationPipelineRatioSchema(Schema):
-   first_stage : StageCountSchema
-   second_stage: StageCountSchema
-   ratio: int|float
+    rejected: int
+    withdrawals: int
+    job_shares: int
+    job_views: int
 
 
 
+
+class BusinessJobListSchema(Schema):
+    name: str
+    status: JobStatusType
+    application_count: int
+    withdrawal_count: int
+    shares: int
+    views: int
+    assignments: int
+
+
+
+class PaginatedBusinessJobListSchema(CustomPaginatedResponseSchema[BusinessJobListSchema]):
+   jobs_created: int
+   open_jobs: int
+   applications: int
+   shares: int
+   views: int
+   withdrawal_reasons: List[WithdrawalReasonSchema]
+
+class PaginatedMetricFilter(Schema):
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    page: Optional[int] = None
+    page_size: Optional[int] = None
+
+
+class PaginatedMetricSchema(Schema, Generic[T]):
+    count: int
+    number_of_pages: int
+    next_page: int | None
+    previous_page: int | None
+    results: list[T]
+
+
+class AccountStatusSchema(Schema):
+    is_active: bool
 
