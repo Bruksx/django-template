@@ -4,12 +4,14 @@ from typing import List
 from uuid import UUID
 
 from core.models import Currency, Language, State, City
-from core.schemas import CurrencySchema, LanguageSchema, GenericNameAndUidSchema
+from core.schemas import CurrencySchema, LanguageSchema, GenericNameAndUidSchema, CollectMetricsSchema
 from django.core.cache import cache
 from django.db.models import Q
 from django.http import FileResponse
 from ninja.errors import HttpError
+from ninja.responses import Response
 from ninja.router import Router
+from ninja_jwt.authentication import JWTAuth
 
 # Create your views here.
 router = Router(tags=["core"])
@@ -61,19 +63,19 @@ def get_well_known(request, filename:str):
 
 
 
-@router.post("/metrics")
-def collect_metrics(request, payload: dict):
+@router.post("/metrics", auth=JWTAuth())
+def collect_metrics(request, payload: CollectMetricsSchema):
     TTL = 60 * 60 * 24 * 2  # 2 days
     PAGE_ACTIVE_KEYS_KEY = "metrics:page:active_keys"
     now = datetime.now(timezone.utc)
-    base_key = f"metrics:page:{payload['path']}:{now.strftime('%Y-%m')}"
+    base_key = f"metrics:page:{payload.path}:{now.strftime('%Y-%m')}"
 
     try:
         cache.add(f"{base_key}:count", 0, TTL)
         cache.add(f"{base_key}:total_time", 0.0, TTL)
         cache.incr(f"{base_key}:count")
 
-        total_time = (cache.get(f"{base_key}:total_time") or 0.0) + payload["duration"]
+        total_time = (cache.get(f"{base_key}:total_time") or 0.0) + payload.duration
         cache.set(f"{base_key}:total_time", total_time, TTL)
 
         tracked = cache.get(PAGE_ACTIVE_KEYS_KEY) or set()
@@ -83,4 +85,4 @@ def collect_metrics(request, payload: dict):
     except Exception:
         pass
 
-    return {"ok": True}
+    return Response(data={"message": "Metrics collected successfully"})
