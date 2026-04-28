@@ -8,7 +8,10 @@ from typing import Tuple, Optional
 from uuid import UUID
 
 import jwt
-from config.settings import SECRET_KEY
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
+    BusinessSize, BusinessUserStatusType, CaseReasonType, AdminRoleType
+from core.enums import SalaryType
+from core.models import BaseModel, State, City
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -19,16 +22,13 @@ from django.db.models.functions import Concat, Cast, Round
 from django.db.models.signals import pre_save
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from helpers.utils import delete_s3_item
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
 from ninja_jwt.tokens import RefreshToken
+from notification.enums import NotificationGroup
 from timezone_field import TimeZoneField
 
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessSize, BusinessUserStatusType, CaseReasonType
-from core.enums import SalaryType
-from core.models import BaseModel, State, City
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
-from notification.enums import NotificationGroup
+from config.settings import SECRET_KEY
+from helpers.utils import delete_s3_item
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -156,6 +156,12 @@ class User(AbstractUser, BaseModel):
     def delete_account(self):
         self.hard_delete()
         return
+
+
+class AdminUser(BaseModel):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    role = models.CharField(max_length=50, choices=AdminRoleType.choices())
+
 
 
 class Country(BaseModel):
@@ -514,7 +520,7 @@ class Talent(BaseModel):
             notifications = notifications.exclude(entity__in=excludes)
         return notifications.order_by("-id")
 
-    def delete_account(self):
+    def delete_account(self, banned=False):
         self.savedjob_set.all().hard_delete()
         self.education_set.all().hard_delete()
         self.experience_set.all().hard_delete()
@@ -543,7 +549,12 @@ class Talent(BaseModel):
             self.cv.delete()
         self.cv = None
         self.save()
-        self.delete()
+        if banned is False:
+            self.delete()
+        else:
+            self.jobapplication_set.hard_delete()
+            self.jobapplicationwithdrawal_set.hard_delete()
+            self.hard_delete()
 
     def is_profile_completed(self, raise_exception=False):
         # Check education
@@ -1141,8 +1152,11 @@ class Business(BaseModel):
             query["status"] = status
         return JobPost.objects.select_related("job__created_by__business").filter(**query)
 
+    def reg_date(self):
+        return self.created_at.date()
+
 class BusinessClient(BaseModel):
-    business = models.ForeignKey("accounts.Business", on_delete=models.CASCADE)
+    business = models.ForeignKey("accounts.Business", on_delete=models.CASCADE, related_name="clients")
     name = models.CharField(max_length=225)
 
 class VerificationCode(BaseModel):
@@ -1209,8 +1223,9 @@ class BusinessUser(BaseModel):
         return Notification.objects.none()
 
     def delete_account(self):
-        self.user.hard_delete()
+        user = self.user
         self.hard_delete()
+        user.delete_account()
         return
 
     @property
@@ -1232,6 +1247,10 @@ class BusinessUser(BaseModel):
             return data
         except jwt.DecodeError:
             return None
+
+
+    def date_joined(self):
+        return self.created_at.date()
 
 
 class Education(BaseModel):
@@ -1322,3 +1341,7 @@ class TalentFilter(BaseModel):
     skills = models.ManyToManyField("accounts.Skill", related_name="skills_talent_filter")
     business_models = models.ManyToManyField("jobs.BusinessModel", blank=True, related_name="businessmodels_talent_filter")
     completed_profiles = models.BooleanField(default=True)
+
+class BannedAccount(BaseModel):
+    email = models.EmailField()
+    account_type = models.CharField(choices=UserType.choices())

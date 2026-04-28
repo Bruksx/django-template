@@ -13,8 +13,9 @@ class Command(BaseCommand):
         from apps.jobs.scheduler import tasks as job_tasks
         from apps.accounts.scheduler import tasks as account_tasks
         from apps.notification.scheduler import tasks as notification_tasks
+        from apps.core.scheduler import tasks as core_tasks
         # you may add other cron tasks here
-        tasks = (*account_tasks, *job_tasks, *notification_tasks)
+        tasks = (*account_tasks, *job_tasks, *notification_tasks, *core_tasks)
 
         schedule_cron_tasks(tasks)
 

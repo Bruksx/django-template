@@ -1,11 +1,13 @@
+from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
+
+from ninja import ModelSchema, Schema
+from pydantic import EmailStr, Field
 
 from accounts.enums import CaseReasonType
 from accounts.models import User, CustomerCase, Business
 from core.schemas import READ_EXCLUDE_FIELDS
-from ninja import ModelSchema, Schema
-from pydantic import EmailStr, Field
 
 
 class UserSchema(ModelSchema):
@@ -110,3 +112,8 @@ class MajorSchema(Schema):
     major: str
     certifications: List[str]
 
+class DashboardFilter(Schema):
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    role: Optional[UUID] = None
+    client: Optional[str] = None

@@ -4,6 +4,7 @@ from core.enums import BaseEnum
 class UserType(BaseEnum):
     BUSINESS = "business"
     TALENT = "talent"
+    ADMIN = "admin"
 
 class SocialType(BaseEnum):
     GOOGLE = "google"
@@ -92,3 +93,8 @@ class CaseReasonType(BaseEnum):
     REPORT_BUSINESS = "Report a Business"
     REPORT_TALENT = "Report a Talent"
     OTHERS = "Other"
+
+
+class AdminRoleType(BaseEnum):
+    SUPER_ADMIN = "super_admin"
+    ADMIN = "admin"

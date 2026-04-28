@@ -1,8 +1,8 @@
 from datetime import timedelta, datetime, time
 
 from django.utils import timezone
-
 from jobs.models import JobPostMetrics
+
 from .enums import EntityActionType, NotificationGroup
 from .enums import EntityType, NotificationType
 from .models import Notification, BusinessUserNotificationSettings

@@ -1,15 +1,18 @@
 import logging
 import time
-from urllib.parse import parse_qsl
+from datetime import datetime, timezone
 from datetime import timedelta
+from urllib.parse import parse_qsl
 
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
 from django.core.cache import cache
-from django.utils import timezone
 from ninja_jwt.authentication import JWTBaseAuthentication
 
 from helpers.utils import is_valid_uuid
+
+TTL = 60 * 60 * 24 * 2  # 2 days
+ACTIVE_KEYS_KEY = "metrics:active_keys"
 
 
 class QueryAuthMiddleware:
@@ -49,55 +52,6 @@ class QueryAuthMiddleware:
             user = await self.get_user_with_token(token) or AnonymousUser
             scope["user"] = user
         return await self.app(scope, receive, send)
-
-
-class RequestTimingMiddleware:
-    """
-    A Django middleware designed to calculate the elapsed time
-    required to process each incoming HTTP request. This helps in
-    identifying performance bottlenecks and optimizing your application.
-    """
-
-    def __init__(self, get_response):
-        """
-        The constructor, receiving the next callable in the middleware chain.
-        """
-        self.get_response = get_response
-        # Additional initialization logic could be added here if needed.
-
-    def __call__(self, request):
-        """
-        This method is invoked for every request and wraps the response
-        generation with our timing mechanism.
-
-        Args:
-            request: The HTTP request object.
-
-        Returns:
-            The HTTP response object.
-        """
-        # Record the start time of the request processing.
-        start_time = time.time()
-
-        # Allow the request to proceed to the view, or the next middleware,
-        # and wait for the response.
-        response = self.get_response(request)
-
-        # Record the end time of the request processing.
-        end_time = time.time()
-
-        # Calculate the duration in milliseconds.
-        duration = (end_time - start_time) * 1000
-
-        # Log the request path and the duration.
-        logging.info(
-            "Request to '%s' processed in %.2f ms.",
-            request.path,
-            duration
-        )
-
-        # Return the response to continue the request-response cycle.
-        return response
 
 
 from django.db import close_old_connections
@@ -143,4 +97,40 @@ class LogUserLastLoginConnectionMiddleware:
             request.user.last_login = now
             request.user.save()
             logger.info(f"User {request.user} logged in at {now}")
+        return response
+
+
+class RequestTimingMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        start = time.time()
+        response = self.get_response(request)
+        duration = time.time() - start
+
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        base_key = f"metrics:api:{request.path}:{today}"
+
+        try:
+            logging.info(
+                "Request to '%s' processed in %.2f ms.",
+                request.path,
+                duration
+            )
+            cache.add(f"{base_key}:count", 0, TTL)
+            cache.add(f"{base_key}:total_time", 0.0, TTL)
+            cache.incr(f"{base_key}:count")
+
+            total_time = (cache.get(f"{base_key}:total_time") or 0.0) + duration
+            cache.set(f"{base_key}:total_time", total_time, TTL)
+
+            # Register this base_key in the tracked set
+            tracked = cache.get(ACTIVE_KEYS_KEY) or set()
+            if base_key not in tracked:
+                tracked.add(base_key)
+                cache.set(ACTIVE_KEYS_KEY, tracked, TTL)
+        except Exception:
+            pass
+
         return response

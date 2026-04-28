@@ -3,35 +3,34 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
-from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
-    Skill, Role, BusinessClient, Industry, EducationLevel
-from core.models import Language
-from core.schemas import GenericNameAndUidSchema
+from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef
 from django.shortcuts import get_object_or_404
-from jobs.models import Job, JobPost, BusinessModel
-from jobs.schemas import BusinessUserJobSchema
-from ninja import Router, UploadedFile, PatchDict, Form, Query
-from ninja.errors import HttpError
-from ninja_extra import paginate
-from ninja_jwt.authentication import JWTAuth
-from notification import notifications
-from paginations import CustomPaginatedResponseSchema, CustomPageNumberPaginationExtra
-
-from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
 from helpers.email.auth import send_verification_code
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
+from ninja import Router, UploadedFile, PatchDict, Form, Query
+from ninja.errors import HttpError
+from ninja_extra import paginate
+from ninja_jwt.authentication import JWTAuth
+
+from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
+    Skill, Role, BusinessClient, Industry, EducationLevel, BannedAccount
+from core.models import Language
+from core.schemas import GenericNameAndUidSchema
+from jobs.models import Job, JobPost, BusinessModel
+from jobs.schemas import BusinessUserJobSchema
+from notification import notifications
+from paginations import CustomPaginatedResponseSchema, CustomPageNumberPaginationExtra
 from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
-from ..schemas.admin import PipelineDashboardSchema, DashboardFilter, ApplicantDashboardSchema, \
+from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema, TalentFilterListSchema, \
+    SendBulkChatSchema, PipelineDashboardSchema, DashboardFilter, ApplicantDashboardSchema, \
     RecruitmentDashboardSchema, ApplicationPipelineRatioSchema, RecentHiresSchema, StuckApplicationSchema, \
     PaginatedRecruiterHireSchema, TimeSeriesDashboardFilter, ApplicationHiresGraphItemSchema
-from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema, TalentFilterListSchema, \
-    SendBulkChatSchema
 from ..services.business import pipeline_dashboard_data, applicant_dashboard_data, recruitment_dashboard_data
 from ..services.common import application_pipeline_ratio, recent_hires, stuck_applications, recruiter_hires_graph_data, \
     application_hires_graph_data
@@ -41,6 +40,11 @@ pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=p
 
 @router.post("initiate-account-creation")
 def initiate_account_creation(request, data: common_schema.RegisterSchema):
+    if BannedAccount.objects.filter(
+            email__iexact=data.email,
+            account_type=UserType.BUSINESS.value
+    ).exists():
+        raise HttpError(401, "This account has been banned")
     existing_user = User.objects.filter(email__iexact=data.email).exists()
     if existing_user:
         raise HttpError(400, "An account with this email already exists")
@@ -226,6 +230,11 @@ def invite_business_user(request, data: business_schema.AddBusinessUserSchema):
     IsBusinessOwnerOrAdmin.check(request)
     business_user = request.user.businessuser
     business = business_user.business
+    if BannedAccount.objects.filter(
+            email__iexact=data.email,
+            account_type=UserType.BUSINESS.value
+    ).exists():
+        raise HttpError(400, "This account has been banned")
     if BusinessUser.deleted_objects.filter(user__email__iexact=data.email).exists():
         raise HttpError(400, "This user's account has been deleted")
     if User.objects.filter(email__iexact=data.email).exists():
