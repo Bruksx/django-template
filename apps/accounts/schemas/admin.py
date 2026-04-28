@@ -128,7 +128,7 @@ class BusinessListSchema(ModelSchema):
 
     class Meta:
         model = Business
-        fields = ["name", "website", "size"]
+        fields = ["uid", "name", "website", "size"]
 
 
 class BusinessActionSchema(Schema):
@@ -167,7 +167,7 @@ class BusinessDetailSchema(BusinessListSchema):
 
     class Meta:
         model = Business
-        fields = ["name", "website", "size", "description",
+        fields = ["uid", "name", "website", "size", "description",
           "instagram", "linkedin", "facebook", "twitter_x"]
 
 class TalentDetailSchema(TalentUserSchema):
