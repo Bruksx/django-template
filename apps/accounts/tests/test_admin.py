@@ -1,17 +1,17 @@
 from datetime import timezone as dt_timezone, datetime, date
 from uuid import uuid4
 
+from django.test import TestCase
+from ninja.testing import TestClient
+
 from accounts.enums import BusinessUserRoleType, BusinessUserStatusType
-from accounts.models import Business, BusinessIndustry, BusinessUser
-from accounts.services.admin import get_page_metric_data, get_api_metric_data
+from accounts.models import Business, BusinessIndustry, BusinessUser, User, Talent, BannedAccount
 from accounts.views.admin import router
 from core.models import PageMetric, APIMetric
-from django.test import TestCase
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, JobFactory, JobPostFactory, \
     TalentFactory, AdminUserFactory, RoleFactory
 from jobs.enums import JobStatusType
 from jobs.models import JobApplication
-from ninja.testing import TestClient
 from settings.models import WorkFlowStage
 
 
@@ -715,7 +715,7 @@ class LoginAsTalentTestCase(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
-class DeactivateTalentTestCase(TestCase):
+class BanTalentTestCase(TestCase):
     def setUp(self):
         self.client = TestClient(router)
         self.admin_user = AdminUserFactory.create()
@@ -724,54 +724,36 @@ class DeactivateTalentTestCase(TestCase):
             "authorization": f"Bearer {self.user.token}"
         }
         self.talent = TalentFactory.create()
-        self.test_data = {
-            "is_active": False
-        }
 
-    def test_deactivate_talent_success(self):
-        """Test successful deactivation of talent"""
+    def test_ban_talent_success(self):
+        """Test successful banning of a talent"""
         response = self.client.post(
-            f"/talents/{self.talent.uid}/account-status",
-            headers=self.auth_headers,
-            json=self.test_data
+            f"/talents/{self.talent.uid}/ban",
+            headers=self.auth_headers
         )
         self.assertEqual(response.status_code, 200)
-        self.talent.refresh_from_db()
-        self.assertEqual(self.talent.user.is_active, False)
+        self.assertFalse(Talent.objects.filter(uid=self.talent.uid).exists())
+        self.assertFalse(User.objects.filter(id=self.talent.user.id).exists())
+        self.assertTrue(BannedAccount.objects.filter(email__iexact=self.talent.user.email).exists())
+        self.assertEqual(response.json(), {"message": "Talent account has been banned successfully"})
 
-    def test_activate_talent_success(self):
-        """Test successful activation of talent"""
-        self.talent.user.is_active = False
-        self.talent.user.save()
-        self.test_data = {"is_active": True}
+    def test_ban_talent_unauthorized(self):
+        """Test banning talent without authentication"""
         response = self.client.post(
-            f"/talents/{self.talent.uid}/account-status",
-            headers=self.auth_headers,
-            json=self.test_data
-        )
-        self.assertEqual(response.status_code, 200)
-        self.talent.refresh_from_db()
-        self.assertEqual(self.talent.user.is_active, True)
-
-    def test_deactivate_talent_unauthorized(self):
-        """Test talent deactivation without authentication"""
-        response = self.client.post(
-            f"/talents/{self.talent.uid}/account-status",
-            json=self.test_data
+            f"/talents/{self.talent.uid}/ban"
         )
         self.assertEqual(response.status_code, 401)
 
-    def test_deactivate_talent_not_found(self):
-        """Test deactivation of non-existent talent"""
+    def test_ban_talent_not_found(self):
+        """Test banning non-existent talent"""
         response = self.client.post(
-            f"/talents/{uuid4()}/account-status",
-            headers=self.auth_headers,
-            json=self.test_data
+            f"/talents/{uuid4()}/ban",
+            headers=self.auth_headers
         )
         self.assertEqual(response.status_code, 404)
 
 
-class AdminMetricsAPITestCase(TestCase):
+class DeactivateTalentTestCase(TestCase):
     """Test cases for admin metrics API endpoints"""
 
     def setUp(self):
