@@ -1,12 +1,12 @@
 tasks = [
     {
-        "name": "Aggregate API Metrics - Every Day",
+        "name": "Aggregate Page Metrics - Every 4 Hours",
         "func": "core.tasks.aggregate_page_metrics",
-        "cron": "0 0,4,8,12,16,20 * * *" # Every 4 hours
+        "cron": "0 0,4,8,12,16,20 * * *"
     },
     {
-        "name": "Weekly Profile Completion Report - Every Monday",
+        "name": "Aggregate API Metrics - Every Day at 00:05",
         "func": "core.tasks.aggregate_api_metrics",
-        "cron": "5 0 * * *" # Every day at 00:05 daily
+        "cron": "5 0 * * *"
     }
 ]
