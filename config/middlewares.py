@@ -7,6 +7,7 @@ from urllib.parse import parse_qsl
 from channels.db import database_sync_to_async
 from django.contrib.auth.models import AnonymousUser
 from django.core.cache import cache
+from django.utils import timezone as django_timezone
 from ninja_jwt.authentication import JWTBaseAuthentication
 
 from helpers.utils import is_valid_uuid
@@ -87,7 +88,7 @@ class LogUserLastLoginConnectionMiddleware:
         if not request.user.is_authenticated:
             return response
         logger = logging.getLogger(__name__)
-        now = timezone.now()
+        now = django_timezone.now()
         if request.user.last_login:
             if now - request.user.last_login >= timedelta(hours=1):
                 request.user.last_login = now
