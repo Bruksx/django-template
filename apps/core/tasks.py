@@ -6,6 +6,7 @@ from datetime import datetime
 from django.core.cache import cache
 from django.db.models import F
 from django.utils import timezone
+
 from helpers.utils import delete_s3_item
 
 ACTIVE_KEYS_KEY = "metrics:active_keys"
@@ -24,7 +25,6 @@ def delete_old_exports(days=7):
 
 def aggregate_api_metrics():
     from core.models import APIMetric
-
     active_keys = cache.get(ACTIVE_KEYS_KEY) or set()
     if not active_keys:
         return
@@ -51,6 +51,7 @@ def aggregate_api_metrics():
         month = dt.replace(day=1).date()
 
         obj, _ = APIMetric.objects.get_or_create(path=path, month=month)
+
         APIMetric.objects.filter(id=obj.id).update(
             count=F("count") + int(count),
             total_time=F("total_time") + float(total_time),
