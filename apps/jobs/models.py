@@ -2,16 +2,12 @@ import string
 from functools import cached_property
 
 from accounts.enums import Days
-from accounts.enums import Days
-from accounts.enums import Days
 from accounts.models import Talent, TalentAvailableDay
-from accounts.models import Talent, TalentAvailableDay
-from accounts.models import Talent, TalentAvailableDay
-from core.enums import SalaryType
-from core.enums import SalaryType
 from core.enums import SalaryType
 from core.models import BaseModel, Language
-from core.models import BaseModel, Language
+from accounts.enums import Days
+from accounts.models import Talent, TalentAvailableDay
+from core.enums import SalaryType
 from core.models import BaseModel, Language
 from django.db import models
 from django.db.models import F, Q, Count, IntegerField, When, Case, Value
@@ -312,13 +308,13 @@ class JobPost(BaseModel):
         "accounts.BusinessUser", 
         null=True, 
         on_delete=models.SET_NULL, 
-        related_name="recruiter"
+        related_name="assigned_job_posts"
     )
     posted_by = models.ForeignKey(
         "accounts.BusinessUser",
         null=True,
         on_delete=models.SET_NULL,
-        related_name="posted_by",
+        related_name="posted_job_posts",
         blank=True
     )
     last_refreshed = models.DateTimeField(null=True, default=None)
