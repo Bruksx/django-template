@@ -9,6 +9,7 @@ from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import BusinessUser, Talent, Business
+from accounts.models import BusinessUser, Talent, Business
 from accounts.schemas.admin import AdminDashboardFilter, BusinessMetricSchema, TalentMetricSchema, \
     BusinessListSchema, PaginatedBusinessJobListSchema, BusinessUserListSchema, MutateBusinessSchema, \
     MutateBusinessUserSchema, CreateBusinessSchema, TalentListSchema, TalentDetailSchema, \
@@ -16,7 +17,15 @@ from accounts.schemas.admin import AdminDashboardFilter, BusinessMetricSchema, T
     AccountStatusSchema, PauseResumeSchema
 from accounts.schemas.common import UserSchema
 from accounts.services import admin as admin_services
+from django.db import transaction
+from ninja import Query, Router
+from ninja.errors import HttpError
+from ninja.responses import Response
+from ninja_extra import paginate
+from ninja_jwt.authentication import JWTAuth
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
+
+from config.permissions import IsAdminUser
 
 router = Router(tags=["Admin Account"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
