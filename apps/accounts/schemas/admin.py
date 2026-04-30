@@ -2,9 +2,6 @@ from datetime import date
 from typing import Optional, List, Literal, Generic, T
 from uuid import UUID
 
-from ninja import Schema, ModelSchema
-from pydantic import EmailStr, HttpUrl, Field
-
 from accounts.enums import BusinessUserRoleType, BusinessUserStatusType
 from accounts.models import BusinessUser, Business, Talent
 from accounts.schemas.common import DashboardFilter
@@ -12,7 +9,9 @@ from accounts.schemas.talent import TalentUserSchema, UpdateTalentProfileSchema2
 from core.schemas import GenericNameAndUidSchema
 from jobs.enums import PhaseType, JobStatusType
 from jobs.models import JobApplication
+from ninja import Schema, ModelSchema
 from paginations import CustomPaginatedResponseSchema
+from pydantic import EmailStr, HttpUrl, Field
 
 
 class AdminDashboardFilter(DashboardFilter):
@@ -128,7 +127,7 @@ class BusinessListSchema(ModelSchema):
 
     class Meta:
         model = Business
-        fields = ["uid", "name", "website", "size"]
+        fields = ["uid", "name", "website", "size", "paused"]
 
 
 class BusinessActionSchema(Schema):
@@ -236,6 +235,8 @@ class PaginatedMetricSchema(Schema, Generic[T]):
     results: list[T]
 
 
+class PauseResumeSchema(Schema):
+    action: Literal["pause", "resume"]
+
 class AccountStatusSchema(Schema):
     is_active: bool
-

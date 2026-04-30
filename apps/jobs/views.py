@@ -89,7 +89,8 @@ def job_posts_for_talent(request, filters:TalentJobFilterQuerySchema = Query(...
     IsTalentUser.check(request)
     talent: Talent = request.user.talent
     request.context = {"talent": talent}
-    queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(status=JobStatusType.POSTED.value)
+    queryset = (JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business")
+                .filter(status=JobStatusType.POSTED.value, job__created_by__business__paused=False))
     queryset = add_job_post_annotations(queryset, talent).filter(can_apply=True)
     return filters.get_queryset(talent=talent, queryset=queryset)
 
@@ -110,7 +111,7 @@ def talent_applied_jobs(request, search:str=""):
 def apply_to_job_post(request, job_post_id:UUID, data: ApplyToJobSchema):
     IsTalentUser.check(request)
     talent = request.user.talent
-    job_post = JobPost.objects.filter(uid=job_post_id).first()
+    job_post = JobPost.objects.filter(uid=job_post_id, job__created_by__business__paused=False).first()
     if not job_post:
         raise HttpError(404, "Job post not found")
     if job_post.status != JobStatusType.POSTED.value:
@@ -143,7 +144,7 @@ def view_job_post(request, job_post_id:UUID):
     talent = request.user.talent
     request.context = dict(talent=talent)
     job_post:JobPost = JobPost.objects.filter(uid=job_post_id)
-    job_post = add_job_post_annotations(job_post, talent).first()
+    job_post = add_job_post_annotations(job_post, talent).filter(job__created_by__business__paused=False).first()
     if not job_post:
         raise HttpError(404, "Job post not found")
     job_post.view()
@@ -152,7 +153,7 @@ def view_job_post(request, job_post_id:UUID):
 
 @router.get("job-posts/{job_post_id}", response=TalentJobPostSchema, tags=["Talent Jobs"])
 def view_job_post_as_visitor(request, job_post_id:UUID):
-    job_post:JobPost = JobPost.objects.filter(uid=job_post_id).first()
+    job_post:JobPost = JobPost.objects.filter(uid=job_post_id, job__created_by__business__paused=False).first()
     if not job_post:
         raise HttpError(404, "Job post not found")
     return job_post
@@ -287,3 +288,5 @@ def get_timezones(request, search: Optional[str] = None):
     if search:
         return [tz for tz in pytz.all_timezones if search.lower() in tz.lower()]
     return list(pytz.all_timezones)
+
+

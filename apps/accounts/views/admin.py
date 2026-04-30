@@ -1,22 +1,22 @@
 from uuid import UUID
 
-from config.permissions import IsAdminUser
+from accounts.models import BusinessUser, Talent, Business
+from accounts.schemas.admin import AdminDashboardFilter, BusinessMetricSchema, TalentMetricSchema, \
+    BusinessListSchema, PaginatedBusinessJobListSchema, BusinessUserListSchema, MutateBusinessSchema, \
+    MutateBusinessUserSchema, CreateBusinessSchema, TalentListSchema, TalentDetailSchema, \
+    PaginatedApplicationListSchema, MutateTalentDetailSchema, BusinessActionSchema, PaginatedMetricFilter, \
+    AccountStatusSchema, PauseResumeSchema
+from accounts.schemas.common import UserSchema
+from accounts.services import admin as admin_services
 from django.db import transaction
 from ninja import Query, Router
 from ninja.errors import HttpError
 from ninja.responses import Response
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
-
-from accounts.models import BusinessUser, Talent
-from accounts.schemas.admin import AdminDashboardFilter, BusinessMetricSchema, TalentMetricSchema, \
-    BusinessListSchema, PaginatedBusinessJobListSchema, BusinessUserListSchema, MutateBusinessSchema, \
-    MutateBusinessUserSchema, CreateBusinessSchema, TalentListSchema, TalentDetailSchema, \
-    PaginatedApplicationListSchema, MutateTalentDetailSchema, BusinessActionSchema, PaginatedMetricFilter, \
-    AccountStatusSchema
-from accounts.schemas.common import UserSchema
-from accounts.services import admin as admin_services
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
+
+from config.permissions import IsAdminUser
 
 router = Router(tags=["Admin Account"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -49,14 +49,6 @@ def add_business(request, data: CreateBusinessSchema):
 def update_business(request, business_uid: UUID, data: MutateBusinessSchema):
     IsAdminUser.check(request)
     return admin_services.update_business_data(business_uid, **data.dict(exclude_unset=True))
-
-@router.delete("businesses/{business_uid}", auth=JWTAuth())
-@transaction.atomic
-def delete_business(request, business_uid: UUID):
-    IsAdminUser.check(request)
-    admin_services.delete_business_data(business_uid)
-    return Response(status=204,data={"message": "Business deleted successfully"})
-
 
 @router.post("businesses/{business_uid}", auth=JWTAuth(), response=BusinessListSchema)
 @transaction.atomic
@@ -204,3 +196,23 @@ def get_talent_signups(request, filters: PaginatedMetricFilter = Query(...)):
 def get_talent_profile_completion(request, filters: PaginatedMetricFilter = Query(...)):
     IsAdminUser.check(request)
     return admin_services.get_talent_profile_completion_data(**filters.dict(exclude_unset=True))
+
+
+@router.post("businesses/{business_uid}/resumption", auth=JWTAuth(), response=BusinessListSchema)
+def pause_resume_business(request, business_uid: UUID, data: PauseResumeSchema):
+    IsAdminUser.check(request)
+    business = Business.objects.filter(uid=business_uid).first()
+    if not business:
+        raise HttpError(404, "This business does not exist")
+    return admin_services.pause_resume_business(business, data.action)
+
+
+@router.delete("businesses/{business_uid}", auth=JWTAuth())
+def delete_business(request, business_uid: UUID):
+    IsAdminUser.check(request)
+    business = Business.objects.filter(uid=business_uid).first()
+    if not business:
+        raise HttpError(404, "This business does not exist")
+    admin_services.delete_business(business)
+    return Response(status=204, data={"message": "Business deleted successfully"})
+

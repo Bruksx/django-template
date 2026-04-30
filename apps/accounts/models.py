@@ -8,7 +8,10 @@ from typing import Tuple, Optional
 from uuid import UUID
 
 import jwt
-from config.settings import SECRET_KEY
+from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
+    BusinessSize, BusinessUserStatusType, CaseReasonType, AdminRoleType
+from core.enums import SalaryType
+from core.models import BaseModel, State, City
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -19,16 +22,13 @@ from django.db.models.functions import Concat, Cast, Round
 from django.db.models.signals import pre_save
 from django.utils import timezone
 from django_softdelete.managers import SoftDeleteManager
-from helpers.utils import delete_s3_item
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
 from ninja_jwt.tokens import RefreshToken
+from notification.enums import NotificationGroup
 from timezone_field import TimeZoneField
 
-from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessSize, BusinessUserStatusType, CaseReasonType, AdminRoleType
-from core.enums import SalaryType
-from core.models import BaseModel, State, City
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
-from notification.enums import NotificationGroup
+from config.settings import SECRET_KEY
+from helpers.utils import delete_s3_item
 
 
 class CustomUserManager(SoftDeleteManager, BaseUserManager):
@@ -374,7 +374,7 @@ class Talent(BaseModel):
 
         # Query Job table with optimized prefetch and select_related
         if business:
-            job_matching_query &= Q(created_by__business=business)
+            job_matching_query &= Q(created_by__business=business, created_by__business__paused=False)
         jobs = (Job.objects.prefetch_related("requiredattribute", "additional_languages", "skills", 'jobpost', 'availableday')
                 .filter(job_matching_query)
                 .only("id")
@@ -434,7 +434,7 @@ class Talent(BaseModel):
         is_saved = Exists(SavedJob.objects.filter(job_post__id=OuterRef("id"), talent=self))
         queryset = JobPost.objects.select_related(
             "job", "country", "job__role", "job__created_by__business"
-        ).annotate(is_saved=is_saved).filter(is_saved=True)
+        ).annotate(is_saved=is_saved).filter(is_saved=True, job__created_by__business__paused=False)
         queryset = add_job_post_annotations(queryset, self)
         return queryset
 
@@ -445,7 +445,7 @@ class Talent(BaseModel):
         is_applied = Exists(JobApplication.objects.filter(job_post__id=OuterRef("id"), applicant=self))
         queryset = JobPost.objects.select_related(
             "job", "country", "job__role", "job__created_by__business"
-        ).annotate(is_applied=is_applied).filter(is_applied=True)
+        ).annotate(is_applied=is_applied).filter(is_applied=True, job__created_by__business__paused=False)
         queryset = add_job_post_annotations(queryset, self)
         return queryset
 
@@ -662,6 +662,7 @@ class Business(BaseModel):
     facebook = models.URLField(null=True)
     twitter_x = models.URLField(null=True)
     industry = models.ForeignKey(BusinessIndustry, null=True, on_delete=models.SET_NULL)
+    paused = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.name}"
