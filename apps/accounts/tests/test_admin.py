@@ -11,7 +11,7 @@ from core.models import PageMetric, APIMetric
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, JobFactory, JobPostFactory, \
     TalentFactory, AdminUserFactory, RoleFactory
 from jobs.enums import JobStatusType
-from jobs.models import JobApplication
+from jobs.models import JobApplication, Job
 from settings.models import WorkFlowStage
 
 
@@ -192,6 +192,36 @@ class DeleteBusinessTestCase(TestCase):
         """Test business deletion without authentication"""
         response = self.client.delete(f"/businesses/{self.business.uid}")
         self.assertEqual(response.status_code, 401)
+
+    def test_delete_business_not_found(self):
+        """Test deletion of non-existent business"""
+        response = self.client.delete(f"/businesses/{uuid4()}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_delete_business_with_users(self):
+        """Test deletion of business with associated users"""
+        # Create a business user for this business
+        BusinessUserFactory.create(business=self.business)
+        
+        response = self.client.delete(f"/businesses/{self.business.uid}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 204)
+        print(response.content)
+        # Both business and associated users should be deleted
+        self.assertFalse(Business.objects.filter(uid=self.business.uid).exists())
+        self.assertFalse(BusinessUser.objects.filter(business__uid=self.business.uid).exists())
+
+    def test_delete_business_with_jobs(self):
+        """Test deletion of business with associated jobs"""
+        # Create business user and job for this business
+        business_user = BusinessUserFactory.create(business=self.business)
+        job = JobFactory.create(created_by=business_user)
+        
+        response = self.client.delete(f"/businesses/{self.business.uid}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 204)
+        # Business, users, and jobs should all be deleted
+        self.assertFalse(Business.objects.filter(uid=self.business.uid).exists())
+        self.assertFalse(BusinessUser.objects.filter(business__uid=self.business.uid).exists())
+        self.assertFalse(Job.objects.filter(uid=job.uid).exists())
 
 
 class BusinessActionTestCase(TestCase):
@@ -896,3 +926,60 @@ class DeactivateTalentTestCase(TestCase):
         # Just check that pagination parameters are accepted without error
         data = response.json()
         self.assertIsInstance(data, (dict, list))
+
+
+class PauseResumeBusinessTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.admin_user = AdminUserFactory.create()
+        self.user = self.admin_user.user
+        self.auth_headers = {
+            "authorization": f"Bearer {self.user.token}"
+        }
+        self.business = BusinessFactory.create()
+
+    def test_pause_business_success(self):
+        """Test successful pausing of a business"""
+        data = {"action": "pause"}
+        response = self.client.post(f"/businesses/{self.business.uid}/resumption", json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        self.business.refresh_from_db()
+        self.assertTrue(self.business.paused)
+
+    def test_resume_business_success(self):
+        """Test successful resuming of a business"""
+        # First pause the business
+        self.business.paused = True
+        self.business.save()
+        
+        data = {"action": "resume"}
+        response = self.client.post(f"/businesses/{self.business.uid}/resumption", json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        self.business.refresh_from_db()
+        self.assertFalse(self.business.paused)
+
+    def test_pause_resume_business_unauthorized(self):
+        """Test pause/resume business without authentication"""
+        data = {"action": "pause"}
+        response = self.client.post(f"/businesses/{self.business.uid}/resumption", json=data)
+        self.assertEqual(response.status_code, 401)
+
+    def test_pause_resume_business_not_found(self):
+        """Test pause/resume of non-existent business"""
+        data = {"action": "pause"}
+        response = self.client.post(f"/businesses/{uuid4()}/resumption", json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 404)
+
+    def test_pause_resume_business_invalid_action(self):
+        """Test pause/resume with invalid action"""
+        data = {"action": "invalid"}
+        response = self.client.post(f"/businesses/{self.business.uid}/resumption", json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 422)
+
+    def test_pause_resume_business_missing_action(self):
+        """Test pause/resume with missing action"""
+        data = {}
+        response = self.client.post(f"/businesses/{self.business.uid}/resumption", json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 422)  # Validation error
+
+

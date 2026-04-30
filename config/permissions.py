@@ -70,7 +70,7 @@ class IsBusinessUser(IsAuthenticated):
     def __has_permission__(
         cls, request, *args, **kwargs
     ) -> bool:
-        return hasattr(request.user, "businessuser")
+        return hasattr(request.user, "businessuser") and not request.user.businessuser.business.paused
 
     @classmethod
     def __validate__(cls, request, *args, **kwargs):
