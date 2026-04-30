@@ -5,6 +5,11 @@ from math import ceil
 from typing import Optional, Literal
 from uuid import UUID
 
+from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType
+from accounts.models import Business, BusinessUser, User, Talent, BusinessIndustry, Country, BusinessClient, \
+    BannedAccount
+from accounts.queries import add_profile_completion_annotation
+from core.models import PageMetric, APIMetric
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Sum, Exists, OuterRef, F, Case, When, Value, CharField, Count, Subquery, IntegerField, Avg, \
@@ -12,17 +17,12 @@ from django.db.models import Sum, Exists, OuterRef, F, Case, When, Value, CharFi
     Func, Q
 from django.db.models.functions import Coalesce, TruncMonth
 from django.utils import timezone
-from helpers.email.auth import send_admin_created_account_email
-from monkeypatches.q_cluster import async_task
+from jobs.enums import PhaseType, JobStatusType, WithdrawalFeedbackType
+from jobs.models import JobPost, JobApplication, JobApplicationWithdrawal, JobPostMetrics, Job, JobPostTag, JobAlert
 from ninja.errors import HttpError
 
-from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType
-from accounts.models import Business, BusinessUser, User, Talent, BusinessIndustry, Country, BusinessClient, \
-    BannedAccount
-from accounts.queries import add_profile_completion_annotation
-from core.models import PageMetric, APIMetric
-from jobs.enums import PhaseType, JobStatusType, WithdrawalFeedbackType
-from jobs.models import JobPost, JobApplication, JobApplicationWithdrawal, JobPostMetrics, Job
+from helpers.email.auth import send_admin_created_account_email
+from monkeypatches.q_cluster import async_task
 from . import talent as talent_services
 
 
@@ -252,22 +252,6 @@ def update_business_data(
     )
 
     return business
-
-
-@transaction.atomic
-def delete_business_data(business_uid: UUID):
-    business = Business.objects.filter(uid=business_uid).first()
-    if not business:
-        raise HttpError(404, "Business not found")
-    has_jobs = Job.objects.filter(
-        created_by__business=business
-    ).exists()
-    if has_jobs:
-        raise HttpError(400, "Business has jobs")
-    if business.businessuser_set.exists():
-        raise HttpError(400, "Business has users")
-    business.hard_delete()
-    return {"message": "Business deleted successfully"}
 
 
 @transaction.atomic
@@ -807,4 +791,36 @@ def get_talent_profile_completion_data(
         page, page_size
     )
 
+def pause_business(business):
+    business.paused = True
+    business.save()
+    # TODO: send email to business regarding pause
+    return business
+
+def resume_business(business):
+    business.paused = False
+    business.save()
+    # TODO: send email to business regarding resume
+    return business
+
+
+def delete_business(business):
+    from chats.models import Conversation
+    JobAlert.objects.filter(jobs__created_by__business=business).all().hard_delete()
+    Job.objects.filter(created_by__business=business).all().hard_delete()
+    Conversation.objects.filter(users__businessuser__business=business).all().hard_delete()
+    User.objects.filter(businessuser__business=business).all().hard_delete()
+    JobPostTag.objects.filter(business=business).all().hard_delete()
+    BusinessClient.objects.filter(business=business).all().hard_delete()
+    Business.objects.filter(id=business.id).hard_delete()
+    return
+
+
+def pause_resume_business(business, action):
+    if action == "pause":
+        return pause_business(business)
+    elif action == "resume":
+        return resume_business(business)
+    else:
+        raise HttpError(400, "Invalid action. Must be 'pause' or 'resume'")
 

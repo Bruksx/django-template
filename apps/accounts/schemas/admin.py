@@ -128,7 +128,7 @@ class BusinessListSchema(ModelSchema):
 
     class Meta:
         model = Business
-        fields = ["uid", "name", "website", "size"]
+        fields = ["uid", "name", "website", "size", "paused"]
 
 
 class BusinessActionSchema(Schema):
@@ -236,6 +236,8 @@ class PaginatedMetricSchema(Schema, Generic[T]):
     results: list[T]
 
 
+class PauseResumeSchema(Schema):
+    action: Literal["pause", "resume"]
+
 class AccountStatusSchema(Schema):
     is_active: bool
-
