@@ -11,6 +11,7 @@ from jobs.models import JobPost, Job
 from jobs.schemas import JobAvailabilitySchema
 from jobs.schemas import TalentJobPostSchema
 from lxml.etree import Element, SubElement, tostring
+from lxml import etree as et
 
 from apps.paginations import CustomPageNumberPaginationExtra
 from config import settings
@@ -410,7 +411,8 @@ class JobBase:
         if omit_cdata is True:
             el.text = content
         else:
-            el.text = f"<![CDATA[{content}]]>"
+            #el.text = f"<![CDATA[{content}]]>"
+            el.text = et.CDATA(content)
 
     def to_xml(self):
         job_el = Element( "job")
@@ -526,7 +528,6 @@ class Source:
                 .order_by("-refresh_order")
                 .iterator(chunk_size=500)  # DB-level chunking
             )
-
         for job_post in queryset:
             job_base = alert_bug_via_email(JobBase.convert_to_job, job_post=job_post, default=None)
             if job_base:
