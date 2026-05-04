@@ -1,12 +1,12 @@
 from typing import Optional
 
-from accounts.enums import BusinessUserRoleType, UserType
-from core.models import BaseModel
 from django.db import models
 from django.db.models import Q, Case, When, Value, F
-from notification.enums import EntityType, EntityActionType, NotificationType, NotificationGroup
-
 from helpers.websocket.utils import send_ws
+
+from accounts.enums import BusinessUserRoleType, UserType
+from core.models import BaseModel
+from notification.enums import EntityType, EntityActionType, NotificationType, NotificationGroup
 
 
 # Create your models here.
@@ -121,7 +121,7 @@ class Notification(BaseModel):
 
             queryset = queryset.annotate(same_role=same_role, same_group=same_group,
                 has_setting=Case(When(notification_type__isnull=False,
-                                 then=Value(business_user.businessusernotificationsettings.should_notify(F('notification_type')))),
+                                 then=Value(hasattr(business_user, "businessusernotificationsettings") and business_user.businessusernotificationsettings.should_notify(F('notification_type')))),
                             default=Value(True))
             )
             can_view = can_view | Q(Q(has_setting=True) & Q(Q(same_role=True) | Q(same_group=True)))
