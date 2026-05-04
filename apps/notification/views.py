@@ -1,16 +1,16 @@
 from typing import List, Optional
 from uuid import UUID
 
+from config.permissions import IsBusinessUser
 from django.db import transaction
-from jobs.business_views import pagination_class
+from monkeypatches.response import Response
 from ninja import Router, PatchDict, Query
 from ninja_jwt.authentication import JWTAuth
+
+from jobs.business_views import pagination_class
 from notification.models import BusinessUserNotificationSettings, Notification
 from notification.schemas import NotificationFilterSchema, PaginatedNotificationSchema
 from notification.schemas import NotificationSettingsSchema, NotificationSchema
-
-from config.permissions import IsBusinessUser
-from monkeypatches.response import Response
 
 # Create your views here.
 router = Router(tags=["Notifications"])
@@ -41,11 +41,11 @@ def update_notification_settings(request, data: PatchDict[NotificationSettingsSc
 def get_notifications(request, filters: NotificationFilterSchema = Query(...)):
     if hasattr(request.user, "businessuser"):
         queryset = request.user.businessuser.notifications(viewed=filters.viewed, excludes=filters.excludes)
-        unread_count = (Notification.can_view_annotation(request.user.businessuser.notifications(viewed=False), request.user).
+        unread_count = (Notification.can_view_annotation(request.user.businessuser.notifications(viewed=False, excludes=filters.excludes), request.user).
                     count())
     elif hasattr(request.user, "talent"):
         queryset =  request.user.talent.notifications(viewed=filters.viewed, excludes=filters.excludes)
-        unread_count = (Notification.can_view_annotation(request.user.talent.notifications(viewed=False), request.user)
+        unread_count = (Notification.can_view_annotation(request.user.talent.notifications(viewed=False, excludes=filters.excludes), request.user)
                         .count())
     else:
         queryset = Notification.objects.none()
