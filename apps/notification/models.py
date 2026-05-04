@@ -1,13 +1,12 @@
-import json
 from typing import Optional
-
-from django.db import models
-from django.db.models import Q
-from helpers.websocket.utils import send_ws
 
 from accounts.enums import BusinessUserRoleType, UserType
 from core.models import BaseModel
+from django.db import models
+from django.db.models import Q, Case, When, Value, F
 from notification.enums import EntityType, EntityActionType, NotificationType, NotificationGroup
+
+from helpers.websocket.utils import send_ws
 
 
 # Create your models here.
@@ -45,6 +44,10 @@ class Notification(BaseModel):
         return
 
 
+    def is_read(self, user):
+        return self.viewers.filter(id=user.id).exists()
+
+
     def get_recipients(self):
         from accounts.models import User
         group_query = Q()
@@ -66,8 +69,6 @@ class Notification(BaseModel):
         return queryset
 
     def view(self, user):
-        if not self.can_view(user):
-            return
         self.viewers.add(user)
         self.save()
         return
@@ -90,11 +91,44 @@ class Notification(BaseModel):
                     if not settings.should_notify(self.notification_type):
                         return  False
             if self.business:
-                if self.role and self.role == user.business_user.role:
-                    return True
-                if NotificationGroup.BUSINESS_USERS.value in self.recipient_groups:
-                    return True
+                return ((self.role and self.role == user.business_user.role) or
+                (NotificationGroup.BUSINESS_USERS.value in self.recipient_groups))
         return False
+
+    @staticmethod
+    def can_view_annotation(queryset, user):
+        allowed = Case(When(Q(Q(recipient_users__id=user.id) | Q(
+                recipient_groups__contains=[NotificationGroup.ALL_USERS.value])),
+                            then=Value(True)),
+                       default=Value(False))
+        queryset = queryset.annotate(allowed=allowed)
+        can_view = Q(allowed=True)
+        if hasattr(user, 'talent'):
+            can_view = can_view | Q(recipient_groups__contains=[NotificationGroup.TALENTS.value])
+
+        elif hasattr(user, "businessuser"):
+            business_user = user.businessuser
+
+            same_role=Case(When(
+                Q(business=business_user.business, role=business_user.role),
+                then=Value(True)
+            ), default=Value(False))
+
+            same_group=Case(When(
+                Q(business=business_user.business, recipient_groups__contains=[NotificationGroup.BUSINESS_USERS.value]),
+                then=Value(True)
+            ), default=Value(False))
+
+            queryset = queryset.annotate(same_role=same_role, same_group=same_group,
+                has_setting=Case(When(notification_type__isnull=False,
+                                 then=Value(business_user.businessusernotificationsettings.should_notify(F('notification_type')))),
+                            default=Value(True))
+            )
+            can_view = can_view | Q(Q(has_setting=True) & Q(Q(same_role=True) | Q(same_group=True)))
+        return queryset.filter(can_view)
+
+
+
 
 
     def delete_notification(self, user):
