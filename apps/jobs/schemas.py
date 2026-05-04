@@ -1475,20 +1475,22 @@ class BusinessJobFilterSchema(Schema):
                                        Q(created_by__business__name__icontains=self.search)
                                        ).distinct()
 
+        job_post_query = Q()
+
         if self.status:
-            queryset = queryset.filter(jobpost__status=self.status.value)
+            job_post_query &= Q(status__icontains=self.status.value)
 
         if self.country:
-            queryset = queryset.filter(jobpost__country__uid=self.country)
+            job_post_query &= Q(country__uid=self.country)
 
         if self.tags:
-            queryset = queryset.filter(jobpost__tags__uid__in=self.tags)
+            job_post_query &= Q(tags__uid__in=self.tags)
 
         if self.province:
-            queryset = queryset.filter(jobpost__province__uid=self.province)
+            job_post_query &= Q(province__uid=self.province)
 
         if self.city:
-            queryset = queryset.filter(jobpost__city__iexact=self.city)
+            job_post_query &= Q(city__iexact=self.city)
 
         if self.clients:
             queryset = queryset.filter(hiring_company_name__in=self.clients)
@@ -1499,16 +1501,17 @@ class BusinessJobFilterSchema(Schema):
 
         if self.statuses:
             statuses = [s.value for s in self.statuses]
-            queryset = queryset.filter(jobpost__status__in=statuses)
+            job_post_query &= Q(status_id__in=statuses)
 
         if self.recruiter:
-            queryset = queryset.filter(jobpost__recruiter__uid__in=self.recruiter)
+            job_post_query &= Q(recruiter__id__in=self.recruiter)
 
 
         if self.posted_by:
-            queryset = queryset.filter(jobpost__posted_by__uid__in=self.posted_by)
+            job_post_query &= Q(posted_by__id__in=self.posted_by)
 
-        return queryset.distinct()
+        return queryset.annotate(
+           has_job=Exists(JobPost.objects.filter(Q(job_id=OuterRef("id")) & job_post_query))).filter(has_job=True)
 
     def get_context(self, context)->dict:
         if not context:
