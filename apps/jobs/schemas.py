@@ -1471,14 +1471,14 @@ class BusinessJobFilterSchema(Schema):
 
         if self.statuses:
             statuses = [s.value for s in self.statuses]
-            job_post_query &= Q(status_id__in=statuses)
+            job_post_query &= Q(status__in=statuses)
 
         if self.recruiter:
-            job_post_query &= Q(recruiter__id__in=self.recruiter)
+            job_post_query &= Q(recruiter__uid__in=self.recruiter)
 
 
         if self.posted_by:
-            job_post_query &= Q(posted_by__id__in=self.posted_by)
+            job_post_query &= Q(posted_by__uid__in=self.posted_by)
 
         return queryset.annotate(
            has_job=Exists(JobPost.objects.filter(Q(job_id=OuterRef("id")) & job_post_query))).filter(has_job=True)
