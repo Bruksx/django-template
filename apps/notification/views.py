@@ -1,17 +1,17 @@
 from uuid import UUID
 
-from config.permissions import IsBusinessUser
 from django.db import transaction
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
+from jobs.business_views import pagination_class
 from ninja import Router, PatchDict, Query
 from ninja_jwt.authentication import JWTAuth
-
-from jobs.business_views import pagination_class
 from notification.models import BusinessUserNotificationSettings, Notification
 from notification.schemas import NotificationFilterSchema, PaginatedNotificationSchema, BulkActionNotificationSchema
 from notification.schemas import NotificationSettingsSchema, NotificationSchema
 from notification.service import bulk_read_notifications_service, bulk_delete_notifications_service
+
+from config.permissions import IsBusinessUser
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
 
 # Create your views here.
 router = Router(tags=["Notifications"])
@@ -42,16 +42,13 @@ def update_notification_settings(request, data: PatchDict[NotificationSettingsSc
 def get_notifications(request, filters: NotificationFilterSchema = Query(...)):
     if hasattr(request.user, "businessuser"):
         queryset = request.user.businessuser.notifications(viewed=filters.viewed, excludes=filters.excludes)
-        unread_count = (Notification.can_view_annotation(request.user.businessuser.notifications(viewed=False, excludes=filters.excludes), request.user).
-                    count())
+        unread_count = request.user.businessuser.notifications(viewed=False, excludes=filters.excludes).count()
     elif hasattr(request.user, "talent"):
         queryset =  request.user.talent.notifications(viewed=filters.viewed, excludes=filters.excludes)
-        unread_count = (Notification.can_view_annotation(request.user.talent.notifications(viewed=False, excludes=filters.excludes), request.user)
-                        .count())
+        unread_count = request.user.talent.notifications(viewed=False, excludes=filters.excludes).count()
     else:
         queryset = Notification.objects.none()
         unread_count = 0
-    queryset = Notification.can_view_annotation(queryset, request.user)
     pagination = pagination_class(filters.page_size).Input(page=filters.page, page_size=filters.page_size)
     return pagination_class(filters.page_size).paginate_queryset(
         queryset=queryset,
