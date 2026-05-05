@@ -40,7 +40,7 @@ from .schema import SocialAuthSchema
 def validate_login(user: User, raise_exception=True):
     try:
         if not user:
-            raise HttpError(404, "You don't have an account with us")
+            raise HttpError(401, "You don't have an account with us")
         if not user.email_verified:
             verification_code = VerificationCode(email=user.email)
             raw_code = verification_code.save()

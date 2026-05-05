@@ -19,6 +19,7 @@ class CreateEmailTemplateSchema(ModelSchema):
                                default=None)
     cc: Optional[str] = Field(examples=["bob@examples.com"], description="emails separated by commas without spacing",
                               default=None)
+    is_html: Optional[bool] = Field(default=False)
     class Meta:
         model = EmailTemplate
         exclude = [*MUTATE_EXCLUDE_FIELDS, "created_by", "uid"]
@@ -77,7 +78,7 @@ class UpdateEmailTemplateSchema(CreateEmailTemplateSchema):
     template: Optional[str]
     personal: Optional[bool]
     delays : Optional[int]
-    is_html: Optional[bool]
+
 
 
 

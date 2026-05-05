@@ -10,7 +10,7 @@ from core.enums import SalaryType
 from core.schemas import GenericNameAndUidSchema
 from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema, \
     EducationLevelSchema, CountrySchema
-from jobs.enums import WorkStructureEnum
+from jobs.enums import WorkStructureEnum, TechnologicalRequirementsEnum
 from jobs.schemas import JobLevelSchema, EmploymentTypeSchema, BusinessModelSchema
 from ninja import Schema, ModelSchema, PatchDict
 from pydantic import Field, EmailStr
@@ -111,6 +111,7 @@ class UpdateTalentProfileSchema2(ModelSchema):
     last_name: Optional[str] = None
     preferred_communication: Optional[PreferredCommunicationType|str] = None
     phone_code: Optional[str] = None
+    operating_system: Optional[TechnologicalRequirementsEnum] = None
     phone_number: Optional[str] = None
     country: Optional[UUID] = None
     state: Optional[UUID] = None
@@ -183,6 +184,7 @@ class TalentUserSchema(ModelSchema):
     employment_types: Optional[List[EmploymentTypeSchema]]
     work_models: Optional[List[WorkStructureEnum]]
     skills: List[TalentSkillSchema]
+    operating_system: Optional[TechnologicalRequirementsEnum]
     business_models: List[BusinessModelSchema]
     experience_history: List[ExperienceSchema]
     education_history: List[EducationSchema]
