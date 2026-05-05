@@ -19,7 +19,7 @@ from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPo
     AnswerFactory, CurrencyFactory, ExperienceFactory
 from future.backports.datetime import timedelta
 from jobs.business_views import router
-from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
+from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType, UpdateQuickReviewType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
     BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage, JobPostTag
@@ -2996,4 +2996,95 @@ class AIJobSalaryAPITest(TestCase):
             expected_response = AIJobSalaryGeneratorResponseSchema.example()
             self.assertEqual(response.data, expected_response)
 
+
+class QuickReviewAPITests(TestCase):
+    def setUp(self):
+        super().setUp()
+        self.client = TestClient(router)
+        self.url =  "applications/quick-reviews"
+        user = UserFactory()
+        business = BusinessFactory(created_by=user)
+        self.business_user = BusinessUserFactory(business=business, user=user)
+        job = JobFactory(created_by=self.business_user)
+        job_post = JobPostFactory(job=job)
+        hired_stage = WorkflowStageFactory.create(phase=PhaseType.HIRED.value, created_by=self.business_user)
+
+        interview_stage = WorkflowStageFactory.create(phase=PhaseType.INTERVIEW.value, created_by=self.business_user)
+        interview_stage.order = hired_stage.order
+        interview_stage.phase_order = hired_stage.phase_order
+        interview_stage.save()
+        hired_stage.order = hired_stage.order + 1
+        hired_stage.phase_order = hired_stage.phase_order + 1
+        hired_stage.save()
+        self.interview_stage = interview_stage
+        self.new_stage = WorkFlowStage.objects.filter(phase=PhaseType.NEW.value, created_by=self.business_user).first()
+        self.applicants = JobApplicationFactory.create_batch(10, job_post=job_post,
+                                                        stage=self.new_stage)
+
+
+    def test_get_quick_reviews(self):
+        response = self.client.get(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 10)
+
+    def test_update_quick_review_advance(self):
+        application = self.applicants[0].uid
+        response = self.client.post(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"},
+                                    json={"applications": [application], "action": UpdateQuickReviewType.ADVANCE.value})
+        prev_stage = self.applicants[0].stage
+        application = JobApplication.objects.get(uid=application)
+        self.assertEqual(response.status_code, 200)
+
+        self.assertNotEqual(application.stage.phase, prev_stage)
+        self.assertEqual(application.stage.phase, self.interview_stage.phase)
+        self.assertEqual(application.stage, self.interview_stage)
+
+        response = self.client.get(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 9)
+
+    def test_update_quick_review_reject(self):
+        application = self.applicants[0].uid
+        response = self.client.post(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"},
+                                    json={"applications": [application], "action": UpdateQuickReviewType.REJECT.value})
+        prev_stage = self.applicants[0].stage
+        application = JobApplication.objects.get(uid=application)
+        self.assertEqual(response.status_code, 200)
+
+        self.assertNotEqual(application.stage.phase, prev_stage)
+        self.assertEqual(application.stage.phase, PhaseType.REJECTED.value)
+
+        response = self.client.get(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 9)
+
+
+    def test_bulk_update_review_reject(self):
+        applications = [app.uid for app in self.applicants]
+        response = self.client.post(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"},
+                                    json={"applications": applications, "action": UpdateQuickReviewType.REJECT.value})
+
+        self.assertEqual(response.status_code, 200)
+        phase = JobApplication.objects.filter(uid__in=applications).distinct("stage__phase").values_list("stage__phase", flat=True)
+        self.assertEqual(phase.count(), 1)
+        self.assertEqual(phase[0], PhaseType.REJECTED.value)
+
+        response = self.client.get(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 0)
+
+
+    def test_bulk_update_review_advance(self):
+        applications = [app.uid for app in self.applicants]
+        response = self.client.post(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"},
+                                    json={"applications": applications, "action": UpdateQuickReviewType.ADVANCE.value})
+
+        self.assertEqual(response.status_code, 200)
+        phase = JobApplication.objects.filter(uid__in=applications).distinct("stage__phase").values_list("stage__phase", flat=True)
+        self.assertEqual(phase.count(), 1)
+        self.assertEqual(phase[0], self.interview_stage.phase)
+
+        response = self.client.get(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 0)
 

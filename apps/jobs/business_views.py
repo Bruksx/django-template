@@ -13,7 +13,8 @@ from django.db.models import Q, Count, Exists, OuterRef, Case, When, F, Value
 from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from ninja import Router, PatchDict, Query, UploadedFile, Form
+from ninja import Router, PatchDict, Query
+from ninja import UploadedFile, Form
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
@@ -30,7 +31,7 @@ from monkeypatches.response import Response
 from services.ai import generate_job_description, generate_job_post_salary, JobSalaryRequestSchema
 from services.job_posting.schema.indeed import IndeedApplicationDataPatch
 from . import schemas as job_schemas
-from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
+from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType, UpdateQuickReviewType
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication, AvailableDay,
     ScreeningQuestion, QuestionOption, Answer, JobInvite, JobPostTag
@@ -41,6 +42,7 @@ from .schemas import (
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
     TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2, AddRoleSchema,
+    UpdateQuickReviewSchema, QuickReviewFilterQuerySchema,
     PublicJobPostListSchema, PublicJobPostFilterQuerySchema,
     AIJobDescriptionGeneratorResponseSchema, AIJobDescriptionGeneratorRequestSchema, AIJobSalaryGeneratorRequestSchema,
     AIJobSalaryGeneratorResponseSchema
@@ -48,8 +50,8 @@ from .schemas import (
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, create_job_post_service, \
     bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
-    get_talents_by_job_posts_service, handle_stage_update, export_job_posts_to_excel, delete_job_post_tags
-    
+    get_talents_by_job_posts_service, handle_stage_update, handle_application_stage, handle_applications_stage, \
+    export_job_posts_to_excel, delete_job_post_tags
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -842,6 +844,40 @@ def get_job_tags(request):
     return JobPostTag.objects.filter(business=business).order_by("name")
 
 
+
+
+@router.get("applications/quick-reviews", auth=JWTAuth(), response=List[UUID])
+def get_quick_reviews(request, filters:QuickReviewFilterQuerySchema = Query(...)):
+    IsBusinessUser.check(request)
+    filters = filters.convert_to_schema()
+    queryset = (JobApplication.objects.filter(job_post__job__created_by__business=request.user.businessuser.business)
+            .filter(Q(stage__isnull=True)| Q(stage__phase=PhaseType.NEW.value))
+            .order_by("-created_at"))
+    if filters.job:
+        queryset = queryset.filter(job_post__job__uid=filters.job)
+    if filters.job_posts:
+        queryset = queryset.filter(job_post__uid__in=filters.job_posts)
+    return queryset.values_list("uid", flat=True)
+
+@router.post("applications/quick-reviews", auth=JWTAuth())
+def update_quick_review(request, data: UpdateQuickReviewSchema):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    applications = JobApplication.objects.filter(uid__in=data.applications, job_post__job__created_by__business=request.user.businessuser.business)
+    if not applications.exists():
+        raise HttpError(404, "This application does not exist")
+    stage = None
+    if data.action == UpdateQuickReviewType.REJECT:
+        stage = WorkFlowStage.objects.filter(created_by__business=request.user.businessuser.business, phase=PhaseType.REJECTED.value).first()
+        if not stage:
+            raise HttpError(404, "Reject stage does not exist")
+    if len(data.applications) == 1:
+        handle_application_stage(applications.first(), business_user, stage, data.action == UpdateQuickReviewType.ADVANCE)
+    else:
+        handle_applications_stage(applications, business_user, stage, data.action == UpdateQuickReviewType.ADVANCE)
+    return Response(status=200, data={"message": "Applications updated successfully"})
+
+
 @router.post("ai/generate-description", auth=JWTAuth(), response=AIJobDescriptionGeneratorResponseSchema)
 def ai_job_description_generator(request, body: AIJobDescriptionGeneratorRequestSchema = Form(),  file: UploadedFile=None):
     IsBusinessUser.check(request)
@@ -948,3 +984,6 @@ def delete_job_tags(request, data: List[str]):
     business = request.user.businessuser.business
     delete_job_post_tags(data, business)
     return Response(status=204, data=dict(message="Job Post Tags deleted successfully"))
+
+
+
