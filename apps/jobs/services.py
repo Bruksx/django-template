@@ -495,7 +495,6 @@ def export_job_posts_excel():
 
     return export
 
-
 def handle_application_stage(application, business_user, stage=None, advance:bool=True, raise_exception:bool=True):
     try:
         if not stage:

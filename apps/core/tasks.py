@@ -1,3 +1,27 @@
+from datetime import timedelta
+
+# metrics/tasks.py
+from datetime import datetime
+
+from django.core.cache import cache
+from django.db.models import F
+from django.utils import timezone
+
+from helpers.utils import delete_s3_item
+
+ACTIVE_KEYS_KEY = "metrics:active_keys"
+PAGE_ACTIVE_KEYS_KEY = "metrics:page:active_keys"
+
+def delete_old_exports(days=7):
+    """
+    Delete old exports
+    """
+    from core.models import Exports
+    date_of_creation = timezone.now() - timedelta(days=days)
+    exports = Exports.objects.filter(created_at__lt=date_of_creation)
+    for export in exports:
+        delete_s3_item(export.file.url)
+    exports.hard_delete()
 # metrics/tasks.py
 from datetime import timedelta, datetime
 
@@ -51,6 +75,7 @@ def aggregate_api_metrics():
 # metrics/tasks.py
 def aggregate_page_metrics():
     from core.models import PageMetric
+
     active_keys = cache.get(PAGE_ACTIVE_KEYS_KEY) or set()
     if not active_keys:
         return
@@ -81,17 +106,3 @@ def aggregate_page_metrics():
 
         cache.delete(f"{base_key}:count")
         cache.delete(f"{base_key}:total_time")
-
-
-
-
-def delete_old_exports(days=7):
-    """
-    Delete old exports
-    """
-    from core.models import Exports
-    date_of_creation = timezone.now() - timedelta(days=days)
-    exports = Exports.objects.filter(created_at__lt=date_of_creation)
-    for export in exports:
-        delete_s3_item(export.file.url)
-    exports.hard_delete()

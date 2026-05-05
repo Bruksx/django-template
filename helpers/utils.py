@@ -22,6 +22,7 @@ import boto3
 import ijson
 import pdfkit
 import psutil
+from boto3 import Session
 from botocore.exceptions import NoCredentialsError
 from cryptography.fernet import Fernet
 from django.conf import settings
@@ -115,25 +116,9 @@ def html_to_pdf(html: str):
         ))
         return
 
-def html_to_pdf3(source_html):
-    try:
-        # Create a BytesIO object to store the PDF output.
-        pdf_output = BytesIO()
-
-        # Use xhtml2pdf to convert the HTML content to a PDF and store it in pdf_output.
-        pisa.CreatePDF(source_html, dest=pdf_output, encoding='UTF-8')
-
-        # Return the BytesIO object containing the PDF data.
-        return pdf_output
-
-    except Exception as e:
-        print(f"Error during PDF conversion: {e}")
-        return None
-
 def delete_s3_item(key):
     if "test" in sys.argv:
         return True
-    from boto3.session import Session
 
     if not settings.USE_AWS_S3:
         Logger.info(msg=dict(sender="Helper Utils", title="AWS S3 DELETE Info",
@@ -520,6 +505,7 @@ def html_to_text(html: str) -> str:
     html = re.sub(r'&gt;', '>', html)
     html = re.sub(r'&quot;', '"', html)
     html = re.sub(r'&#39;', "'", html)
+
     # 6. Normalize whitespace and strip
     lines = [line.strip() for line in html.splitlines()]
     return '\n'.join([unescape(line) for line in lines if line])
@@ -551,8 +537,6 @@ class Secret:
             return json.loads(decrypted.decode())
         except Exception:
             return None
-
-
 
 def export_rows_to_excel(rows:List[list], headers: list[str], title:str, bold_rows:List[int]=None, background=True):
     from django.utils import timezone

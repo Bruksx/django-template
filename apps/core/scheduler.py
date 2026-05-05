@@ -1,4 +1,3 @@
-
 tasks = [
         {
             "name": "Delete Old Exports - 3 AM",
@@ -15,5 +14,4 @@ tasks = [
             "func": "core.tasks.aggregate_api_metrics",
             "cron": "5 0 * * *"
         }
-
-    ]
+]

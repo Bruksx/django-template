@@ -6,8 +6,8 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('core', '0019_apimetric_pagemetric'),
-        ('core', '0019_exports'),
+        ('accounts', '0102_bannedaccount_alter_businessclient_business_and_more'),
+        ('accounts', '0107_merge_20260330_1726'),
     ]
 
     operations = [

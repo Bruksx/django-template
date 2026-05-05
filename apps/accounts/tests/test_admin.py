@@ -202,7 +202,7 @@ class DeleteBusinessTestCase(TestCase):
         """Test deletion of business with associated users"""
         # Create a business user for this business
         BusinessUserFactory.create(business=self.business)
-
+        
         response = self.client.delete(f"/businesses/{self.business.uid}", headers=self.auth_headers)
         self.assertEqual(response.status_code, 204)
         print(response.content)
@@ -215,7 +215,7 @@ class DeleteBusinessTestCase(TestCase):
         # Create business user and job for this business
         business_user = BusinessUserFactory.create(business=self.business)
         job = JobFactory.create(created_by=business_user)
-
+        
         response = self.client.delete(f"/businesses/{self.business.uid}", headers=self.auth_headers)
         self.assertEqual(response.status_code, 204)
         # Business, users, and jobs should all be deleted
@@ -951,7 +951,7 @@ class PauseResumeBusinessTestCase(TestCase):
         # First pause the business
         self.business.paused = True
         self.business.save()
-
+        
         data = {"action": "resume"}
         response = self.client.post(f"/businesses/{self.business.uid}/resumption", json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 200)

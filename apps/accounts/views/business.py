@@ -30,12 +30,7 @@ from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
 from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema, TalentFilterListSchema, \
-    SendBulkChatSchema, BusinessUserListSchema, TimeSeriesDashboardFilter, ApplicationHiresGraphItemSchema, \
-    PaginatedRecruiterHireSchema, StuckApplicationSchema, RecentHiresSchema, ApplicationPipelineRatioSchema, \
-    RecruitmentDashboardSchema, ApplicantDashboardSchema, PipelineDashboardSchema
-from ..schemas.common import DashboardFilter
-
-SendBulkChatSchema, PipelineDashboardSchema, DashboardFilter, ApplicantDashboardSchema, \
+    SendBulkChatSchema, PipelineDashboardSchema, DashboardFilter, ApplicantDashboardSchema, \
     RecruitmentDashboardSchema, ApplicationPipelineRatioSchema, RecentHiresSchema, StuckApplicationSchema, \
     PaginatedRecruiterHireSchema, TimeSeriesDashboardFilter, ApplicationHiresGraphItemSchema
 from ..services.business import pipeline_dashboard_data, applicant_dashboard_data, recruitment_dashboard_data
@@ -667,7 +662,31 @@ def delete_talent_filter(request, talent_filter_uid: UUID):
     talent_filter.delete()
     return Response(status=204, data={"message": "Talent filter deleted successfully"})
 
-@router.post("email-action", auth=JWTAuth(), tags=["Business Account"], response=BusinessUserListSchema)
+@router.get("pipeline-dashboard", tags=["Business Dashboard"], auth=JWTAuth(), response=PipelineDashboardSchema)
+def get_pipeline_dashboard_data(request, filters:DashboardFilter=Query(...)):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    return pipeline_dashboard_data(**filters.dict(), business=business_user.business)
+
+@router.get("applicant-dashboard", tags=["Business Dashboard"], auth=JWTAuth(), response=ApplicantDashboardSchema)
+def get_applicant_dashboard_data(request, filters:DashboardFilter=Query(...)):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    return applicant_dashboard_data(**filters.dict(), business=business_user.business)
+
+@router.get("recruitment-dashboard", tags=["Business Dashboard"], auth=JWTAuth(), response=RecruitmentDashboardSchema)
+def get_recruitment_dashboard_data(request, filters:DashboardFilter=Query(...)):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    return recruitment_dashboard_data(**filters.dict(), business=business_user.business)
+
+@router.get("application-pipeline-ratio", tags=["Business Dashboard"], auth=JWTAuth(), response=List[ApplicationPipelineRatioSchema])
+def get_application_pipeline_ratio_data(request, filters:DashboardFilter=Query(...)):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    return application_pipeline_ratio(**filters.dict(), business=business_user.business)
+
+@router.post("email-action", auth=JWTAuth(), tags=["Business Account"], response=business_schema.BusinessUserListSchema)
 def handle_email_action(request, data: business_schema.EmailActionSchema):
     IsBusinessUser.check(request)
     business_user = request.user.businessuser
@@ -699,29 +718,6 @@ def handle_email_action(request, data: business_schema.EmailActionSchema):
         ))
         async_task(send_email_verification_code, email=data.email, token=token, fullname=business_user.user.fullname, company=business_user.business.name)
     return business_user
-@router.get("pipeline-dashboard", tags=["Business Dashboard"], auth=JWTAuth(), response=PipelineDashboardSchema)
-def get_pipeline_dashboard_data(request, filters:DashboardFilter=Query(...)):
-    IsBusinessUser.check(request)
-    business_user = request.user.businessuser
-    return pipeline_dashboard_data(**filters.dict(), business=business_user.business)
-
-@router.get("applicant-dashboard", tags=["Business Dashboard"], auth=JWTAuth(), response=ApplicantDashboardSchema)
-def get_applicant_dashboard_data(request, filters:DashboardFilter=Query(...)):
-    IsBusinessUser.check(request)
-    business_user = request.user.businessuser
-    return applicant_dashboard_data(**filters.dict(), business=business_user.business)
-
-@router.get("recruitment-dashboard", tags=["Business Dashboard"], auth=JWTAuth(), response=RecruitmentDashboardSchema)
-def get_recruitment_dashboard_data(request, filters:DashboardFilter=Query(...)):
-    IsBusinessUser.check(request)
-    business_user = request.user.businessuser
-    return recruitment_dashboard_data(**filters.dict(), business=business_user.business)
-
-@router.get("application-pipeline-ratio", tags=["Business Dashboard"], auth=JWTAuth(), response=List[ApplicationPipelineRatioSchema])
-def get_application_pipeline_ratio_data(request, filters:DashboardFilter=Query(...)):
-    IsBusinessUser.check(request)
-    business_user = request.user.businessuser
-    return application_pipeline_ratio(**filters.dict(), business=business_user.business)
 
 
 @router.get("recent-hires", auth=JWTAuth(),  tags=["Business Dashboard"], response=CustomPaginatedResponseSchema[RecentHiresSchema], )

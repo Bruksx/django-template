@@ -1,7 +1,9 @@
-from typing import List, Optional
 from datetime import date
-from ninja import Schema
+from typing import List, Optional
 from uuid import UUID
+
+from ninja import Schema
+
 from apps.core.schemas import CountrySchema
 
 
@@ -84,24 +86,25 @@ class ParsedTalentProfileSchema(Schema):
     availability: Optional[List[dict]] = None
 
 
-
 class GenericNameUIDSchema(Schema):
     name: str
     uid: UUID
 
 
-class JobSkillSchema(GenericNameUIDSchema):
+class SkillNameUIDSchema(GenericNameUIDSchema):
     category_name: str
     department_id: int
+
 
 class JobDescriptionSchema(Schema):
     role: GenericNameUIDSchema
     job_description: str
     responsibilities: List[str]
-    skills: List[JobSkillSchema]
+    skills: List[SkillNameUIDSchema]
     job_level: GenericNameUIDSchema
     additional_skills: List[str]
     error: Optional[str] = None
+
     @classmethod
     def example(cls, with_error=False):
         from accounts.models import Skill
@@ -112,8 +115,9 @@ class JobDescriptionSchema(Schema):
                 "A sample key responsibility"
             ],
             skills=[
-                JobSkillSchema(name=skill.name, uid=skill.uid, category_name=skill.category.name, department_id=skill.department_id)
-               for skill in Skill.objects.all()[:5]
+                SkillNameUIDSchema(name=skill.name, uid=skill.uid, category_name=skill.category.name,
+                            department_id=skill.department_id)
+                for skill in Skill.objects.all()[:5]
             ],
             job_level=GenericNameUIDSchema(name="VP of Engineering", uid=UUID(int=5)),
             additional_skills=[
@@ -127,8 +131,9 @@ class JobDescriptionSchema(Schema):
         data = {category: [] for category in SkillCategory.objects.values_list("name", flat=True)}
         for skill in self.skills:
             department = GenericNameUIDSchema.from_orm(Department.objects.filter(id=skill.department_id).first()).dict()
-            data[skill.category_name].append(dict(name=skill.name, uid=str(skill.uid), department= department))
+            data[skill.category_name].append(dict(name=skill.name, uid=str(skill.uid), department=department))
         return [{"category": category, "skills": skills} for category, skills in data.items()]
+
 
 class JobSalaryResponseSchema(Schema):
     hourly_rate_min: float
@@ -136,10 +141,12 @@ class JobSalaryResponseSchema(Schema):
     annual_salary_min: float
     annual_salary_max: float
     currency: str
+
     bonus_hourly_rate_min: float
     bonus_hourly_rate_max: float
     bonus_annual_salary_min: float
     bonus_annual_salary_max: float
+
     @classmethod
     def example(cls):
         return cls(
@@ -148,11 +155,14 @@ class JobSalaryResponseSchema(Schema):
             annual_salary_min=90000.0,
             annual_salary_max=170000.0,
             currency="USD",
+
             bonus_hourly_rate_min=5.0,
             bonus_hourly_rate_max=15.0,
             bonus_annual_salary_min=8000.0,
             bonus_annual_salary_max=25000.0
         )
+
+
 class JobSalaryRequestSchema(Schema):
     job_title: str
     job_description: str
@@ -160,3 +170,13 @@ class JobSalaryRequestSchema(Schema):
     experience_level: str
     industry: str
     employment_type: str
+
+
+class GenericNameUIDSchema(Schema):
+    name: str
+    uid: UUID
+
+
+class JobSkillSchema(GenericNameUIDSchema):
+    category_name: str
+    department_id: int

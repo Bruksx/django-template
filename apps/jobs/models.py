@@ -5,6 +5,10 @@ from accounts.enums import Days
 from accounts.models import Talent, TalentAvailableDay
 from core.enums import SalaryType
 from core.models import BaseModel, Language
+from accounts.enums import Days
+from accounts.models import Talent, TalentAvailableDay
+from core.enums import SalaryType
+from core.models import BaseModel, Language
 from django.db import models
 from django.db.models import F, Q, Count, IntegerField, When, Case, Value
 from django.db.models.functions import Coalesce, Now, Extract, Cast

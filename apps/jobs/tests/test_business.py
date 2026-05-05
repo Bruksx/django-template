@@ -40,19 +40,19 @@ class GetOtherApplicationsTests(TestCase):
         self.business_user = BusinessUserFactory.create(business=self.business)
         self.other_business = BusinessFactory.create()
         self.other_business_user = BusinessUserFactory.create(business=self.other_business)
-        
+
         # Create talent
         self.talent = TalentFactory.create()
-        
+
         # Create jobs and job posts for the business
         self.job1 = JobFactory.create(created_by=self.business_user)
         self.job2 = JobFactory.create(created_by=self.business_user)
         self.job3 = JobFactory.create(created_by=self.other_business_user)  # Different business
-        
+
         self.job_post1 = JobPostFactory.create(job=self.job1)
         self.job_post2 = JobPostFactory.create(job=self.job2)
         self.job_post3 = JobPostFactory.create(job=self.job3)
-        
+
         # Create applications by the same talent
         self.application1 = JobApplicationFactory.create(
             job_post=self.job_post1,
@@ -69,7 +69,7 @@ class GetOtherApplicationsTests(TestCase):
             applicant=self.talent,
             recruiter=self.other_business_user
         )
-        
+
         # Create another talent with applications
         self.other_talent = TalentFactory.create()
         self.other_application = JobApplicationFactory.create(
@@ -77,7 +77,7 @@ class GetOtherApplicationsTests(TestCase):
             applicant=self.other_talent,
             recruiter=self.business_user
         )
-        
+
         self.url = lambda application_uid: f"applications/{application_uid}/other-applications"
 
     def test_get_other_applications_success(self):
@@ -86,10 +86,10 @@ class GetOtherApplicationsTests(TestCase):
             "authorization": f"Bearer {self.business_user.user.token}"
         }
         response = self.client.get(self.url(self.application1.uid), headers=headers)
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        
+
         # Should return the other application by the same talent for the same business
         self.assertIn('results', data)
         self.assertEqual(len(data['results']), 1)
@@ -104,22 +104,22 @@ class GetOtherApplicationsTests(TestCase):
             applicant=single_talent,
             recruiter=self.business_user
         )
-        
+
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
         }
         response = self.client.get(self.url(single_application.uid), headers=headers)
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        
+
         self.assertIn('results', data)
         self.assertEqual(len(data['results']), 0)
 
     def test_get_other_applications_unauthorized(self):
         """Test that unauthorized users cannot access the endpoint"""
         response = self.client.get(self.url(self.application1.uid))
-        
+
         self.assertEqual(response.status_code, 401)
 
     def test_get_other_applications_non_business_user(self):
@@ -128,7 +128,7 @@ class GetOtherApplicationsTests(TestCase):
             "authorization": f"Bearer {self.talent.user.token}"
         }
         response = self.client.get(self.url(self.application1.uid), headers=headers)
-        
+
         self.assertEqual(response.status_code, 403)
 
     def test_get_other_applications_application_not_found(self):
@@ -137,7 +137,7 @@ class GetOtherApplicationsTests(TestCase):
             "authorization": f"Bearer {self.business_user.user.token}"
         }
         response = self.client.get(self.url(uuid4()), headers=headers)
-        
+
         self.assertEqual(response.status_code, 404)
         self.assertIn("This application does not exist", response.json()['detail'])
 
@@ -147,7 +147,7 @@ class GetOtherApplicationsTests(TestCase):
             "authorization": f"Bearer {self.other_business_user.user.token}"
         }
         response = self.client.get(self.url(self.application1.uid), headers=headers)
-        
+
         self.assertEqual(response.status_code, 404)
         self.assertIn("This application does not exist", response.json()['detail'])
 
@@ -158,7 +158,7 @@ class GetOtherApplicationsTests(TestCase):
         job5 = JobFactory.create(created_by=self.business_user)
         job_post4 = JobPostFactory.create(job=job4)
         job_post5 = JobPostFactory.create(job=job5)
-        
+
         application3 = JobApplicationFactory.create(
             job_post=self.job_post2,
             applicant=self.talent,
@@ -174,19 +174,19 @@ class GetOtherApplicationsTests(TestCase):
             applicant=self.talent,
             recruiter=self.business_user
         )
-        
+
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
         }
         response = self.client.get(self.url(application3.uid), headers=headers)
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        
+
         # Should return other applications by the same talent for the same business
         self.assertIn('results', data)
         self.assertGreater(len(data['results']), 0)
-        
+
         # Check that current application is not included
         returned_uids = [item['uid'] for item in data['results']]
         self.assertNotIn(str(application3.uid), returned_uids)
@@ -197,17 +197,17 @@ class GetOtherApplicationsTests(TestCase):
             "authorization": f"Bearer {self.business_user.user.token}"
         }
         response = self.client.get(self.url(self.application1.uid), headers=headers)
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        
+
         if len(data['results']) > 0:
             item = data['results'][0]
             expected_fields = [
-                'uid', 'job_logo', 'role', 'location', 
+                'uid', 'job_logo', 'role', 'location',
                 'job_stage', 'job_status', 'invited', 'applied_date', 'recruiter'
             ]
-            
+
             for field in expected_fields:
                 self.assertIn(field, item)
 
@@ -222,22 +222,22 @@ class GetOtherApplicationsTests(TestCase):
                 applicant=self.talent,
                 recruiter=self.business_user
             )
-        
+
         headers = {
             "authorization": f"Bearer {self.business_user.user.token}"
         }
-        
+
         # Get first application to test with
         first_app = JobApplication.objects.filter(
             applicant=self.talent,
             job_post__job__created_by__business=self.business
         ).first()
-        
+
         response = self.client.get(self.url(first_app.uid), headers=headers)
-        
+
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        
+
         # Check pagination structure
         self.assertIn('results', data)
         self.assertIn('count', data)
@@ -3342,97 +3342,6 @@ class JobPostTagAPITests(TestCase):
 
 
 
-class AIJobDescriptionAPITest(TestCase):
-    def setUp(self):
-        super().setUp()
-        self.client = TestClient(router)
-        self.url =  "ai/generate-description"
-        user = UserFactory()
-        business = BusinessFactory(created_by=user)
-        self.business_user = BusinessUserFactory(business=business, user=user)
-        self.test_data ={"prompt":"test", "file": SimpleUploadedFile("test.txt", b"test")}
-
-
-
-    def test_generate_description_only_prompt(self):
-        with patch("jobs.business_views.generate_job_description") as mock_generate_job_description:
-            self.test_data.pop("file")
-            mock_generate_job_description.return_value = JobDescriptionSchema.example()
-            response = self.client.post(self.url,
-                                        data=self.test_data, format="multipart/form-data",
-                                        headers={"Authorization": f"Bearer {self.business_user.user.token}"})
-            self.assertEqual(response.status_code, 200)
-            expected_response = JobDescriptionSchema.example().dict()
-            expected_response.pop("error")
-            self.assertEqual(response.data["skills"][0]["skills"][0]["name"], expected_response["skills"][0]["name"])
-            self.assertEqual(str(response.data["role"]["uid"]), str(expected_response["role"]["uid"]))
-            self.assertEqual(response.data["role"]["name"], expected_response["role"]["name"])
-            self.assertEqual(response.data["job_description"], expected_response["job_description"])
-            self.assertEqual(response.data["responsibilities"], f'<ul>{"".join(map(lambda x: f"<li>{x}</li>", expected_response["responsibilities"]))}</ul>')
-            self.assertEqual(str(response.data["job_level"]["uid"]), str(expected_response["job_level"]["uid"]))
-            self.assertEqual(response.data["job_level"]["name"], expected_response["job_level"]["name"])
-            self.assertEqual(response.data["additional_skills"], expected_response["additional_skills"])
-
-
-
-    def test_generate_description_without_prompt_or_file(self):
-        response = self.client.post(self.url,
-                                    format="multipart/form-data",
-                                    headers={"Authorization": f"Bearer {self.business_user.user.token}"})
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.data, {"detail": "Prompt or file is required"})
-
-
-    def test_generate_description_when_generation_error(self):
-        with patch("jobs.business_views.generate_job_description") as mock_generate_job_description:
-            self.test_data.pop("file")
-            mock_generate_job_description.return_value = JobDescriptionSchema.example(with_error=True)
-            response = self.client.post(self.url,
-                                        data=self.test_data, format="multipart/form-data",
-                                        headers={"Authorization": f"Bearer {self.business_user.user.token}"})
-            self.assertEqual(response.status_code, 400)
-            self.assertEqual(response.data, {"detail": mock_generate_job_description.return_value.error})
-            
-            
-            
-class AIJobSalaryAPITest(TestCase):
-    def setUp(self):
-        super().setUp()
-        self.client = TestClient(router)
-        self.url =  "ai/generate-salary"
-        user = UserFactory()
-        self.role = Role.objects.first()
-        self.country = Country.objects.first()
-        self.state = State.objects.first()
-        self.job_level = JobLevel.objects.first()
-        self.department = Department.objects.first()
-        self.employment_type = EmploymentType.objects.first()
-        business = BusinessFactory(created_by=user)
-        self.business_user = BusinessUserFactory(business=business, user=user)
-        self.maxDiff = None
-        self.test_data = {
-            "role": str(self.role.uid),
-            "job_description": "We are looking for a Senior Backend Engineer responsible for building scalable APIs.",
-            "country": str(self.country.uid),
-            "state": str(self.state.uid),
-            "job_level": str(self.job_level.uid),
-            "department": str(self.department.uid),
-            "employment_type": str(self.employment_type.uid)
-        }
-
-
-    def test_generate_salary_success(self):
-        with patch("jobs.business_views.generate_job_post_salary") as mock_job_post_salary:
-            mock_job_post_salary.return_value = JobSalaryResponseSchema.example()
-            response = self.client.post(self.url,
-                                        json=self.test_data,
-                                        headers={"Authorization": f"Bearer {self.business_user.user.token}"})
-
-            self.assertEqual(response.status_code, 200)
-            expected_response = AIJobSalaryGeneratorResponseSchema.example()
-            self.assertEqual(response.data, expected_response)
-
-
 class QuickReviewAPITests(TestCase):
     def setUp(self):
         super().setUp()
@@ -3523,4 +3432,93 @@ class QuickReviewAPITests(TestCase):
         response = self.client.get(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 0)
+
+class AIJobDescriptionAPITest(TestCase):
+    def setUp(self):
+        super().setUp()
+        self.client = TestClient(router)
+        self.url =  "ai/generate-description"
+        user = UserFactory()
+        business = BusinessFactory(created_by=user)
+        self.business_user = BusinessUserFactory(business=business, user=user)
+        self.test_data ={"prompt":"test", "file": SimpleUploadedFile("test.txt", b"test")}
+
+
+
+    def test_generate_description_only_prompt(self):
+        with patch("jobs.business_views.generate_job_description") as mock_generate_job_description:
+            self.test_data.pop("file")
+            mock_generate_job_description.return_value = JobDescriptionSchema.example()
+            response = self.client.post(self.url,
+                                        data=self.test_data, format="multipart/form-data",
+                                        headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+            self.assertEqual(response.status_code, 200)
+            expected_response = JobDescriptionSchema.example().dict()
+            expected_response.pop("error")
+            self.assertEqual(response.data["skills"][0]["skills"][0]["name"], expected_response["skills"][0]["name"])
+            self.assertEqual(str(response.data["role"]["uid"]), str(expected_response["role"]["uid"]))
+            self.assertEqual(response.data["role"]["name"], expected_response["role"]["name"])
+            self.assertEqual(response.data["job_description"], expected_response["job_description"])
+            self.assertEqual(response.data["responsibilities"], f'<ul>{"".join(map(lambda x: f"<li>{x}</li>", expected_response["responsibilities"]))}</ul>')
+            self.assertEqual(str(response.data["job_level"]["uid"]), str(expected_response["job_level"]["uid"]))
+            self.assertEqual(response.data["job_level"]["name"], expected_response["job_level"]["name"])
+            self.assertEqual(response.data["additional_skills"], expected_response["additional_skills"])
+
+
+
+    def test_generate_description_without_prompt_or_file(self):
+        response = self.client.post(self.url,
+                                    format="multipart/form-data",
+                                    headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data, {"detail": "Prompt or file is required"})
+
+
+    def test_generate_description_when_generation_error(self):
+        with patch("jobs.business_views.generate_job_description") as mock_generate_job_description:
+            self.test_data.pop("file")
+            mock_generate_job_description.return_value = JobDescriptionSchema.example(with_error=True)
+            response = self.client.post(self.url,
+                                        data=self.test_data, format="multipart/form-data",
+                                        headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.data, {"detail": mock_generate_job_description.return_value.error})
+
+            
+class AIJobSalaryAPITest(TestCase):
+    def setUp(self):
+        super().setUp()
+        self.client = TestClient(router)
+        self.url =  "ai/generate-salary"
+        user = UserFactory()
+        self.role = Role.objects.first()
+        self.country = Country.objects.first()
+        self.state = State.objects.first()
+        self.job_level = JobLevel.objects.first()
+        self.department = Department.objects.first()
+        self.employment_type = EmploymentType.objects.first()
+        business = BusinessFactory(created_by=user)
+        self.business_user = BusinessUserFactory(business=business, user=user)
+        self.maxDiff = None
+        self.test_data = {
+            "role": str(self.role.uid),
+            "job_description": "We are looking for a Senior Backend Engineer responsible for building scalable APIs.",
+            "country": str(self.country.uid),
+            "state": str(self.state.uid),
+            "job_level": str(self.job_level.uid),
+            "department": str(self.department.uid),
+            "employment_type": str(self.employment_type.uid)
+        }
+
+
+    def test_generate_salary_success(self):
+        with patch("jobs.business_views.generate_job_post_salary") as mock_job_post_salary:
+            mock_job_post_salary.return_value = JobSalaryResponseSchema.example()
+            response = self.client.post(self.url,
+                                        json=self.test_data,
+                                        headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+
+            self.assertEqual(response.status_code, 200)
+            expected_response = AIJobSalaryGeneratorResponseSchema.example()
+            self.assertEqual(response.data, expected_response)
 

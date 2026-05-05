@@ -3,32 +3,32 @@ from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
 
-from accounts.models import Country, Department, Role, SkillCategory, Skill, BusinessUser, Talent
-from accounts.schemas.talent import SkillSchema, AddSkillSchema
-from chats.schemas import ResponseSchema
-from core.models import State, Currency
+from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef, Case, When, F, Value
 from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from helpers.email.jobs import send_indeed_apply_email
+from helpers.utils import convert_base64_to_image_file, upload_to_s3, delete_s3_item
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
 from ninja import Router, PatchDict, Query
 from ninja import UploadedFile, Form
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
+from services.ai import generate_job_description, generate_job_post_salary, JobSalaryRequestSchema
+from services.job_posting.schema.indeed import IndeedApplicationDataPatch
+
+from accounts.models import Country, Department, Role, SkillCategory, Skill, BusinessUser, Talent
+from accounts.schemas.talent import SkillSchema, AddSkillSchema
+from chats.schemas import ResponseSchema
+from core.models import State, Currency
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from settings.models import WorkFlowStage
-
-from config.permissions import IsBusinessUser
-from helpers.email.jobs import send_indeed_apply_email
-from helpers.utils import convert_base64_to_image_file, upload_to_s3, delete_s3_item
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
-from services.ai import generate_job_description, generate_job_post_salary, JobSalaryRequestSchema
-from services.job_posting.schema.indeed import IndeedApplicationDataPatch
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType, UpdateQuickReviewType
 from .models import (
@@ -41,16 +41,16 @@ from .schemas import (
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
     TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2, AddRoleSchema,
-    OtherApplicationSchema, UpdateQuickReviewSchema, QuickReviewFilterQuerySchema,
-    PublicJobPostListSchema, PublicJobPostFilterQuerySchema,
+    OtherApplicationSchema, PublicJobPostListSchema, PublicJobPostFilterQuerySchema, UpdateQuickReviewSchema,
+    QuickReviewFilterQuerySchema,
     AIJobDescriptionGeneratorResponseSchema, AIJobDescriptionGeneratorRequestSchema, AIJobSalaryGeneratorRequestSchema,
     AIJobSalaryGeneratorResponseSchema
 )
-from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
-    update_bulk__job_posts_service, create_job_post_service, \
-    bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
-    get_talents_by_job_posts_service, handle_stage_update, handle_application_stage, handle_applications_stage, \
-    export_job_posts_to_excel, delete_job_post_tags
+from .services import (set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
+                       update_bulk__job_posts_service, create_job_post_service, \
+                       bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
+                       get_talents_by_job_posts_service, handle_stage_update, export_job_posts_to_excel,
+                       delete_job_post_tags, handle_application_stage, handle_applications_stage)
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -831,8 +831,6 @@ def get_job_tags(request):
     return JobPostTag.objects.filter(business=business).order_by("name")
 
 
-
-
 @router.get("applications/quick-reviews", auth=JWTAuth(), response=List[UUID])
 def get_quick_reviews(request, filters:QuickReviewFilterQuerySchema = Query(...)):
     IsBusinessUser.check(request)
@@ -864,6 +862,23 @@ def update_quick_review(request, data: UpdateQuickReviewSchema):
         handle_applications_stage(applications, business_user, stage, data.action == UpdateQuickReviewType.ADVANCE)
     return Response(status=200, data={"message": "Applications updated successfully"})
 
+@router.delete("jobposts/tags", tags=['Common'], auth=JWTAuth())
+def delete_job_tags(request, data: List[str]):
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
+    delete_job_post_tags(data, business)
+    return Response(status=204, data=dict(message="Job Post Tags deleted successfully"))
+
+
+@router.get("applications/{application_uid}/other-applications", tags=["Business Jobs"], auth=JWTAuth(), response=PaginatedResponseSchema[OtherApplicationSchema])
+@paginate(PageNumberPaginationExtra, page_size=50)
+def get_other_applications(request, application_uid: UUID):
+    IsBusinessUser.check(request)
+    queryset = JobApplication.objects.filter(job_post__job__created_by__business=request.user.businessuser.business)
+    application = queryset.filter(uid=application_uid).first()
+    if not application:
+        raise HttpError(404, "This application does not exist")
+    return queryset.filter(applicant=application.applicant).exclude(uid=application_uid).order_by("-created_at")
 
 @router.post("ai/generate-description", auth=JWTAuth(), response=AIJobDescriptionGeneratorResponseSchema)
 def ai_job_description_generator(request, body: AIJobDescriptionGeneratorRequestSchema = Form(),  file: UploadedFile=None):
@@ -953,32 +968,3 @@ def ai_job_salary_generator(request, data: AIJobSalaryGeneratorRequestSchema):
             "name": currency.name,
         },
     }
-
-
-
-
-
-
-
-
-
-
-
-
-@router.delete("jobposts/tags", tags=['Common'], auth=JWTAuth())
-def delete_job_tags(request, data: List[str]):
-    IsBusinessUser.check(request)
-    business = request.user.businessuser.business
-    delete_job_post_tags(data, business)
-    return Response(status=204, data=dict(message="Job Post Tags deleted successfully"))
-
-
-@router.get("applications/{application_uid}/other-applications", tags=["Business Jobs"], auth=JWTAuth(), response=PaginatedResponseSchema[OtherApplicationSchema])
-@paginate(PageNumberPaginationExtra, page_size=50)
-def get_other_applications(request, application_uid: UUID):
-    IsBusinessUser.check(request)
-    queryset = JobApplication.objects.filter(job_post__job__created_by__business=request.user.businessuser.business)
-    application = queryset.filter(uid=application_uid).first()
-    if not application:
-        raise HttpError(404, "This application does not exist")
-    return queryset.filter(applicant=application.applicant).exclude(uid=application_uid).order_by("-created_at")

@@ -2,9 +2,19 @@ from typing import List, Literal, Union, Optional
 from uuid import UUID
 
 import pytz
-from accounts.models import Talent
+from config.permissions import IsTalentUser, IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
+from helpers.utils import delete_s3_item
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
+from ninja import Router, UploadedFile
+from ninja.errors import HttpError
+from ninja.params import Query
+from ninja_extra.pagination import paginate
+from ninja_jwt.authentication import JWTAuth
+
+from accounts.models import Talent
 from jobs import tasks
 from jobs.enums import JobStatusType, PhaseType
 from jobs.models import (
@@ -17,19 +27,9 @@ from jobs.schemas import TalentJobPostListSchema, TalentJobApplicationWithdrawal
     InviteToApplySchema, TalentScreeningResultSchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service, \
     get_screening_questions_service, get_talent_screening_results
-from ninja import Router, UploadedFile
-from ninja.errors import HttpError
-from ninja.params import Query
-from ninja_extra.pagination import paginate
-from ninja_jwt.authentication import JWTAuth
 from notification import notifications
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
-
-from config.permissions import IsTalentUser, IsBusinessUser
-from helpers.utils import delete_s3_item
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
 
 router = Router()
 
