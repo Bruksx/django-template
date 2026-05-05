@@ -86,6 +86,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'config.middlewares.RequestTimingMiddleware',
     'config.middlewares.DatabaseConnectionMiddleware',
+    'config.middlewares.LogUserLastLoginConnectionMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'

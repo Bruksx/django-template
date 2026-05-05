@@ -3,7 +3,7 @@
 from django.db import migrations
 
 def create_default_workflows(apps, schema_editor):
-    from accounts.services import create_business_workflows
+    from accounts.services.business import create_business_workflows
     Business = apps.get_model("accounts", "Business")
 
     for business in Business.objects.all():

@@ -6,11 +6,7 @@ from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, Busines
 from accounts.models import User, VerificationCode, Business, BusinessUser, BusinessIndustry, Country, TalentFilter
 from accounts.views.business import router
 from django.test import TestCase
-from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, \
-    TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, \
-    WorkflowStageFactory, UserFactory, RoleFactory, IndustryFactory, LanguageFactory, EducationLevelFactory, \
-    SkillFactory, \
-    TalentFilterFactory
+from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, BusinessFactory, BusinessUserFactory, CountryFactory, JobFactory, JobPostFactory, TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, WorkflowStageFactory, UserFactory, RoleFactory, IndustryFactory, LanguageFactory, EducationLevelFactory, SkillFactory,TalentFilterFactory
 from jobs.enums import PhaseType, JobStatusType, WorkStructureEnum
 from jobs.models import JobApplication
 from ninja.testing import TestClient
@@ -54,7 +50,6 @@ class ValidateOtpTests(TestCase):
     def test_validate_otp_incorrect_otp(self):
         self.user_data["otp"] = "6543"  
         response = self.client.post(self.url, json=self.user_data)
-        print("response: ", response.content)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(User.objects.count(), 0)
         self.assertEqual(Business.objects.count(), 0)
@@ -1227,15 +1222,15 @@ class HandleEmailActionTestCase(TestCase):
         self.business_user.user.secondary_email = "secondary@example.com"
         self.business_user.user.secondary_email_verified = True
         self.business_user.user.save()
-        
+
         data = {
             "email": "secondary@example.com",
             "action": "make_default_sender"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 200)
-        
+
         # Verify the default sender email was updated
         self.business_user.refresh_from_db()
         self.assertEqual(self.business_user.default_sender_email, "secondary@example.com")
@@ -1245,15 +1240,15 @@ class HandleEmailActionTestCase(TestCase):
         # Ensure primary email is verified
         self.business_user.user.email_verified = True
         self.business_user.user.save()
-        
+
         data = {
             "email": self.business_user.user.email,
             "action": "make_default_sender"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 200)
-        
+
         # Verify the default sender email was updated
         self.business_user.refresh_from_db()
         self.assertEqual(self.business_user.default_sender_email, self.business_user.user.email)
@@ -1264,12 +1259,12 @@ class HandleEmailActionTestCase(TestCase):
         self.business_user.user.secondary_email = "unverified@example.com"
         self.business_user.user.secondary_email_verified = False
         self.business_user.user.save()
-        
+
         data = {
             "email": "unverified@example.com",
             "action": "make_default_sender"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "This email is not verified")
@@ -1280,7 +1275,7 @@ class HandleEmailActionTestCase(TestCase):
             "email": "nonexistent@example.com",
             "action": "make_default_sender"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "This email is not verified")
@@ -1291,15 +1286,15 @@ class HandleEmailActionTestCase(TestCase):
         self.business_user.user.secondary_email = "secondary@example.com"
         self.business_user.user.secondary_email_verified = True
         self.business_user.user.save()
-        
+
         data = {
             "email": "secondary@example.com",
             "action": "remove"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 200)
-        
+
         # Verify the secondary email was removed
         self.business_user.user.refresh_from_db()
         self.assertIsNone(self.business_user.user.secondary_email)
@@ -1310,7 +1305,7 @@ class HandleEmailActionTestCase(TestCase):
             "email": self.business_user.user.email,
             "action": "remove"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "Cannot remove primary email")
@@ -1320,12 +1315,12 @@ class HandleEmailActionTestCase(TestCase):
         # Set up user with a different secondary email
         self.business_user.user.secondary_email = "different@example.com"
         self.business_user.user.save()
-        
+
         data = {
             "email": "other@example.com",
             "action": "remove"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "This email is not secondary email")
@@ -1335,12 +1330,12 @@ class HandleEmailActionTestCase(TestCase):
         # Ensure user has no secondary email
         self.business_user.user.secondary_email = None
         self.business_user.user.save()
-        
+
         data = {
             "email": "some@example.com",
             "action": "remove"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "This email is not secondary email")
@@ -1351,7 +1346,7 @@ class HandleEmailActionTestCase(TestCase):
             "email": "test@example.com",
             "action": "make_default_sender"
         }
-        
+
         response = self.client.post(self.url, json=data)
         self.assertEqual(response.status_code, 401)
 
@@ -1361,7 +1356,7 @@ class HandleEmailActionTestCase(TestCase):
             "email": "test@example.com",
             "action": "invalid_action"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 422)  # Validation error
 
@@ -1370,7 +1365,7 @@ class HandleEmailActionTestCase(TestCase):
         data = {
             "email": "test@example.com"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 422)  # Validation error
 
@@ -1379,7 +1374,7 @@ class HandleEmailActionTestCase(TestCase):
         data = {
             "action": "make_default_sender"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 422)  # Validation error
 
@@ -1389,10 +1384,10 @@ class HandleEmailActionTestCase(TestCase):
             "email": "newsecondary@example.com",
             "action": "update"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 200)
-        
+
         # Verify the secondary email was added but not verified
         self.business_user.user.refresh_from_db()
         self.assertEqual(self.business_user.user.secondary_email, "newsecondary@example.com")
@@ -1402,12 +1397,12 @@ class HandleEmailActionTestCase(TestCase):
         """Test that updating an email that already exists fails."""
         # Create another user with the email
         other_user = UserFactory.create(email="existing@example.com")
-        
+
         data = {
             "email": "existing@example.com",
             "action": "update"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "Email already exists")
@@ -1418,12 +1413,12 @@ class HandleEmailActionTestCase(TestCase):
         other_user = UserFactory.create()
         other_user.secondary_email = "existingsecondary@example.com"
         other_user.save()
-        
+
         data = {
             "email": "existingsecondary@example.com",
             "action": "update"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "Email already exists")
@@ -1434,15 +1429,15 @@ class HandleEmailActionTestCase(TestCase):
         self.business_user.user.secondary_email = "secondary@example.com"
         self.business_user.user.secondary_email_verified = True
         self.business_user.user.save()
-        
+
         data = {
             "email": "secondary@example.com",
             "action": "update"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 200)
-        
+
         # Verify no changes were made
         self.business_user.user.refresh_from_db()
         self.assertEqual(self.business_user.user.secondary_email, "secondary@example.com")
@@ -1455,12 +1450,12 @@ class HandleEmailActionTestCase(TestCase):
         self.business_user.user.secondary_email = "default@example.com"
         self.business_user.user.save()
         self.business_user.save()
-        
+
         data = {
             "email": "default@example.com",
             "action": "remove"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "This email is your default sender email")
@@ -1470,12 +1465,12 @@ class HandleEmailActionTestCase(TestCase):
         # Set up default sender email
         self.business_user.default_sender_email = "default@example.com"
         self.business_user.save()
-        
+
         data = {
             "email": "default@example.com",
             "action": "update"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "This email is your default sender email")
@@ -1485,13 +1480,13 @@ class HandleEmailActionTestCase(TestCase):
         # Set up default sender email
         self.business_user.default_sender_email = "default@example.com"
         self.business_user.save()
-        
+
         # Test with uppercase email
         data = {
             "email": "DEFAULT@EXAMPLE.COM",
             "action": "remove"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "This email is your default sender email")
@@ -1502,16 +1497,391 @@ class HandleEmailActionTestCase(TestCase):
         self.business_user.user.secondary_email = "secondary@example.com"
         self.business_user.user.secondary_email_verified = True
         self.business_user.user.save()
-        
+
         # Test with uppercase email
         data = {
             "email": "SECONDARY@EXAMPLE.COM",
             "action": "remove"
         }
-        
+
         response = self.client.post(self.url, json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 200)
-        
+
         # Verify the secondary email was removed
         self.business_user.user.refresh_from_db()
         self.assertIsNone(self.business_user.user.secondary_email)
+
+
+class GetPipelineDashboardDataTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_pipeline_dashboard_data_success(self):
+        """Test successful retrieval of pipeline dashboard data"""
+        response = self.client.get("/pipeline-dashboard", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+        # Check response structure
+        data = response.json()
+        self.assertIn("avg_days_to_hire", data)
+        self.assertIn("avg_days_to_hire_per_stage", data)
+        self.assertIn("applicant_hire_ratio", data)
+        self.assertIn("dropout_ratio", data)
+        self.assertIn("applicant_per_phase", data)
+        self.assertIn("applicant_per_stage", data)
+        self.assertIn("phase_timeline", data)
+
+    def test_get_pipeline_dashboard_data_unauthorized(self):
+        """Test pipeline dashboard without authentication"""
+        response = self.client.get("/pipeline-dashboard")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_pipeline_dashboard_data_with_filters(self):
+        """Test pipeline dashboard with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client"
+        }
+        response = self.client.get(f"/pipeline-dashboard?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+
+class GetApplicantDashboardDataTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_applicant_dashboard_data_success(self):
+        """Test successful retrieval of applicant dashboard data"""
+        response = self.client.get("/applicant-dashboard", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+        # Check response structure
+        data = response.json()
+        self.assertIn("best_applicant_by_job", data)
+        self.assertIn("worst_applicant_by_job", data)
+        self.assertIn("best_applicant_by_client", data)
+        self.assertIn("worst_applicant_by_client", data)
+        self.assertIn("application_by_location", data)
+        self.assertIn("application_by_gender", data)
+        self.assertIn("application_by_experience", data)
+        self.assertIn("withdrawal_reasons", data)
+
+    def test_get_applicant_dashboard_data_unauthorized(self):
+        """Test applicant dashboard without authentication"""
+        response = self.client.get("/applicant-dashboard")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_applicant_dashboard_data_with_filters(self):
+        """Test applicant dashboard with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client"
+        }
+        response = self.client.get(f"/applicant-dashboard?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+
+class GetRecruitmentDashboardDataTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_recruitment_dashboard_data_success(self):
+        """Test successful retrieval of recruitment dashboard data"""
+        response = self.client.get("/recruitment-dashboard", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+        # Check response structure
+        data = response.json()
+        self.assertIn("total_applicants", data)
+        self.assertIn("avg_applicants_per_job", data)
+        self.assertIn("avg_applicants_per_client", data)
+        self.assertIn("avg_applicants_per_recruiter", data)
+
+    def test_get_recruitment_dashboard_data_unauthorized(self):
+        """Test recruitment dashboard without authentication"""
+        response = self.client.get("/recruitment-dashboard")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_recruitment_dashboard_data_with_filters(self):
+        """Test recruitment dashboard with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client"
+        }
+        response = self.client.get(f"/recruitment-dashboard?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+
+class GetApplicationPipelineRatioDataTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_application_pipeline_ratio_data_success(self):
+        """Test successful retrieval of application pipeline ratio data"""
+        response = self.client.get("/application-pipeline-ratio", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+        # Check response structure - should be a list
+        data = response.json()
+        self.assertIsInstance(data, list)
+
+    def test_get_application_pipeline_ratio_data_unauthorized(self):
+        """Test application pipeline ratio without authentication"""
+        response = self.client.get("/application-pipeline-ratio")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_application_pipeline_ratio_data_with_filters(self):
+        """Test application pipeline ratio with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client"
+        }
+        response = self.client.get(f"/application-pipeline-ratio?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+
+class GetRecentHiresTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_recent_hires_success(self):
+        """Test successful retrieval of recent hires data"""
+        response = self.client.get("/recent-hires", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+        # Check response structure - should be paginated
+        data = response.json()
+        self.assertIn("results", data)
+        self.assertIn("count", data)
+        self.assertIn("next", data)
+        self.assertIn("previous", data)
+
+    def test_get_recent_hires_unauthorized(self):
+        """Test recent hires without authentication"""
+        response = self.client.get("/recent-hires")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_recent_hires_with_filters(self):
+        """Test recent hires with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client"
+        }
+        response = self.client.get(f"/recent-hires?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_recent_hires_with_pagination(self):
+        """Test recent hires with pagination parameters"""
+        filters = {
+            "page": 1,
+            "page_size": 10
+        }
+        response = self.client.get(f"/recent-hires?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+
+class GetStuckApplicationsTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_stuck_applications_success(self):
+        """Test successful retrieval of stuck applications data"""
+        response = self.client.get("/stuck-applications", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+        # Check response structure - should be paginated
+        data = response.json()
+        self.assertIn("results", data)
+        self.assertIn("count", data)
+        self.assertIn("next", data)
+        self.assertIn("previous", data)
+
+    def test_get_stuck_applications_unauthorized(self):
+        """Test stuck applications without authentication"""
+        response = self.client.get("/stuck-applications")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_stuck_applications_with_filters(self):
+        """Test stuck applications with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client"
+        }
+        response = self.client.get(f"/stuck-applications?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_stuck_applications_with_pagination(self):
+        """Test stuck applications with pagination parameters"""
+        filters = {
+            "page": 1,
+            "page_size": 10
+        }
+        response = self.client.get(f"/stuck-applications?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+
+class GetRecruiterHiringDataTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_recruiter_hiring_data_success(self):
+        """Test successful retrieval of recruiter hiring data"""
+        response = self.client.get("/recruiter-hiring-data", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+        # Check response structure - should be paginated
+        data = response.json()
+        self.assertIn("results", data)
+        self.assertIn("count", data)
+        self.assertIn("next", data)
+        self.assertIn("previous", data)
+
+    def test_get_recruiter_hiring_data_unauthorized(self):
+        """Test recruiter hiring data without authentication"""
+        response = self.client.get("/recruiter-hiring-data")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_recruiter_hiring_data_with_filters(self):
+        """Test recruiter hiring data with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client"
+        }
+        response = self.client.get(f"/recruiter-hiring-data?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_recruiter_hiring_data_with_pagination(self):
+        """Test recruiter hiring data with pagination parameters"""
+        filters = {
+            "page": 1,
+            "page_size": 10
+        }
+        response = self.client.get(f"/recruiter-hiring-data?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+
+class GetApplicationHiresGraphDataTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(
+            business=self.business,
+            user=self.business.created_by,
+            role=BusinessUserRoleType.OWNER.value
+        )
+        self.auth_headers = {
+            "authorization": f"bearer {self.business_user.user.token}"
+        }
+
+    def test_get_application_hires_graph_data_success(self):
+        """Test successful retrieval of application hires graph data"""
+        response = self.client.get("/application-hires-graph-data", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+        # Check response structure - should be a list
+        data = response.json()
+        self.assertIsInstance(data, list)
+
+    def test_get_application_hires_graph_data_unauthorized(self):
+        """Test application hires graph data without authentication"""
+        response = self.client.get("/application-hires-graph-data")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_application_hires_graph_data_with_filters(self):
+        """Test application hires graph data with date and role filters"""
+        filters = {
+            "start_date": "2023-01-01T00:00:00",
+            "end_date": "2023-12-31T23:59:59",
+            "role": str(RoleFactory.create().uid),
+            "client": "Test Client",
+            "first_date": "2023-01-01",
+            "last_date": "2023-12-31"
+        }
+        response = self.client.get(f"/application-hires-graph-data?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+
+    def test_get_application_hires_graph_data_with_time_series_filters(self):
+        """Test application hires graph data with time series filters"""
+        filters = {
+            "first_date": "2023-01-01",
+            "last_date": "2023-12-31"
+        }
+        response = self.client.get(f"/application-hires-graph-data?{urlencode(filters)}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)

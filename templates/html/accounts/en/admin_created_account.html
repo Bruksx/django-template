@@ -1,0 +1,27 @@
+{% extends "all_template.html" %}
+
+{% block content %}
+    <div style="width: 100%; max-width: 41.25rem; margin: auto; padding: 1rem 1.44rem 5rem; color: #013832;">
+        <h2 style="color: #266b5b; margin-bottom: 1rem;">Welcome to 1840 Global Talent Cloud!</h2>
+        
+        <p>Dear {{name}},</p>
+        
+        <p>Your {{account_type}} account has been successfully created by an administrator.</p>
+        
+        {% if business_name %}
+        <p>You have been added to <strong>{{business_name}}</strong>.</p>
+        {% endif %}
+        
+        <div style="background-color: #f8f9fa; padding: 1rem; border-radius: 0.25rem; margin: 1rem 0;">
+            <p><strong>Your Login Credentials:</strong></p>
+            <p><strong>Email:</strong> {{email}}</p>
+            <p><strong>Password:</strong> <code style="background-color: #e9ecef; padding: 0.25rem 0.5rem; border-radius: 0.125rem;">{{password}}</code></p>
+        </div>
+        
+        <p><strong>Important:</strong> Please log in and change your password as soon as possible for security reasons.</p>
+        
+        <p style="margin-top: 2rem;">If you have any questions or need assistance, please contact our support team.</p>
+        
+        <p style="margin-top: 2rem;">Best Regards,<br>1840 Global Talent Cloud Team</p>
+    </div>
+{% endblock %}

@@ -1,11 +1,10 @@
 from ninja.errors import HttpError
 
-from apps.accounts.enums import BusinessUserRoleType
+from apps.accounts.enums import BusinessUserRoleType, AdminRoleType
 
 
 class Permission:
     __message__ = "not allowed"
-
 
     @classmethod
     def __has_permission__(cls, request, *args, **kwargs):
@@ -28,6 +27,8 @@ class Permission:
             return False
 
 
+
+
 class IsAuthenticated(Permission):
 
     __message__ = "You are not logged in"
@@ -45,7 +46,22 @@ class IsAuthenticated(Permission):
         return
 
 
+class IsAdminUser(IsAuthenticated):
+    __message__ = "You are not an admin"
 
+    @classmethod
+    def __has_permission__(cls, request, *args, **kwargs):
+        return hasattr(request.user, "adminuser")
+
+    @classmethod
+    def __validate__(cls, request, *args, **kwargs):
+        # check preceding permissions
+        if not super().__has_permission__(request):
+            raise HttpError(403, super().__message__)
+        # check current permission
+        if not cls.__has_permission__(request):
+            raise HttpError(403, cls.__message__)
+        return
 
 class IsBusinessUser(IsAuthenticated):
     __message__ = "You are not a business staff"
@@ -83,7 +99,25 @@ class IsTalentUser(IsAuthenticated):
         return
 
 
-class IsAdminStaff(IsBusinessUser):
+
+class IsSuperAdminUser(IsAdminUser):
+    __message__ = "You are not a super admin"
+
+    @classmethod
+    def __has_permission__(
+        cls, request, *args, **kwargs) -> bool:
+        return request.user.adminuser.role == AdminRoleType.SUPER_ADMIN.value
+
+    @classmethod
+    def __validate__(cls, request, *args, **kwargs):
+        if not super().__has_permission__(request):
+            raise HttpError(403, super().__message__)
+        if not cls.__has_permission__(request):
+            raise HttpError(403, cls.__message__)
+        return
+
+
+class IsBusinessAdminStaff(IsBusinessUser):
     __message__ = "You are not an admin staff"
 
     @classmethod

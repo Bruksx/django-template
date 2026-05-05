@@ -1,35 +1,22 @@
-from copy import deepcopy
 import requests
 import json
-import jwt
-from jwt.exceptions import DecodeError
-from urllib.parse import quote, urlencode
 import time
+from urllib.parse import quote, urlencode
 
-from django.db.models import Q
-from django.utils import timezone
-from django.utils.crypto import get_random_string
-from google.oauth2 import id_token
-from google.auth.transport import requests as grequests
-from ninja.errors import HttpError
-from ninja_jwt.exceptions import AuthenticationFailed
-from requests.exceptions import HTTPError as RequestsError
-
-from config.settings import GOOGLE_CLIENT_ID, APPLE_CONFIG
-from helpers.email.auth import send_verification_code
-from monkeypatches.q_cluster import async_task
-from services.auth.schema import ProfileSchema
-from services.auth.facebook import Facebook
-
+import jwt
+import requests
 from accounts.enums import UserType, AuthType, SocialType, BusinessUserRoleType
-from accounts.models import BusinessUser, VerificationCode, User, Talent, Business
+from accounts.models import BusinessUser, VerificationCode, User, Talent, Business, BannedAccount
 from core.services import get_settings
 from django.db.models import Q
 from django.utils import timezone
+from django.utils.crypto import get_random_string
 from google.auth.transport import requests as grequests
 from google.oauth2 import id_token
 from ninja.errors import HttpError
+from requests.exceptions import HTTPError as RequestsError
 
+from config.settings import APPLE_CONFIG
 from helpers.email.auth import send_verification_code
 from monkeypatches.q_cluster import async_task
 from services.auth.facebook import Facebook
@@ -307,6 +294,11 @@ def handle_social_login(data: SocialAuthSchema)->User:
     
     user = User.objects.filter(social_query).first()
     if user:
+        if BannedAccount.objects.filter(
+            email__iexact=profile_dict["email"],
+            account_type=data.user_type.value
+        ).exists():
+            raise HttpError(401, "This account has been banned")
         if user.auth_mode == AuthType.EMAIL.value:
             raise HttpError(403, "Kindly login through email and password")
         if user.auth_mode != auth_type.value:

@@ -1395,7 +1395,7 @@ class TalentJobFilterSchema(Schema):
                     query = query | Q(job__years_of_experience__range=years)
             queryset = queryset.filter(query)
         if self.remove_applied_jobs is True and talent:
-            applied_jobs_id = talent.jobapplication_set.only("job_post_id").values_list("job_post_id", flat=True)
+            applied_jobs_id = talent.applications.only("job_post_id").values_list("job_post_id", flat=True)
             queryset = queryset.exclude(id__in=applied_jobs_id)
         if not extra_sorts:
             extra_sorts = []

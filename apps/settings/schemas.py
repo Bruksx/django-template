@@ -1,12 +1,13 @@
 from typing import List, Optional
 from uuid import UUID
 
-from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS
-from jobs.enums import PhaseType
 from ninja import Field, UploadedFile
 from ninja import ModelSchema, Schema
 from ninja.errors import HttpError
 from pydantic import EmailStr, validate_email
+
+from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS
+from jobs.enums import PhaseType
 from settings.enums import PlaceHolderType
 from settings.models import EmailTemplate, EmailTemplateAttachment, WorkFlowStage
 
@@ -74,11 +75,11 @@ class CreateEmailTemplateSchema(ModelSchema):
 
 
 class UpdateEmailTemplateSchema(CreateEmailTemplateSchema):
-    subject: Optional[str]
-    template: Optional[str]
-    personal: Optional[bool]
-    delays : Optional[int]
-
+    subject: Optional[str] = None
+    template: Optional[str] = None
+    personal: Optional[bool] = None
+    delays : Optional[int] = None
+    is_html: Optional[bool] = False
 
 
 

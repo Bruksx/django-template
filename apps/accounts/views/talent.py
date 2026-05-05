@@ -3,35 +3,40 @@ from datetime import date, timedelta
 from typing import Optional
 from uuid import UUID
 
+from config.permissions import IsBusinessUser
+from config.permissions import IsTalentUser
+from django.db import transaction
+from django.utils import timezone
+from django_q.models import Schedule
+from helpers.email.auth import send_verification_code
+from helpers.utils import convert_base64_to_image_file, validate_password, delete_s3_item
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
+from ninja import Router, PatchDict, UploadedFile, File
+from ninja.errors import HttpError
+from ninja_jwt.authentication import JWTAuth
+from services import meeting
+from services.ai import parse_cv
+from services.ai.schema import ParsedTalentProfileSchema
+
 from accounts.enums import MeetingType
 from accounts.enums import UserType, AuthType
-from accounts.models import Talent, TalentAvailableDay
+from accounts.models import Talent, TalentAvailableDay, BannedAccount
 from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
 from auth.schema import OptionalLoginSchema
 from auth.services import validate_login
-from django.db import transaction
-from django.utils import timezone
-from django_q.models import Schedule
-from ninja import Router, PatchDict, UploadedFile, File
-from ninja.errors import HttpError
-from ninja_jwt.authentication import JWTAuth
-
-from config.permissions import IsBusinessUser
-from config.permissions import IsTalentUser
-from helpers.email.auth import send_verification_code
-from helpers.utils import convert_base64_to_image_file, validate_password, delete_s3_item
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
-from services import meeting
-from services.ai import parse_cv
-from services.ai.schema import ParsedTalentProfileSchema
 
 router = Router(tags=["Account"])
 
 @router.post("initiate-account-creation")
 def initiate_account_creation(request, data: common_schemas.RegisterSchema):
+    if BannedAccount.objects.filter(
+            email__iexact=data.email,
+            account_type=UserType.TALENT.value
+    ).exists():
+        raise HttpError(401, "This account has been banned")
     existing_user = User.objects.filter(email__iexact=data.email).exists()
     if existing_user:
         raise HttpError(400, "An account with this email already exists")

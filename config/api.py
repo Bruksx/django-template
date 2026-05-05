@@ -7,6 +7,7 @@ xml_api = NinjaAPI(docs_url="docs_1840gtc_xml", renderer=XMLRenderer(), urls_nam
 api.add_router("auth/", "auth.views.router")
 api.add_router("accounts/talents/", "accounts.views.talent.router")
 api.add_router("accounts/business/", "accounts.views.business.router")
+api.add_router("accounts/admin/", "accounts.views.admin.router")
 api.add_router("accounts/", "accounts.views.common.router")
 api.add_router("business/jobs/", "jobs.business_views.router")
 api.add_router("notifications/", "notification.views.router")

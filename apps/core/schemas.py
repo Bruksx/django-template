@@ -1,11 +1,10 @@
 from typing import Optional
 from uuid import UUID
 
-from ninja import Schema, ModelSchema
-from pydantic import condecimal
-from core.models import Currency, Language
-
 from accounts.models import Country, EducationLevel
+from core.models import Currency, Language
+from ninja import Schema, ModelSchema
+from pydantic import condecimal, Field
 
 
 class CountSchema(Schema):
@@ -77,3 +76,8 @@ class UserMiniSchema(Schema):
     first_name: str
     last_name: str
     email: str
+
+
+class CollectMetricsSchema(Schema):
+    path: str = Field(description="page URL")
+    duration: float = Field(description="duration in milli seconds")
