@@ -23,10 +23,8 @@ from django.db.models.signals import pre_save
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django_softdelete.managers import SoftDeleteManager
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum, \
-    TechnologicalRequirementsEnum
-from ninja_jwt.tokens import RefreshToken
 from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
+from jobs.enums import TechnologicalRequirementsEnum
 from ninja_jwt.tokens import RefreshToken
 from notification.enums import NotificationGroup
 from timezone_field import TimeZoneField

@@ -3,7 +3,6 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
-from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
     Skill, Role, BusinessClient, Industry, EducationLevel, BannedAccount
 from core.models import Language
@@ -14,22 +13,10 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from jobs.models import Job, JobPost, BusinessModel
 from jobs.schemas import BusinessUserJobSchema
-from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
-from helpers.email.auth import send_verification_code
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
-from ninja import Router, UploadedFile, PatchDict, Form, Query
 from ninja import Router, UploadedFile, PatchDict, Form, Query
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
-
-from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
-    Skill, Role, BusinessClient, Industry, EducationLevel, BannedAccount
-from core.models import Language
-from core.schemas import GenericNameAndUidSchema
-from jobs.models import Job, JobPost, BusinessModel
-from jobs.schemas import BusinessUserJobSchema
 from notification import notifications
 from paginations import CustomPaginatedResponseSchema, CustomPageNumberPaginationExtra
 
@@ -699,70 +686,6 @@ def get_application_pipeline_ratio_data(request, filters:DashboardFilter=Query(.
     business_user = request.user.businessuser
     return application_pipeline_ratio(**filters.dict(), business=business_user.business)
 
-@router.post("email-action", auth=JWTAuth(), tags=["Business Account"], response=BusinessUserListSchema)
-def handle_email_action(request, data: business_schema.EmailActionSchema):
-    IsBusinessUser.check(request)
-    business_user = request.user.businessuser
-    if data.action in ("remove", "update") and str(data.email).lower() == str(business_user.default_sender_email).lower():
-        raise HttpError(400, "This email is your default sender email")
-    if data.action == "remove" and str(business_user.user.email).lower() == str(data.email).lower():
-        raise HttpError(400, "Cannot remove primary email")
-    if data.action == "remove" and str(data.email).lower() != str(business_user.user.secondary_email).lower():
-        raise HttpError(400, "This email is not secondary email")
-    if data.action == "make_default_sender" and data.email not in business_user.emails:
-        raise HttpError(400, "This email is not verified")
-    if data.action == "update" and User.objects.filter(Q(email__iexact=data.email)|Q(secondary_email__iexact=data.email)).exclude(id=business_user.user_id).exists():
-        raise HttpError(400, "Email already exists")
-    if data.action == "make_default_sender":
-        business_user.default_sender_email = data.email
-        business_user.save()
-    elif data.action == "remove":
-        business_user.user.secondary_email = None
-        business_user.user.save()
-    elif data.action == "update" and data.email not in business_user.emails:
-        business_user.user.secondary_email = data.email
-        business_user.user.secondary_email_verified = False
-        business_user.user.save()
-        token = Secret.encrypt_dict(dict(
-            user_id=business_user.user_id,
-            secondary_email=data.email,
-            verification_type="secondary_email",
-            expiry_time=str((timezone.now() + timedelta(hours=24)).isoformat())
-        ))
-        async_task(send_email_verification_code, email=data.email, token=token, fullname=business_user.user.fullname, company=business_user.business.name)
-    return business_user
-@router.get("pipeline-dashboard", tags=["Business Dashboard"], auth=JWTAuth(), response=PipelineDashboardSchema)
-def get_pipeline_dashboard_data(request, filters:DashboardFilter=Query(...)):
-    IsBusinessUser.check(request)
-    business_user = request.user.businessuser
-    return pipeline_dashboard_data(**filters.dict(), business=business_user.business)
-
-@router.get("applicant-dashboard", tags=["Business Dashboard"], auth=JWTAuth(), response=ApplicantDashboardSchema)
-def get_applicant_dashboard_data(request, filters:DashboardFilter=Query(...)):
-    IsBusinessUser.check(request)
-    business_user = request.user.businessuser
-    return applicant_dashboard_data(**filters.dict(), business=business_user.business)
-
-@router.get("recruitment-dashboard", tags=["Business Dashboard"], auth=JWTAuth(), response=RecruitmentDashboardSchema)
-def get_recruitment_dashboard_data(request, filters:DashboardFilter=Query(...)):
-    IsBusinessUser.check(request)
-    business_user = request.user.businessuser
-    return recruitment_dashboard_data(**filters.dict(), business=business_user.business)
-
-@router.get("application-pipeline-ratio", tags=["Business Dashboard"], auth=JWTAuth(), response=List[ApplicationPipelineRatioSchema])
-def get_application_pipeline_ratio_data(request, filters:DashboardFilter=Query(...)):
-    IsBusinessUser.check(request)
-    business_user = request.user.businessuser
-    return application_pipeline_ratio(**filters.dict(), business=business_user.business)
-
-
-@router.get("recent-hires", auth=JWTAuth(),  tags=["Business Dashboard"], response=CustomPaginatedResponseSchema[RecentHiresSchema], )
-@paginate(CustomPageNumberPaginationExtra, page_size=50)
-def get_recent_hires(request, filters:DashboardFilter=Query(...)):
-    IsBusinessUser.check(request)
-    business_user = request.user.businessuser
-    return recent_hires(**filters.dict(), business=business_user.business)
-
 @router.post("email-action", auth=JWTAuth(), tags=["Business Account"], response=business_schema.BusinessUserListSchema)
 def handle_email_action(request, data: business_schema.EmailActionSchema):
     IsBusinessUser.check(request)
@@ -795,6 +718,15 @@ def handle_email_action(request, data: business_schema.EmailActionSchema):
         ))
         async_task(send_email_verification_code, email=data.email, token=token, fullname=business_user.user.fullname, company=business_user.business.name)
     return business_user
+
+
+@router.get("recent-hires", auth=JWTAuth(),  tags=["Business Dashboard"], response=CustomPaginatedResponseSchema[RecentHiresSchema], )
+@paginate(CustomPageNumberPaginationExtra, page_size=50)
+def get_recent_hires(request, filters:DashboardFilter=Query(...)):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    return recent_hires(**filters.dict(), business=business_user.business)
+
 
 @router.get("stuck-applications", auth=JWTAuth(),  tags=["Business Dashboard"], response=CustomPaginatedResponseSchema[StuckApplicationSchema], )
 @paginate(CustomPageNumberPaginationExtra, page_size=50)
