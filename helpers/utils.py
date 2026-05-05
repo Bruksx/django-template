@@ -4,6 +4,7 @@ import os
 import random
 import re
 import string
+import sys
 import traceback
 import uuid
 from datetime import timezone, time, datetime
@@ -25,6 +26,7 @@ from django.core.files.base import ContentFile
 from django.db.models import QuerySet
 from ninja.errors import HttpError
 
+from helpers.decorators import test_env_decorator
 from helpers.loggers import Logger
 from monkeypatches.response import Response
 
@@ -122,8 +124,9 @@ def html_to_pdf3(source_html):
         print(f"Error during PDF conversion: {e}")
         return None
 
-
 def delete_s3_item(key):
+    if "test" in sys.argv:
+        return True
     from boto3.session import Session
 
     if not settings.USE_AWS_S3:
@@ -165,6 +168,8 @@ def delete_s3_item(key):
                               description=f"Failed to delete S3 object {key}: {str(e)}"), exc_info=True)
         raise  # Just 'raise' to preserve stack trace
 
+
+@test_env_decorator(["https://s3.amazonaws.com/ample.jpg"])
 def upload_to_s3(files, folder_name):
     if not settings.USE_AWS_S3:
         return

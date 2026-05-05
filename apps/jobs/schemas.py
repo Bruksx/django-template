@@ -8,6 +8,7 @@ from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from accounts.schemas.business import BusinessUserListSchema
 from core.enums import SalaryType
+from core.models import Currency
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
 from django.db.models import QuerySet, Q, Count
 from django.utils import timezone
@@ -1716,3 +1717,142 @@ class TalentScreeningResultSchema(ModelSchema):
     class Meta:
         model = JobApplication
         fields = ["uid", "updated_at"]
+
+
+class AIJobDescriptionGeneratorRequestSchema(Schema):
+    prompt: Optional[str] = None
+
+
+class AIJobDescriptionGeneratorResponseSchema(Schema):
+    role: GenericNameAndUidSchema
+    job_description: str
+    responsibilities: str
+    skills: List[JobSkillSchema]
+    job_level: Optional[GenericNameAndUidSchema]
+    additional_skills: List[str]
+
+class AIJobSalaryItemSchema(Schema):
+    salary_type: str = Field(examples=SalaryType.values())
+    salary_min: float
+    salary_max: float
+
+    @staticmethod
+    def salary_item(salary_type, salary_min, salary_max):
+        return {
+            "salary_type": salary_type.value,
+            "salary_min": round(salary_min, 1),
+            "salary_max": round(salary_max, 1),
+        }
+
+class AIJobSalaryGeneratorResponseSchema(Schema):
+    salary_options: List[AIJobSalaryItemSchema]
+    bonus_salary_options : List[AIJobSalaryItemSchema]
+    currency: GenericNameAndUidSchema
+
+    @staticmethod
+    def build_salary_options(annual_min, annual_max, hourly_min, hourly_max):
+        return [
+            AIJobSalaryItemSchema.salary_item(SalaryType.ANNUALLY, annual_min, annual_max),
+            AIJobSalaryItemSchema.salary_item(SalaryType.HOURLY, hourly_min, hourly_max),
+            AIJobSalaryItemSchema.salary_item(SalaryType.BI_MONTHLY, annual_min / 6, annual_max / 6),
+            AIJobSalaryItemSchema.salary_item(SalaryType.BI_WEEKLY, annual_min / 24, annual_max / 24),
+            AIJobSalaryItemSchema.salary_item(SalaryType.DAILY, hourly_min * 8, hourly_max * 8),
+            AIJobSalaryItemSchema.salary_item(SalaryType.MONTHLY, annual_min / 12, annual_max / 12),
+            AIJobSalaryItemSchema.salary_item(SalaryType.WEEKLY, annual_min / 48, annual_max / 48)
+        ]
+
+    @classmethod
+    def example(cls):
+        currency = Currency.objects.filter(abbreviation__iexact="USD").first()
+        return {
+                "salary_options": [
+                    {
+                        "salary_type": SalaryType.ANNUALLY.value,
+                        "salary_min": round(90000.0, 1),
+                        "salary_max": round(170000.0, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.HOURLY.value,
+                        "salary_min": round(45.0, 1),
+                        "salary_max": round(85.0, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.BI_MONTHLY.value,
+                        "salary_min": round(90000.0 / 6, 1),
+                        "salary_max": round(170000.0 / 6, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.BI_WEEKLY.value,
+                        "salary_min": round(90000.0 / 24, 1),
+                        "salary_max": round(170000.0 / 24, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.DAILY.value,
+                        "salary_min": round(45.0 * 8, 1),
+                        "salary_max": round(85.0 * 8, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.MONTHLY.value,
+                        "salary_min": round(90000.0 / 12, 1),
+                        "salary_max": round(170000.0 / 12, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.WEEKLY.value,
+                        "salary_min": round(90000.0 / 48, 1),
+                        "salary_max": round(170000.0 / 48, 1),
+                    },
+                ],
+
+                "bonus_salary_options": [
+                    {
+                        "salary_type": SalaryType.ANNUALLY.value,
+                        "salary_min": round(8000.0, 1),
+                        "salary_max": round(25000.0, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.HOURLY.value,
+                        "salary_min": round(5.0, 1),
+                        "salary_max": round(15.0, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.BI_MONTHLY.value,
+                        "salary_min": round(8000.0 / 6, 1),
+                        "salary_max": round(25000.0 / 6, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.BI_WEEKLY.value,
+                        "salary_min": round(8000.0 / 24, 1),
+                        "salary_max": round(25000.0 / 24, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.DAILY.value,
+                        "salary_min": round(5.0 * 8, 1),
+                        "salary_max": round(15.0 * 8, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.MONTHLY.value,
+                        "salary_min": round(8000.0 / 12, 1),
+                        "salary_max": round(25000.0 / 12, 1),
+                    },
+                    {
+                        "salary_type": SalaryType.WEEKLY.value,
+                        "salary_min": round(8000.0 / 48, 1),
+                        "salary_max": round(25000.0 / 48, 1),
+                    },
+                ],
+
+                "currency": {
+                    "uid": str(currency.uid),
+                    "name": currency.name,
+                }
+            }
+
+
+class AIJobSalaryGeneratorRequestSchema(Schema):
+    role: UUID
+    job_description: str
+    country: UUID
+    state: UUID
+    job_level: UUID
+    department: UUID
+    employment_type: UUID
