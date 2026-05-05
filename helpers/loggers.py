@@ -26,11 +26,18 @@ class Logger:
 
     @classmethod
     def __execute_function(cls, log_type:LogType, msg:dict,  *args, **kwargs):
+        from helpers.email.utils import send_email
         try:
 
             msg = LogSchema(**msg)
             # we can do whatever here to handle the log.
             # For example: we can send the log to a file or a database
+            send_email(f'Error - {msg.title}', ["ohaegbulouis@gmail.com"],
+                       f"""
+Sender: {msg.sender}
+Data: {msg.data}
+Description: {msg.description}
+""")
             return logger.log(log_type.value, f"{cls.name} ({log_type.name}): {msg.__dict__}", *args, **kwargs)
         except TypeError as e:
             cls.critical(dict(
