@@ -1,16 +1,17 @@
-from typing import List, Optional
 from uuid import UUID
 
 from config.permissions import IsBusinessUser
 from django.db import transaction
+from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from ninja import Router, PatchDict, Query
 from ninja_jwt.authentication import JWTAuth
 
 from jobs.business_views import pagination_class
 from notification.models import BusinessUserNotificationSettings, Notification
-from notification.schemas import NotificationFilterSchema, PaginatedNotificationSchema
+from notification.schemas import NotificationFilterSchema, PaginatedNotificationSchema, BulkActionNotificationSchema
 from notification.schemas import NotificationSettingsSchema, NotificationSchema
+from notification.service import bulk_read_notifications_service, bulk_delete_notifications_service
 
 # Create your views here.
 router = Router(tags=["Notifications"])
@@ -68,22 +69,43 @@ def read_notification(request, notification_uid: UUID):
     return Response(status=200, data={"message": "Notification marked as read"})
 
 
-@router.delete("", auth=JWTAuth())
-def delete_notifications(request, notification_uids: Optional[List[UUID]]=None, all: bool=False):
-    if all is True:
-        if hasattr(request.user, "businessuser"):
-            notifications = request.user.businessuser.notifications()
-        elif hasattr(request.user, "talent"):
-            notifications =  request.user.talent.notifications()
-        else:
-            notifications  = Notification.objects.none()
-    else:
-        if not notification_uids:
-            return Response(status=400, data={"message": "notification_uids is required"})
-        notifications = Notification.objects.filter(uid__in=notification_uids)
+@router.patch("", auth=JWTAuth())
+def bulk_read_notifications(request, data: BulkActionNotificationSchema):
+    if not data.uids and data.all is False:
+        return Response(status=400, data={"message": "You have not selected any notifications"})
 
-    for notification in notifications.iterator():
-        notification.delete_notification(request.user)
+    if hasattr(request.user, "businessuser"):
+        notifications = request.user.businessuser.notifications(viewed=False, excludes=data.excludes)
+    elif hasattr(request.user, "talent"):
+        notifications = request.user.talent.notifications(viewed=False, excludes=data.excludes)
+    else:
+        notifications = Notification.objects.none()
+
+    if data.uids:
+        notifications = notifications.filter(uid__in=data.uids)
+
+    async_task(bulk_read_notifications_service, notifications, request.user)
+
+    return Response(status=200, data={"message": "Notifications marked read successfully"})
+
+
+@router.delete("", auth=JWTAuth())
+def delete_notifications(request, data: BulkActionNotificationSchema):
+    if not data.uids and data.all is False:
+        return Response(status=400, data={"message": "You have not selected any notifications"})
+
+    if hasattr(request.user, "businessuser"):
+        notifications = request.user.businessuser.notifications(excludes=data.excludes)
+    elif hasattr(request.user, "talent"):
+        notifications = request.user.talent.notifications(excludes=data.excludes)
+    else:
+        notifications = Notification.objects.none()
+
+    if data.uids:
+        notifications = notifications.filter(uid__in=data.uids)
+
+    async_task(bulk_delete_notifications_service, notifications, request.user)
+
     return Response(status=204, data={"message": "Notifications deleted successfully"})
 
 
