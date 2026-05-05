@@ -3,17 +3,22 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
-from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
+from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
+    Skill, Role, BusinessClient, Industry, EducationLevel, BannedAccount
+from core.models import Language
+from core.schemas import GenericNameAndUidSchema
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from jobs.models import Job, JobPost, BusinessModel
 from jobs.schemas import BusinessUserJobSchema
-from ninja import Router, UploadedFile, PatchDict, Form
+from ninja import Router, UploadedFile, PatchDict, Form, Query
 from ninja.errors import HttpError
+from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
 from notification import notifications
+from paginations import CustomPaginatedResponseSchema, CustomPageNumberPaginationExtra
 
 from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
@@ -21,25 +26,16 @@ from helpers.email.auth import send_verification_code, send_email_verification_c
 from helpers.utils import Secret
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
-from ninja import Router, UploadedFile, PatchDict, Form, Query
-from ninja.errors import HttpError
-from ninja_extra import paginate
-from ninja_jwt.authentication import JWTAuth
-
-from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
-    Skill, Role, BusinessClient, Industry, EducationLevel, BannedAccount
-from core.models import Language
-from core.schemas import GenericNameAndUidSchema
-from jobs.models import Job, JobPost, BusinessModel
-from jobs.schemas import BusinessUserJobSchema
-from notification import notifications
-from paginations import CustomPaginatedResponseSchema, CustomPageNumberPaginationExtra
 from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
 from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema, TalentFilterListSchema, \
-    SendBulkChatSchema, BusinessUserListSchema
-    SendBulkChatSchema, PipelineDashboardSchema, DashboardFilter, ApplicantDashboardSchema, \
+    SendBulkChatSchema, BusinessUserListSchema, TimeSeriesDashboardFilter, ApplicationHiresGraphItemSchema, \
+    PaginatedRecruiterHireSchema, StuckApplicationSchema, RecentHiresSchema, ApplicationPipelineRatioSchema, \
+    RecruitmentDashboardSchema, ApplicantDashboardSchema, PipelineDashboardSchema
+from ..schemas.common import DashboardFilter
+
+SendBulkChatSchema, PipelineDashboardSchema, DashboardFilter, ApplicantDashboardSchema, \
     RecruitmentDashboardSchema, ApplicationPipelineRatioSchema, RecentHiresSchema, StuckApplicationSchema, \
     PaginatedRecruiterHireSchema, TimeSeriesDashboardFilter, ApplicationHiresGraphItemSchema
 from ..services.business import pipeline_dashboard_data, applicant_dashboard_data, recruitment_dashboard_data
