@@ -3,28 +3,20 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
-from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
+from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
+    Skill, Role, BusinessClient, Industry, EducationLevel, BannedAccount
+from core.models import Language
+from core.schemas import GenericNameAndUidSchema
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from jobs.models import Job, JobPost, BusinessModel
 from jobs.schemas import BusinessUserJobSchema
-from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
-from helpers.email.auth import send_verification_code
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
 from ninja import Router, UploadedFile, PatchDict, Form, Query
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
-
-from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
-    Skill, Role, BusinessClient, Industry, EducationLevel, BannedAccount
-from core.models import Language
-from core.schemas import GenericNameAndUidSchema
-from jobs.models import Job, JobPost, BusinessModel
-from jobs.schemas import BusinessUserJobSchema
 from notification import notifications
 from paginations import CustomPaginatedResponseSchema, CustomPageNumberPaginationExtra
 
@@ -694,14 +686,6 @@ def get_application_pipeline_ratio_data(request, filters:DashboardFilter=Query(.
     business_user = request.user.businessuser
     return application_pipeline_ratio(**filters.dict(), business=business_user.business)
 
-
-@router.get("recent-hires", auth=JWTAuth(),  tags=["Business Dashboard"], response=CustomPaginatedResponseSchema[RecentHiresSchema], )
-@paginate(CustomPageNumberPaginationExtra, page_size=50)
-def get_recent_hires(request, filters:DashboardFilter=Query(...)):
-    IsBusinessUser.check(request)
-    business_user = request.user.businessuser
-    return recent_hires(**filters.dict(), business=business_user.business)
-
 @router.post("email-action", auth=JWTAuth(), tags=["Business Account"], response=business_schema.BusinessUserListSchema)
 def handle_email_action(request, data: business_schema.EmailActionSchema):
     IsBusinessUser.check(request)
@@ -734,6 +718,15 @@ def handle_email_action(request, data: business_schema.EmailActionSchema):
         ))
         async_task(send_email_verification_code, email=data.email, token=token, fullname=business_user.user.fullname, company=business_user.business.name)
     return business_user
+
+
+@router.get("recent-hires", auth=JWTAuth(),  tags=["Business Dashboard"], response=CustomPaginatedResponseSchema[RecentHiresSchema], )
+@paginate(CustomPageNumberPaginationExtra, page_size=50)
+def get_recent_hires(request, filters:DashboardFilter=Query(...)):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    return recent_hires(**filters.dict(), business=business_user.business)
+
 
 @router.get("stuck-applications", auth=JWTAuth(),  tags=["Business Dashboard"], response=CustomPaginatedResponseSchema[StuckApplicationSchema], )
 @paginate(CustomPageNumberPaginationExtra, page_size=50)

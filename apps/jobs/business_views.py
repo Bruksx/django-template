@@ -3,35 +3,32 @@ from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
 
-from accounts.models import Country
-from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
-from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
-from accounts.schemas.talent import SkillSchema, AddSkillSchema
-from accounts.schemas.talent import SkillSchema, AddSkillSchema
-from chats.schemas import ResponseSchema
-from chats.schemas import ResponseSchema
-from core.models import State, Currency
+from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef, Case, When, F, Value
 from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from ninja import Router, PatchDict, Query, UploadedFile, Form
-from ninja.errors import HttpError
-from ninja_extra import paginate
-from ninja_jwt.authentication import JWTAuth
-from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
-from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
-from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
-from settings.models import WorkFlowStage
-
-from config.permissions import IsBusinessUser
 from helpers.email.jobs import send_indeed_apply_email
 from helpers.utils import convert_base64_to_image_file, upload_to_s3, delete_s3_item
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
+from ninja import Router, PatchDict, Query
+from ninja import UploadedFile, Form
+from ninja.errors import HttpError
+from ninja_extra import paginate
+from ninja_jwt.authentication import JWTAuth
 from services.ai import generate_job_description, generate_job_post_salary, JobSalaryRequestSchema
 from services.job_posting.schema.indeed import IndeedApplicationDataPatch
+
+from accounts.models import Country, Department, Role, SkillCategory, Skill, BusinessUser, Talent
+from accounts.schemas.talent import SkillSchema, AddSkillSchema
+from chats.schemas import ResponseSchema
+from core.models import State, Currency
+from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
+from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+from settings.models import WorkFlowStage
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType, UpdateQuickReviewType
 from .models import (
@@ -529,7 +526,9 @@ def job_list(request, page_size=50, page=1, filters: BusinessJobFilterQuerySchem
     context = filters.get_context(context=context)
     request.context = context
     queryset = filters.get_queryset(queryset=queryset)
-
+    
+    if filters.to_excel is True:
+        return export_job_posts_to_excel(context)
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(
         queryset=queryset.order_by("-created_at"),
@@ -881,9 +880,6 @@ def get_other_applications(request, application_uid: UUID):
         raise HttpError(404, "This application does not exist")
     return queryset.filter(applicant=application.applicant).exclude(uid=application_uid).order_by("-created_at")
 
-
-
-
 @router.post("ai/generate-description", auth=JWTAuth(), response=AIJobDescriptionGeneratorResponseSchema)
 def ai_job_description_generator(request, body: AIJobDescriptionGeneratorRequestSchema = Form(),  file: UploadedFile=None):
     IsBusinessUser.check(request)
@@ -972,15 +968,3 @@ def ai_job_salary_generator(request, data: AIJobSalaryGeneratorRequestSchema):
             "name": currency.name,
         },
     }
-
-
-
-
-
-
-
-
-
-
-
-

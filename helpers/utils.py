@@ -22,6 +22,7 @@ import boto3
 import ijson
 import pdfkit
 import psutil
+from boto3 import Session
 from botocore.exceptions import NoCredentialsError
 from cryptography.fernet import Fernet
 from django.conf import settings
@@ -116,24 +117,7 @@ def html_to_pdf(html: str):
         ))
         return
 
-def html_to_pdf3(source_html):
-    try:
-        # Create a BytesIO object to store the PDF output.
-        pdf_output = BytesIO()
-
-        # Use xhtml2pdf to convert the HTML content to a PDF and store it in pdf_output.
-        pisa.CreatePDF(source_html, dest=pdf_output, encoding='UTF-8')
-
-        # Return the BytesIO object containing the PDF data.
-        return pdf_output
-
-    except Exception as e:
-        print(f"Error during PDF conversion: {e}")
-        return None
-
 def delete_s3_item(key):
-    from boto3.session import Session
-
     if "test" in sys.argv:
         return True
 

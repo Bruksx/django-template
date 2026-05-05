@@ -86,24 +86,24 @@ class ParsedTalentProfileSchema(Schema):
     availability: Optional[List[dict]] = None
 
 
-
 class GenericNameUIDSchema(Schema):
     name: str
     uid: UUID
 
-class SkillSchema(GenericNameUIDSchema):
+
+class SkillNameUIDSchema(GenericNameUIDSchema):
     category_name: str
     department_id: int
+
 
 class JobDescriptionSchema(Schema):
     role: GenericNameUIDSchema
     job_description: str
     responsibilities: List[str]
-    skills: List[SkillSchema]
+    skills: List[SkillNameUIDSchema]
     job_level: GenericNameUIDSchema
     additional_skills: List[str]
     error: Optional[str] = None
-
 
     @classmethod
     def example(cls, with_error=False):
@@ -115,8 +115,9 @@ class JobDescriptionSchema(Schema):
                 "A sample key responsibility"
             ],
             skills=[
-                SkillSchema(name=skill.name, uid=skill.uid, category_name=skill.category.name, department_id=skill.department_id)
-               for skill in Skill.objects.all()[:5]
+                SkillNameUIDSchema(name=skill.name, uid=skill.uid, category_name=skill.category.name,
+                            department_id=skill.department_id)
+                for skill in Skill.objects.all()[:5]
             ],
             job_level=GenericNameUIDSchema(name="VP of Engineering", uid=UUID(int=5)),
             additional_skills=[
@@ -130,8 +131,9 @@ class JobDescriptionSchema(Schema):
         data = {category: [] for category in SkillCategory.objects.values_list("name", flat=True)}
         for skill in self.skills:
             department = GenericNameUIDSchema.from_orm(Department.objects.filter(id=skill.department_id).first()).dict()
-            data[skill.category_name].append(dict(name=skill.name, uid=str(skill.uid), department= department))
+            data[skill.category_name].append(dict(name=skill.name, uid=str(skill.uid), department=department))
         return [{"category": category, "skills": skills} for category, skills in data.items()]
+
 
 class JobSalaryResponseSchema(Schema):
     hourly_rate_min: float
@@ -168,3 +170,13 @@ class JobSalaryRequestSchema(Schema):
     experience_level: str
     industry: str
     employment_type: str
+
+
+class GenericNameUIDSchema(Schema):
+    name: str
+    uid: UUID
+
+
+class JobSkillSchema(GenericNameUIDSchema):
+    category_name: str
+    department_id: int

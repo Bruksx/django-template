@@ -11,6 +11,8 @@ from factories import BusinessFactory, BusinessUserFactory, CountryFactory, JobF
     WorkflowStageFactory, UserFactory, RoleFactory, IndustryFactory, LanguageFactory, EducationLevelFactory, \
     SkillFactory, \
     TalentFilterFactory
+from django.test import TestCase
+from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, BusinessFactory, BusinessUserFactory, CountryFactory, JobFactory, JobPostFactory, TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, WorkflowStageFactory, UserFactory, RoleFactory, IndustryFactory, LanguageFactory, EducationLevelFactory, SkillFactory,TalentFilterFactory
 from jobs.enums import PhaseType, JobStatusType, WorkStructureEnum
 from jobs.models import JobApplication
 from ninja.testing import TestClient

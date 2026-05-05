@@ -3484,8 +3484,7 @@ class AIJobDescriptionAPITest(TestCase):
             self.assertEqual(response.status_code, 400)
             self.assertEqual(response.data, {"detail": mock_generate_job_description.return_value.error})
 
-
-
+            
 class AIJobSalaryAPITest(TestCase):
     def setUp(self):
         super().setUp()
@@ -3522,5 +3521,4 @@ class AIJobSalaryAPITest(TestCase):
             self.assertEqual(response.status_code, 200)
             expected_response = AIJobSalaryGeneratorResponseSchema.example()
             self.assertEqual(response.data, expected_response)
-
 
