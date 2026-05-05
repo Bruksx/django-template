@@ -4,19 +4,20 @@ from typing import List, Literal
 from typing import Optional
 from uuid import UUID
 
+from django.db.models import QuerySet, Q, Count, Exists, OuterRef
+from django.utils import timezone
+from ninja import ModelSchema
+from ninja.errors import HttpError
+from ninja.schema import Schema
+from pydantic import Field, EmailStr
+
 from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from accounts.schemas.business import BusinessUserListSchema
 from core.enums import SalaryType
 from core.models import Currency
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
-from django.db.models import QuerySet, Q, Count
-from django.utils import timezone
-from ninja import ModelSchema
-from ninja.errors import HttpError
-from ninja.schema import Schema
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
-from pydantic import Field, EmailStr
 from settings.models import WorkFlowStage
 
 from helpers.utils import export_rows_to_excel
@@ -1471,20 +1472,22 @@ class BusinessJobFilterSchema(Schema):
                                        Q(created_by__business__name__icontains=self.search)
                                        ).distinct()
 
+        job_post_query = Q()
+
         if self.status:
-            queryset = queryset.filter(jobpost__status=self.status.value)
+            job_post_query &= Q(status__icontains=self.status.value)
 
         if self.country:
-            queryset = queryset.filter(jobpost__country__uid=self.country)
+            job_post_query &= Q(country__uid=self.country)
 
         if self.tags:
-            queryset = queryset.filter(jobpost__tags__uid__in=self.tags)
+            job_post_query &= Q(tags__uid__in=self.tags)
 
         if self.province:
-            queryset = queryset.filter(jobpost__province__uid=self.province)
+            job_post_query &= Q(province__uid=self.province)
 
         if self.city:
-            queryset = queryset.filter(jobpost__city__iexact=self.city)
+            job_post_query &= Q(city__iexact=self.city)
 
         if self.clients:
             queryset = queryset.filter(hiring_company_name__in=self.clients)
@@ -1495,16 +1498,17 @@ class BusinessJobFilterSchema(Schema):
 
         if self.statuses:
             statuses = [s.value for s in self.statuses]
-            queryset = queryset.filter(jobpost__status__in=statuses)
+            job_post_query &= Q(status__in=statuses)
 
         if self.recruiter:
-            queryset = queryset.filter(jobpost__recruiter__uid__in=self.recruiter)
+            job_post_query &= Q(recruiter__uid__in=self.recruiter)
 
 
         if self.posted_by:
-            queryset = queryset.filter(jobpost__posted_by__uid__in=self.posted_by)
+            job_post_query &= Q(posted_by__uid__in=self.posted_by)
 
-        return queryset.distinct()
+        return queryset.annotate(
+           has_job=Exists(JobPost.objects.filter(Q(job_id=OuterRef("id")) & job_post_query))).filter(has_job=True)
 
     def get_context(self, context)->dict:
         if not context:

@@ -525,52 +525,17 @@ def job_list(request, page_size=50, page=1, filters: BusinessJobFilterQuerySchem
     filters = filters.convert_to_schema()
     context = filters.get_context(context=context)
     request.context = context
-    jobpost_filter = Q()
-    export_job_post_filter = Q(job__created_by__business=business_user.business)
-
-    if context.get("status"):
-        jobpost_filter &= Q(jobpost__status=context["status"])
-        export_job_post_filter &= Q(status=context["status"])
-
-
-    if context.get("statuses"):
-        jobpost_filter &= Q(jobpost__status__in=context["statuses"])
-        export_job_post_filter &= Q(status__in=context["statuses"])
-
-    if context.get("country"):
-        jobpost_filter &= Q(jobpost__country__uid=context["country"])
-        export_job_post_filter &= Q(country__uid=context["country"])
-
-    if context.get("province"):
-        jobpost_filter &= Q(jobpost__province__uid=context["province"])
-        export_job_post_filter &= Q(province__uid=context["province"])
-
-    if context.get("city"):
-        jobpost_filter &= Q(jobpost__city__iexact=context["city"])
-        export_job_post_filter &= Q(city__iexact=context["city"])
-
-    if context.get("recruiter"):
-        jobpost_filter &= Q(jobpost__recruiter__uid__in=context["recruiter"])
-        export_job_post_filter &= Q(recruiter__uid__in=context["recruiter"])
-
-    if context.get("posted_by"):
-        jobpost_filter &= Q(jobpost__posted_by__uid__in=context["posted_by"])
-        export_job_post_filter &= Q(posted_by__uid__in=context["posted_by"])
-
+    queryset = filters.get_queryset(queryset=queryset)
+    
     if filters.to_excel is True:
-        return export_job_posts_to_excel(export_job_post_filter)
-
-    queryset = (filters.get_queryset(queryset=queryset)
-                .annotate(jobpost_count=Count('jobpost', filter=jobpost_filter, distinct=True))
-                .filter(jobpost_count__gt=0))
-
+        return export_job_posts_to_excel(context)
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(
         queryset=queryset.order_by("-created_at"),
         request=request,
         pagination=pagination,
         roles=queryset.count(),
-        posts= filters.filter_job_posts(context, business_user.business.job_posts()).filter(job__in=queryset).count()
+        posts=filters.filter_job_posts(context, JobPost.objects.filter(job__in=queryset)).count()
     )
 
 @router.get("public/job-posts", response=PaginatedResponseSchema[PublicJobPostListSchema])
