@@ -2,11 +2,12 @@ from datetime import datetime, timedelta, date
 from typing import Optional
 from uuid import UUID
 
-from accounts.models import Business
 from django.db.models import Func, F, Q
 from django.db.models import Sum, IntegerField, Avg, Count, OuterRef, Exists, Subquery
 from django.db.models.functions import Cast, TruncDate
 from django.utils import timezone
+
+from accounts.models import Business
 from jobs.enums import PhaseType, WithdrawalFeedbackType
 from jobs.models import TalentApplicationStageTimeline, JobApplication, JobApplicationWithdrawal
 
@@ -56,17 +57,17 @@ def average_days_to_hire(business: Optional[Business]=None, start_date: Optional
         ),
         business=business, start_date=start_date, end_date=end_date, role=role, client=client)
 
-    return queryset.values("application").annotate(total_time=Sum("time_spent")).aggregate(
+    return int(queryset.values("application").annotate(total_time=Sum("time_spent")).aggregate(
         days_to_hire=Cast(Avg("total_time"), output_field=IntegerField())
-    )["days_to_hire"] or 0
+    )["days_to_hire"] or 0)
 
 def average_days_per_stage(business: Optional[Business]=None, start_date: Optional[datetime]=None, end_date: Optional[datetime]=None, role: UUID=None, client: str=None):
     queryset = get_talent_application_stage_timeline(
         queryset=TalentApplicationStageTimeline.objects,
         business=business, start_date=start_date, end_date=end_date, role=role, client=client)
-    return queryset.values("stage").annotate(avg_time_spent=Avg("time_spent")).aggregate(
+    return int(queryset.values("stage").annotate(avg_time_spent=Avg("time_spent")).aggregate(
         avg_stage_time_spent=Cast(Avg("avg_time_spent"), output_field=IntegerField())
-    )['avg_stage_time_spent'] or 0
+    )['avg_stage_time_spent'] or 0)
 
 
 def applicant_to_hire_ratio(business: Optional[Business]=None, start_date: Optional[datetime]=None, end_date: Optional[datetime]=None, role: UUID=None, client: str=None):
