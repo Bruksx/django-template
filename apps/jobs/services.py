@@ -3,8 +3,7 @@ from io import BytesIO
 from typing import List
 from uuid import UUID
 
-from accounts.models import Skill
-from core.models import Language
+from config.settings import FRONTEND_URL
 from django.conf import settings
 from django.contrib.postgres.aggregates import StringAgg
 from django.core.files.base import ContentFile
@@ -14,21 +13,22 @@ from django.db.models import QuerySet, Window, F, Q, OuterRef, Exists, Count, Ca
 from django.db.models.functions import RowNumber, Cast, Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from helpers.utils import upload_to_s3, upload_to_server, sort_params_function, export_rows_to_excel
+from monkeypatches.q_cluster import async_task
+from ninja.errors import HttpError
+from openpyxl import Workbook
+
+from accounts.models import Skill
+from core.models import Language
 from jobs.enums import PhaseType, JobStatusType, QuestionTypeEnum
 from jobs.models import (
     JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job, RequiredSecondaryLanguage,
     RequiredSkill, BusinessModel, JobPost, QuestionOption, JobPostTag, TalentApplicationStageTimeline,
     JobPostExport,
 )
-from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema, MutateOptionSchema
-from ninja.errors import HttpError
+from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema, MutateOptionSchema, BusinessJobFilterSchema
 from notification.notifications import send_talents_job_matching_notification
-from openpyxl import Workbook
 from settings.models import WorkFlowStage
-
-from config.settings import FRONTEND_URL
-from helpers.utils import upload_to_s3, upload_to_server, sort_params_function, export_rows_to_excel
-from monkeypatches.q_cluster import async_task
 
 
 def get_talent_job_recommendations(talent, business=None, search="", distinct=False):
@@ -582,7 +582,7 @@ def export_job_posts_to_excel2(jobs:QuerySet[Job], background:bool=False):
 
     return export_rows_to_excel(rows=rows, headers=headers, title=title, bold_rows=bold_rows, background=background)
 
-def export_job_posts_to_excel(filter_query, background:bool=False):
+def export_job_posts_to_excel(context, background:bool=False):
     job_url = lambda job_post_uid: f"{FRONTEND_URL}jobs-listing/{job_post_uid}"
     title = "Job Posts"
     headers = [
@@ -608,9 +608,11 @@ def export_job_posts_to_excel(filter_query, background:bool=False):
     ]
     empty_header = [" " for _ in headers]
     rows = []
-    job_posts = JobPost.objects.filter(filter_query).select_related("job",
+    job_posts = BusinessJobFilterSchema.filter_job_posts(
+        context, JobPost.objects.select_related("job",
        "job__role", "job__employment_type", "job__department",
-        "country", "province", "recruiter__user").annotate(
+        "country", "province", "recruiter__user").all())
+    job_posts = job_posts.annotate(
         applicants=Count("jobapplication"),
         role=Case(
             When(job__role__isnull=True, then=Value('')),

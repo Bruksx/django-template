@@ -6,6 +6,7 @@ from uuid import UUID
 
 from django.db.models import QuerySet, Q, Count, Exists, OuterRef
 from django.utils import timezone
+from helpers.utils import export_rows_to_excel
 from ninja import ModelSchema
 from ninja.errors import HttpError
 from ninja.schema import Schema
@@ -19,8 +20,6 @@ from core.models import Currency
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from settings.models import WorkFlowStage
-
-from helpers.utils import export_rows_to_excel
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType, UpdateQuickReviewType
 from .models import BusinessModel, JobApplication, Answer, JobInvite
@@ -1538,6 +1537,8 @@ class BusinessJobFilterSchema(Schema):
 
     @staticmethod
     def filter_job_posts(context, queryset):
+        if context.get("business"):
+            queryset = queryset.filter(job__created_by__business=context.get("business"))
         if context.get("status"):
             queryset = queryset.filter(status=context.get("status"))
         if context.get("country"):
