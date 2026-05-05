@@ -3,31 +3,21 @@ from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
 
-from config.permissions import IsBusinessUser
 from accounts.models import Country
 from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
 from accounts.schemas.talent import SkillSchema, AddSkillSchema
 from chats.schemas import ResponseSchema
 from core.models import State, Currency
 from django.db import transaction
-from django.db.models import Q, Count, Exists, Subquery, OuterRef, Case, When, F, Value
+from django.db.models import Q, Count, Exists, OuterRef, Case, When, F, Value
 from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from ninja import Router, PatchDict, Query, UploadedFile, Form
-from helpers.email.jobs import send_indeed_apply_email
-from helpers.utils import convert_base64_to_image_file
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
 from ninja import Router, PatchDict, Query
+from ninja import UploadedFile, Form
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
-from services.job_posting.schema.indeed import IndeedApplicationDataPatch
-
-from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
-from accounts.schemas.talent import SkillSchema, AddSkillSchema
-from chats.schemas import ResponseSchema
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
@@ -52,7 +42,7 @@ from .schemas import (
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
     TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2, AddRoleSchema,
-    PublicJobPostListSchema, PublicJobPostFilterQuerySchema, UpdateQuickReviewSchema, QuickReviewFilterQuerySchema,
+    UpdateQuickReviewSchema, QuickReviewFilterQuerySchema,
     PublicJobPostListSchema, PublicJobPostFilterQuerySchema,
     AIJobDescriptionGeneratorResponseSchema, AIJobDescriptionGeneratorRequestSchema, AIJobSalaryGeneratorRequestSchema,
     AIJobSalaryGeneratorResponseSchema
@@ -60,8 +50,8 @@ from .schemas import (
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, create_job_post_service, \
     bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
-    get_talents_by_job_posts_service, handle_stage_update, handle_application_stage, handle_applications_stage, export_job_posts_to_excel, delete_job_post_tags
-
+    get_talents_by_job_posts_service, handle_stage_update, handle_application_stage, handle_applications_stage, \
+    export_job_posts_to_excel, delete_job_post_tags
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
