@@ -61,36 +61,36 @@ class DashboardFilterSchema(TypedDict):
     client: Optional[str]
 
 class Last3MonthHiresSchema(Schema):
-    role: str
-    talent: str
-    hired_by: str
+    role: Optional[str] = None
+    talent: Optional[str] = None
+    hired_by: Optional[str] = None
 
 class RecruiterPerformanceListSchema(Schema):
-    recruiter: str
-    count: int
+    recruiter: Optional[str] = None
+    count: int|float
 
 class RecruiterPerformanceSchema(Schema):
-    total_hires: int
+    total_hires: int|float
     data:List[RecruiterPerformanceListSchema]
 
 class ApplicationGenderListSchema(Schema):
-    gender: str
-    count: int
+    gender: Optional[str] = None
+    count: int|float
 
 class ApplicationGenderSchema(Schema):
-    total_applicants: int
+    total_applicants: int|float
     data: List[ApplicationGenderListSchema]
 
 class HiresByCountryListSchema(Schema):
-    country: str
-    count: int
+    country: Optional[str] = None
+    count: int|float
 
 class HiresByCountrySchema(Schema):
-    total_countries: int
+    total_countries: int|float
     data: List[HiresByCountryListSchema]
 
 class TimeToHireSchema(Schema):
-    role: str
+    role: Optional[str] = None
     posted: Optional[int] = None
     screening: Optional[int] = None
     interview: Optional[int] = None
@@ -98,21 +98,21 @@ class TimeToHireSchema(Schema):
     days_to_hire: Any
 
 class StageTimelineSchema(Schema):
-    stage: str
+    stage: Optional[str] = None
     avg_timeline: Any
 
 class TimeToHireViaStages(Schema):
-    role: str
+    role: Optional[str] = None
     graph: List[StageTimelineSchema]
     days_to_hire: Any
 
 
 class WithdrawalReasonSchemaList(Schema):
-    reason: str
-    count: int
+    reason: Optional[str] = None
+    count: int|float
 
 class WithdrawalReasonSchema(Schema):
-    total_withdrawal: int
+    total_withdrawal: int|float
     data: List[WithdrawalReasonSchemaList]
 
 
@@ -122,12 +122,12 @@ class ApplicantsYearsOfExperienceSchema(Schema):
 
 
 class TalentByPhase(Schema):
-    phase: str
-    count: int
+    phase: Optional[str] = None
+    count: int|float
 
 class TalentByStage(Schema):
-    stage: str
-    count: int
+    stage: Optional[str] = None
+    count: int|float
 
 class DashboardSchema(ModelSchema):
     # would need to be cached
@@ -136,7 +136,7 @@ class DashboardSchema(ModelSchema):
     applicants:int
     applications:int
     avg_days_to_hire:int
-    invitations_sent: int
+    invitations_sent: int|float
 
     hires_last_3_months:List[Last3MonthHiresSchema]
     recruiter_performance:RecruiterPerformanceSchema
@@ -280,8 +280,8 @@ class MutateBusinessSchema(ModelSchema):
 
 
 class BusinessDetailSchema(ModelSchema):
-    logo: Optional[str] = Field(alias="get_logo")
-    location: str = Field(alias="location")
+    logo: Optional[str] = Field(None,alias="get_logo")
+    location: Optional[str] = Field(None, alias="location")
     country: Optional[GenericNameAndUidSchema] = None
     industry: Optional[GenericNameAndUidSchema] = None
     class Meta:
@@ -296,8 +296,8 @@ class BusinessUserListSchema(ModelSchema):
     email_verified: bool = Field(alias="user.email_verified")
     secondary_email: Optional[EmailStr] = Field(alias="user.secondary_email")
     secondary_email_verified: Optional[bool] = Field(alias="user.secondary_email_verified")
-    phone_number: Optional[str] = Field(alias="user.phone_number")
-    phone_code: Optional[str] = Field(alias="user.phone_code")
+    phone_number: Optional[str] = Field(None, alias="user.phone_number")
+    phone_code: Optional[str] = Field(None, alias="user.phone_code")
 
     emails: List[EmailStr]
     user_uid: UUID = Field(alias="user.uid")
@@ -531,23 +531,23 @@ class TimeSeriesDashboardFilter(DashboardFilter):
 
 # https://www.figma.com/design/gYKoLL5lKJZ7vXxNzk5ITI/1840-Global-Talent-Cloud?node-id=14020-7836&t=InpFJVdmIQSVJ0Tq-0
 class ItemValueSchema(Schema):
-    item: str
-    value: str
+    item: Optional[str] = None
+    value: Optional[str] = None
 
 class PhaseCountSchema(Schema):
-    phase: str
-    count: int
+    phase: Optional[str] = None
+    count: int|float
 
 class StageCountSchema(Schema):
-    stage_name: str
-    count: int
+    stage_name: Optional[str] = None
+    count: int|float
 
 class StageDaySchema(Schema):
-    stage_name: str
+    stage_name: Optional[str] = None
     avg_days_spent: int|float
 
 class PhaseDaySchema(Schema):
-    phase: str
+    phase: Optional[str] = None
     avg_days_spent: int|float
 
 class PhaseTimelineSchema(Schema):
@@ -555,46 +555,46 @@ class PhaseTimelineSchema(Schema):
     days_to_hire: int|float
 
 class PipelineDashboardSchema(Schema):
-    avg_days_to_hire: int
-    avg_days_to_hire_per_stage: int
+    avg_days_to_hire: int|float
+    avg_days_to_hire_per_stage: int|float
     applicant_hire_ratio: int
-    dropout_ratio: int
+    dropout_ratio: int|float
 
     applicant_per_phase: list[PhaseCountSchema]
     applicant_per_stage: list[StageCountSchema]
     phase_timeline: PhaseTimelineSchema
 
 class JobCountSchema(Schema):
-    job: str
-    count: int
+    job: Optional[str] = None
+    count: int|float
 
 class ClientCountSchema(Schema):
-    client: str
-    count: int
+    client: Optional[str] = None
+    count: int|float
 
 class LocationCountSchema(Schema):
-    location: str
-    count: int
+    location: Optional[str] = None
+    count: int|float
 class DemographicCountSchema(Schema):
-    demographics: Optional[str]
-    count: int
+    demographics: Optional[str] = None
+    count: int|float
 
 
 class ExperienceCountSchema(Schema):
-    experience: str
-    count: int
+    experience: Optional[str] = None
+    count: int|float
 
 class ApplicationWithdrawalReasonSchema(Schema):
-    reason: str
-    count: int
+    reason: Optional[str] = None
+    count: int|float
 
 class WithdrawalReasonsSchema(Schema):
     graph: List[ApplicationWithdrawalReasonSchema]
-    count: int
+    count: int|float
 
 class RecruiterCountSchema(Schema):
-    recruiter: str
-    count: int
+    recruiter: Optional[str] = None
+    count: int|float
 
     @staticmethod
     def resolve_recruiter(obj):
@@ -603,10 +603,10 @@ class RecruiterCountSchema(Schema):
 
 
 class PaginatedRecruiterHireSchema(PaginatedResponseSchema[RecruiterCountSchema]):
-    total_hires: int
+    total_hires: int|float
 
 class RecruitmentDashboardSchema(Schema):
-    total_applicants: int
+    total_applicants: int|float
     avg_applicants_per_job: int|float
     avg_applicants_per_client: int|float
     avg_applicants_per_recruiter: int|float
@@ -625,9 +625,9 @@ class ApplicantDashboardSchema(Schema):
 
 
 class PlatformHealthDashboardSchema(Schema):
-    active_clients: int # last 30 days
-    active_users_daily_average: int
-    active_users: int # last 7 days
+    active_clients: int|float # last 30 days
+    active_users_daily_average: int|float
+    active_users: int|float # last 7 days
     system_uptime_percentage: float
     avg_api_response_time: List[ItemValueSchema]
     avg_page_response_time: List[ItemValueSchema]
@@ -636,24 +636,24 @@ class PlatformHealthDashboardSchema(Schema):
 
 class ApplicationHiresGraphItemSchema(Schema):
     day: date
-    applications: int
-    hires: int
+    applications: int|float
+    hires: int|float
 
 class StuckApplicationSchema(Schema):
     uid: UUID
-    talent: str
-    job: str
-    client: str
-    phase: str
-    stage_name: str
+    talent: Optional[str] = None
+    job: Optional[str] = None
+    client: Optional[str] = None
+    phase: Optional[str] = None
+    stage_name: Optional[str] = None
     days_in_stage: int|float
 
 
 class RecentHiresSchema(Schema):
     uid: UUID
-    role: str
-    talent: str
-    hired_by: str
+    role: Optional[str] = None
+    talent: Optional[str] = None
+    hired_by: Optional[str] = None
 
 
 class ApplicationPipelineRatioSchema(Schema):
