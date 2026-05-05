@@ -1,18 +1,16 @@
 from typing import List, Optional
 from uuid import UUID
 
-from django.db import transaction
-from ninja import Router, PatchDict, Query
-from ninja_extra import paginate
-from ninja_jwt.authentication import JWTAuth
-from notification.models import BusinessUserNotificationSettings, Notification
-from notification.schemas import NotificationSettingsSchema, NotificationSchema
-from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
-from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
-
-from apps.notification.schemas import NotificationFilterSchema
 from config.permissions import IsBusinessUser
+from django.db import transaction
 from monkeypatches.response import Response
+from ninja import Router, PatchDict, Query
+from ninja_jwt.authentication import JWTAuth
+
+from jobs.business_views import pagination_class
+from notification.models import BusinessUserNotificationSettings, Notification
+from notification.schemas import NotificationFilterSchema, PaginatedNotificationSchema
+from notification.schemas import NotificationSettingsSchema, NotificationSchema
 
 # Create your views here.
 router = Router(tags=["Notifications"])
@@ -39,14 +37,27 @@ def update_notification_settings(request, data: PatchDict[NotificationSettingsSc
     return Response(status=200, data={"message": "Notification settings updated successfully"})
 
 
-@router.get("", auth=JWTAuth(), response=PaginatedResponseSchema[NotificationSchema])
-@paginate(PageNumberPaginationExtra, page_size=50)
+@router.get("", auth=JWTAuth(), response=PaginatedNotificationSchema)
 def get_notifications(request, filters: NotificationFilterSchema = Query(...)):
     if hasattr(request.user, "businessuser"):
-        return request.user.businessuser.notifications(viewed=filters.viewed, excludes=filters.excludes)
+        queryset = request.user.businessuser.notifications(viewed=filters.viewed, excludes=filters.excludes)
+        unread_count = (Notification.can_view_annotation(request.user.businessuser.notifications(viewed=False, excludes=filters.excludes), request.user).
+                    count())
     elif hasattr(request.user, "talent"):
-        return request.user.talent.notifications(viewed=filters.viewed, excludes=filters.excludes)
-    return Notification.objects.none()
+        queryset =  request.user.talent.notifications(viewed=filters.viewed, excludes=filters.excludes)
+        unread_count = (Notification.can_view_annotation(request.user.talent.notifications(viewed=False, excludes=filters.excludes), request.user)
+                        .count())
+    else:
+        queryset = Notification.objects.none()
+        unread_count = 0
+    queryset = Notification.can_view_annotation(queryset, request.user)
+    pagination = pagination_class(filters.page_size).Input(page=filters.page, page_size=filters.page_size)
+    return pagination_class(filters.page_size).paginate_queryset(
+        queryset=queryset,
+        request=request,
+        pagination=pagination,
+        unread_count=unread_count
+    )
 
 @router.patch("{notification_uid}/read", auth=JWTAuth())
 def read_notification(request, notification_uid: UUID):
