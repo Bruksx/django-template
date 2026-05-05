@@ -393,6 +393,15 @@ def handle_job_post_tags(job_post, tags: list[str], business):
     job_post.save()
     return job_post
 
+def delete_job_post_tags(tags:list[str], business):
+    if not tags:
+        raise HttpError(400, "Tags not found")
+
+    # Fetch existing tags and delete
+    JobPostTag.objects.filter(name__in=tags, business=business).hard_delete()
+
+    return
+
 
 def handle_stage_update(application: JobApplication, stages: List[WorkFlowStage], business_user, raise_exception=True):
     try:

@@ -3,15 +3,17 @@ from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
 
+from accounts.models import Country
 from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
 from accounts.schemas.talent import SkillSchema, AddSkillSchema
 from chats.schemas import ResponseSchema
+from core.models import State, Currency
 from django.db import transaction
-from django.db.models import Q, Count, Exists, Subquery, OuterRef, Case, When, F, Value
+from django.db.models import Q, Count, Exists, OuterRef, Case, When, F, Value
 from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from ninja import Router, PatchDict, Query
+from ninja import Router, PatchDict, Query, UploadedFile, Form
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
@@ -22,9 +24,10 @@ from settings.models import WorkFlowStage
 
 from config.permissions import IsBusinessUser
 from helpers.email.jobs import send_indeed_apply_email
-from helpers.utils import convert_base64_to_image_file
+from helpers.utils import convert_base64_to_image_file, upload_to_s3, delete_s3_item
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
+from services.ai import generate_job_description, generate_job_post_salary, JobSalaryRequestSchema
 from services.job_posting.schema.indeed import IndeedApplicationDataPatch
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType
@@ -38,12 +41,15 @@ from .schemas import (
     JobLevelSchema, BulkJobPostSchema, JobDetailSchema, JobWorkflowViewPaginatedSchema,
     TalentListJobPostSchema, JobLogoSchema, MutateOptionSchema, BusinessJobFilterQuerySchema, TalentJobPostListSchema,
     TalentJobFilterQuerySchema, EmploymentParentTypeSchema, TalentListJobPostSchema2, AddRoleSchema,
-    PublicJobPostListSchema, PublicJobPostFilterQuerySchema
+    PublicJobPostListSchema, PublicJobPostFilterQuerySchema,
+    AIJobDescriptionGeneratorResponseSchema, AIJobDescriptionGeneratorRequestSchema, AIJobSalaryGeneratorRequestSchema,
+    AIJobSalaryGeneratorResponseSchema
 )
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, create_job_post_service, \
     bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
-    get_talents_by_job_posts_service, handle_stage_update, export_job_posts_to_excel
+    get_talents_by_job_posts_service, handle_stage_update, export_job_posts_to_excel, delete_job_post_tags
+    
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -587,6 +593,14 @@ def job_detail(request, job_uid:UUID):
         raise HttpError(404, "This job does not exist")
     return job
 
+@router.get("job-posts/applications/{application_uid}", response=job_schemas.JobApplicationListSchema, auth=JWTAuth())
+def view_applicant(request, application_uid: UUID):
+    IsBusinessUser.check(request)
+    return (JobApplication.objects
+            .select_related("stage", "applicant", "applicant__user","applicant__country")
+            .annotate(invited=Exists(JobInvite.objects.filter(
+            job=OuterRef('job_post__job'), talent=OuterRef('applicant')
+        ))).filter(uid=application_uid).first())
 
 @router.get("job-posts/{job_post_uid}/applications", response=PaginatedResponseSchema[job_schemas.JobApplicationListSchema], auth=JWTAuth())
 def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Optional[PhaseType]=None,
@@ -597,10 +611,11 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
     IsBusinessUser.check(request)
     business = request.user.businessuser.business
     job_post = get_object_or_404(JobPost, uid=job_post_uid)
-    queryset = JobApplication.objects.select_related("stage", "applicant", "applicant__user",
-                                                     "applicant__country").annotate(invited=Exists(Subquery(JobInvite.objects.filter(
+    queryset = (JobApplication.objects
+                .select_related("stage", "applicant", "applicant__user", "applicant__country")
+                .annotate(invited=Exists(JobInvite.objects.filter(
             job=OuterRef('job_post__job'), talent=OuterRef('applicant')
-        )))).filter(job_post=job_post , job_post__job__created_by__business=business, applicant__deleted_at__isnull=True)
+        ))).filter(job_post=job_post , job_post__job__created_by__business=business, applicant__deleted_at__isnull=True))
     queryset = add_application_match_score(queryset, job_post)
     if search:
         q = Q()
@@ -825,3 +840,111 @@ def get_job_tags(request):
     IsBusinessUser.check(request)
     business = request.user.businessuser.business
     return JobPostTag.objects.filter(business=business).order_by("name")
+
+
+@router.post("ai/generate-description", auth=JWTAuth(), response=AIJobDescriptionGeneratorResponseSchema)
+def ai_job_description_generator(request, body: AIJobDescriptionGeneratorRequestSchema = Form(),  file: UploadedFile=None):
+    IsBusinessUser.check(request)
+    data = dict(prompt=body.prompt)
+    url = None
+    if file:
+        if file.name.split(".")[-1] not in ["pdf", "doc", "docx", "txt"]:
+            raise HttpError(400, "File must be a PDF, DOC, DOCX or TXT file")
+        url = upload_to_s3([file], 'AI/job-description-generator')
+        if not url:
+            raise HttpError(400, "Failed to upload file")
+        data["file_url"] = url
+    if (not data.get("prompt") and not data.get("file_url")) or (data.get("prompt") and data.get("file_url")):
+        raise HttpError(400, "Prompt or file is required")
+
+    data = generate_job_description(**data)
+    result = AIJobDescriptionGeneratorResponseSchema(
+        role=GenericNameAndUidSchema(uid=data.role.uid, name=data.role.name) if data.role else None,
+        job_description=data.job_description,
+        responsibilities=f'<ul>{"".join(map(lambda x: f"<li>{x}</li>", data.responsibilities))}</ul>',
+        skills=data.get_skills(),
+        job_level=GenericNameAndUidSchema(uid=data.job_level.uid, name=data.job_level.name) if data.job_level else None,
+        additional_skills=data.additional_skills
+    )
+    if url:
+        async_task(delete_s3_item, url)
+    if data.error:
+        data = data.error
+        raise HttpError(400, data)
+    del data
+    return result
+
+@router.post("ai/generate-salary", auth=JWTAuth(), response=AIJobSalaryGeneratorResponseSchema)
+def ai_job_salary_generator(request, data: AIJobSalaryGeneratorRequestSchema):
+    IsBusinessUser.check(request)
+
+    role = Role.objects.filter(uid=data.role).select_related("department__industry").first()
+    country = Country.objects.filter(uid=data.country).first()
+    state = State.objects.filter(uid=data.state).first()
+    job_level = JobLevel.objects.filter(uid=data.job_level).first()
+    department = Department.objects.filter(uid=data.department).select_related("industry").first()
+    employment_type = EmploymentType.objects.filter(uid=data.employment_type).first()
+
+    if not role:
+        raise HttpError(404, "This role does not exist")
+    if not country:
+        raise HttpError(404, "This country does not exist")
+    if not state:
+        raise HttpError(404, "This state does not exist")
+    if not job_level:
+        raise HttpError(404, "This job level does not exist")
+    if not department:
+        raise HttpError(404, "This department does not exist")
+    if not employment_type:
+        raise HttpError(404, "This employment type does not exist")
+
+
+
+    ai_response = generate_job_post_salary(
+        data=JobSalaryRequestSchema(
+            job_title=role.name,
+            job_description=data.job_description,
+            location=f"{state.name} {country.name}",
+            experience_level=job_level.name,
+            industry=role.department.industry.name if not department else department.industry.name,
+            employment_type=employment_type.name
+        )
+    )
+    currency = Currency.objects.filter(abbreviation__iexact=ai_response.currency).first()
+
+    return{
+        "salary_options": AIJobSalaryGeneratorResponseSchema.build_salary_options(
+            ai_response.annual_salary_min,
+            ai_response.annual_salary_max,
+            ai_response.hourly_rate_min,
+            ai_response.hourly_rate_max,
+        ),
+        "bonus_salary_options": AIJobSalaryGeneratorResponseSchema.build_salary_options(
+            ai_response.bonus_annual_salary_min,
+            ai_response.bonus_annual_salary_max,
+            ai_response.bonus_hourly_rate_min,
+            ai_response.bonus_hourly_rate_max,
+        ),
+        "currency": {
+            "uid": currency.uid,
+            "name": currency.name,
+        },
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+@router.delete("jobposts/tags", tags=['Common'], auth=JWTAuth())
+def delete_job_tags(request, data: List[str]):
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
+    delete_job_post_tags(data, business)
+    return Response(status=204, data=dict(message="Job Post Tags deleted successfully"))

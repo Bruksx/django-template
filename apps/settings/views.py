@@ -1,21 +1,21 @@
 from typing import List
 from uuid import UUID
 
-from config.permissions import IsBusinessUser, IsBusinessOwnerOrAdmin
+from accounts.enums import BusinessUserRoleType
 from django.db import transaction
-from django.db.models import Q, Subquery
-from monkeypatches.response import Response
+from django.db.models import Q
+from jobs.enums import PhaseType
+from jobs.models import JobApplication
 from ninja import Router, Form, PatchDict, UploadedFile
 from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
-
-from accounts.enums import BusinessUserRoleType
-from jobs.enums import PhaseType
-from jobs.models import JobApplication
 from settings.models import EmailTemplate, EmailTemplateAttachment, WorkFlowStage
 from settings.schemas import CreateEmailTemplateSchema, EmailTemplateListSchema, EmailTemplateDetailSchema, \
     MutateWorkFlowStageSchema, WorkFlowStageSchema, PhaseWorkFlowStageSchema, RearrangeWorkflowStageSchema, \
     MoveApplicationToStageFromStageSchema, UpdateEmailTemplateSchema
+
+from config.permissions import IsBusinessUser, IsBusinessOwnerOrAdmin
+from monkeypatches.response import Response
 
 router = Router(tags=["Settings"])
 
@@ -52,7 +52,7 @@ def update_email_template(request, template_uid:UUID, body:UpdateEmailTemplateSc
     if "name" in data and EmailTemplate.objects.filter(created_by__business=business_user.business,
         personal=personal, name__iexact=data["name"]).exclude(uid=template_uid).exists():
         raise HttpError(400, "An email template with this name already exists")
-    if business_user.role not in [BusinessUserRoleType.OWNER.value, BusinessUserRoleType.ADMIN.value] and \
+    if business_user.role not in [BusinessUserRoleType.OWNER.value, BusinessUserRoleType.ADMIN.value, BusinessUserRoleType.TALENT_MANAGER.value] and \
         template.created_by != business_user:
         raise HttpError(403, "You do not have permission to update this email template")
     UpdateEmailTemplateSchema.is_valid(data=data, instance=template)

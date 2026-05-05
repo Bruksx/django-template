@@ -2,6 +2,7 @@ import requests
 from typing import Optional
 from config.settings import AI_SERVICE_BASE_URL
 
+
 class GtcAiClient:
     def __init__(self):
         self.base_url = AI_SERVICE_BASE_URL

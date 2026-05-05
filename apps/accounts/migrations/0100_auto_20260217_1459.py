@@ -15,7 +15,7 @@ def add_more_roles_v2(apps, schema_editor):
         for role_name in obj["Roles"].split("\n"):
             if Role.objects.filter(name__iexact=role_name.strip(), department=department).exists():
                 continue
-            Role.objects.create(name=role_name.strip().title(), department=department)
+            Role.objects.create(name=role_name.strip(), department=department)
 
 
 class Migration(migrations.Migration):
