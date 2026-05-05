@@ -19,12 +19,12 @@ from pydantic import EmailStr, Field
 class ValidateOTPSchema(Schema):
     email: EmailStr
     secondary_email: Optional[EmailStr] = None
-    otp: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    role: Optional[str] = None
-    company_name: Optional[str] = None
-    password: Optional[str] = None
+    otp: str
+    first_name: str
+    last_name: str
+    role: str
+    company_name: str
+    password: str
     phone_code: Optional[str] = None
     phone_number: Optional[str] = None
 
