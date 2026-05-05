@@ -2,18 +2,19 @@ from datetime import date
 from typing import Optional, List, TypedDict, Any, Literal
 from uuid import UUID
 
+from django.db.models import Q, Subquery
+from django.db.models.functions import Lower
+from ninja import ModelSchema, Schema
+from ninja_extra.schemas import PaginatedResponseSchema
+from pydantic import EmailStr, Field
+
 from accounts.enums import BusinessUserRoleType
 from accounts.models import Business, BusinessUser, TalentFilter, Talent, Experience, Education
 from accounts.queries import add_profile_completion_annotation
 from accounts.schemas.common import DashboardFilter
 from core.schemas import READ_EXCLUDE_FIELDS, GenericNameAndUidSchema, EducationLevelSchema
-from django.db.models import Q, Subquery
-from django.db.models.functions import Lower
 from jobs.enums import WorkStructureEnum
 from jobs.models import EmploymentType
-from ninja import ModelSchema, Schema
-from ninja_extra.schemas import PaginatedResponseSchema
-from pydantic import EmailStr, Field
 
 
 class ValidateOTPSchema(Schema):
@@ -67,26 +68,26 @@ class Last3MonthHiresSchema(Schema):
 
 class RecruiterPerformanceListSchema(Schema):
     recruiter: str
-    count: int
+    count: int|float
 
 class RecruiterPerformanceSchema(Schema):
-    total_hires: int
+    total_hires: int|float
     data:List[RecruiterPerformanceListSchema]
 
 class ApplicationGenderListSchema(Schema):
     gender: str
-    count: int
+    count: int|float
 
 class ApplicationGenderSchema(Schema):
-    total_applicants: int
+    total_applicants: int|float
     data: List[ApplicationGenderListSchema]
 
 class HiresByCountryListSchema(Schema):
     country: str
-    count: int
+    count: int|float
 
 class HiresByCountrySchema(Schema):
-    total_countries: int
+    total_countries: int|float
     data: List[HiresByCountryListSchema]
 
 class TimeToHireSchema(Schema):
@@ -109,10 +110,10 @@ class TimeToHireViaStages(Schema):
 
 class WithdrawalReasonSchemaList(Schema):
     reason: str
-    count: int
+    count: int|float
 
 class WithdrawalReasonSchema(Schema):
-    total_withdrawal: int
+    total_withdrawal: int|float
     data: List[WithdrawalReasonSchemaList]
 
 
@@ -123,11 +124,11 @@ class ApplicantsYearsOfExperienceSchema(Schema):
 
 class TalentByPhase(Schema):
     phase: str
-    count: int
+    count: int|float
 
 class TalentByStage(Schema):
     stage: str
-    count: int
+    count: int|float
 
 class DashboardSchema(ModelSchema):
     # would need to be cached
@@ -136,7 +137,7 @@ class DashboardSchema(ModelSchema):
     applicants:int
     applications:int
     avg_days_to_hire:int
-    invitations_sent: int
+    invitations_sent: int|float
 
     hires_last_3_months:List[Last3MonthHiresSchema]
     recruiter_performance:RecruiterPerformanceSchema
@@ -536,11 +537,11 @@ class ItemValueSchema(Schema):
 
 class PhaseCountSchema(Schema):
     phase: str
-    count: int
+    count: int|float
 
 class StageCountSchema(Schema):
     stage_name: str
-    count: int
+    count: int|float
 
 class StageDaySchema(Schema):
     stage_name: str
@@ -555,10 +556,10 @@ class PhaseTimelineSchema(Schema):
     days_to_hire: int|float
 
 class PipelineDashboardSchema(Schema):
-    avg_days_to_hire: int
-    avg_days_to_hire_per_stage: int
+    avg_days_to_hire: int|float
+    avg_days_to_hire_per_stage: int|float
     applicant_hire_ratio: int
-    dropout_ratio: int
+    dropout_ratio: int|float
 
     applicant_per_phase: list[PhaseCountSchema]
     applicant_per_stage: list[StageCountSchema]
@@ -566,35 +567,35 @@ class PipelineDashboardSchema(Schema):
 
 class JobCountSchema(Schema):
     job: str
-    count: int
+    count: int|float
 
 class ClientCountSchema(Schema):
     client: str
-    count: int
+    count: int|float
 
 class LocationCountSchema(Schema):
     location: str
-    count: int
+    count: int|float
 class DemographicCountSchema(Schema):
-    demographics: Optional[str]
-    count: int
+    demographics: Optional[str] = None
+    count: int|float
 
 
 class ExperienceCountSchema(Schema):
     experience: str
-    count: int
+    count: int|float
 
 class ApplicationWithdrawalReasonSchema(Schema):
     reason: str
-    count: int
+    count: int|float
 
 class WithdrawalReasonsSchema(Schema):
     graph: List[ApplicationWithdrawalReasonSchema]
-    count: int
+    count: int|float
 
 class RecruiterCountSchema(Schema):
     recruiter: str
-    count: int
+    count: int|float
 
     @staticmethod
     def resolve_recruiter(obj):
@@ -603,10 +604,10 @@ class RecruiterCountSchema(Schema):
 
 
 class PaginatedRecruiterHireSchema(PaginatedResponseSchema[RecruiterCountSchema]):
-    total_hires: int
+    total_hires: int|float
 
 class RecruitmentDashboardSchema(Schema):
-    total_applicants: int
+    total_applicants: int|float
     avg_applicants_per_job: int|float
     avg_applicants_per_client: int|float
     avg_applicants_per_recruiter: int|float
@@ -625,9 +626,9 @@ class ApplicantDashboardSchema(Schema):
 
 
 class PlatformHealthDashboardSchema(Schema):
-    active_clients: int # last 30 days
-    active_users_daily_average: int
-    active_users: int # last 7 days
+    active_clients: int|float # last 30 days
+    active_users_daily_average: int|float
+    active_users: int|float # last 7 days
     system_uptime_percentage: float
     avg_api_response_time: List[ItemValueSchema]
     avg_page_response_time: List[ItemValueSchema]
@@ -636,8 +637,8 @@ class PlatformHealthDashboardSchema(Schema):
 
 class ApplicationHiresGraphItemSchema(Schema):
     day: date
-    applications: int
-    hires: int
+    applications: int|float
+    hires: int|float
 
 class StuckApplicationSchema(Schema):
     uid: UUID
@@ -653,7 +654,7 @@ class RecentHiresSchema(Schema):
     uid: UUID
     role: str
     talent: str
-    hired_by: str
+    hired_by: Optional[str] = None
 
 
 class ApplicationPipelineRatioSchema(Schema):

@@ -9,7 +9,7 @@ import string
 import sys
 import traceback
 import uuid
-from datetime import timezone, time, datetime
+from datetime import time, datetime
 from html import unescape
 from io import BytesIO
 from sys import getsizeof
@@ -28,7 +28,6 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db.models import QuerySet
 from django.http import HttpResponse
-from django.utils import timezone
 from ninja.errors import HttpError
 from openpyxl import Workbook
 from openpyxl.styles import Font
@@ -334,6 +333,7 @@ def prepare_for_json(data):
 
 
 def datetime_to_epoch_milliseconds(dt)->int:
+  from datetime import timezone
   if dt.tzinfo is None:
     # If the datetime object has no timezone information, assume it's in local time.
     dt = dt.replace(tzinfo=timezone.utc)
@@ -551,7 +551,11 @@ class Secret:
             return json.loads(decrypted.decode())
         except Exception:
             return None
+
+
+
 def export_rows_to_excel(rows:List[list], headers: list[str], title:str, bold_rows:List[int]=None, background=True):
+    from django.utils import timezone
     from core.models import Exports
     wb = Workbook()
     ws = wb.active

@@ -2,12 +2,11 @@ from datetime import datetime, timedelta, date
 from typing import Optional
 from uuid import UUID
 
-from django.db.models import Func, F, Q
-from django.db.models import Sum, IntegerField, Avg, Count, OuterRef, Exists, Subquery
-from django.db.models.functions import Cast, TruncDate
-from django.utils import timezone
-
 from accounts.models import Business
+from django.db.models import Func, F, Q
+from django.db.models import Sum, Avg, Count, OuterRef, Exists, Subquery
+from django.db.models.functions import TruncDate, Round
+from django.utils import timezone
 from jobs.enums import PhaseType, WithdrawalFeedbackType
 from jobs.models import TalentApplicationStageTimeline, JobApplication, JobApplicationWithdrawal
 
@@ -57,16 +56,16 @@ def average_days_to_hire(business: Optional[Business]=None, start_date: Optional
         ),
         business=business, start_date=start_date, end_date=end_date, role=role, client=client)
 
-    return int(queryset.values("application").annotate(total_time=Sum("time_spent")).aggregate(
-        days_to_hire=Cast(Avg("total_time"), output_field=IntegerField())
+    return (queryset.values("application").annotate(total_time=Sum("time_spent")).aggregate(
+        days_to_hire=Round(Avg("total_time"), 0)
     )["days_to_hire"] or 0)
 
 def average_days_per_stage(business: Optional[Business]=None, start_date: Optional[datetime]=None, end_date: Optional[datetime]=None, role: UUID=None, client: str=None):
     queryset = get_talent_application_stage_timeline(
         queryset=TalentApplicationStageTimeline.objects,
         business=business, start_date=start_date, end_date=end_date, role=role, client=client)
-    return int(queryset.values("stage").annotate(avg_time_spent=Avg("time_spent")).aggregate(
-        avg_stage_time_spent=Cast(Avg("avg_time_spent"), output_field=IntegerField())
+    return (queryset.values("stage").annotate(avg_time_spent=Avg("time_spent")).aggregate(
+        avg_stage_time_spent=Round(Avg("avg_time_spent"), 0)
     )['avg_stage_time_spent'] or 0)
 
 
@@ -143,8 +142,8 @@ def hired_applicants_per_phase_timeline(business: Optional[Business]=None, start
     if client:
         queryset = queryset.filter(application__job_post__job__hiring_company_name=client)
     queryset = queryset.order_by("stage__phase_order").annotate(phase=InitCap("stage__phase"))
-    graph = queryset.values("phase").annotate(avg_days_spent=Avg("time_spent")).values("phase", "avg_days_spent")
-    days_to_hire = graph.aggregate(days_to_hire=Sum("avg_days_spent"))["days_to_hire"] or 0
+    graph = queryset.values("phase").annotate(avg_days_spent=Round(Avg("time_spent"), 0)).values("phase", "avg_days_spent")
+    days_to_hire = round(graph.aggregate(days_to_hire=Sum("avg_days_spent"))["days_to_hire"] or 0)
     return {
         "days_to_hire": days_to_hire,
         "graph": graph
@@ -158,15 +157,15 @@ def total_applicants(business: Optional[Business]=None, start_date: Optional[dat
 
 def average_applicants_per_job(business: Optional[Business]=None, start_date: Optional[datetime]=None, end_date: Optional[datetime]=None, role: UUID=None, client: str=None):
     queryset = get_application_queryset(business=business, start_date=start_date, end_date=end_date, role=role, client=client)
-    return int(queryset.values("job_post__job").annotate(count=Count("applicant", distinct=True)).values("job_post__job", "count").aggregate(average=Avg("count"))["average"] or 0)
+    return round(queryset.values("job_post__job").annotate(count=Count("applicant", distinct=True)).values("job_post__job", "count").aggregate(average=Avg("count"))["average"] or 0)
 
 def average_applicants_per_client(business: Optional[Business]=None, start_date: Optional[datetime]=None, end_date: Optional[datetime]=None, role: UUID=None, client: str=None):
     queryset = get_application_queryset(business=business, start_date=start_date, end_date=end_date, role=role, client=client)
-    return int(queryset.values("job_post__job__hiring_company_name").annotate(count=Count("applicant", distinct=True)).values("job_post__job__hiring_company_name", "count").aggregate(average=Avg("count"))["average"] or 0)
+    return round(queryset.values("job_post__job__hiring_company_name").annotate(count=Count("applicant", distinct=True)).values("job_post__job__hiring_company_name", "count").aggregate(average=Avg("count"))["average"] or 0)
 
 def average_applicants_per_recruiter(business: Optional[Business]=None, start_date: Optional[datetime]=None, end_date: Optional[datetime]=None, role: UUID=None, client: str=None):
     queryset = get_application_queryset(business=business, start_date=start_date, end_date=end_date, role=role, client=client)
-    return int(queryset.values("recruiter").annotate(count=Count("applicant", distinct=True)).values("recruiter", "count").aggregate(average=Avg("count"))["average"] or 0)
+    return round(queryset.values("recruiter").annotate(count=Count("applicant", distinct=True)).values("recruiter", "count").aggregate(average=Avg("count"))["average"] or 0)
 
 
 def application_hires_graph_data(business: Optional[Business] = None,
