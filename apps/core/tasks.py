@@ -22,6 +22,17 @@ def delete_old_exports(days=7):
     for export in exports:
         delete_s3_item(export.file.url)
     exports.hard_delete()
+# metrics/tasks.py
+from datetime import timedelta, datetime
+
+from django.core.cache import cache
+from django.db.models import F
+from django.utils import timezone
+
+from helpers.utils import delete_s3_item
+
+ACTIVE_KEYS_KEY = "metrics:active_keys"
+PAGE_ACTIVE_KEYS_KEY = "metrics:page:active_keys"
 
 def aggregate_api_metrics():
     from core.models import APIMetric
@@ -68,7 +79,6 @@ def aggregate_page_metrics():
     active_keys = cache.get(PAGE_ACTIVE_KEYS_KEY) or set()
     if not active_keys:
         return
-
     cache.delete(PAGE_ACTIVE_KEYS_KEY)
 
     for base_key in active_keys:

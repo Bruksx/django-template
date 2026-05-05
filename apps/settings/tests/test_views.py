@@ -2,10 +2,12 @@ import logging
 
 from accounts.enums import BusinessUserRoleType
 from accounts.enums import BusinessUserRoleType
+from accounts.enums import BusinessUserRoleType
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from factories import BusinessUserFactory, EmailTemplateFactory, WorkflowStageFactory, JobApplicationFactory, \
     TalentFactory
+from factories import BusinessUserFactory, EmailTemplateFactory, WorkflowStageFactory, JobApplicationFactory, TalentFactory
 from jobs.enums import PhaseType
 from jobs.models import JobApplication
 from ninja.testing import TestClient

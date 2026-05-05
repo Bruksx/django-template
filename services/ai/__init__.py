@@ -2,6 +2,9 @@ from services.ai.client import GtcAiClient
 from services.ai.schema import ParsedTalentProfileSchema
 from services.ai.schema import JobDescriptionSchema, JobSalaryRequestSchema, JobSalaryResponseSchema
 
+from services.ai.schema import ParsedTalentProfileSchema
+
+
 
 def generate_job_description(prompt: str=None, file_url: str=None)->JobDescriptionSchema:
     client = GtcAiClient()
@@ -18,6 +21,8 @@ def parse_cv(cv_url: str):
         params={"url": cv_url},
     )
     return response.json()
+
+
 
 
 def generate_job_post_salary(data: JobSalaryRequestSchema)->JobSalaryResponseSchema:

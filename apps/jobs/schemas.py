@@ -1537,6 +1537,8 @@ class BusinessJobFilterSchema(Schema):
 
     @staticmethod
     def filter_job_posts(context, queryset):
+        if context.get("business"):
+            queryset = queryset.filter(job__created_by__business=context.get("business"))
         if context.get("status"):
             queryset = queryset.filter(status=context.get("status"))
         if context.get("country"):

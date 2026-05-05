@@ -6,6 +6,7 @@ from uuid import UUID
 from accounts.models import Country
 from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
 from accounts.models import Department, Role, SkillCategory, Skill, BusinessUser, Talent
+from accounts.models import Country, Department, Role, SkillCategory, Skill, BusinessUser, Talent
 from accounts.schemas.talent import SkillSchema, AddSkillSchema
 from accounts.schemas.talent import SkillSchema, AddSkillSchema
 from chats.schemas import ResponseSchema
@@ -17,6 +18,8 @@ from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja import Router, PatchDict, Query, UploadedFile, Form
+from ninja import Router, PatchDict, Query
+from ninja import UploadedFile, Form
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
@@ -529,7 +532,9 @@ def job_list(request, page_size=50, page=1, filters: BusinessJobFilterQuerySchem
     context = filters.get_context(context=context)
     request.context = context
     queryset = filters.get_queryset(queryset=queryset)
-
+    
+    if filters.to_excel is True:
+        return export_job_posts_to_excel(context)
     pagination = pagination_class(page_size).Input(page=page, page_size=page_size)
     return pagination_class(page_size).paginate_queryset(
         queryset=queryset.order_by("-created_at"),
@@ -984,3 +989,157 @@ def ai_job_salary_generator(request, data: AIJobSalaryGeneratorRequestSchema):
 
 
 
+
+
+
+
+
+@router.get("applications/quick-reviews", auth=JWTAuth(), response=List[UUID])
+def get_quick_reviews(request, filters:QuickReviewFilterQuerySchema = Query(...)):
+    IsBusinessUser.check(request)
+    filters = filters.convert_to_schema()
+    queryset = (JobApplication.objects.filter(job_post__job__created_by__business=request.user.businessuser.business)
+            .filter(Q(stage__isnull=True)| Q(stage__phase=PhaseType.NEW.value))
+            .order_by("-created_at"))
+    if filters.job:
+        queryset = queryset.filter(job_post__job__uid=filters.job)
+    if filters.job_posts:
+        queryset = queryset.filter(job_post__uid__in=filters.job_posts)
+    return queryset.values_list("uid", flat=True)
+
+@router.post("applications/quick-reviews", auth=JWTAuth())
+def update_quick_review(request, data: UpdateQuickReviewSchema):
+    IsBusinessUser.check(request)
+    business_user = request.user.businessuser
+    applications = JobApplication.objects.filter(uid__in=data.applications, job_post__job__created_by__business=request.user.businessuser.business)
+    if not applications.exists():
+        raise HttpError(404, "This application does not exist")
+    stage = None
+    if data.action == UpdateQuickReviewType.REJECT:
+        stage = WorkFlowStage.objects.filter(created_by__business=request.user.businessuser.business, phase=PhaseType.REJECTED.value).first()
+        if not stage:
+            raise HttpError(404, "Reject stage does not exist")
+    if len(data.applications) == 1:
+        handle_application_stage(applications.first(), business_user, stage, data.action == UpdateQuickReviewType.ADVANCE)
+    else:
+        handle_applications_stage(applications, business_user, stage, data.action == UpdateQuickReviewType.ADVANCE)
+    return Response(status=200, data={"message": "Applications updated successfully"})
+
+
+@router.post("ai/generate-description", auth=JWTAuth(), response=AIJobDescriptionGeneratorResponseSchema)
+def ai_job_description_generator(request, body: AIJobDescriptionGeneratorRequestSchema = Form(),  file: UploadedFile=None):
+    IsBusinessUser.check(request)
+    data = dict(prompt=body.prompt)
+    url = None
+    if file:
+        if file.name.split(".")[-1] not in ["pdf", "doc", "docx", "txt"]:
+            raise HttpError(400, "File must be a PDF, DOC, DOCX or TXT file")
+        url = upload_to_s3([file], 'AI/job-description-generator')
+        if not url:
+            raise HttpError(400, "Failed to upload file")
+        data["file_url"] = url
+    if (not data.get("prompt") and not data.get("file_url")) or (data.get("prompt") and data.get("file_url")):
+        raise HttpError(400, "Prompt or file is required")
+
+    data = generate_job_description(**data)
+    result = AIJobDescriptionGeneratorResponseSchema(
+        role=GenericNameAndUidSchema(uid=data.role.uid, name=data.role.name) if data.role else None,
+        job_description=data.job_description,
+        responsibilities=f'<ul>{"".join(map(lambda x: f"<li>{x}</li>", data.responsibilities))}</ul>',
+        skills=data.get_skills(),
+        job_level=GenericNameAndUidSchema(uid=data.job_level.uid, name=data.job_level.name) if data.job_level else None,
+        additional_skills=data.additional_skills
+    )
+    if url:
+        async_task(delete_s3_item, url)
+    if data.error:
+        data = data.error
+        raise HttpError(400, data)
+    del data
+    return result
+
+@router.post("ai/generate-salary", auth=JWTAuth(), response=AIJobSalaryGeneratorResponseSchema)
+def ai_job_salary_generator(request, data: AIJobSalaryGeneratorRequestSchema):
+    IsBusinessUser.check(request)
+
+    role = Role.objects.filter(uid=data.role).select_related("department__industry").first()
+    country = Country.objects.filter(uid=data.country).first()
+    state = State.objects.filter(uid=data.state).first()
+    job_level = JobLevel.objects.filter(uid=data.job_level).first()
+    department = Department.objects.filter(uid=data.department).select_related("industry").first()
+    employment_type = EmploymentType.objects.filter(uid=data.employment_type).first()
+
+    if not role:
+        raise HttpError(404, "This role does not exist")
+    if not country:
+        raise HttpError(404, "This country does not exist")
+    if not state:
+        raise HttpError(404, "This state does not exist")
+    if not job_level:
+        raise HttpError(404, "This job level does not exist")
+    if not department:
+        raise HttpError(404, "This department does not exist")
+    if not employment_type:
+        raise HttpError(404, "This employment type does not exist")
+
+
+
+    ai_response = generate_job_post_salary(
+        data=JobSalaryRequestSchema(
+            job_title=role.name,
+            job_description=data.job_description,
+            location=f"{state.name} {country.name}",
+            experience_level=job_level.name,
+            industry=role.department.industry.name if not department else department.industry.name,
+            employment_type=employment_type.name
+        )
+    )
+    currency = Currency.objects.filter(abbreviation__iexact=ai_response.currency).first()
+
+    return{
+        "salary_options": AIJobSalaryGeneratorResponseSchema.build_salary_options(
+            ai_response.annual_salary_min,
+            ai_response.annual_salary_max,
+            ai_response.hourly_rate_min,
+            ai_response.hourly_rate_max,
+        ),
+        "bonus_salary_options": AIJobSalaryGeneratorResponseSchema.build_salary_options(
+            ai_response.bonus_annual_salary_min,
+            ai_response.bonus_annual_salary_max,
+            ai_response.bonus_hourly_rate_min,
+            ai_response.bonus_hourly_rate_max,
+        ),
+        "currency": {
+            "uid": currency.uid,
+            "name": currency.name,
+        },
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+@router.delete("jobposts/tags", tags=['Common'], auth=JWTAuth())
+def delete_job_tags(request, data: List[str]):
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
+    delete_job_post_tags(data, business)
+    return Response(status=204, data=dict(message="Job Post Tags deleted successfully"))
+
+
+@router.get("applications/{application_uid}/other-applications", tags=["Business Jobs"], auth=JWTAuth(), response=PaginatedResponseSchema[OtherApplicationSchema])
+@paginate(PageNumberPaginationExtra, page_size=50)
+def get_other_applications(request, application_uid: UUID):
+    IsBusinessUser.check(request)
+    queryset = JobApplication.objects.filter(job_post__job__created_by__business=request.user.businessuser.business)
+    application = queryset.filter(uid=application_uid).first()
+    if not application:
+        raise HttpError(404, "This application does not exist")
+    return queryset.filter(applicant=application.applicant).exclude(uid=application_uid).order_by("-created_at")

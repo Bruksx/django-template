@@ -132,8 +132,6 @@ def html_to_pdf3(source_html):
         return None
 
 def delete_s3_item(key):
-    from boto3.session import Session
-
     if "test" in sys.argv:
         return True
 
@@ -554,6 +552,78 @@ class Secret:
         except Exception:
             return None
 
+def export_rows_to_excel(rows:List[list], headers: list[str], title:str, bold_rows:List[int]=None, background=True):
+    from core.models import Exports
+    wb = Workbook()
+    ws = wb.active
+    ws.title = title
+
+    ws.append(headers)
+    header_length = len(headers)
+    column_widths = {string.ascii_uppercase[i]: 0 for i in range(header_length)}
+    mapper = {i: string.ascii_uppercase[i] for i in range(header_length)}
+    for row in rows:
+        for i, cell in enumerate(row):
+            column_widths[mapper[i]] = max(column_widths[mapper[i]], len(str(cell)))
+        ws.append(row)
+
+    for col, width in column_widths.items():
+        ws.column_dimensions[col].width = width + 3
+
+    if bold_rows:
+        for row in bold_rows:
+            for cell in ws[row]:
+                cell.font = Font(bold=True)
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    timestamp = timezone.now().strftime("%B %d, %Y at %I:%M %p")
+    filename = f"{title.replace(' ', '_').lower()}_{timestamp}.xlsx"
+    if background is True:
+        export = Exports()
+        export.file.save(
+            filename,
+            ContentFile(output.read()),
+            save=True
+        )
+
+        return export.file.url
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    wb.save(response)
+    return response
+
+
+class Secret:
+    @staticmethod
+    def __derive_key__() -> bytes:
+        from config.settings import SECRET_KEY
+        # Convert your app secret into a 32-byte key
+        return base64.urlsafe_b64encode(
+            hashlib.sha256(SECRET_KEY.encode()).digest()
+        )
+
+    @classmethod
+    def encrypt_dict(cls, data: dict) -> str:
+        key = cls.__derive_key__()
+        f = Fernet(key)
+        json_data = json.dumps(data).encode()
+        encrypted = f.encrypt(json_data)
+        return encrypted.decode()
+
+    @classmethod
+    def decrypt_dict(cls, token: str) -> Optional[dict]:
+        try:
+            key = cls.__derive_key__()
+            f = Fernet(key)
+            decrypted = f.decrypt(token.encode())
+            return json.loads(decrypted.decode())
+        except Exception:
+            return None
 def export_rows_to_excel(rows:List[list], headers: list[str], title:str, bold_rows:List[int]=None, background=True):
     from core.models import Exports
     wb = Workbook()
