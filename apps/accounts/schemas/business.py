@@ -2,19 +2,18 @@ from datetime import date
 from typing import Optional, List, TypedDict, Any, Literal
 from uuid import UUID
 
-from django.db.models import Q, Subquery
-from django.db.models.functions import Lower
-from ninja import ModelSchema, Schema
-from ninja_extra.schemas import PaginatedResponseSchema
-from pydantic import EmailStr, Field
-
 from accounts.enums import BusinessUserRoleType
 from accounts.models import Business, BusinessUser, TalentFilter, Talent, Experience, Education
 from accounts.queries import add_profile_completion_annotation
 from accounts.schemas.common import DashboardFilter
 from core.schemas import READ_EXCLUDE_FIELDS, GenericNameAndUidSchema, EducationLevelSchema
+from django.db.models import Q, Subquery
+from django.db.models.functions import Lower
 from jobs.enums import WorkStructureEnum
 from jobs.models import EmploymentType
+from ninja import ModelSchema, Schema
+from ninja_extra.schemas import PaginatedResponseSchema
+from pydantic import EmailStr, Field
 
 
 class ValidateOTPSchema(Schema):
@@ -577,7 +576,7 @@ class LocationCountSchema(Schema):
     location: str
     count: int
 class DemographicCountSchema(Schema):
-    demographics: str
+    demographics: Optional[str]
     count: int
 
 
