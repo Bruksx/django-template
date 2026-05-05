@@ -10,9 +10,6 @@ from accounts.models import Department, Role, Business, Industry, BusinessUser, 
     EducationLevel, SkillCategory, Experience, TalentAvailableDay
 from core.models import City, State
 from core.models import Currency
-from django.db import models
-from django.test import TestCase
-from django.utils import timezone
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import models
 from django.test import TestCase
@@ -28,8 +25,6 @@ from jobs.models import (
     BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage, JobPostTag
 )
 from jobs.queries import add_application_match_score
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
 from jobs.schemas import AIJobSalaryGeneratorResponseSchema
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
