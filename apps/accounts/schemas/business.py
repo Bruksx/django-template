@@ -2,30 +2,29 @@ from datetime import date
 from typing import Optional, List, TypedDict, Any, Literal
 from uuid import UUID
 
-from django.db.models import Q, Subquery
-from django.db.models.functions import Lower
-from ninja import ModelSchema, Schema
-from ninja_extra.schemas import PaginatedResponseSchema
-from pydantic import EmailStr, Field
-
 from accounts.enums import BusinessUserRoleType
 from accounts.models import Business, BusinessUser, TalentFilter, Talent, Experience, Education
 from accounts.queries import add_profile_completion_annotation
 from accounts.schemas.common import DashboardFilter
 from core.schemas import READ_EXCLUDE_FIELDS, GenericNameAndUidSchema, EducationLevelSchema
+from django.db.models import Q, Subquery
+from django.db.models.functions import Lower
 from jobs.enums import WorkStructureEnum
 from jobs.models import EmploymentType
+from ninja import ModelSchema, Schema
+from ninja_extra.schemas import PaginatedResponseSchema
+from pydantic import EmailStr, Field
 
 
 class ValidateOTPSchema(Schema):
     email: EmailStr
     secondary_email: Optional[EmailStr] = None
-    otp: str
-    first_name: str
-    last_name: str
-    role: str
-    company_name: str
-    password: str
+    otp: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    role: Optional[str] = None
+    company_name: Optional[str] = None
+    password: Optional[str] = None
     phone_code: Optional[str] = None
     phone_number: Optional[str] = None
 
@@ -62,12 +61,12 @@ class DashboardFilterSchema(TypedDict):
     client: Optional[str]
 
 class Last3MonthHiresSchema(Schema):
-    role: str
-    talent: str
-    hired_by: str
+    role: Optional[str] = None
+    talent: Optional[str] = None
+    hired_by: Optional[str] = None
 
 class RecruiterPerformanceListSchema(Schema):
-    recruiter: str
+    recruiter: Optional[str] = None
     count: int|float
 
 class RecruiterPerformanceSchema(Schema):
@@ -75,7 +74,7 @@ class RecruiterPerformanceSchema(Schema):
     data:List[RecruiterPerformanceListSchema]
 
 class ApplicationGenderListSchema(Schema):
-    gender: str
+    gender: Optional[str] = None
     count: int|float
 
 class ApplicationGenderSchema(Schema):
@@ -83,7 +82,7 @@ class ApplicationGenderSchema(Schema):
     data: List[ApplicationGenderListSchema]
 
 class HiresByCountryListSchema(Schema):
-    country: str
+    country: Optional[str] = None
     count: int|float
 
 class HiresByCountrySchema(Schema):
@@ -91,7 +90,7 @@ class HiresByCountrySchema(Schema):
     data: List[HiresByCountryListSchema]
 
 class TimeToHireSchema(Schema):
-    role: str
+    role: Optional[str] = None
     posted: Optional[int] = None
     screening: Optional[int] = None
     interview: Optional[int] = None
@@ -99,17 +98,17 @@ class TimeToHireSchema(Schema):
     days_to_hire: Any
 
 class StageTimelineSchema(Schema):
-    stage: str
+    stage: Optional[str] = None
     avg_timeline: Any
 
 class TimeToHireViaStages(Schema):
-    role: str
+    role: Optional[str] = None
     graph: List[StageTimelineSchema]
     days_to_hire: Any
 
 
 class WithdrawalReasonSchemaList(Schema):
-    reason: str
+    reason: Optional[str] = None
     count: int|float
 
 class WithdrawalReasonSchema(Schema):
@@ -123,11 +122,11 @@ class ApplicantsYearsOfExperienceSchema(Schema):
 
 
 class TalentByPhase(Schema):
-    phase: str
+    phase: Optional[str] = None
     count: int|float
 
 class TalentByStage(Schema):
-    stage: str
+    stage: Optional[str] = None
     count: int|float
 
 class DashboardSchema(ModelSchema):
@@ -281,8 +280,8 @@ class MutateBusinessSchema(ModelSchema):
 
 
 class BusinessDetailSchema(ModelSchema):
-    logo: Optional[str] = Field(alias="get_logo")
-    location: str = Field(alias="location")
+    logo: Optional[str] = Field(None,alias="get_logo")
+    location: Optional[str] = Field(None, alias="location")
     country: Optional[GenericNameAndUidSchema] = None
     industry: Optional[GenericNameAndUidSchema] = None
     class Meta:
@@ -297,8 +296,8 @@ class BusinessUserListSchema(ModelSchema):
     email_verified: bool = Field(alias="user.email_verified")
     secondary_email: Optional[EmailStr] = Field(alias="user.secondary_email")
     secondary_email_verified: Optional[bool] = Field(alias="user.secondary_email_verified")
-    phone_number: Optional[str] = Field(alias="user.phone_number")
-    phone_code: Optional[str] = Field(alias="user.phone_code")
+    phone_number: Optional[str] = Field(None, alias="user.phone_number")
+    phone_code: Optional[str] = Field(None, alias="user.phone_code")
 
     emails: List[EmailStr]
     user_uid: UUID = Field(alias="user.uid")
@@ -532,23 +531,23 @@ class TimeSeriesDashboardFilter(DashboardFilter):
 
 # https://www.figma.com/design/gYKoLL5lKJZ7vXxNzk5ITI/1840-Global-Talent-Cloud?node-id=14020-7836&t=InpFJVdmIQSVJ0Tq-0
 class ItemValueSchema(Schema):
-    item: str
-    value: str
+    item: Optional[str] = None
+    value: Optional[str] = None
 
 class PhaseCountSchema(Schema):
-    phase: str
+    phase: Optional[str] = None
     count: int|float
 
 class StageCountSchema(Schema):
-    stage_name: str
+    stage_name: Optional[str] = None
     count: int|float
 
 class StageDaySchema(Schema):
-    stage_name: str
+    stage_name: Optional[str] = None
     avg_days_spent: int|float
 
 class PhaseDaySchema(Schema):
-    phase: str
+    phase: Optional[str] = None
     avg_days_spent: int|float
 
 class PhaseTimelineSchema(Schema):
@@ -566,15 +565,15 @@ class PipelineDashboardSchema(Schema):
     phase_timeline: PhaseTimelineSchema
 
 class JobCountSchema(Schema):
-    job: str
+    job: Optional[str] = None
     count: int|float
 
 class ClientCountSchema(Schema):
-    client: str
+    client: Optional[str] = None
     count: int|float
 
 class LocationCountSchema(Schema):
-    location: str
+    location: Optional[str] = None
     count: int|float
 class DemographicCountSchema(Schema):
     demographics: Optional[str] = None
@@ -582,11 +581,11 @@ class DemographicCountSchema(Schema):
 
 
 class ExperienceCountSchema(Schema):
-    experience: str
+    experience: Optional[str] = None
     count: int|float
 
 class ApplicationWithdrawalReasonSchema(Schema):
-    reason: str
+    reason: Optional[str] = None
     count: int|float
 
 class WithdrawalReasonsSchema(Schema):
@@ -594,7 +593,7 @@ class WithdrawalReasonsSchema(Schema):
     count: int|float
 
 class RecruiterCountSchema(Schema):
-    recruiter: str
+    recruiter: Optional[str] = None
     count: int|float
 
     @staticmethod
@@ -642,18 +641,18 @@ class ApplicationHiresGraphItemSchema(Schema):
 
 class StuckApplicationSchema(Schema):
     uid: UUID
-    talent: str
-    job: str
-    client: str
-    phase: str
-    stage_name: str
+    talent: Optional[str] = None
+    job: Optional[str] = None
+    client: Optional[str] = None
+    phase: Optional[str] = None
+    stage_name: Optional[str] = None
     days_in_stage: int|float
 
 
 class RecentHiresSchema(Schema):
     uid: UUID
-    role: str
-    talent: str
+    role: Optional[str] = None
+    talent: Optional[str] = None
     hired_by: Optional[str] = None
 
 
