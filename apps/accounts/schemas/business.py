@@ -321,6 +321,26 @@ class SendEmailSchema(Schema):
     subject: str
     body : str
     from_email: str
+    placeholders: Optional[List[str]] = None
+    attachment_urls: Optional[List[str]] = None
+
+    def get_email_engine(self, context):
+        from settings.services import PersonalEmailEngine
+        placeholders = str(self.placeholders[0]) if self.placeholders else None
+        placeholders = placeholders.split(",") if placeholders else list()
+        urls = self.attachment_urls[0] if self.attachment_urls else None
+        urls = urls.split(",") if urls else list()
+
+        return PersonalEmailEngine(
+            emails=self.emails[0].split(','),
+            subject=self.subject,
+            body=self.body,
+            from_email=self.from_email,
+            recruiter=context.get("recruiter"),
+            attachments=context.get("attachments"),
+            placeholders=placeholders,
+            attachment_urls=urls
+        )
 
 class SendBulkChatSchema(Schema):
     talent_uids: List[str] = Field(description="List of talent UIDs")

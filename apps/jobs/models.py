@@ -14,6 +14,7 @@ from jobs.managers import JobManager
 from settings.enums import PlaceHolderType
 from timezone_field import TimeZoneField
 
+from helpers.loggers import Logger, LogSchema
 from .db_functions import Epoch
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
     JobStatusType, ScreeningResultStatusType
@@ -28,9 +29,9 @@ class EmploymentType(BaseModel):
     def __str__(self) -> str:
         return self.name
 
-    def fullname(self):
+    def fullname(self, public=False):
         if self.parent:
-            return f"{self.parent.name} ({self.name})"
+            return self.parent.name if public is True else f"{self.parent.name} ({self.name})"
         return self.name
 
 
@@ -250,10 +251,15 @@ class Job(BaseModel):
     def workflow_stage_data(self):
         from settings.models import WorkFlowStage
         business = self.created_by.business
-        return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
-                annotate(applications=Count('jobapplication', filter=Q(jobapplication__job_post__job=self, jobapplication__deleted_at__isnull=True),
-                                            distinct=True)).order_by('phase_order', 'order')
-                .values("uid", "phase", "name", "applications"))
+        try:
+            return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
+                    annotate(applications=Count('jobapplication', filter=Q(jobapplication__job_post__job=self, jobapplication__deleted_at__isnull=True),
+                                                distinct=True)).order_by('phase_order', 'order')
+                    .values("uid", "phase", "name", "applications"))
+        except Exception as e:
+            Logger.critical(LogSchema(title="Workflow stage data error", sender="job.workflow_stage_data",
+                                      description=str(e), data=dict()).__dict__)
+            return []
 
 
 class JobPost(BaseModel):
@@ -421,12 +427,17 @@ class JobPost(BaseModel):
 
     def workflow_stage_data(self):
         from settings.models import WorkFlowStage
-        business = self.job.created_by.business
-        return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
-                annotate(applications=Count("jobapplication", filter=Q(jobapplication__job_post=self, jobapplication__deleted_at__isnull=True),
-                                            distinct=True)).order_by('phase_order', 'order')
-                .values("uid", "phase", "name", "applications")
-                )
+        try:
+            business = self.job.created_by.business
+            return (WorkFlowStage.objects.select_related("created_by__business").filter(created_by__business=business).
+                    annotate(applications=Count("jobapplication", filter=Q(jobapplication__job_post=self, jobapplication__deleted_at__isnull=True),
+                                                distinct=True)).order_by('phase_order', 'order')
+                    .values("uid", "phase", "name", "applications")
+                    )
+        except Exception as e:
+            Logger.critical(LogSchema(title="Workflow stage data error", sender="jobpost.workflow_stage_data",
+                                      description=str(e), data=dict()).__dict__)
+            return []
 
     def view(self):
         metric, _ = JobPostMetrics.objects.get_or_create(job_post=self)

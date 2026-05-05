@@ -9,7 +9,7 @@ from accounts.schemas.talent import SkillSchema, AddSkillSchema
 from chats.schemas import ResponseSchema
 from core.models import State, Currency
 from django.db import transaction
-from django.db.models import Q, Count, Exists, Subquery, OuterRef, Case, When, F, Value
+from django.db.models import Q, Count, Exists, OuterRef, Case, When, F, Value
 from django.db.models.functions import Concat
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -48,7 +48,7 @@ from .schemas import (
 from .services import set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
     update_bulk__job_posts_service, create_job_post_service, \
     bulk_job_posts_service, validate_screening_questions, update_screening_question_options, \
-    get_talents_by_job_posts_service, handle_stage_update
+    get_talents_by_job_posts_service, handle_stage_update, delete_job_post_tags
 
 router = Router(tags=["Business Jobs"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -580,6 +580,14 @@ def job_detail(request, job_uid:UUID):
         raise HttpError(404, "This job does not exist")
     return job
 
+@router.get("job-posts/applications/{application_uid}", response=job_schemas.JobApplicationListSchema, auth=JWTAuth())
+def view_applicant(request, application_uid: UUID):
+    IsBusinessUser.check(request)
+    return (JobApplication.objects
+            .select_related("stage", "applicant", "applicant__user","applicant__country")
+            .annotate(invited=Exists(JobInvite.objects.filter(
+            job=OuterRef('job_post__job'), talent=OuterRef('applicant')
+        ))).filter(uid=application_uid).first())
 
 @router.get("job-posts/{job_post_uid}/applications", response=PaginatedResponseSchema[job_schemas.JobApplicationListSchema], auth=JWTAuth())
 def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Optional[PhaseType]=None,
@@ -590,10 +598,11 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
     IsBusinessUser.check(request)
     business = request.user.businessuser.business
     job_post = get_object_or_404(JobPost, uid=job_post_uid)
-    queryset = JobApplication.objects.select_related("stage", "applicant", "applicant__user",
-                                                     "applicant__country").annotate(invited=Exists(Subquery(JobInvite.objects.filter(
+    queryset = (JobApplication.objects
+                .select_related("stage", "applicant", "applicant__user", "applicant__country")
+                .annotate(invited=Exists(JobInvite.objects.filter(
             job=OuterRef('job_post__job'), talent=OuterRef('applicant')
-        )))).filter(job_post=job_post , job_post__job__created_by__business=business, applicant__deleted_at__isnull=True)
+        ))).filter(job_post=job_post , job_post__job__created_by__business=business, applicant__deleted_at__isnull=True))
     queryset = add_application_match_score(queryset, job_post)
     if search:
         q = Q()
@@ -920,3 +929,9 @@ def ai_job_salary_generator(request, data: AIJobSalaryGeneratorRequestSchema):
 
 
 
+@router.delete("jobposts/tags", tags=['Common'], auth=JWTAuth())
+def delete_job_tags(request, data: List[str]):
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
+    delete_job_post_tags(data, business)
+    return Response(status=204, data=dict(message="Job Post Tags deleted successfully"))

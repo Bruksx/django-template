@@ -2882,12 +2882,12 @@ class JobPostTagAPITests(TestCase):
         business = BusinessFactory(created_by=user)
         self.business_user = BusinessUserFactory(business=business, user=user)
         job = JobFactory(created_by=self.business_user)
-        job_post = JobPostFactory(job=job)
+        self.job_post = JobPostFactory(job=job)
         j1 = JobPostTag.objects.create(business=business, name="test1")
         j2 = JobPostTag.objects.create(business=business, name="test2")
         j3 = JobPostTag.objects.create(business=business, name="test3")
-        job_post.tags.add(j1, j2, j3)
-        job_post.save()
+        self.job_post.tags.add(j1, j2, j3)
+        self.job_post.save()
 
 
     def test_get_tags(self):
@@ -2895,6 +2895,14 @@ class JobPostTagAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 3)
 
+
+    def test_delete_tags(self):
+        self.assertEqual(self.job_post.tags.count(), 3)
+        response = self.client.delete(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"},
+                                      json=["test1", "test2"])
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(JobPostTag.objects.count(), 1)
+        self.assertEqual(self.job_post.tags.count(), 1)
 
 
 
