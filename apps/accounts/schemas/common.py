@@ -11,6 +11,7 @@ from pydantic import EmailStr, Field
 class UserSchema(ModelSchema):
     token: str
     email: EmailStr | None
+    secondary_email: EmailStr | None
     has_set_password: bool
     is_social_account: bool
     is_new: bool
@@ -85,10 +86,12 @@ class CustomerCaseSchema(ModelSchema):
 
 class InitiateEmailChangeSchema(Schema):
     email: EmailStr
+    secondary: bool = False
 
 class ChangeEmailSchema(Schema):
     email: EmailStr
     otp: str
+    secondary: bool = False
 
 class ChangePasswordSchema(Schema):
     old_password: str
@@ -109,4 +112,8 @@ class CompanyListSchema(ModelSchema):
 class MajorSchema(Schema):
     major: str
     certifications: List[str]
+
+
+class TokenSchema(Schema):
+    token: str
 

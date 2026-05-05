@@ -1,25 +1,29 @@
+import datetime
 from typing import List
 
-from django.db import transaction
-from django.db.models import Q
-from django.utils import timezone
-from helpers.email.accounts import send_customer_case_email
-from helpers.email.auth import send_verification_code
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
-from ninja import Router, Query
-from ninja.errors import HttpError
-from ninja_extra import paginate
-from ninja_jwt.authentication import JWTAuth
-
 from accounts.constants import university_list, major_list, certification_list
+from accounts.enums import UserType
 from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode, Industry, Business
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
 from accounts.schemas.business import TalentFilterQuerySchema
 from accounts.schemas.common import CompanyListSchema
+from accounts.schemas.common import TokenSchema
 from core.schemas import GenericNameAndUidSchema
+from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
+from ninja import Router, Query
+from ninja.errors import HttpError
+from ninja_extra import paginate
+from ninja_jwt.authentication import JWTAuth
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
+
+from helpers.email.accounts import send_customer_case_email
+from helpers.email.auth import send_verification_code
+from helpers.utils import Secret
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
 
 router = Router(tags=["Common Account APIs"])
 
@@ -76,9 +80,12 @@ def customer_case_list(request):
 @transaction.atomic
 def initiate_email_change(request, data: common_schemas.InitiateEmailChangeSchema):
     user = request.user
-    if data.email == user.email:
+    if data.secondary is False and user.type == UserType.BUSINESS.value:
+        return Response(status=400, data={"message": "You cannot change your primary email"})
+    email_field = "secondary_email" if data.secondary is True else "email"
+    if data.email == getattr(user, email_field):
         raise HttpError(400, "Your current email is the same as the new one")
-    if User.objects.filter(email=data.email).exclude(id=user.id).exists():
+    if User.objects.filter(Q(email=data.email) | Q(secondary_email=data.email)).exclude(id=user.id).exists():
         raise HttpError(400, "An account with this email already exists")
     verification_code = VerificationCode(email=data.email)
     raw_code = verification_code.save()
@@ -89,6 +96,8 @@ def initiate_email_change(request, data: common_schemas.InitiateEmailChangeSchem
 @router.post("change-email", auth=JWTAuth())
 @transaction.atomic
 def change_email(request, data: common_schemas.ChangeEmailSchema):
+    if data.secondary is False and request.user.type == UserType.BUSINESS.value:
+        return Response(status=400, data={"message": "You cannot change your primary email"})
     verification_code = VerificationCode.objects.filter(email=data.email).last()
     if not verification_code:
         raise HttpError(400, "Invalid otp")
@@ -96,10 +105,11 @@ def change_email(request, data: common_schemas.ChangeEmailSchema):
     if not correct_otp:
         raise HttpError(400, "Incorrect otp")
     user = request.user
-    if User.objects.filter(email=data.email).exclude(id=user.id).exists():
+    if User.objects.filter(Q(email=data.email) | Q(secondary_email=data.email)).exclude(id=user.id).exists():
         raise HttpError(400, "An account with this email already exists")
-    user.email = data.email
-    user.save(update_fields=["email"])
+    email_field = "secondary_email" if data.secondary is True else "email"
+    setattr(user, email_field, data.email)
+    user.save(update_fields=[email_field])
     verification_code.delete()
     return Response(data={"message": "email changed successfully"})
 
@@ -130,7 +140,7 @@ def phone_number_change(request, data: common_schemas.ChangePhoneSchema):
 @transaction.atomic
 def send_otp_to_email(request, data: common_schemas.SendEmailOtpSchema):
     VerificationCode.objects.filter(expires_at__lt=timezone.now(), email=data.email).delete()
-    user = User.objects.filter(email__iexact=data.email).first()
+    user = User.objects.filter(Q(email=data.email) | Q(secondary_email=data.email)).first()
     if not user:
         raise HttpError(404, "An account with this email does not exist")
     VerificationCode.objects.filter(email__iexact=data.email).hard_delete()
@@ -171,3 +181,20 @@ def get_certifications(request, search=""):
         return [x for x in certification_list if search.lower() in str(x).lower()]
     return certification_list
 
+@router.post("verify-email", tags=["Common Account APIs"])
+@transaction.atomic
+def verify_email(request, data:TokenSchema):
+    verification_data = Secret.decrypt_dict(data.token)
+    if not verification_data:
+        raise HttpError(400, "Invalid token")
+    if not verification_data.get("expiry_time"):
+        raise HttpError(400, "Invalid token")
+    expiry_time = datetime.datetime.fromisoformat(verification_data["expiry_time"])
+    if timezone.now() > expiry_time:
+        raise HttpError(400, "Token has expired")
+    verification_type = verification_data.pop("verification_type")
+    if verification_type == "secondary_email":
+        user_id = verification_data.pop("user_id")
+        secondary_email = verification_data.pop("secondary_email")
+        User.objects.filter(id=user_id).update(secondary_email=secondary_email, secondary_email_verified=True)
+    return Response(data={"message": "email verified successfully"})
