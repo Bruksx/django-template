@@ -98,3 +98,7 @@ class CaseReasonType(BaseEnum):
 class AdminRoleType(BaseEnum):
     SUPER_ADMIN = "super_admin"
     ADMIN = "admin"
+
+class TalentJobType(BaseEnum):
+    FULL_TIME_JOBS = "Full Time Jobs"
+    SHIFT_JOBS = "Shift Jobs"
