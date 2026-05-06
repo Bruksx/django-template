@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
-from accounts.enums import GenderType, PreferredCommunicationType, Days, Months, NoticePeriodType
+from accounts.enums import GenderType, PreferredCommunicationType, Days, Months, NoticePeriodType, TalentJobType
 from accounts.enums import MeetingType
 from accounts.models import (Talent, User, TalentAvailableDay, Education,
                              Experience, Skill, Role)
@@ -112,6 +112,7 @@ class UpdateTalentProfileSchema2(ModelSchema):
     preferred_communication: Optional[PreferredCommunicationType|str] = None
     phone_code: Optional[str] = None
     operating_system: Optional[TechnologicalRequirementsEnum] = None
+    job_type: Optional[TalentJobType] = TalentJobType.FULL_TIME_JOBS
     phone_number: Optional[str] = None
     country: Optional[UUID] = None
     state: Optional[UUID] = None

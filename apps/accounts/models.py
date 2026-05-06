@@ -9,7 +9,7 @@ from uuid import UUID
 
 import jwt
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessSize, BusinessUserStatusType, CaseReasonType, AdminRoleType
+    BusinessSize, BusinessUserStatusType, CaseReasonType, AdminRoleType, TalentJobType
 from core.enums import SalaryType
 from core.models import BaseModel, State, City
 from dateutil.relativedelta import relativedelta
@@ -229,6 +229,7 @@ class Skill(BaseModel):
         return f"{self.name} [{self.category}]"
 
 class Talent(BaseModel):
+    job_type = models.CharField(max_length=128, choices=TalentJobType.choices, default=TalentJobType.FULL_TIME_JOBS.value)
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     whatsapp_number = models.CharField(max_length=50, null=True)
     viber_number = models.CharField(max_length=50, null=True)
@@ -592,7 +593,6 @@ class Talent(BaseModel):
             # (has_experience, "Experience not provided or incomplete."),
             # (has_education, "Education not provided or incomplete."),
             (self.user.first_name, "First name is missing."),
-            (self.role, "Role is missing"),
             (self.user.last_name, "Last name is missing."),
             (self.user.email, "Email is missing."),
             (self.user.phone_number, "Phone number is missing."),
@@ -610,8 +610,14 @@ class Talent(BaseModel):
             # (self.bio, "Bio is missing."),
             # (self.linkedin, "LinkedIn profile is missing."),
             # (self.notice_period, "Notice period is missing."),
-            (self.cv, "CV is missing."),
         ]
+        if self.job_type == TalentJobType.FULL_TIME_JOBS.value:
+            validations.extend(
+                [
+                    (self.cv, "CV is missing."),
+                    (self.role, "Role is missing"),
+                ]
+            )
 
         for condition, message in validations:
             if not condition:

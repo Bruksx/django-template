@@ -118,6 +118,8 @@ def apply_to_job_post(request, job_post_id:UUID, data: ApplyToJobSchema):
         raise HttpError(400, "Job post is no longer available")
     if JobApplication.objects.filter(job_post=job_post, applicant=talent).exists():
         raise HttpError(400, "Already applied")
+    if job_post.job.cv_required is True and not talent.cv:
+        raise HttpError(400, "This job requires that you upload your CV")
     create_job_application(job_post=job_post, talent=talent, data=data)
     return Response(status=200, data={"message": "Applied successfully"})
 
