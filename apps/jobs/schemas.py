@@ -4,22 +4,22 @@ from typing import List, Literal
 from typing import Optional
 from uuid import UUID
 
-from django.db.models import QuerySet, Q, Count, Exists, OuterRef
-from django.utils import timezone
-from helpers.utils import export_rows_to_excel
-from ninja import ModelSchema
-from ninja.errors import HttpError
-from ninja.schema import Schema
-from pydantic import Field, EmailStr
-
 from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from accounts.schemas.business import BusinessUserListSchema
 from core.enums import SalaryType
 from core.models import Currency
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
+from django.db.models import QuerySet, Q, Count, Exists, OuterRef
+from django.utils import timezone
+from ninja import ModelSchema
+from ninja.errors import HttpError
+from ninja.schema import Schema
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+from pydantic import Field, EmailStr
 from settings.models import WorkFlowStage
+
+from helpers.utils import export_rows_to_excel
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType, UpdateQuickReviewType
 from .models import BusinessModel, JobApplication, Answer, JobInvite
@@ -549,7 +549,7 @@ class JobListSchema2(ModelSchema):
 
     class Meta:
         model = Job
-        fields = ["work_structure", "office_address"]
+        fields = ["work_structure", "office_address", "cv_required"]
 
 
 
@@ -577,7 +577,7 @@ class JobDetailSchema(ModelSchema):
             "hiring_company_name", "hiring_company_description", "about", "years_of_experience",
             "technological_requirement", "work_structure", "office_address","lunch_break", "lunch_break_time",
             "additional_hours_start", "additional_hours_end", "flexible_availability", "qualification",
-            "availability_timezone", "additional_hours_description", "additional_skills"
+            "availability_timezone", "additional_hours_description", "additional_skills" "cv_required"
         ]
     
     @staticmethod
@@ -734,7 +734,7 @@ class JobFullListSchema(ModelSchema):
 
     class Meta:
         model = Job
-        fields = ["uid", ]
+        fields = ["uid",  "cv_required"]
 
     @staticmethod
     def resolve_status(obj):
@@ -936,7 +936,7 @@ class JobListSchema(ModelSchema):
 
     class Meta:
         model = Job
-        fields = ["uid","work_structure", "role"]
+        fields = ["uid","work_structure", "role", "cv_required"]
 
 class OtherApplicationSchema(ModelSchema):
     job_logo: Optional[str] = Field(None, alias="job_post.job.business_logo")
