@@ -577,7 +577,7 @@ class JobDetailSchema(ModelSchema):
             "hiring_company_name", "hiring_company_description", "about", "years_of_experience",
             "technological_requirement", "work_structure", "office_address","lunch_break", "lunch_break_time",
             "additional_hours_start", "additional_hours_end", "flexible_availability", "qualification",
-            "availability_timezone", "additional_hours_description", "additional_skills" "cv_required"
+            "availability_timezone", "additional_hours_description", "additional_skills", "cv_required"
         ]
     
     @staticmethod
