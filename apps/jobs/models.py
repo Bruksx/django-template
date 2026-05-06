@@ -75,6 +75,7 @@ class Job(BaseModel):
     created_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.SET_NULL, null=True) #TODO take care during delete account
     employment_type = models.ForeignKey(EmploymentType, on_delete=models.SET_NULL, null=True)
     hiring_company_name = models.CharField(max_length=64, null=True)
+    cv_required = models.BooleanField(default=True)
     hiring_company_description = models.TextField(null=True)
     title = models.CharField(max_length=100, null=True, blank=True)
     about = models.TextField(null=True)
