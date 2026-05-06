@@ -548,7 +548,7 @@ class JobListSchema2(ModelSchema):
     business_name: Optional[str] = None
 
     class Meta:
-        model = Job
+        model = Job  
         fields = ["work_structure", "office_address", "cv_required"]
 
 
