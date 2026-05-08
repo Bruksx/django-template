@@ -162,6 +162,9 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
         user_data["last_name"] = data.pop("last_name", None)
     if  data.get("operating_system"):
         data["operating_system"] = data["operating_system"].value if type(data["operating_system"]) is not str else data["operating_system"]
+
+    if  data.get("job_type"):
+        data["job_type"] = data["job_type"].value if type(data["job_type"]) is not str else data["job_type"]
     if "gender" in data:
         user_data["gender"] = data.pop("gender", None)
     if "photo" in data:
