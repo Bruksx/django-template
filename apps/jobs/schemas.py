@@ -4,22 +4,22 @@ from typing import List, Literal
 from typing import Optional
 from uuid import UUID
 
-from django.db.models import QuerySet, Q, Count, Exists, OuterRef
-from django.utils import timezone
-from helpers.utils import export_rows_to_excel
-from ninja import ModelSchema
-from ninja.errors import HttpError
-from ninja.schema import Schema
-from pydantic import Field, EmailStr
-
 from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from accounts.schemas.business import BusinessUserListSchema
 from core.enums import SalaryType
 from core.models import Currency
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
+from django.db.models import QuerySet, Q, Count, Exists, OuterRef
+from django.utils import timezone
+from ninja import ModelSchema
+from ninja.errors import HttpError
+from ninja.schema import Schema
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+from pydantic import Field, EmailStr
 from settings.models import WorkFlowStage
+
+from helpers.utils import export_rows_to_excel
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType, UpdateQuickReviewType
 from .models import BusinessModel, JobApplication, Answer, JobInvite
@@ -1291,6 +1291,16 @@ class TalentJobPostSchema(JobPostListSchema):
         if not talent:
             return
         return obj.weakness(talent)
+
+
+class IndeedJobDetailSchema(JobDetailSchema):
+    @staticmethod
+    def resolve_availability(obj):
+        return obj.get_available_days(strict=True)
+
+class IndeedTalentJobPostSchema(TalentJobPostSchema):
+    job: IndeedJobDetailSchema
+
 
 
 
