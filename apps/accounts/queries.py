@@ -1,7 +1,6 @@
-from django.db.models import QuerySet, Exists, OuterRef, Q, Value, Case, When
-
 from accounts.enums import TalentJobType
 from accounts.models import Talent, Education, Experience, SkillCategory, TalentAvailableDay
+from django.db.models import QuerySet, Exists, OuterRef, Q, Value, Case, When
 
 
 def add_profile_completion_annotation(queryset:QuerySet[Talent]):
@@ -56,7 +55,8 @@ def add_profile_completion_annotation(queryset:QuerySet[Talent]):
             default=Value(False)
         ),
         complete_profile=Case(
-            When(Q(semi_complete_profile=True, has_education=True,has_experience=True, has_employment_types=True) &
+            When(Q(job_type=TalentJobType.SHIFT_JOBS.value, semi_complete_profile=True), then=Value(True)),
+            When(Q(job_type=TalentJobType.FULL_TIME_JOBS.value, semi_complete_profile=True, has_education=True,has_experience=True, has_employment_types=True) &
                 Q(
                     Q(has_availability=True) | Q(flexible_availability=True)
                 ) &
