@@ -81,7 +81,7 @@ def bulk_read_notifications(request, data: BulkActionNotificationSchema):
     if data.uids:
         notifications = notifications.filter(uid__in=data.uids)
 
-    async_task(bulk_read_notifications_service, notifications, request.user)
+    bulk_read_notifications_service(notifications, request.user)
 
     return Response(status=200, data={"message": "Notifications marked read successfully"})
 
@@ -101,7 +101,7 @@ def delete_notifications(request, data: BulkActionNotificationSchema):
     if data.uids:
         notifications = notifications.filter(uid__in=data.uids)
 
-    async_task(bulk_delete_notifications_service, notifications, request.user)
+    bulk_delete_notifications_service(notifications, request.user)
 
     return Response(status=204, data={"message": "Notifications deleted successfully"})
 
