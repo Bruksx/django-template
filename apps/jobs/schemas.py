@@ -1293,16 +1293,6 @@ class TalentJobPostSchema(JobPostListSchema):
         return obj.weakness(talent)
 
 
-class IndeedJobDetailSchema(JobDetailSchema):
-    @staticmethod
-    def resolve_availability(obj):
-        return obj.get_available_days(strict=True)
-
-class IndeedTalentJobPostSchema(TalentJobPostSchema):
-    job: IndeedJobDetailSchema
-
-
-
 
 
 class TalentJobFilterQuerySchema(Schema):
