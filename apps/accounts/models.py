@@ -527,7 +527,7 @@ class Talent(BaseModel):
         if excludes:
             excludes = excludes.split(",")
             notifications = notifications.exclude(entity__in=excludes)
-        return notifications.order_by("-id")
+        return Notification.can_view_annotation(notifications, self.user).order_by("-id")
 
     def delete_account(self, banned=False):
         self.savedjob_set.all().hard_delete()
@@ -1241,10 +1241,11 @@ class BusinessUser(BaseModel):
             return self.user.last_login.date()
         return None
 
-    def notifications(self, viewed=False, excludes: Optional[str]=None):
+    def notifications(self, viewed=None, excludes: Optional[str]=None):
         from notification.models import Notification
         if hasattr(self, "businessusernotificationsettings"):
-            return self.businessusernotificationsettings.notifications(viewed, excludes=excludes)
+            return Notification.can_view_annotation(self.businessusernotificationsettings.notifications(viewed, excludes=excludes),
+                                                    self.user)
         return Notification.objects.none()
 
     def delete_account(self):

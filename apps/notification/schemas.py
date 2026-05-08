@@ -1,4 +1,5 @@
-from typing import Optional
+from typing import Optional, List
+from uuid import UUID
 
 from ninja import ModelSchema
 from ninja import Schema, Field
@@ -35,10 +36,17 @@ class NotificationSettingsSchema(ModelSchema):
 class NotificationFilterSchema(Schema):
     page: Optional[int] = 1
     page_size: Optional[int] = 10
-    viewed: bool = Field(False, description="Viewed notifications")
+    viewed: Optional[bool] = Field(None, description="Viewed notifications")
     excludes: Optional[str] = Field(None,
                                     description=f"Comma separated list of entity types: {', '.join(EntityType.values())}",
                                     )
 
 class PaginatedNotificationSchema(PaginatedResponseSchema[NotificationSchema]):
     unread_count: int
+
+class BulkActionNotificationSchema(Schema):
+    uids: Optional[List[UUID]]
+    all: bool = False
+    excludes: Optional[str] = Field(None,
+                                    description=f"Comma separated list of entity types: {', '.join(EntityType.values())}",
+                                    )
