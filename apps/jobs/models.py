@@ -228,20 +228,16 @@ class Job(BaseModel):
             working_hours_query |= day_query
         return working_hours_query
 
-    def get_available_days(self, strict=False):
+    def get_available_days(self):
         from jobs.schemas import JobAvailableDaySchema
 
         data = list()
         for value in Days.values():
             availability = self.availableday_set.filter(day=value).first()
-            if strict is True:
-                check = availability and (availability.start_time or availability.end_time)
-            else:
-                check = availability
-            if check:
+            if availability:
                 data.append({
                     "day": value,
-                    "availability": JobAvailableDaySchema.from_orm(availability)
+                    "availability": JobAvailableDaySchema.from_orm(availability) if availability else None
                 })
         return data
 
