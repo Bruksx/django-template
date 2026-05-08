@@ -10,8 +10,8 @@ from jobs.enums import WorkStructureEnum, JobStatusType
 from jobs.models import JobPost, Job
 from jobs.schemas import JobAvailabilitySchema
 from jobs.schemas import TalentJobPostSchema
-from lxml.etree import Element, SubElement, tostring
 from lxml import etree as et
+from lxml.etree import Element, SubElement, tostring
 
 from apps.paginations import CustomPageNumberPaginationExtra
 from config import settings
@@ -236,7 +236,7 @@ class JobBase:
         from jobs.schemas import JobAvailableDaySchema
 
         available_days = job.availableday_set.all().order_by('id')
-        if not available_days:
+        if available_days.count() == 0:
             return None
 
         formatted_hours = []

@@ -229,7 +229,7 @@ class Job(BaseModel):
         data = list()
         for value in Days.values():
             availability = self.availableday_set.filter(day=value).first()
-            if availability:
+            if availability and (availability.start_time or availability.end_time):
                 data.append({
                     "day": value,
                     "availability": JobAvailableDaySchema.from_orm(availability) if availability else None
