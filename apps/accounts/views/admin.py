@@ -227,12 +227,12 @@ def delete_business(request, business_uid: UUID):
 
 @router.get("banned-accounts", auth=JWTAuth(), response=CustomPaginatedResponseSchema[BannedUserSchema])
 @paginate(CustomPageNumberPaginationExtra, page_size=50)
-def get_banned_accounts(request, account_type:Optional[UserType]):
+def get_banned_accounts(request, account_type:Optional[UserType]=None):
     IsAdminUser.check(request)
     return admin_services.get_banned_users_data(account_type=account_type)
 
 
-router.delete("banned-accounts/{account_uid}", auth=JWTAuth())
+@router.post("banned-accounts/{account_uid}", auth=JWTAuth())
 def unban_account(request, account_uid: UUID):
     IsAdminUser.check(request)
     return admin_services.unban_user_account(account_uid)

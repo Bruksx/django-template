@@ -7,12 +7,12 @@ from accounts.models import BusinessUser, Business, Talent
 from accounts.schemas.common import DashboardFilter
 from accounts.schemas.talent import TalentUserSchema, UpdateTalentProfileSchema2
 from core.schemas import GenericNameAndUidSchema
+from core.schemas import READ_EXCLUDE_FIELDS
 from jobs.enums import PhaseType, JobStatusType
 from jobs.models import JobApplication
 from ninja import Schema, ModelSchema
 from paginations import CustomPaginatedResponseSchema
 from pydantic import EmailStr, HttpUrl, Field
-
 
 
 class AdminDashboardFilter(DashboardFilter):
@@ -135,7 +135,7 @@ class BusinessUserListSchema(ModelSchema):
 
     class Meta:
         model = BusinessUser
-        exclude = ["uid", "created_at", "updated_at", "deleted_at", "business", "added_by"]
+        exclude = ["created_at", "updated_at", "deleted_at", "business", "added_by"]
 
 class BusinessListSchema(ModelSchema):
     industry: Optional[GenericNameAndUidSchema] = None
@@ -176,15 +176,17 @@ class TalentListSchema(ModelSchema):
 class BusinessUserDetailSchema(BusinessUserListSchema):
     profile_picture: Optional[str] = Field(alias="user.photo_url")
 
-class BusinessDetailSchema(BusinessListSchema):
+class BusinessDetailSchema(ModelSchema):
+    industry: Optional[GenericNameAndUidSchema] = None
+    head_office: str = Field(alias="location")
+    registration_date: date = Field(alias="reg_date")
     owner_name: str = Field(alias="created_by.fullname")
     owner_email: EmailStr = Field(alias="created_by.email")
     logo: str = Field(alias="get_logo")
 
     class Meta:
         model = Business
-        fields = ["uid", "name", "website", "size", "description",
-          "instagram", "linkedin", "facebook", "twitter_x"]
+        exclude = (*READ_EXCLUDE_FIELDS, "created_by")
 
 class TalentDetailSchema(TalentUserSchema):
     ...

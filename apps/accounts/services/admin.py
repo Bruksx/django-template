@@ -376,7 +376,11 @@ def get_business_users_data(business_uid: UUID, active:Optional[bool]=None,
     if active is not None:
         queryset = queryset.filter(user__is_active=active)
     if search:
-        queryset = queryset.filter(Q(user__email__icontains=search)|Q(user__first_name__icontains=search)|Q(user__last_name__icontains=search))
+        search = search.split(" ") if " " in search else [search]
+        query = Q()
+        for s in search:
+            query = query|Q(Q(user__email__icontains=s)|Q(user__first_name__icontains=s)|Q(user__last_name__icontains=s))
+        queryset = queryset.filter(query)
     return queryset
 
 @transaction.atomic
@@ -554,7 +558,13 @@ def get_talent_users_data(active:Optional[bool]=None, search:Optional[str]=None)
     if active is not None:
         queryset = queryset.filter(user__is_active=active)
     if search:
-        queryset = queryset.filter(Q(user__email__icontains=search)|Q(user__first_name__icontains=search)|Q(user__last_name__icontains=search))
+        search = search.split(" ") if " " in search else [search]
+        query = Q()
+        for s in search:
+            query = query | Q(
+                Q(user__email__icontains=s) | Q(user__first_name__icontains=s) | Q(user__last_name__icontains=s))
+        queryset = queryset.filter(query)
+
     return queryset
 
 
@@ -856,5 +866,8 @@ def get_banned_users_data(account_type=None):
     return queryset.values("uid", "email", "account_type")
 
 def unban_user_account(account_uid:UUID):
-    BannedAccount.objects.filter(uid=account_uid).hard_delete()
+    account = BannedAccount.objects.filter(uid=account_uid).first()
+    if not account:
+        raise HttpError(404, "Account not found")
+    account.hard_delete()
     return
