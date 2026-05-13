@@ -23,15 +23,6 @@ from ninja.errors import HttpError
 
 from helpers.email.auth import send_admin_created_account_email
 from monkeypatches.q_cluster import async_task
-from ninja.errors import HttpError
-
-from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType
-from accounts.models import Business, BusinessUser, User, Talent, BusinessIndustry, Country, BusinessClient, \
-    BannedAccount
-from accounts.queries import add_profile_completion_annotation
-from core.models import PageMetric, APIMetric
-from jobs.enums import PhaseType, JobStatusType, WithdrawalFeedbackType
-from jobs.models import JobPost, JobApplication, JobApplicationWithdrawal, JobPostMetrics, Job, JobPostTag, JobAlert
 from . import talent as talent_services
 
 
@@ -200,7 +191,9 @@ def get_businesses_data(
     end_date: Optional[datetime] = None,
     role: Optional[UUID] = None,
     client: Optional[str] = None,
-    company: Optional[UUID] = None
+    company: Optional[UUID] = None,
+    paused: Optional[bool] = None,
+    search: Optional[str] = None
 ):
     queryset = Business.objects.all().select_related("industry", "country", "created_by")
 
@@ -214,9 +207,22 @@ def get_businesses_data(
         queryset = queryset.filter(clients__name__iexact=client)
     if company:
         queryset = queryset.filter(created_by__uid=company)
+    if paused is not None:
+        queryset = queryset.filter(paused=paused)
+
+    if search:
+        queryset = queryset.filter(name__icontains=search)
 
     return queryset
 
+def get_business_data(
+    business_uid: UUID
+):
+    business =  Business.objects.filter(uid=business_uid).first()
+    if not business:
+        raise HttpError(404, "This business does not exist")
+
+    return business
 
 def add_business_data(**kwargs):
 
@@ -363,10 +369,19 @@ def get_business_jobs_data(business_uid: UUID):
     }
 
 
-def get_business_users_data(business_uid: UUID):
+def get_business_users_data(business_uid: UUID, active:Optional[bool]=None,
+                            search:Optional[str]=None):
     business = Business.objects.get(uid=business_uid)
-    return BusinessUser.objects.filter(business=business).select_related("user", "business", "added_by")
-
+    queryset = BusinessUser.objects.filter(business=business).select_related("user", "business", "added_by")
+    if active is not None:
+        queryset = queryset.filter(user__is_active=active)
+    if search:
+        search = search.split(" ") if " " in search else [search]
+        query = Q()
+        for s in search:
+            query = query|Q(Q(user__email__icontains=s)|Q(user__first_name__icontains=s)|Q(user__last_name__icontains=s))
+        queryset = queryset.filter(query)
+    return queryset
 
 @transaction.atomic
 def add_business_user_data(
@@ -538,8 +553,19 @@ def delete_business_user_data(business_user_uid: UUID):
     User.objects.filter(id=business_user.user.id).hard_delete()
     return {"message": "Business user deleted successfully"}
 
-def get_talent_users_data():
-    return Talent.objects.all().select_related("user", "role", "country")
+def get_talent_users_data(active:Optional[bool]=None, search:Optional[str]=None):
+    queryset = Talent.objects.all().select_related("user", "role", "country")
+    if active is not None:
+        queryset = queryset.filter(user__is_active=active)
+    if search:
+        search = search.split(" ") if " " in search else [search]
+        query = Q()
+        for s in search:
+            query = query | Q(
+                Q(user__email__icontains=s) | Q(user__first_name__icontains=s) | Q(user__last_name__icontains=s))
+        queryset = queryset.filter(query)
+
+    return queryset
 
 
 def get_talent_user_data(talent_uid: UUID):
@@ -833,3 +859,15 @@ def pause_resume_business(business, action):
     else:
         raise HttpError(400, "Invalid action. Must be 'pause' or 'resume'")
 
+def get_banned_users_data(account_type=None):
+    queryset = BannedAccount.objects.all()
+    if account_type:
+        queryset = queryset.filter(account_type=account_type)
+    return queryset.values("uid", "email", "account_type")
+
+def unban_user_account(account_uid:UUID):
+    account = BannedAccount.objects.filter(uid=account_uid).first()
+    if not account:
+        raise HttpError(404, "Account not found")
+    account.hard_delete()
+    return

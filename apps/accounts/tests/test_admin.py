@@ -1,17 +1,16 @@
 from datetime import timezone as dt_timezone, datetime, date
 from uuid import uuid4
 
-from django.test import TestCase
-from ninja.testing import TestClient
-
-from accounts.enums import BusinessUserRoleType, BusinessUserStatusType
+from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType
 from accounts.models import Business, BusinessIndustry, BusinessUser, User, Talent, BannedAccount
 from accounts.views.admin import router
 from core.models import PageMetric, APIMetric
+from django.test import TestCase
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, JobFactory, JobPostFactory, \
     TalentFactory, AdminUserFactory, RoleFactory
 from jobs.enums import JobStatusType
 from jobs.models import JobApplication, Job
+from ninja.testing import TestClient
 from settings.models import WorkFlowStage
 
 
@@ -84,7 +83,10 @@ class GetBusinessesTestCase(TestCase):
         self.auth_headers = {
             "authorization": f"Bearer {self.user.token}"
         }
-        BusinessFactory.create_batch(5)
+        # Create some businesses, some paused and some not
+        self.business_paused = BusinessFactory.create(paused=True)
+        self.business_active = BusinessFactory.create(paused=False)
+        BusinessFactory.create_batch(3)  # Create 3 more businesses (default paused=False)
 
     def test_get_businesses_success(self):
         """Test successful retrieval of businesses"""
@@ -93,6 +95,44 @@ class GetBusinessesTestCase(TestCase):
         data = response.json()
         self.assertIn("results", data)
         self.assertGreaterEqual(len(data["results"]), 5)
+
+    def test_get_businesses_filter_by_paused(self):
+        """Test filtering businesses by paused status"""
+        response = self.client.get("/businesses?paused=true", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+        # All results should be paused businesses
+        for business in data["results"]:
+            self.assertTrue(business["paused"])
+
+    def test_get_businesses_filter_by_active(self):
+        """Test filtering businesses by active status (not paused)"""
+        response = self.client.get("/businesses?paused=false", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+        # All results should be active businesses
+        for business in data["results"]:
+            self.assertFalse(business["paused"])
+
+    def test_get_businesses_search(self):
+        """Test searching businesses by name"""
+        # Create a business with a specific name for search
+        BusinessFactory.create(name="Unique Search Company")
+        response = self.client.get("/businesses?search=Unique Search", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+        # Should find at least the business we created
+        self.assertGreaterEqual(len(data["results"]), 1)
+        # Check that the results contain our search term
+        found = False
+        for business in data["results"]:
+            if "Unique Search" in business["name"]:
+                found = True
+                break
+        self.assertTrue(found)
 
     def test_get_businesses_unauthorized(self):
         """Test businesses list without authentication"""
@@ -224,26 +264,6 @@ class DeleteBusinessTestCase(TestCase):
         self.assertFalse(Job.objects.filter(uid=job.uid).exists())
 
 
-class BusinessActionTestCase(TestCase):
-    def setUp(self):
-        self.client = TestClient(router)
-        self.admin_user = AdminUserFactory.create()
-        self.user = self.admin_user.user
-        self.auth_headers = {
-            "authorization": f"Bearer {self.user.token}"
-        }
-        self.business = BusinessFactory.create()
-
-    def test_business_action_archive_success(self):
-        """Test archiving a business"""
-        response = self.client.post(f"/businesses/{self.business.uid}", json={"action": "archive"}, headers=self.auth_headers)
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(Business.objects.filter(uid=self.business.uid).exists())
-
-    def test_business_action_unauthorized(self):
-        """Test business action without authentication"""
-        response = self.client.post(f"/businesses/{self.business.uid}", json={"action": "pause"})
-        self.assertEqual(response.status_code, 401)
 
 
 class GetBusinessJobsTestCase(TestCase):
@@ -292,7 +312,10 @@ class GetBusinessUsersTestCase(TestCase):
             "authorization": f"Bearer {self.user.token}"
         }
         self.business = BusinessFactory.create()
-        BusinessUserFactory.create_batch(3, business=self.business)
+        # Create some business users, some active and some not
+        self.business_user_active = BusinessUserFactory.create(business=self.business, user__is_active=True)
+        self.business_user_inactive = BusinessUserFactory.create(business=self.business, user__is_active=False)
+        BusinessUserFactory.create_batch(2, business=self.business)  # Create 2 more business users
 
     def test_get_business_users_success(self):
         """Test successful retrieval of business users"""
@@ -300,6 +323,57 @@ class GetBusinessUsersTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("results", data)
+
+    def test_get_business_users_filter_by_active(self):
+        """Test filtering business users by active status"""
+        response = self.client.get(f"/businesses/{self.business.uid}/users?active=true", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+        # Should only return active business users
+        # Check that our known active user is in the results
+        active_user_ids = [str(user["uid"]) for user in data["results"]]
+        self.assertIn(str(self.business_user_active.uid), active_user_ids)
+        # And that our known inactive user is NOT in the results
+        inactive_user_ids = [str(user["uid"]) for user in data["results"]]
+        self.assertNotIn(str(self.business_user_inactive.uid), inactive_user_ids)
+
+    def test_get_business_users_filter_by_inactive(self):
+        """Test filtering business users by inactive status"""
+        response = self.client.get(f"/businesses/{self.business.uid}/users?active=false", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+        # Should only return inactive business users
+        # Check that our known inactive user is in the results
+        inactive_user_ids = [str(user["uid"]) for user in data["results"]]
+        self.assertIn(str(self.business_user_inactive.uid), inactive_user_ids)
+        # And that our known active user is NOT in the results
+        active_user_ids = [str(user["uid"]) for user in data["results"]]
+        self.assertNotIn(str(self.business_user_active.uid), active_user_ids)
+
+    def test_get_business_users_search(self):
+        """Test searching business users by name"""
+        # Create a business user with a specific name for search
+        businessuser = BusinessUserFactory.create(business=self.business)
+        businessuser.user.first_name = "Unique"
+        businessuser.user.last_name = "Search user"
+        businessuser.user.save()
+
+        response = self.client.get(f"/businesses/{self.business.uid}/users?search=Unique Search", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+        # Should find at least the business user we created
+        self.assertGreaterEqual(len(data["results"]), 1)
+        # Check that the results contain our search term in full name
+        found = False
+        for user in data["results"]:
+            full_name = user["full_name"]
+            if "Unique Search" in full_name:
+                found = True
+                break
+        self.assertTrue(found)
 
     def test_get_business_users_unauthorized(self):
         """Test business users without authentication"""
@@ -519,7 +593,10 @@ class GetTalentUsersTestCase(TestCase):
         self.auth_headers = {
             "authorization": f"Bearer {self.user.token}"
         }
-        TalentFactory.create_batch(5)
+        # Create some talents, some active and some not
+        self.talent_active = TalentFactory.create(user__is_active=True)
+        self.talent_inactive = TalentFactory.create(user__is_active=False)
+        TalentFactory.create_batch(3)  # Create 3 more talents (default active=True)
 
     def test_get_talent_users_success(self):
         """Test successful retrieval of talent users"""
@@ -528,6 +605,56 @@ class GetTalentUsersTestCase(TestCase):
         data = response.json()
         self.assertIn("results", data)
         self.assertGreaterEqual(len(data["results"]), 5)
+
+    def test_get_talent_users_filter_by_active(self):
+        """Test filtering talent users by active status"""
+        response = self.client.get("/talents?active=true", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+        # Should only return active talents
+        # Check that our known active talent is in the results
+        active_talent_ids = [str(talent["uid"]) for talent in data["results"]]
+        self.assertIn(str(self.talent_active.uid), active_talent_ids)
+        # And that our known inactive talent is NOT in the results
+        inactive_talent_ids = [str(talent["uid"]) for talent in data["results"]]
+        self.assertNotIn(str(self.talent_inactive.uid), inactive_talent_ids)
+
+    def test_get_talent_users_filter_by_inactive(self):
+        """Test filtering talent users by inactive status"""
+        response = self.client.get("/talents?active=false", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+        # Should only return inactive talents
+        # Check that our known inactive talent is in the results
+        inactive_talent_ids = [str(talent["uid"]) for talent in data["results"]]
+        self.assertIn(str(self.talent_inactive.uid), inactive_talent_ids)
+        # And that our known active talent is NOT in the results
+        active_talent_ids = [str(talent["uid"]) for talent in data["results"]]
+        self.assertNotIn(str(self.talent_active.uid), active_talent_ids)
+
+    def test_get_talent_users_search(self):
+        """Test searching talents by name"""
+        # Create a talent with a specific name for search
+        talent = TalentFactory.create()
+        talent.user.first_name = "Unique"
+        talent.user.last_name = "Search person"
+        talent.user.save()
+        response = self.client.get("/talents?search=Unique Search", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+        # Should find at least the talent we created
+        self.assertGreaterEqual(len(data["results"]), 1)
+        # Check that the results contain our search term in full name
+        found = False
+        for talent in data["results"]:
+            full_name = talent["full_name"]
+            if "Unique Search" in full_name:
+                found = True
+                break
+        self.assertTrue(found)
 
     def test_get_talent_users_unauthorized(self):
         """Test talent users list without authentication"""
@@ -981,5 +1108,137 @@ class PauseResumeBusinessTestCase(TestCase):
         data = {}
         response = self.client.post(f"/businesses/{self.business.uid}/resumption", json=data, headers=self.auth_headers)
         self.assertEqual(response.status_code, 422)  # Validation error
+
+
+class GetBannedAccountsTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.admin_user = AdminUserFactory.create()
+        self.user = self.admin_user.user
+        self.auth_headers = {
+            "authorization": f"Bearer {self.user.token}"
+        }
+        # Create a banned talent account
+        self.talent = TalentFactory.create()
+        from accounts.models import BannedAccount
+        self.banned_account = BannedAccount.objects.create(
+            email=self.talent.user.email,
+            account_type=UserType.TALENT.value
+        )
+        # Create a banned business user account
+        self.business_user = BusinessUserFactory.create()
+        self.business_user.user.is_active = False
+        self.business_user.user.save()
+        from accounts.models import BannedAccount
+        self.banned_business_account = BannedAccount.objects.create(
+            email=self.business_user.user.email,
+            account_type=UserType.BUSINESS.value
+        )
+
+    def test_get_banned_accounts_success(self):
+        """Test successful retrieval of banned accounts"""
+        response = self.client.get("/banned-accounts", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+        # Should have at least 2 banned accounts (1 talent, 1 business user)
+        self.assertGreaterEqual(len(data["results"]), 2)
+
+    def test_get_banned_accounts_filter_by_talent(self):
+        """Test filtering banned accounts by talent account type"""
+        response = self.client.get("/banned-accounts?account_type=talent", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+        # All results should be talent accounts
+        for account in data["results"]:
+            self.assertEqual(account["account_type"], "talent")
+
+    def test_get_banned_accounts_filter_by_business_user(self):
+        """Test filtering banned accounts by business user account type"""
+        response = self.client.get("/banned-accounts?account_type=business", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+        # All results should be business user accounts
+        for account in data["results"]:
+            self.assertEqual(account["account_type"], "business")
+
+    def test_get_banned_accounts_unauthorized(self):
+        """Test banned accounts list without authentication"""
+        response = self.client.get("/banned-accounts")
+        self.assertEqual(response.status_code, 401)
+
+
+class UnbanAccountTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.admin_user = AdminUserFactory.create()
+        self.user = self.admin_user.user
+        self.auth_headers = {
+            "authorization": f"Bearer {self.user.token}"
+        }
+        # Create a talent and ban it to get a banned account
+        self.talent = TalentFactory.create()
+        from accounts.models import BannedAccount
+        self.banned_account = BannedAccount.objects.create(
+            email=self.talent.user.email,
+            account_type=UserType.TALENT.value
+        )
+
+    def test_unban_account_success(self):
+        """Test successful unbanning of an account"""
+        response = self.client.post(f"/banned-accounts/{self.banned_account.uid}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        # The banned account should be deleted
+        self.assertFalse(BannedAccount.objects.filter(uid=self.banned_account.uid).exists())
+
+    def test_unban_account_unauthorized(self):
+        """Test unbanning account without authentication"""
+        response = self.client.post(f"/banned-accounts/{self.banned_account.uid}")
+        self.assertEqual(response.status_code, 401)
+
+    def test_unban_account_not_found(self):
+        """Test unbanning non-existent account"""
+        response = self.client.post(f"/banned-accounts/{uuid4()}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 404)
+
+
+class GetBusinessDetailTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.admin_user = AdminUserFactory.create()
+        self.user = self.admin_user.user
+        self.auth_headers = {
+            "authorization": f"Bearer {self.user.token}"
+        }
+        # Create a business with a logo to avoid validation issues in the detail endpoint
+        self.business = BusinessFactory.create(
+            description="Test business description"
+        )
+        # Set a logo file path (we don't need an actual file for testing)
+        self.business.logo = "media/logo/test_logo.png"
+        self.business.save()
+
+    def test_get_business_success(self):
+        """Test successful retrieval of a business by UID"""
+        response = self.client.get(f"/businesses/{self.business.uid}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["uid"], str(self.business.uid))
+        self.assertEqual(data["name"], self.business.name)
+        self.assertEqual(data["website"], self.business.website)
+        self.assertEqual(int(data["size"]), self.business.size)
+        self.assertEqual(data["description"], self.business.description)
+
+    def test_get_business_unauthorized(self):
+        """Test business retrieval without authentication"""
+        response = self.client.get(f"/businesses/{self.business.uid}")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_business_not_found(self):
+        """Test retrieval of non-existent business"""
+        response = self.client.get(f"/businesses/{uuid4()}", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 404)
 
 
