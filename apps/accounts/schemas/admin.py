@@ -2,7 +2,7 @@ from datetime import date
 from typing import Optional, List, Literal, Generic, T
 from uuid import UUID
 
-from accounts.enums import BusinessUserRoleType, BusinessUserStatusType
+from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType
 from accounts.models import BusinessUser, Business, Talent
 from accounts.schemas.common import DashboardFilter
 from accounts.schemas.talent import TalentUserSchema, UpdateTalentProfileSchema2
@@ -14,8 +14,25 @@ from paginations import CustomPaginatedResponseSchema
 from pydantic import EmailStr, HttpUrl, Field
 
 
+
 class AdminDashboardFilter(DashboardFilter):
     company: Optional[UUID] = None
+
+class BusinessUsersFilter(Schema):
+    active: Optional[bool] = None
+    search: Optional[str] = None
+
+
+class TalentUsersFilter(Schema):
+    active: Optional[bool] = None
+    search: Optional[str] = None
+
+
+class BusinessFilter(DashboardFilter):
+    paused: Optional[bool] = None
+    search: Optional[str] = None
+
+
 
 class JobPhaseSchema(Schema):
     phase: str
@@ -240,3 +257,9 @@ class PauseResumeSchema(Schema):
 
 class AccountStatusSchema(Schema):
     is_active: bool
+
+class BannedUserSchema(Schema):
+    uid: UUID
+    email: EmailStr
+    account_type:UserType
+

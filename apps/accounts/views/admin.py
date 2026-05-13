@@ -1,11 +1,14 @@
+from typing import Optional
 from uuid import UUID
 
+from accounts.enums import UserType
 from accounts.models import BusinessUser, Talent, Business
 from accounts.schemas.admin import AdminDashboardFilter, BusinessMetricSchema, TalentMetricSchema, \
     BusinessListSchema, PaginatedBusinessJobListSchema, BusinessUserListSchema, MutateBusinessSchema, \
     MutateBusinessUserSchema, CreateBusinessSchema, TalentListSchema, TalentDetailSchema, \
     PaginatedApplicationListSchema, MutateTalentDetailSchema, BusinessActionSchema, PaginatedMetricFilter, \
-    AccountStatusSchema, PauseResumeSchema
+    AccountStatusSchema, PauseResumeSchema, BusinessDetailSchema, BusinessFilter, BusinessUsersFilter, \
+    TalentUsersFilter, BannedUserSchema
 from accounts.schemas.common import UserSchema
 from accounts.services import admin as admin_services
 from django.db import transaction
@@ -34,9 +37,15 @@ def get_talent_metrics(request, filters: AdminDashboardFilter = Query(...)):
 
 @router.get("businesses", auth=JWTAuth(), response=CustomPaginatedResponseSchema[BusinessListSchema])
 @paginate(CustomPageNumberPaginationExtra, page_size=50)
-def get_businesses(request, filters: AdminDashboardFilter = Query(...)):
+def get_businesses(request, filters: BusinessFilter = Query(...)):
     IsAdminUser.check(request)
     return admin_services.get_businesses_data(**filters.dict(exclude_unset=True))
+
+
+@router.get("businesses/{business_uid}", auth=JWTAuth(), response=BusinessDetailSchema)
+def get_business(request, business_uid:UUID):
+    IsAdminUser.check(request)
+    return admin_services.get_business_data(business_uid=business_uid)
 
 @router.post("businesses", auth=JWTAuth(), response=BusinessListSchema)
 @transaction.atomic
@@ -50,11 +59,11 @@ def update_business(request, business_uid: UUID, data: MutateBusinessSchema):
     IsAdminUser.check(request)
     return admin_services.update_business_data(business_uid, **data.dict(exclude_unset=True))
 
-@router.post("businesses/{business_uid}", auth=JWTAuth(), response=BusinessListSchema)
-@transaction.atomic
-def business_action(request, business_uid: UUID, data: BusinessActionSchema):
-    IsAdminUser.check(request)
-    return admin_services.business_action(business_uid, data.action)
+# @router.post("businesses/{business_uid}", auth=JWTAuth(), response=BusinessListSchema)
+# @transaction.atomic
+# def business_action(request, business_uid: UUID, data: BusinessActionSchema):
+#     IsAdminUser.check(request)
+#     return admin_services.business_action(business_uid, data.action)
 
 @router.get("businesses/{business_uid}/jobs", auth=JWTAuth(), response=PaginatedBusinessJobListSchema)
 def get_business_jobs(request, business_uid: UUID, page_size=50, page=1):
@@ -68,9 +77,9 @@ def get_business_jobs(request, business_uid: UUID, page_size=50, page=1):
 
 @router.get("businesses/{business_uid}/users", auth=JWTAuth(), response=CustomPaginatedResponseSchema[BusinessUserListSchema])
 @paginate(CustomPageNumberPaginationExtra, page_size=50)
-def get_business_users(request, business_uid: UUID):
+def get_business_users(request, business_uid: UUID, filters: BusinessUsersFilter = Query(...)):
     IsAdminUser.check(request)
-    return admin_services.get_business_users_data(business_uid)
+    return admin_services.get_business_users_data(business_uid, **filters.dict(exclude_unset=True))
 
 @router.post("businesses/{business_uid}/users", auth=JWTAuth(), response=BusinessUserListSchema)
 @transaction.atomic
@@ -143,9 +152,9 @@ def toggle_talent_account_status(request, talent_uid: UUID, data: AccountStatusS
 
 @router.get("talents", auth=JWTAuth(), response=CustomPaginatedResponseSchema[TalentListSchema])
 @paginate(CustomPageNumberPaginationExtra, page_size=50)
-def get_talent_users(request):
+def get_talent_users(request, filters: TalentUsersFilter = Query(...)):
     IsAdminUser.check(request)
-    return admin_services.get_talent_users_data()
+    return admin_services.get_talent_users_data(**filters.dict(exclude_unset=True))
 
 @router.get("talents/{talent_uid}", auth=JWTAuth(), response=TalentDetailSchema)
 def get_talent_user(request, talent_uid: UUID):
@@ -216,3 +225,14 @@ def delete_business(request, business_uid: UUID):
     admin_services.delete_business(business)
     return Response(status=204, data={"message": "Business deleted successfully"})
 
+@router.get("banned-accounts", auth=JWTAuth(), response=CustomPaginatedResponseSchema[BannedUserSchema])
+@paginate(CustomPageNumberPaginationExtra, page_size=50)
+def get_banned_accounts(request, account_type:Optional[UserType]):
+    IsAdminUser.check(request)
+    return admin_services.get_banned_users_data(account_type=account_type)
+
+
+router.delete("banned-accounts/{account_uid}", auth=JWTAuth())
+def unban_account(request, account_uid: UUID):
+    IsAdminUser.check(request)
+    return admin_services.unban_user_account(account_uid)
