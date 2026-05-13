@@ -1,13 +1,12 @@
 from datetime import timedelta
 
+from accounts.models import VerificationCode
+from auth.views import router
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.utils import timezone
-from ninja.testing import TestClient
-
-from accounts.models import VerificationCode
-from auth.views import router
 from factories import TalentFactory
+from ninja.testing import TestClient
 
 User = get_user_model()
 
@@ -48,7 +47,7 @@ class LoginEndpointTests(TestCase):
         }
         response = self.client.post(self.login_url, json=data, content_type='application/json')
         
-        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json()['detail'], "You don't have an account with us")
 
 
