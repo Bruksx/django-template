@@ -381,7 +381,7 @@ def get_business_users_data(business_uid: UUID, active:Optional[bool]=None,
         for s in search:
             query = query|Q(Q(user__email__icontains=s)|Q(user__first_name__icontains=s)|Q(user__last_name__icontains=s))
         queryset = queryset.filter(query)
-    return queryset
+    return queryset.order_by("-updated_at", "-user__updated_at")
 
 @transaction.atomic
 def add_business_user_data(
@@ -565,7 +565,7 @@ def get_talent_users_data(active:Optional[bool]=None, search:Optional[str]=None)
                 Q(user__email__icontains=s) | Q(user__first_name__icontains=s) | Q(user__last_name__icontains=s))
         queryset = queryset.filter(query)
 
-    return queryset
+    return queryset.order_by("-updated_at", "-user__updated_at")
 
 
 def get_talent_user_data(talent_uid: UUID):
@@ -860,7 +860,7 @@ def pause_resume_business(business, action):
         raise HttpError(400, "Invalid action. Must be 'pause' or 'resume'")
 
 def get_banned_users_data(account_type=None):
-    queryset = BannedAccount.objects.all()
+    queryset = BannedAccount.objects.order_by("-created_at")
     if account_type:
         queryset = queryset.filter(account_type=account_type)
     return queryset.values("uid", "email", "account_type")
