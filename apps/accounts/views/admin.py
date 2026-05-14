@@ -1,14 +1,15 @@
 from typing import Optional
 from uuid import UUID
 
-from accounts.enums import UserType
+from accounts.enums import UserType, AdminRoleType
 from accounts.models import BusinessUser, Talent, Business
 from accounts.schemas.admin import AdminDashboardFilter, BusinessMetricSchema, TalentMetricSchema, \
     BusinessListSchema, PaginatedBusinessJobListSchema, BusinessUserListSchema, MutateBusinessSchema, \
     MutateBusinessUserSchema, CreateBusinessSchema, TalentListSchema, TalentDetailSchema, \
-    PaginatedApplicationListSchema, MutateTalentDetailSchema, BusinessActionSchema, PaginatedMetricFilter, \
+    PaginatedApplicationListSchema, MutateTalentDetailSchema, PaginatedMetricFilter, \
     AccountStatusSchema, PauseResumeSchema, BusinessDetailSchema, BusinessFilter, BusinessUsersFilter, \
-    TalentUsersFilter, BannedUserSchema
+    TalentUsersFilter, BannedUserSchema, AdminUserListSchema, AdminActionSchema, InviteAdminSchema, EditAdminSchema, \
+    AcceptAdminInviteSchema
 from accounts.schemas.common import UserSchema
 from accounts.services import admin as admin_services
 from django.db import transaction
@@ -19,7 +20,7 @@ from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 
-from config.permissions import IsAdminUser
+from config.permissions import IsAdminUser, IsSuperAdminUser
 
 router = Router(tags=["Admin Account"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -51,13 +52,13 @@ def get_business(request, business_uid:UUID):
 @transaction.atomic
 def add_business(request, data: CreateBusinessSchema):
     IsAdminUser.check(request)
-    return admin_services.add_business_data(**data.dict(exclude_unset=True))
+    return admin_services.add_business_data(request.user.adminuser, **data.dict(exclude_unset=True))
 
 @router.patch("businesses/{business_uid}", auth=JWTAuth(), response=BusinessListSchema)
 @transaction.atomic
 def update_business(request, business_uid: UUID, data: MutateBusinessSchema):
     IsAdminUser.check(request)
-    return admin_services.update_business_data(business_uid, **data.dict(exclude_unset=True))
+    return admin_services.update_business_data(request.user.adminuser, business_uid, **data.dict(exclude_unset=True))
 
 # @router.post("businesses/{business_uid}", auth=JWTAuth(), response=BusinessListSchema)
 # @transaction.atomic
@@ -85,20 +86,20 @@ def get_business_users(request, business_uid: UUID, filters: BusinessUsersFilter
 @transaction.atomic
 def add_business_user(request, business_uid: UUID, data: MutateBusinessUserSchema):
     IsAdminUser.check(request)
-    return admin_services.add_business_user_data(business_uid, **data.dict(exclude_unset=True))
+    return admin_services.add_business_user_data(request.user.adminuser, business_uid, **data.dict(exclude_unset=True))
 
 @router.patch("businesses/users/{business_user_uid}", auth=JWTAuth(), response=BusinessUserListSchema)
 @transaction.atomic
 def update_business_user(request, business_user_uid: UUID, data: MutateBusinessUserSchema):
     IsAdminUser.check(request)
-    return admin_services.update_business_user_data(business_user_uid, **data.dict(exclude_unset=True))
+    return admin_services.update_business_user_data(request.user.adminuser, business_user_uid, **data.dict(exclude_unset=True))
 
 
 @router.delete("businesses/users/{business_user_uid}", auth=JWTAuth())
 @transaction.atomic
 def delete_business_user(request, business_user_uid: UUID):
     IsAdminUser.check(request)
-    admin_services.delete_business_user_data(business_user_uid)
+    admin_services.delete_business_user_data(request.user.adminuser, business_user_uid)
     return Response(status=204,data={"message": "Business user deleted successfully"})
 
 @router.post("talents/{talent_uid}/ban", auth=JWTAuth())
@@ -108,7 +109,7 @@ def ban_talent(request, talent_uid: UUID):
     talent = Talent.objects.filter(uid=talent_uid).first()
     if not talent:
         raise HttpError(404, "This talent does not exist")
-    admin_services.ban_account(talent.user)
+    admin_services.ban_account(request.user.adminuser, talent.user)
     return Response(status=200 ,data={"message": "Talent account has been banned successfully"})
 
 @router.post("businesses/users/{business_user_uid}/login", auth=JWTAuth(), response=UserSchema)
@@ -136,7 +137,7 @@ def toggle_business_user_account_status(request, business_user_uid: UUID, data: 
     business_user = BusinessUser.objects.filter(uid=business_user_uid).first()
     if not business_user:
         raise HttpError(404, "This business user does not exist")
-    user = admin_services.toggle_account_status(business_user.user, is_active=data.is_active)
+    user = admin_services.toggle_account_status(request.user.adminuser, business_user.user, is_active=data.is_active)
     return user.businessuser
 
 @router.post("talents/{talent_uid}/account-status", auth=JWTAuth(), response=TalentListSchema)
@@ -146,7 +147,7 @@ def toggle_talent_account_status(request, talent_uid: UUID, data: AccountStatusS
     talent = Talent.objects.filter(uid=talent_uid).first()
     if not talent:
         raise HttpError(404, "This talent does not exist")
-    user = admin_services.toggle_account_status(talent.user, is_active=data.is_active)
+    user = admin_services.toggle_account_status(request.user.adminuser, talent.user, is_active=data.is_active)
     return user.talent
 
 
@@ -176,13 +177,13 @@ def get_talent_applications(request, talent_uid: UUID, page_size=50, page=1):
 @transaction.atomic
 def create_talent_user(request, data: MutateTalentDetailSchema):
     IsAdminUser.check(request)
-    return admin_services.create_talent_user_data(**data.dict(exclude_unset=True))
+    return admin_services.create_talent_user_data(request.user.adminuser, **data.dict(exclude_unset=True))
 
 @router.patch("talents/{talent_uid}", auth=JWTAuth(), response=TalentDetailSchema)
 @transaction.atomic
 def update_talent_user(request, talent_uid: UUID, data: MutateTalentDetailSchema):
     IsAdminUser.check(request)
-    return admin_services.update_talent_user_data(talent_uid, **data.dict(exclude_unset=True))
+    return admin_services.update_talent_user_data(request.user.adminuser, talent_uid, **data.dict(exclude_unset=True))
 
 @router.get("metrics/pages", auth=JWTAuth())
 def get_page_metrics(request, filters: PaginatedMetricFilter = Query(...)):
@@ -213,7 +214,7 @@ def pause_resume_business(request, business_uid: UUID, data: PauseResumeSchema):
     business = Business.objects.filter(uid=business_uid).first()
     if not business:
         raise HttpError(404, "This business does not exist")
-    return admin_services.pause_resume_business(business, data.action)
+    return admin_services.pause_resume_business(request.user.adminuser, business, data.action)
 
 
 @router.delete("businesses/{business_uid}", auth=JWTAuth())
@@ -222,7 +223,7 @@ def delete_business(request, business_uid: UUID):
     business = Business.objects.filter(uid=business_uid).first()
     if not business:
         raise HttpError(404, "This business does not exist")
-    admin_services.delete_business(business)
+    admin_services.delete_business(request.user.adminuser, business)
     return Response(status=204, data={"message": "Business deleted successfully"})
 
 @router.get("banned-accounts", auth=JWTAuth(), response=CustomPaginatedResponseSchema[BannedUserSchema])
@@ -235,4 +236,36 @@ def get_banned_accounts(request, account_type:Optional[UserType]=None):
 @router.post("banned-accounts/{account_uid}", auth=JWTAuth())
 def unban_account(request, account_uid: UUID):
     IsAdminUser.check(request)
-    return admin_services.unban_user_account(account_uid)
+    return admin_services.unban_user_account(request.user.adminuser, account_uid)
+
+@router.get("admin-users", auth=JWTAuth(), response=CustomPaginatedResponseSchema[AdminUserListSchema])
+@paginate(CustomPageNumberPaginationExtra, page_size=50)
+def get_admin_users(request, active:Optional[bool]=True):
+    IsSuperAdminUser.check(request)
+    return admin_services.get_admin_user_list(active=active)
+
+@router.patch("admin-users", auth=JWTAuth(), response=AdminUserListSchema)
+def update_admin_users_status(request, data: AdminActionSchema):
+    IsSuperAdminUser.check(request)
+    return admin_services.update_admin_users_status(request.user.adminuser, data.uids, data.action)
+
+
+@router.post("admin-users", auth=JWTAuth(), response=AdminUserListSchema)
+def invite_admin_user(request, data: InviteAdminSchema):
+    IsSuperAdminUser.check(request)
+    return admin_services.invite_admin_user(request.user.adminuser, data.email, data.fullname)
+
+@router.patch("admin-users/{admin_uid}", auth=JWTAuth(), response=AdminUserListSchema)
+def update_admin_user(request, admin_uid: UUID, data: EditAdminSchema):
+    IsAdminUser.check(request)
+    admin = request.user.adminuser
+    role = data.role
+    if admin.uid != admin_uid or admin.role != AdminRoleType.SUPER_ADMIN.value:
+        raise HttpError(403, "You are not authorized to perform this action")
+    if admin.role != AdminRoleType.SUPER_ADMIN.value:
+        role = None
+    return admin_services.update_admin_user(request.user.adminuser, admin_uid, email=data.email, fullname=data.fullname, role=role)
+
+@router.post("admin-users/accept-invite", response=AdminUserListSchema)
+def accept_admin_invite(request, data: AcceptAdminInviteSchema):
+    return admin_services.accept_admin_invite(code=data.code, password=data.password)

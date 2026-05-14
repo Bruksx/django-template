@@ -2,12 +2,12 @@ from collections.abc import Iterable
 from datetime import date, datetime
 from datetime import timedelta
 from math import ceil
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 from uuid import UUID
 
-from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType
+from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType, AdminRoleType
 from accounts.models import Business, BusinessUser, User, Talent, BusinessIndustry, Country, BusinessClient, \
-    BannedAccount
+    BannedAccount, AdminUser, AdminUserInvite
 from accounts.queries import add_profile_completion_annotation
 from core.models import PageMetric, APIMetric
 from django.core.exceptions import ValidationError
@@ -21,10 +21,20 @@ from jobs.enums import PhaseType, JobStatusType, WithdrawalFeedbackType
 from jobs.models import JobPost, JobApplication, JobApplicationWithdrawal, JobPostMetrics, Job, JobPostTag, JobAlert
 from ninja.errors import HttpError
 
+from helpers.email.accounts import send_admin_invite_email
 from helpers.email.auth import send_admin_created_account_email
+from helpers.utils import is_valid_uuid
 from monkeypatches.q_cluster import async_task
 from . import talent as talent_services
 
+
+def update_admin_last_activity(func):
+    def inner(admin_user, *args, **kwargs):
+        res = func(*args, **kwargs)
+        admin_user.last_activity = timezone.now()
+        admin_user.save()
+        return res
+    return inner
 
 def get_admin_business_metrics_data(
     start_date: Optional[datetime] = None,
@@ -224,6 +234,8 @@ def get_business_data(
 
     return business
 
+@transaction.atomic
+@update_admin_last_activity
 def add_business_data(**kwargs):
 
     industry_uid = kwargs.pop("industry", None)
@@ -244,6 +256,7 @@ def add_business_data(**kwargs):
 
 
 @transaction.atomic
+@update_admin_last_activity
 def update_business_data(
     business_uid: UUID,
     **kwargs
@@ -270,7 +283,8 @@ def update_business_data(
 
 
 @transaction.atomic
-def business_action(business_uid: UUID, action: Literal["archive", "pause", "move"]):
+@update_admin_last_activity
+def business_action(admin_user, business_uid: UUID, action: Literal["archive", "pause", "move"]):
     business = Business.objects.get(uid=business_uid)
 
     if action == "archive":
@@ -384,6 +398,7 @@ def get_business_users_data(business_uid: UUID, active:Optional[bool]=None,
     return queryset.order_by("-updated_at", "-user__updated_at")
 
 @transaction.atomic
+@update_admin_last_activity
 def add_business_user_data(
     business_uid: UUID,
     **kwargs
@@ -453,6 +468,8 @@ def add_business_user_data(
 
     return business_user
 
+@transaction.atomic
+@update_admin_last_activity
 def ban_account(user: User):
     # TODO send an email to the banned account
     if BannedAccount.objects.filter(email__iexact=user.email, account_type=user.type).exists():
@@ -470,6 +487,8 @@ def ban_account(user: User):
     return
 
 
+@transaction.atomic
+@update_admin_last_activity
 def toggle_account_status(user: User, is_active=True):
     if user.is_active == is_active:
         return user
@@ -484,6 +503,7 @@ def toggle_account_status(user: User, is_active=True):
 
 
 @transaction.atomic
+@update_admin_last_activity
 def update_business_user_data(
     business_user_uid: UUID,
     **kwargs
@@ -520,6 +540,7 @@ def update_business_user_data(
 
 
 @transaction.atomic
+@update_admin_last_activity
 def delete_business_user_data(business_user_uid: UUID):
     business_user = BusinessUser.objects.filter(uid=business_user_uid).first()
     if not business_user:
@@ -627,11 +648,13 @@ def get_talent_applications_data(talent_uid: UUID):
 
 
 @transaction.atomic
+@update_admin_last_activity
 def create_talent_user_data(**kwargs):
     return talent_services.create_talent_profile_service(kwargs)
 
 
 @transaction.atomic
+@update_admin_last_activity
 def update_talent_user_data(talent_uid: UUID, **kwargs):
     talent = Talent.objects.filter(uid=talent_uid).select_related("user").first()
     if not talent:
@@ -826,19 +849,22 @@ def get_talent_profile_completion_data(
         page, page_size
     )
 
+@transaction.atomic
 def pause_business(business):
     business.paused = True
     business.save()
     # TODO: send email to business regarding pause
     return business
 
+@transaction.atomic
 def resume_business(business):
     business.paused = False
     business.save()
     # TODO: send email to business regarding resume
     return business
 
-
+@transaction.atomic
+@update_admin_last_activity
 def delete_business(business):
     from chats.models import Conversation
     JobAlert.objects.filter(jobs__created_by__business=business).all().hard_delete()
@@ -850,7 +876,8 @@ def delete_business(business):
     Business.objects.filter(id=business.id).hard_delete()
     return
 
-
+@transaction.atomic
+@update_admin_last_activity
 def pause_resume_business(business, action):
     if action == "pause":
         return pause_business(business)
@@ -865,9 +892,83 @@ def get_banned_users_data(account_type=None):
         queryset = queryset.filter(account_type=account_type)
     return queryset.values("uid", "email", "account_type")
 
+@transaction.atomic
+@update_admin_last_activity
 def unban_user_account(account_uid:UUID):
     account = BannedAccount.objects.filter(uid=account_uid).first()
     if not account:
         raise HttpError(404, "Account not found")
     account.hard_delete()
     return
+
+def get_admin_user_list(active:Optional[bool] = None):
+    queryset = AdminUser.objects.all().order_by("-created_at")
+    if active:
+        queryset = queryset.filter(user__is_active=active)
+    return queryset
+
+@transaction.atomic
+@update_admin_last_activity
+def update_admin_users_status(uids: List[UUID], action: Literal['block', 'unblock']):
+    active = action == 'unblock'
+    admins = AdminUser.objects.filter(uid__in=uids).exclude(user__is_active=active).iterator()
+    for admin in admins:
+        admin.user.is_active = active
+        admin.user.save()
+    return
+
+@transaction.atomic
+@update_admin_last_activity
+def invite_admin_user(email: str, fullname: str):
+    if AdminUser.objects.filter(user__email__iexact=email).exists():
+        raise HttpError(400, "Admin user already exists")
+    if User.objects.filter(email__iexact=email).exists():
+        raise HttpError(400, "User already exists with this email address")
+    if AdminUserInvite.objects.filter(email=email).exists():
+        raise HttpError(400, "An invite already exists for this email address")
+    first_name, last_name = fullname.split(" ", 1) if " " in fullname else (fullname, "")
+    invite = AdminUserInvite.objects.create(email=email, first_name=first_name, last_name=last_name)
+    send_admin_invite_email(email=email, user=fullname, token=invite.uid)
+    return invite
+
+@transaction.atomic
+@update_admin_last_activity
+def update_admin_user(uid:UUID, email:str, fullname:str, role:Optional[AdminRoleType]=None):
+    admin_user = AdminUser.objects.filter(uid=uid).first()
+    if not admin_user:
+        raise HttpError(404, "Admin user not found")
+
+    admin_user.user.email = email
+    admin_user.user.first_name, admin_user.user.last_name = fullname.split(" ", 1) if " " in fullname else (fullname, "")
+    admin_user.user.save()
+    if role:
+        admin_user.role = role.value
+        admin_user.save()
+    return admin_user
+
+def accept_admin_invite(code: str, password: str):
+    if not is_valid_uuid(code):
+        raise HttpError(400, "Invalid invite code")
+    invite = AdminUserInvite.objects.filter(uid=UUID(code)).first()
+    if not invite:
+        raise HttpError(404, "Invalid or expired link")
+    if AdminUser.objects.filter(user__email__iexact=invite.email).exists():
+        raise HttpError(400, "You have already accepted this invite")
+    if User.objects.filter(email__iexact=invite.email).exists():
+        raise HttpError(400, "You already have an account with this email address")
+    user = User.objects.create(
+        email=invite.email,
+        first_name=invite.first_name,
+        last_name=invite.last_name,
+        is_active=True
+    )
+    user.set_password(password)
+    user.save()
+    admin_user = AdminUser.objects.create(user=user, role=AdminRoleType.ADMIN.value)
+    invite.hard_delete()
+    return admin_user
+
+
+
+
+
