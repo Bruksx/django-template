@@ -180,13 +180,21 @@ class BusinessDetailSchema(ModelSchema):
     industry: Optional[GenericNameAndUidSchema] = None
     head_office: str = Field(alias="location")
     registration_date: date = Field(alias="reg_date")
-    owner_name: str = Field(alias="created_by.fullname")
-    owner_email: EmailStr = Field(alias="created_by.email")
-    logo: str = Field(alias="get_logo")
+    owner_name: Optional[str] = None
+    owner_email: Optional[EmailStr] = None
+    logo: Optional[str] = Field(alias="get_logo")
 
     class Meta:
         model = Business
         exclude = (*READ_EXCLUDE_FIELDS, "created_by")
+
+    @staticmethod
+    def resolve_owner_email(obj):
+        return obj.created_by.email if obj.created_by else None
+
+    @staticmethod
+    def resolve_owner_name(obj):
+        return obj.created_by.fullname if obj.created_by else None
 
 class TalentDetailSchema(TalentUserSchema):
     ...
