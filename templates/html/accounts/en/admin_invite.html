@@ -1,0 +1,22 @@
+{% extends "all_template.html" %}
+
+{% block content %}
+    <div style="width: 100%;">
+    <p>Dear {{user}}</p>
+
+
+    <p>You have been invited to join 1840 GTC as an Admin.</p>
+    <p>Below is the invitation link, click on it to accept the invitation.</p>
+
+    <br/>
+    <a href="{{invite_link}}">Accept Invitation</a>
+    <br/>
+    <br/>
+
+
+    <p>Best Regards,</p>
+    <p>1840 GTC Super Admin</p>
+    </div>
+
+
+{% endblock %}
