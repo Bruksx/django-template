@@ -2,7 +2,7 @@ from datetime import timezone as dt_timezone, datetime, date
 from uuid import uuid4
 
 from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType
-from accounts.models import Business, BusinessIndustry, BusinessUser, User, Talent, BannedAccount
+from accounts.models import Business, BusinessIndustry, BusinessUser, User, Talent, BannedAccount, AdminUserInvite
 from accounts.views.admin import router
 from core.models import PageMetric, APIMetric
 from django.test import TestCase
@@ -1240,5 +1240,368 @@ class GetBusinessDetailTestCase(TestCase):
         """Test retrieval of non-existent business"""
         response = self.client.get(f"/businesses/{uuid4()}", headers=self.auth_headers)
         self.assertEqual(response.status_code, 404)
+
+
+class GetAdminUsersTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.super_admin = AdminUserFactory.create(role="super_admin")
+        self.user = self.super_admin.user
+        self.auth_headers = {
+            "authorization": f"Bearer {self.user.token}"
+        }
+        # Create some admin users, some active and some not
+        self.admin_active = AdminUserFactory.create(role="admin")
+        self.admin_active.user.is_active = True
+        self.admin_active.user.save()
+        self.admin_inactive = AdminUserFactory.create(role="admin")
+        self.admin_inactive.user.is_active = False
+        self.admin_inactive.user.save()
+        AdminUserFactory.create_batch(2)  # Create 2 more admin users
+
+    def test_get_admin_users_success(self):
+        """Test successful retrieval of admin users"""
+        response = self.client.get("/admin-users", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+        self.assertGreaterEqual(len(data["results"]), 4)
+
+    def test_get_admin_users_filter_by_active(self):
+        """Test filtering admin users by active status"""
+        response = self.client.get("/admin-users?active=true", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+        # Check that our known active admin is in the results
+        active_admin_ids = [str(admin["uid"]) for admin in data["results"]]
+        self.assertIn(str(self.admin_active.uid), active_admin_ids)
+        # And that our known inactive admin is NOT in the results
+        inactive_admin_ids = [str(admin["uid"]) for admin in data["results"]]
+        self.assertNotIn(str(self.admin_inactive.uid), inactive_admin_ids)
+
+    def test_get_admin_users_filter_by_inactive(self):
+        """Test filtering admin users by inactive status"""
+        response = self.client.get("/admin-users?active=false", headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("results", data)
+        # Check that our known inactive admin is in the results
+        inactive_admin_ids = [str(admin["uid"]) for admin in data["results"]]
+        self.assertIn(str(self.admin_inactive.uid), inactive_admin_ids)
+        # And that our known active admin is NOT in the results
+        self.assertNotIn(str(self.admin_active.uid), inactive_admin_ids)
+
+    def test_get_admin_users_unauthorized(self):
+        """Test admin users list without authentication"""
+        response = self.client.get("/admin-users")
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_admin_users_not_super_admin(self):
+        """Test that non-super admin cannot access admin users list"""
+        # Create a regular admin user
+        regular_admin = AdminUserFactory.create(role="admin")
+        regular_auth_headers = {
+            "authorization": f"Bearer {regular_admin.user.token}"
+        }
+        response = self.client.get("/admin-users", headers=regular_auth_headers)
+        self.assertEqual(response.status_code, 403)
+
+
+class UpdateAdminUsersStatusTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.super_admin = AdminUserFactory.create(role="super_admin")
+        self.user = self.super_admin.user
+        self.auth_headers = {
+            "authorization": f"Bearer {self.user.token}"
+        }
+        self.admin1 = AdminUserFactory.create(user__is_active=True, role="admin")
+        self.admin2 = AdminUserFactory.create(user__is_active=True, role="admin")
+
+    def test_update_admin_users_status_block_success(self):
+        """Test successful blocking of admin users"""
+        data = {
+            "action": "block",
+            "uids": [str(self.admin1.uid), str(self.admin2.uid)]
+        }
+        response = self.client.patch("/admin-users", json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        self.admin1.refresh_from_db()
+        self.admin2.refresh_from_db()
+        self.assertFalse(self.admin1.user.is_active)
+        self.assertFalse(self.admin2.user.is_active)
+
+    def test_update_admin_users_status_unblock_success(self):
+        """Test successful unblocking of admin users"""
+        # First block the admins
+        self.admin1.user.is_active = False
+        self.admin1.user.save()
+        self.admin2.user.is_active = False
+        self.admin2.user.save()
+
+        data = {
+            "action": "unblock",
+            "uids": [str(self.admin1.uid), str(self.admin2.uid)]
+        }
+        response = self.client.patch("/admin-users", json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 200)
+        self.admin1.refresh_from_db()
+        self.admin2.refresh_from_db()
+        self.assertTrue(self.admin1.user.is_active)
+        self.assertTrue(self.admin2.user.is_active)
+
+    def test_update_admin_users_status_unauthorized(self):
+        """Test admin users status update without authentication"""
+        data = {
+            "action": "block",
+            "uids": [str(self.admin1.uid)]
+        }
+        response = self.client.patch("/admin-users", json=data)
+        self.assertEqual(response.status_code, 401)
+
+    def test_update_admin_users_status_not_super_admin(self):
+        """Test that non-super admin cannot update admin users status"""
+        regular_admin = AdminUserFactory.create(role="admin")
+        regular_auth_headers = {
+            "authorization": f"Bearer {regular_admin.user.token}"
+        }
+        data = {
+            "action": "block",
+            "uids": [str(self.admin1.uid)]
+        }
+        response = self.client.patch("/admin-users", json=data, headers=regular_auth_headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_update_admin_users_status_invalid_action(self):
+        """Test admin users status update with invalid action"""
+        data = {
+            "action": "invalid",
+            "uids": [str(self.admin1.uid)]
+        }
+        response = self.client.patch("/admin-users", json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 422)
+
+
+class InviteAdminUserTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.super_admin = AdminUserFactory.create(role="super_admin")
+        self.user = self.super_admin.user
+        self.auth_headers = {
+            "authorization": f"Bearer {self.user.token}"
+        }
+
+    def test_invite_admin_user_success(self):
+        """Test successful invitation of an admin user"""
+        data = {
+            "email": "newadmin@example.com",
+            "fullname": "John Doe"
+        }
+        self.assertFalse(AdminUserInvite.objects.filter(email="newadmin@example.com").exists())
+        response = self.client.post("/admin-users", json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(AdminUserInvite.objects.filter(email="newadmin@example.com").exists())
+
+    def test_invite_admin_user_unauthorized(self):
+        """Test admin user invitation without authentication"""
+        data = {
+            "email": "newadmin@example.com",
+            "fullname": "John Doe"
+        }
+        response = self.client.post("/admin-users", json=data)
+        self.assertEqual(response.status_code, 401)
+
+    def test_invite_admin_user_not_super_admin(self):
+        """Test that non-super admin cannot invite admin users"""
+        regular_admin = AdminUserFactory.create(role="admin")
+        regular_auth_headers = {
+            "authorization": f"Bearer {regular_admin.user.token}"
+        }
+        data = {
+            "email": "newadmin@example.com",
+            "fullname": "John Doe"
+        }
+        response = self.client.post("/admin-users", json=data, headers=regular_auth_headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_invite_admin_user_duplicate_email(self):
+        """Test admin user invitation with duplicate email"""
+        existing_admin = AdminUserFactory.create()
+        data = {
+            "email": existing_admin.user.email,
+            "fullname": "John Doe"
+        }
+        response = self.client.post("/admin-users", json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 400)
+
+    def test_invite_admin_user_existing_user_email(self):
+        """Test admin user invitation with existing user email"""
+        existing_talent = TalentFactory.create()
+        data = {
+            "email": existing_talent.user.email,
+            "fullname": "John Doe"
+        }
+        response = self.client.post("/admin-users", json=data, headers=self.auth_headers)
+        self.assertEqual(response.status_code, 400)
+
+
+class UpdateAdminUserTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.super_admin = AdminUserFactory.create(role="super_admin")
+        self.super_admin_auth_headers = {
+            "authorization": f"Bearer {self.super_admin.user.token}"
+        }
+        self.admin = AdminUserFactory.create(role="admin")
+        self.admin_auth_headers = {
+            "authorization": f"Bearer {self.admin.user.token}"
+        }
+
+    def test_update_admin_user_success_as_super_admin(self):
+        """Test successful update of an admin user by super admin"""
+        data = {
+            "email": "updated@example.com",
+            "fullname": "Updated Name",
+            "role": "admin"
+        }
+        response = self.client.patch(
+            f"/admin-users/{self.admin.uid}",
+            json=data,
+            headers=self.super_admin_auth_headers
+        )
+        self.assertEqual(response.status_code, 200)
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.user.email, data["email"])
+
+    def test_update_admin_user_success_self_update(self):
+        """Test successful self-update of admin user"""
+        data = {
+            "email": "selfupdated@example.com",
+            "fullname": "Self Updated Name"
+        }
+        response = self.client.patch(
+            f"/admin-users/{self.admin.uid}",
+            json=data,
+            headers=self.admin_auth_headers
+        )
+        self.assertEqual(response.status_code, 200)
+        self.admin.refresh_from_db()
+        self.assertEqual(self.admin.user.email, data["email"])
+
+    def test_update_admin_user_unauthorized(self):
+        """Test admin user update without authentication"""
+        data = {"email": "updated@example.com", "fullname": "Updated Name"}
+        response = self.client.patch(f"/admin-users/{self.admin.uid}", json=data)
+        self.assertEqual(response.status_code, 401)
+
+    def test_update_admin_user_not_found(self):
+        """Test update of non-existent admin user"""
+        data = {"email": "updated@example.com", "fullname": "Updated Name"}
+        response = self.client.patch(
+            f"/admin-users/{uuid4()}",
+            json=data,
+            headers=self.super_admin_auth_headers
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_update_admin_user_unauthorized_other_user(self):
+        """Test that admin cannot update another admin user"""
+        other_admin = AdminUserFactory.create(role="admin")
+        data = {
+            "email": "updated@example.com",
+            "fullname": "Updated Name"
+        }
+        response = self.client.patch(
+            f"/admin-users/{other_admin.uid}",
+            json=data,
+            headers=self.admin_auth_headers
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_update_admin_user_role_by_non_super_admin(self):
+        """Test that non-super admin cannot update role"""
+        data = {
+            "email": "updated@example.com",
+            "fullname": "Updated Name",
+            "role": "super_admin"
+        }
+        response = self.client.patch(
+            f"/admin-users/{self.admin.uid}",
+            json=data,
+            headers=self.admin_auth_headers
+        )
+        self.assertEqual(response.status_code, 200)
+        self.admin.refresh_from_db()
+        # Role should not have been updated
+        self.assertEqual(self.admin.role, "admin")
+
+
+class AcceptAdminInviteTestCase(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        from accounts.models import AdminUserInvite
+        self.invite = AdminUserInvite.objects.create(
+            email="invitee@example.com",
+            first_name="John",
+            last_name="Doe"
+        )
+
+    def test_accept_admin_invite_success(self):
+        """Test successful acceptance of admin invite"""
+        data = {
+            "code": str(self.invite.uid),
+            "password": "SecurePassword123!"
+        }
+        response = self.client.post("/accept-admin-invite", json=data)
+        self.assertEqual(response.status_code, 200)
+        # Verify the admin user was created
+        from accounts.models import AdminUser
+        self.assertTrue(AdminUser.objects.filter(user__email=self.invite.email).exists())
+        # Verify the invite was deleted
+        self.assertFalse(AdminUserInvite.objects.filter(uid=self.invite.uid).exists())
+
+    def test_accept_admin_invite_invalid_code(self):
+        """Test admin invite acceptance with invalid code"""
+        data = {
+            "code": "invalid-code",
+            "password": "SecurePassword123!"
+        }
+        response = self.client.post("/accept-admin-invite", json=data)
+        self.assertEqual(response.status_code, 400)
+
+    def test_accept_admin_invite_expired_code(self):
+        """Test admin invite acceptance with expired/non-existent code"""
+        data = {
+            "code": str(uuid4()),
+            "password": "SecurePassword123!"
+        }
+        response = self.client.post("/accept-admin-invite", json=data)
+        self.assertEqual(response.status_code, 404)
+
+    def test_accept_admin_invite_already_accepted(self):
+        """Test admin invite acceptance when already accepted"""
+        # First accept the invite
+        data = {
+            "code": str(self.invite.uid),
+            "password": "SecurePassword123!"
+        }
+        response = self.client.post("/accept-admin-invite", json=data)
+        self.assertEqual(response.status_code, 200)
+
+        # Try to accept again
+        response = self.client.post("/accept-admin-invite", json=data)
+        self.assertEqual(response.status_code, 404)
+
+    def test_accept_admin_invite_email_already_exists(self):
+        """Test admin invite acceptance when email already exists"""
+        # Create a user with the same email as the invite
+        TalentFactory.create(user__email=self.invite.email)
+        data = {
+            "code": str(self.invite.uid),
+            "password": "SecurePassword123!"
+        }
+        response = self.client.post("/accept-admin-invite", json=data)
+        self.assertEqual(response.status_code, 400)
 
 

@@ -2,17 +2,18 @@ from datetime import date
 from typing import Optional, List, Literal, Generic, T
 from uuid import UUID
 
-from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType
-from accounts.models import BusinessUser, Business, Talent
+from ninja import Schema, ModelSchema
+from pydantic import EmailStr, HttpUrl, Field
+
+from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType, AdminRoleType
+from accounts.models import BusinessUser, Business, Talent, AdminUser
 from accounts.schemas.common import DashboardFilter
 from accounts.schemas.talent import TalentUserSchema, UpdateTalentProfileSchema2
 from core.schemas import GenericNameAndUidSchema
 from core.schemas import READ_EXCLUDE_FIELDS
 from jobs.enums import PhaseType, JobStatusType
 from jobs.models import JobApplication
-from ninja import Schema, ModelSchema
 from paginations import CustomPaginatedResponseSchema
-from pydantic import EmailStr, HttpUrl, Field
 
 
 class AdminDashboardFilter(DashboardFilter):
@@ -272,4 +273,45 @@ class BannedUserSchema(Schema):
     uid: UUID
     email: EmailStr
     account_type:UserType
+
+
+class AdminUserListSchema(ModelSchema):
+    fullname: str = Field(alias="user.fullname")
+    email: EmailStr = Field(alias="user.email")
+    joined_date: date
+    status: Literal['Active', 'Blocked']
+
+    class Meta:
+        model = AdminUser
+        fields = ["uid", "role", "last_activity"]
+
+    @staticmethod
+    def resolve_status(obj):
+        return "Active" if obj.user.is_active is True else "Blocked"
+
+    @staticmethod
+    def resolve_joined_date(obj):
+        return obj.created_at.date()
+
+class AdminActionSchema(Schema):
+    action: Literal["block", "unblock"]
+    uids: list[UUID]
+
+
+class InviteAdminSchema(Schema):
+    email: EmailStr
+    fullname: str
+
+class EditAdminSchema(Schema):
+    email: EmailStr
+    fullname: str
+    role: Optional[AdminRoleType] = None
+
+
+
+class AcceptAdminInviteSchema(Schema):
+    code: str
+    password: str
+
+
 

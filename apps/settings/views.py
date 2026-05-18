@@ -1,21 +1,21 @@
 from typing import List
 from uuid import UUID
 
-from accounts.enums import BusinessUserRoleType
+from config.permissions import IsBusinessUser, IsBusinessOwnerOrAdmin
 from django.db import transaction
 from django.db.models import Q
-from jobs.enums import PhaseType
-from jobs.models import JobApplication
+from monkeypatches.response import Response
 from ninja import Router, Form, PatchDict, UploadedFile
 from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
+
+from accounts.enums import BusinessUserRoleType
+from jobs.enums import PhaseType
+from jobs.models import JobApplication
 from settings.models import EmailTemplate, EmailTemplateAttachment, WorkFlowStage
 from settings.schemas import CreateEmailTemplateSchema, EmailTemplateListSchema, EmailTemplateDetailSchema, \
     MutateWorkFlowStageSchema, WorkFlowStageSchema, PhaseWorkFlowStageSchema, RearrangeWorkflowStageSchema, \
     MoveApplicationToStageFromStageSchema, UpdateEmailTemplateSchema
-
-from config.permissions import IsBusinessUser, IsBusinessOwnerOrAdmin
-from monkeypatches.response import Response
 
 router = Router(tags=["Settings"])
 
@@ -228,3 +228,6 @@ def re_arrange_workflows(request, data:List[RearrangeWorkflowStageSchema]):
             WorkFlowStage.objects.filter(uid=stage, created_by__business=business_user.business,
                                          phase=arrangement.phase.value).update(order=arrangement.stage_uids.index(stage))
     return Response(status=200, data={"message": "workflow stages have been updated successfully"})
+
+
+
