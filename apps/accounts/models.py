@@ -28,8 +28,8 @@ from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType,
     BusinessSize, BusinessUserStatusType, CaseReasonType, AdminRoleType, TalentJobType
 from core.enums import SalaryType
 from core.models import BaseModel, State, City
-from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum
-from jobs.enums import TechnologicalRequirementsEnum
+from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum, \
+    TechnologicalRequirementsEnum
 from notification.enums import NotificationGroup
 
 

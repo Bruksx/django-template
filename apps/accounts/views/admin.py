@@ -1,6 +1,14 @@
 from typing import Optional
 from uuid import UUID
 
+from config.permissions import IsAdminUser, IsSuperAdminUser
+from django.db import transaction
+from ninja import Query, Router
+from ninja.errors import HttpError
+from ninja.responses import Response
+from ninja_extra import paginate
+from ninja_jwt.authentication import JWTAuth
+
 from accounts.enums import UserType, AdminRoleType
 from accounts.models import BusinessUser, Talent, Business
 from accounts.schemas.admin import AdminDashboardFilter, BusinessMetricSchema, TalentMetricSchema, \
@@ -12,15 +20,7 @@ from accounts.schemas.admin import AdminDashboardFilter, BusinessMetricSchema, T
     AcceptAdminInviteSchema
 from accounts.schemas.common import UserSchema
 from accounts.services import admin as admin_services
-from django.db import transaction
-from ninja import Query, Router
-from ninja.errors import HttpError
-from ninja.responses import Response
-from ninja_extra import paginate
-from ninja_jwt.authentication import JWTAuth
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
-
-from config.permissions import IsAdminUser, IsSuperAdminUser
 
 router = Router(tags=["Admin Account"])
 pagination_class = lambda page_size: CustomPageNumberPaginationExtra(page_size=page_size or 50)
@@ -240,32 +240,34 @@ def unban_account(request, account_uid: UUID):
 
 @router.get("admin-users", auth=JWTAuth(), response=CustomPaginatedResponseSchema[AdminUserListSchema])
 @paginate(CustomPageNumberPaginationExtra, page_size=50)
-def get_admin_users(request, active:Optional[bool]=True):
+def get_admin_users(request, active:Optional[bool]=None):
     IsSuperAdminUser.check(request)
     return admin_services.get_admin_user_list(active=active)
 
-@router.patch("admin-users", auth=JWTAuth(), response=AdminUserListSchema)
+@router.patch("admin-users", auth=JWTAuth())
 def update_admin_users_status(request, data: AdminActionSchema):
     IsSuperAdminUser.check(request)
-    return admin_services.update_admin_users_status(request.user.adminuser, data.uids, data.action)
+    admin_services.update_admin_users_status(request.user.adminuser, data.uids, data.action)
+    return Response(status=200, data={"message": "Admin users status updated successfully"})
 
 
-@router.post("admin-users", auth=JWTAuth(), response=AdminUserListSchema)
+@router.post("admin-users", auth=JWTAuth())
 def invite_admin_user(request, data: InviteAdminSchema):
     IsSuperAdminUser.check(request)
-    return admin_services.invite_admin_user(request.user.adminuser, data.email, data.fullname)
+    admin_services.invite_admin_user(request.user.adminuser, data.email, data.fullname)
+    return Response(status=201, data={"message": "Admin user invited successfully"})
 
 @router.patch("admin-users/{admin_uid}", auth=JWTAuth(), response=AdminUserListSchema)
 def update_admin_user(request, admin_uid: UUID, data: EditAdminSchema):
     IsAdminUser.check(request)
     admin = request.user.adminuser
     role = data.role
-    if admin.uid != admin_uid or admin.role != AdminRoleType.SUPER_ADMIN.value:
+    if admin.uid != admin_uid and admin.role != AdminRoleType.SUPER_ADMIN.value:
         raise HttpError(403, "You are not authorized to perform this action")
     if admin.role != AdminRoleType.SUPER_ADMIN.value:
         role = None
     return admin_services.update_admin_user(request.user.adminuser, admin_uid, email=data.email, fullname=data.fullname, role=role)
 
-@router.post("admin-users/accept-invite", response=AdminUserListSchema)
+@router.post("accept-admin-invite", response=AdminUserListSchema)
 def accept_admin_invite(request, data: AcceptAdminInviteSchema):
     return admin_services.accept_admin_invite(code=data.code, password=data.password)

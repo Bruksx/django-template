@@ -5,11 +5,6 @@ from math import ceil
 from typing import Optional, Literal, List
 from uuid import UUID
 
-from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType, AdminRoleType
-from accounts.models import Business, BusinessUser, User, Talent, BusinessIndustry, Country, BusinessClient, \
-    BannedAccount, AdminUser, AdminUserInvite
-from accounts.queries import add_profile_completion_annotation
-from core.models import PageMetric, APIMetric
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Sum, Exists, OuterRef, F, Case, When, Value, CharField, Count, Subquery, IntegerField, Avg, \
@@ -17,24 +12,21 @@ from django.db.models import Sum, Exists, OuterRef, F, Case, When, Value, CharFi
     Func, Q
 from django.db.models.functions import Coalesce, TruncMonth
 from django.utils import timezone
-from jobs.enums import PhaseType, JobStatusType, WithdrawalFeedbackType
-from jobs.models import JobPost, JobApplication, JobApplicationWithdrawal, JobPostMetrics, Job, JobPostTag, JobAlert
-from ninja.errors import HttpError
-
 from helpers.email.accounts import send_admin_invite_email
 from helpers.email.auth import send_admin_created_account_email
 from helpers.utils import is_valid_uuid
 from monkeypatches.q_cluster import async_task
+from ninja.errors import HttpError
+
+from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType, AdminRoleType
+from accounts.models import Business, BusinessUser, User, Talent, BusinessIndustry, Country, BusinessClient, \
+    BannedAccount, AdminUser, AdminUserInvite
+from accounts.queries import add_profile_completion_annotation
+from core.models import PageMetric, APIMetric
+from jobs.enums import PhaseType, JobStatusType, WithdrawalFeedbackType
+from jobs.models import JobPost, JobApplication, JobApplicationWithdrawal, JobPostMetrics, Job, JobPostTag, JobAlert
 from . import talent as talent_services
 
-
-def update_admin_last_activity(func):
-    def inner(admin_user, *args, **kwargs):
-        res = func(*args, **kwargs)
-        admin_user.last_activity = timezone.now()
-        admin_user.save()
-        return res
-    return inner
 
 def get_admin_business_metrics_data(
     start_date: Optional[datetime] = None,
@@ -903,7 +895,7 @@ def unban_user_account(account_uid:UUID):
 
 def get_admin_user_list(active:Optional[bool] = None):
     queryset = AdminUser.objects.all().order_by("-created_at")
-    if active:
+    if active is not None:
         queryset = queryset.filter(user__is_active=active)
     return queryset
 

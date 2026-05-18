@@ -5,7 +5,7 @@ from uuid import UUID
 from ninja import Schema, ModelSchema
 from pydantic import EmailStr, HttpUrl, Field
 
-from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType
+from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType, AdminRoleType
 from accounts.models import BusinessUser, Business, Talent, AdminUser
 from accounts.schemas.common import DashboardFilter
 from accounts.schemas.talent import TalentUserSchema, UpdateTalentProfileSchema2
@@ -275,10 +275,10 @@ class BannedUserSchema(Schema):
     account_type:UserType
 
 
-class AdminUserListSchema(Schema):
+class AdminUserListSchema(ModelSchema):
     fullname: str = Field(alias="user.fullname")
     email: EmailStr = Field(alias="user.email")
-    joined_date: date = Field(alias="created_at")
+    joined_date: date
     status: Literal['Active', 'Blocked']
 
     class Meta:
@@ -289,7 +289,9 @@ class AdminUserListSchema(Schema):
     def resolve_status(obj):
         return "Active" if obj.user.is_active is True else "Blocked"
 
-
+    @staticmethod
+    def resolve_joined_date(obj):
+        return obj.created_at.date()
 
 class AdminActionSchema(Schema):
     action: Literal["block", "unblock"]
@@ -303,7 +305,7 @@ class InviteAdminSchema(Schema):
 class EditAdminSchema(Schema):
     email: EmailStr
     fullname: str
-    role: Optional[UserType] = None
+    role: Optional[AdminRoleType] = None
 
 
 
