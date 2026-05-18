@@ -28,6 +28,14 @@ from jobs.models import JobPost, JobApplication, JobApplicationWithdrawal, JobPo
 from . import talent as talent_services
 
 
+def update_admin_last_activity(func):
+    def inner(admin_user, *args, **kwargs):
+        res = func(*args, **kwargs)
+        admin_user.last_activity = timezone.now()
+        admin_user.save()
+        return res
+    return inner
+
 def get_admin_business_metrics_data(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
