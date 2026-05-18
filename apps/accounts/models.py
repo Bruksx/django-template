@@ -370,7 +370,7 @@ class Talent(BaseModel):
             return 0,0
         return final_months//12, final_months
     
-    def job_post_matches(self, job_only=False, by_talent_country=False, start_date: date=None, end_date: date=None, business=None):
+    def job_post_matches(self, job_only=False, by_talent_country=False, by_talent_role=False, start_date: date=None, end_date: date=None, business=None):
         from jobs.models import JobPost, Job
         from jobs.queries import add_job_post_annotations
 
@@ -388,6 +388,8 @@ class Talent(BaseModel):
                 .filter(job_matching_query)
                 .only("id")
                 .distinct("id"))
+        if by_talent_role:
+            jobs = jobs.filter(role=self.role)
 
         # Return early if only jobs are needed
         if job_only:
