@@ -347,8 +347,6 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
     IsBusinessUser.check(request)
     business_user: BusinessUser = request.user.businessuser
     business = business_user.business
-    if WorkFlowStage.objects.filter(created_by__business=business).values_list("phase", flat=True).distinct("phase").count() != len(PhaseType.values()):
-        raise HttpError(400, "You must have a workflow stage for each phase")
     data["created_by"] = business_user
     availability = data.pop("availability", list())
     screening_questions = data.pop("screening_questions", list())
