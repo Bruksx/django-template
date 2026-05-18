@@ -41,7 +41,7 @@ def send_incomplete_profile_reminder_email(emails: List[str], name: str=None, la
 
 def send_admin_invite_email(email:str, token:str, user:str, lang="en"):
     context = {
-        "link": f"{settings.FRONTEND_URL}admin/accept-invite/{token}",
+        "link": f"{settings.FRONTEND_URL}auth/admin-invite?code={token}",
         "user": user
     }
     html_file = f"accounts/{lang}/admin_invite.html"
