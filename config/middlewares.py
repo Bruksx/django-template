@@ -10,6 +10,7 @@ from django.core.cache import cache
 from django.utils import timezone as django_timezone
 from ninja_jwt.authentication import JWTBaseAuthentication
 
+from helpers.loggers import Logger, LogSchema
 from helpers.utils import is_valid_uuid
 
 TTL = 60 * 60 * 24 * 2  # 2 days
@@ -131,7 +132,12 @@ class RequestTimingMiddleware:
             if base_key not in tracked:
                 tracked.add(base_key)
                 cache.set(ACTIVE_KEYS_KEY, tracked, TTL)
-        except Exception:
-            pass
-
+            logging.info(f"Cache: {cache.get(ACTIVE_KEYS_KEY)}")
+            logging.info(f"Request to '{request.path}' processed in {duration:.2f} ms.")
+        except Exception as e:
+            Logger.error(LogSchema(
+                sender="RequestTimingMiddleware",
+                title="Failed to log request timing",
+                description=str(e)
+            ).__dict__, exc_info=True)
         return response
