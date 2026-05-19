@@ -2,6 +2,9 @@ from datetime import date
 from typing import Optional, List, Literal, Generic, T
 from uuid import UUID
 
+from ninja import Schema, ModelSchema
+from pydantic import EmailStr, HttpUrl, Field
+
 from accounts.enums import BusinessUserRoleType, BusinessUserStatusType
 from accounts.models import BusinessUser, Business, Talent
 from accounts.schemas.common import DashboardFilter
@@ -9,9 +12,7 @@ from accounts.schemas.talent import TalentUserSchema, UpdateTalentProfileSchema2
 from core.schemas import GenericNameAndUidSchema
 from jobs.enums import PhaseType, JobStatusType
 from jobs.models import JobApplication
-from ninja import Schema, ModelSchema
 from paginations import CustomPaginatedResponseSchema
-from pydantic import EmailStr, HttpUrl, Field
 
 
 class AdminDashboardFilter(DashboardFilter):
@@ -226,6 +227,9 @@ class PaginatedMetricFilter(Schema):
     page: Optional[int] = None
     page_size: Optional[int] = None
 
+class AvgLoadTimeSchema(Schema):
+    average_load_time: float
+    month: date
 
 class PaginatedMetricSchema(Schema, Generic[T]):
     count: int
