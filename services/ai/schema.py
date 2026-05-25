@@ -1,8 +1,11 @@
-from typing import List, Optional
 from datetime import date
-from ninja import Schema
+from typing import List, Optional
 from uuid import UUID
+
+from ninja import Schema
+
 from apps.core.schemas import CountrySchema
+from jobs.enums import WorkStructureEnum
 
 
 class SkillSchema(Schema):
@@ -101,6 +104,9 @@ class JobDescriptionSchema(Schema):
     skills: List[JobSkillSchema]
     job_level: GenericNameUIDSchema
     additional_skills: List[str]
+    years_of_experience: Optional[int] = None
+    work_structure: Optional[WorkStructureEnum] = None
+    country: Optional[UUID]=None
     error: Optional[str] = None
     @classmethod
     def example(cls, with_error=False):
@@ -119,6 +125,9 @@ class JobDescriptionSchema(Schema):
             additional_skills=[
                 "A sample additional skill"
             ],
+            years_of_experience=1,
+            work_structure=WorkStructureEnum.REMOTE,
+            country=UUID(int=1),
             error=None if not with_error else "A sample error"
         )
 
