@@ -4,22 +4,22 @@ from typing import List, Literal
 from typing import Optional
 from uuid import UUID
 
+from django.db.models import QuerySet, Q, Count, Exists, OuterRef
+from django.utils import timezone
+from ninja import ModelSchema
+from ninja.errors import HttpError
+from ninja.schema import Schema
+from pydantic import Field, EmailStr
+
 from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from accounts.schemas.business import BusinessUserListSchema
 from core.enums import SalaryType
 from core.models import Currency
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
-from django.db.models import QuerySet, Q, Count, Exists, OuterRef
-from django.utils import timezone
-from ninja import ModelSchema
-from ninja.errors import HttpError
-from ninja.schema import Schema
-from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
-from pydantic import Field, EmailStr
-from settings.models import WorkFlowStage
-
 from helpers.utils import export_rows_to_excel
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+from settings.models import WorkFlowStage
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
     WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType, UpdateQuickReviewType
 from .models import BusinessModel, JobApplication, Answer, JobInvite
@@ -1395,7 +1395,7 @@ class TalentJobFilterSchema(Schema):
                     query = query | Q(job__years_of_experience__range=years)
             queryset = queryset.filter(query)
         if self.remove_applied_jobs is True and talent:
-            applied_jobs_id = talent.applications.only("job_post_id").values_list("job_post_id", flat=True)
+            applied_jobs_id = talent.jobapplication_set.only("job_post_id").values_list("job_post_id", flat=True)
             queryset = queryset.exclude(id__in=applied_jobs_id)
         if not extra_sorts:
             extra_sorts = []
