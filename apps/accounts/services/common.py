@@ -2,11 +2,12 @@ from datetime import datetime, timedelta, date
 from typing import Optional
 from uuid import UUID
 
-from accounts.models import Business
 from django.db.models import Func, F, Q
 from django.db.models import Sum, Avg, Count, OuterRef, Exists, Subquery
 from django.db.models.functions import TruncDate, Round
 from django.utils import timezone
+
+from accounts.models import Business
 from jobs.enums import PhaseType, WithdrawalFeedbackType
 from jobs.models import TalentApplicationStageTimeline, JobApplication, JobApplicationWithdrawal
 
@@ -402,7 +403,7 @@ def application_pipeline_ratio(
         stage__phase=PhaseType.REJECTED.value
     ).order_by("stage__phase_order", "stage__order")
                 .annotate(stage_name=InitCap("stage__name")).values("stage_name")
-                .annotate(count=Count("id")).values("stage_name", "count"))
+                .annotate(count=Count("applicant", distinct=True)).values("stage_name", "count"))
     result = []
     count = queryset.count()
     for i in range(count):
