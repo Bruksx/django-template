@@ -12,10 +12,6 @@ from django.db.models import Sum, Exists, OuterRef, F, Case, When, Value, CharFi
     Func, Q
 from django.db.models.functions import Coalesce, TruncMonth
 from django.utils import timezone
-from helpers.email.accounts import send_admin_invite_email
-from helpers.email.auth import send_admin_created_account_email
-from helpers.utils import is_valid_uuid
-from monkeypatches.q_cluster import async_task
 from ninja.errors import HttpError
 
 from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType, AdminRoleType
@@ -23,8 +19,12 @@ from accounts.models import Business, BusinessUser, User, Talent, BusinessIndust
     BannedAccount, AdminUser, AdminUserInvite
 from accounts.queries import add_profile_completion_annotation
 from core.models import PageMetric, APIMetric
+from helpers.email.accounts import send_admin_invite_email
+from helpers.email.auth import send_admin_created_account_email
+from helpers.utils import is_valid_uuid
 from jobs.enums import PhaseType, JobStatusType, WithdrawalFeedbackType
 from jobs.models import JobPost, JobApplication, JobApplicationWithdrawal, JobPostMetrics, Job, JobPostTag, JobAlert
+from monkeypatches.q_cluster import async_task
 from . import talent as talent_services
 
 
@@ -924,7 +924,7 @@ def invite_admin_user(email: str, fullname: str):
         raise HttpError(400, "Admin user already exists")
     if User.objects.filter(email__iexact=email).exists():
         raise HttpError(400, "User already exists with this email address")
-    if AdminUserInvite.objects.filter(email=email).exists():
+    if AdminUserInvite.objects.filter(email__iexact=email).exists():
         raise HttpError(400, "An invite already exists for this email address")
     first_name, last_name = fullname.split(" ", 1) if " " in fullname else (fullname, "")
     invite = AdminUserInvite.objects.create(email=email, first_name=first_name, last_name=last_name)
