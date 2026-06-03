@@ -961,7 +961,8 @@ def accept_admin_invite(code: str, password: str):
         first_name=invite.first_name,
         last_name=invite.last_name,
         is_active=True,
-        email_verified=True
+        email_verified=True,
+        type=UserType.ADMIN.value
     )
     user.set_password(password)
     user.save()
