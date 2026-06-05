@@ -2,11 +2,12 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
+from ninja import ModelSchema, Schema
+from pydantic import EmailStr, Field
+
 from accounts.enums import CaseReasonType, TalentJobType
 from accounts.models import User, CustomerCase, Business
 from core.schemas import READ_EXCLUDE_FIELDS
-from ninja import ModelSchema, Schema
-from pydantic import EmailStr, Field
 
 
 class UserSchema(ModelSchema):
@@ -22,6 +23,7 @@ class UserSchema(ModelSchema):
     phone_code: Optional[str] = None
     is_profile_completed: bool
     job_type: Optional[TalentJobType]=None
+    admin_role: Optional[str] = None
 
     class Meta:
         model = User
