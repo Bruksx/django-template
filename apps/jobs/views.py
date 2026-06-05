@@ -35,11 +35,11 @@ router = Router()
 
 @router.get("talent/job-recommendations", auth=JWTAuth(), response=PaginatedResponseSchema[TalentJobPostListSchema], tags=["Talent Dashboard"])
 @paginate(PageNumberPaginationExtra, page_size=50)
-def logged_in_talent_job_recommendations(request, search:str=""):
+def logged_in_talent_job_recommendations(request, search:str="", by_role:bool=False):
     IsTalentUser.check(request)
     talent = request.user.talent
     request.context = {"talent": talent}
-    return get_talent_job_recommendations(talent, search=search)
+    return get_talent_job_recommendations(talent, search=search, by_talent_role=by_role)
 
 @router.get("talent/screening-results", auth=JWTAuth(), response=PaginatedResponseSchema[TalentScreeningResultSchema], tags=["Talent Jobs"])
 @paginate(PageNumberPaginationExtra, page_size=50)
