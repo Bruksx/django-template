@@ -238,7 +238,7 @@ class TalentResumeSchema(ModelSchema):
 
     class Meta:
         model = Talent
-        fields = ("bio", 'job_type')
+        fields = ("bio", "job_type")
 
     @staticmethod
     def resolve_notice_period(obj):
@@ -281,7 +281,7 @@ class TalentUserListSchema(ModelSchema):
     
     class Meta:
         model = Talent
-        fields = ("uid", "years_of_experience", 'job_type')
+        fields = ("uid", "years_of_experience", "job_type")
     
     @staticmethod
     def resolve_is_profile_completed(obj):

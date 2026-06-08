@@ -1,11 +1,11 @@
 from django.test import TestCase
 from ninja.testing import TestClient
 
-from accounts.models import Talent
 from factories import BusinessUserFactory, NotificationFactory, TalentFactory
 from notification.enums import NotificationGroup
 from notification.models import BusinessUserNotificationSettings, Notification
 from notification.views import router
+
 
 # Create your tests here.
 
@@ -164,7 +164,8 @@ class DeleteNotificationsTest(TestCase):
         headers = {
             "authorization": f"bearer {user.token}"
         }
-        response = self.client.delete(self.url, headers=headers, json=notification_ids)
+        response = self.client.delete(self.url, headers=headers, json=dict(uids=notification_ids))
+        print(response.content)
         self.assertEqual(response.status_code, 204)
         response = self.client.get(self.url, headers=headers)
         self.assertEqual(response.status_code, 200)
