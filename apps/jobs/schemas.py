@@ -1686,7 +1686,7 @@ class TalentListJobPostSchema(ModelSchema):
 
     class Meta:
         model = Talent
-        fields = ("uid",)
+        fields = ("uid", "job_type")
 
     @staticmethod
     def resolve_match_score(obj, context)->Optional[int]:

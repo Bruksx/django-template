@@ -3,6 +3,11 @@ from datetime import time
 from decimal import Decimal, ROUND_HALF_UP
 
 import pytz
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import models
+from django.test import TestCase
+from ninja.testing import TestClient
+
 from accounts.enums import BusinessUserRoleType, Days
 from accounts.models import (
     Country, Industry, User, Talent, BusinessUser, Business, Role, EducationLevel, Department, BusinessIndustry,
@@ -10,8 +15,6 @@ from accounts.models import (
 )
 from core.models import Currency, Language
 from core.models import State
-from django.db import models
-from django.test import TestCase
 from factories import (
     TalentFactory, JobPostFactory, BusinessUserFactory, JobFactory, WorkflowStageFactory,
     JobApplicationFactory, CountryFactory, ScreeningQuestionFactory, fake, ExperienceFactory
@@ -24,7 +27,6 @@ from jobs.models import (
 )
 from jobs.queries import add_job_post_annotations
 from jobs.views import router
-from ninja.testing import TestClient
 
 
 class TalentJobListTests(TestCase):
@@ -671,6 +673,8 @@ class ApplyToJobPostTest(TestCase):
             "available_for_schedule": True
         }
         self.url = lambda job_post_uid: f"talent/job-posts/{job_post_uid}/apply"
+        self.talent.cv = SimpleUploadedFile("test.pdf", b"some file content", content_type="application/pdf")
+        self.talent.save()
         WorkflowStageFactory.create(phase=PhaseType.REJECTED.value, created_by=self.job.created_by)
 
     def test_apply_to_job_post_without_screening_answers(self):
