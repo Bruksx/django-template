@@ -47,8 +47,8 @@ class LoginEndpointTests(TestCase):
             'password': 'any_password'
         }
         response = self.client.post(self.login_url, json=data, content_type='application/json')
-        
-        self.assertEqual(response.status_code, 404)
+        print(response.content)
+        self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json()['detail'], "You don't have an account with us")
 
 

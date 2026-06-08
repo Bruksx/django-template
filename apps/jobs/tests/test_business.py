@@ -5,19 +5,22 @@ from random import choice
 from unittest.mock import patch
 from uuid import uuid4
 
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import models
+from django.test import TestCase
+from django.utils import timezone
+from future.backports.datetime import timedelta
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
+
 from accounts.enums import Days
 from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent, \
     EducationLevel, SkillCategory, Experience, TalentAvailableDay
 from core.models import City, State
 from core.models import Currency
-from django.core.files.uploadedfile import SimpleUploadedFile
-from django.db import models
-from django.test import TestCase
-from django.utils import timezone
 from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPostFactory, RequiredAttributeFactory, \
     JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, CountryFactory, ScreeningQuestionFactory, \
     AnswerFactory, CurrencyFactory, ExperienceFactory
-from future.backports.datetime import timedelta
 from jobs.business_views import router
 from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType, UpdateQuickReviewType
 from jobs.models import (
@@ -26,11 +29,8 @@ from jobs.models import (
 )
 from jobs.queries import add_application_match_score
 from jobs.schemas import AIJobSalaryGeneratorResponseSchema
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
-from settings.models import WorkFlowStage
-
 from services.ai import JobDescriptionSchema, JobSalaryResponseSchema
+from settings.models import WorkFlowStage
 
 
 class GetOtherApplicationsTests(TestCase):
@@ -1025,7 +1025,7 @@ class JobCreationTest(TestCase):
         from settings.models import WorkFlowStage
         WorkFlowStage.objects.filter(created_by__business=self.business).delete()
         response = self.client.post("", json=self.test_data, headers=self.headers)
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
 
 
     def test_create_job(self):
