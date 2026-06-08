@@ -162,7 +162,7 @@ class TalentListSchema(ModelSchema):
 
     class Meta:
         model = Talent
-        fields = ["uid"]
+        fields = ["uid", "job_type"]
 
 
 

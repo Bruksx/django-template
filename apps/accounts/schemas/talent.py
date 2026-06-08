@@ -2,18 +2,18 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
+from ninja import Schema, ModelSchema, PatchDict
+from pydantic import Field, EmailStr
+
 from accounts.enums import GenderType, PreferredCommunicationType, Days, Months, NoticePeriodType, TalentJobType
 from accounts.enums import MeetingType
 from accounts.models import (Talent, User, TalentAvailableDay, Education,
                              Experience, Skill, Role)
-from core.enums import SalaryType
 from core.schemas import GenericNameAndUidSchema
-from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, CurrencySchema, LanguageSchema, \
+from core.schemas import MUTATE_EXCLUDE_FIELDS, READ_EXCLUDE_FIELDS, LanguageSchema, \
     EducationLevelSchema, CountrySchema
 from jobs.enums import WorkStructureEnum, TechnologicalRequirementsEnum
 from jobs.schemas import JobLevelSchema, EmploymentTypeSchema, BusinessModelSchema
-from ninja import Schema, ModelSchema, PatchDict
-from pydantic import Field, EmailStr
 
 
 class DepartmentSchema(Schema):
@@ -238,7 +238,7 @@ class TalentResumeSchema(ModelSchema):
 
     class Meta:
         model = Talent
-        fields = ("bio", )
+        fields = ("bio", "job_type")
 
     @staticmethod
     def resolve_notice_period(obj):
@@ -281,7 +281,7 @@ class TalentUserListSchema(ModelSchema):
     
     class Meta:
         model = Talent
-        fields = ("uid", "years_of_experience",  )
+        fields = ("uid", "years_of_experience", "job_type")
     
     @staticmethod
     def resolve_is_profile_completed(obj):
