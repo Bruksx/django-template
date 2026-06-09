@@ -3,10 +3,6 @@ from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
 
-from accounts.models import Country, Department, Role, SkillCategory, Skill, BusinessUser, Talent
-from accounts.schemas.talent import SkillSchema, AddSkillSchema
-from chats.schemas import ResponseSchema
-from core.models import State, Currency
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef, Case, When, F, Value
 from django.db.models.functions import Concat
@@ -17,18 +13,22 @@ from ninja import UploadedFile, Form
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
-from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
-from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
-from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
-from settings.models import WorkFlowStage
 
+from accounts.models import Country, Department, Role, SkillCategory, Skill, BusinessUser, Talent
+from accounts.schemas.talent import SkillSchema, AddSkillSchema
+from chats.schemas import ResponseSchema
 from config.permissions import IsBusinessUser
+from core.models import State, Currency
 from helpers.email.jobs import send_indeed_apply_email
 from helpers.utils import convert_base64_to_image_file, upload_to_s3, delete_s3_item
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
+from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
+from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
+from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from services.ai import generate_job_description, generate_job_post_salary, JobSalaryRequestSchema
 from services.job_posting.schema.indeed import IndeedApplicationDataPatch
+from settings.models import WorkFlowStage
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType, UpdateQuickReviewType
 from .models import (
@@ -356,6 +356,9 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
     skills = data.pop("skills", list())
     business_models = data.pop("business_models", list())
     logo = data.pop("logo", None)
+    cv_required = data.pop("cv_required", None)
+    if cv_required is None:
+        data["cv_required"] = True
 
     if logo:
         logo_data = JobLogoSchema(**logo)
@@ -420,6 +423,9 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
     business_user = request.user.businessuser
     business = business_user.business
     screening_questions = data.pop("screening_questions", list())
+    cv_required = data.pop("cv_required", None)
+    if cv_required is None:
+        data["cv_required"] = True
     job = Job.objects.filter(uid=job_uid, created_by__business=business_user.business).first()
     if not job:
         raise HttpError(404, "Job not found")
