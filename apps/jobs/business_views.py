@@ -356,6 +356,9 @@ def create_job(request, data:PatchDict[job_schemas.OptionalCreateJobSchema]):
     skills = data.pop("skills", list())
     business_models = data.pop("business_models", list())
     logo = data.pop("logo", None)
+    cv_required = data.pop("cv_required", None)
+    if cv_required is None:
+        data["cv_required"] = True
 
     if logo:
         logo_data = JobLogoSchema(**logo)
@@ -420,6 +423,9 @@ def update_job(request, data:PatchDict[job_schemas.UpdateJobSchema], job_uid:UUI
     business_user = request.user.businessuser
     business = business_user.business
     screening_questions = data.pop("screening_questions", list())
+    cv_required = data.pop("cv_required", None)
+    if cv_required is None:
+        data["cv_required"] = True
     job = Job.objects.filter(uid=job_uid, created_by__business=business_user.business).first()
     if not job:
         raise HttpError(404, "Job not found")
