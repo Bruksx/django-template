@@ -815,10 +815,11 @@ def job_posts_for_talent(request, talent_uid:UUID, filters:TalentJobFilterQueryS
     if not talent:
         raise HttpError(404, "This talent does not exist")
     request.context = {"talent": talent}
-    queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business").filter(status=JobStatusType.POSTED.value)
+    queryset = (JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business")
+                .filter(status=JobStatusType.POSTED.value,
+                        job__created_by__business=request.user.businessuser.business))
     queryset = add_job_post_annotations(queryset, talent).filter(can_apply=True)
     return filters.get_queryset(talent=talent, queryset=queryset)
-
 
 @router.post("indeed/jobs/{job_post_uid}/apply", tags=['ATS'])
 def handle_indeed_application(request, job_post_uid:UUID, data: IndeedApplicationDataPatch):
