@@ -1,19 +1,21 @@
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-from helpers.utils import to_utc
-from monkeypatches.q_cluster import async_task
 
 from accounts.enums import UserType
 from accounts.models import Experience, Talent, BusinessUser, TalentAvailableDay
 from accounts.services.business import create_business_workflows
+from helpers.utils import to_utc
+from monkeypatches.q_cluster import async_task
 
 
 @receiver(post_save, sender=Experience)
 def update_talent_years_of_experience(sender, instance, created, **kwargs):
     years, month = instance.talent.calculate_years_of_experience()
+    avg_tenure = instance.talent.calculate_avg_experience_tenure()
     instance.talent.years_of_experience = years
     instance.talent.months_of_experience = month
-    instance.talent.save(update_fields=["years_of_experience", "months_of_experience"])
+    instance.talent.average_experience_tenure = avg_tenure
+    instance.talent.save(update_fields=["years_of_experience", "months_of_experience", "average_experience_tenure"])
 
 
 @receiver(post_save, sender=Talent)
