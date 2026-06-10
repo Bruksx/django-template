@@ -1,10 +1,13 @@
 from datetime import timedelta
+from typing import List
+
+from django.utils import timezone
 
 from accounts.models import Talent, User
 from accounts.queries import add_profile_completion_annotation
-from django.utils import timezone
-
 from config import settings
+from helpers.email.accounts import send_first_talent_invitation_email, send_second_talent_invitation_email, \
+    send_third_talent_invitation_email
 from helpers.email.utils import send_email
 
 
@@ -76,3 +79,18 @@ Number of talents with incomplete profiles:    {incompleted}\n
     Number of talents with incomplete profiles:    {incompleted}\n
             """
     )
+
+def send_talent_invitation_email(emails: List[str], email_order: int=1, lang="en"):
+    already_sent = set(Talent.objects.filter(email__in=emails).values_list("email", flat=True))
+    emails = list(set(emails) - already_sent)
+    if not emails:
+        return
+    if email_order == 1:
+        send_first_talent_invitation_email(emails, lang=lang)
+    elif email_order == 2:
+        send_second_talent_invitation_email(emails, lang=lang)
+    elif email_order == 3:
+        send_third_talent_invitation_email(emails, lang=lang)
+    return
+
+

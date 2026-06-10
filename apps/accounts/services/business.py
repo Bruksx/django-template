@@ -1,8 +1,13 @@
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timedelta
+from typing import Optional, List
 from uuid import UUID
 
-from accounts.models import Business, BusinessUser
+from django.utils import timezone
+from django_q.models import Schedule
+from ninja.errors import HttpError
+from pydantic import EmailStr
+
+from accounts.models import Business, BusinessUser, Talent
 from accounts.services.common import average_days_to_hire, average_days_per_stage, applicant_to_hire_ratio, \
     applicant_dropout_ratio, applicant_per_phase, applicant_per_stage, hired_applicants_per_phase_timeline, \
     total_applicants, average_applicants_per_job, average_applicants_per_client, average_applicants_per_recruiter, \
@@ -60,6 +65,47 @@ def applicant_dashboard_data(business: Optional[Business]=None, start_date: Opti
     data["application_by_experience"] = applications_per_experience(business=business, start_date=start_date, end_date=end_date, role=role, client=client)
     data["withdrawal_reasons"] = withdrawal_reason_count(business=business, start_date=start_date, end_date=end_date, role=role, client=client)
     return data
+
+
+
+def handle_invited_talents(emails: List[EmailStr], business, limit: int):
+    existing_emails = Talent.objects.filter(email__in=emails).values_list("email", flat=True)
+    new_emails = list(set(emails) - set(existing_emails))
+    if len(new_emails) > limit:
+        raise HttpError(400, f"Daily limit exceeded, you can only send to {limit} emails")
+
+
+    Schedule.objects.create(
+        name="Send Talent Invitation Email 1",
+        func="accounts.tasks.send_talent_invitation_email",
+        schedule_type=Schedule.ONCE,
+        args=[new_emails, 1, "en"],
+        next_run=timezone.now() + timedelta(minutes=10)
+    )
+
+    Schedule.objects.create(
+        name="Send Talent Invitation Email 2",
+        func="accounts.tasks.send_talent_invitation_email",
+        schedule_type=Schedule.ONCE,
+        args=[new_emails, 2, "en"],
+        next_run=timezone.now() + timedelta(days=2)
+    )
+
+    Schedule.objects.create(
+        name="Send Talent Invitation Email 3",
+        func="accounts.tasks.send_talent_invitation_email",
+        schedule_type=Schedule.ONCE,
+        args=[new_emails, 3, "en"],
+        next_run=timezone.now() + timedelta(days=7)
+    )
+    limit -= len(new_emails)
+    business.talent_invite_limit += limit
+    business.talent_invite_last_sent = timezone.now()
+    business.save()
+    return
+
+
+
 
 
 
