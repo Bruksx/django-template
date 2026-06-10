@@ -36,7 +36,8 @@ class EmploymentType(BaseModel):
 
     def fullname(self, public=False):
         if self.parent:
-            return self.parent.name if public is True else f"{self.parent.name} ({self.name})"
+            # return self.parent.name if public is True else f"{self.parent.name} ({self.name})"
+            return self.parent.name
         return self.name
 
 
