@@ -886,13 +886,17 @@ def ai_job_description_generator(request, body: AIJobDescriptionGeneratorRequest
         raise HttpError(400, "Prompt or file is required")
 
     data = generate_job_description(**data)
+    country = Country.objects.filter(uid=data.country).first() if data.country else None
     result = AIJobDescriptionGeneratorResponseSchema(
         role=GenericNameAndUidSchema(uid=data.role.uid, name=data.role.name) if data.role else None,
         job_description=data.job_description,
         responsibilities=f'<ul>{"".join(map(lambda x: f"<li>{x}</li>", data.responsibilities))}</ul>',
         skills=data.get_skills(),
         job_level=GenericNameAndUidSchema(uid=data.job_level.uid, name=data.job_level.name) if data.job_level else None,
-        additional_skills=data.additional_skills
+        additional_skills=data.additional_skills,
+        years_of_experience=data.years_of_experience,
+        work_structure=data.work_structure,
+        country=GenericNameAndUidSchema(uid=country.uid, name=country.name) if country else None
     )
     if url:
         async_task(delete_s3_item, url)
