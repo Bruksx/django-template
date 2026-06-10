@@ -1,6 +1,10 @@
-from datetime import datetime
-from typing import Optional
+from datetime import datetime, timedelta
+from typing import Optional, List
 from uuid import UUID
+
+from django.utils import timezone
+from django_q.models import Schedule
+from pydantic import EmailStr
 
 from accounts.models import Business, BusinessUser
 from accounts.services.common import average_days_to_hire, average_days_per_stage, applicant_to_hire_ratio, \
@@ -60,6 +64,41 @@ def applicant_dashboard_data(business: Optional[Business]=None, start_date: Opti
     data["application_by_experience"] = applications_per_experience(business=business, start_date=start_date, end_date=end_date, role=role, client=client)
     data["withdrawal_reasons"] = withdrawal_reason_count(business=business, start_date=start_date, end_date=end_date, role=role, client=client)
     return data
+
+
+
+def handle_invited_talents(emails: List[EmailStr], user):
+    Schedule.objects.create(
+        name="Send Talent Invitation Email 1",
+        func="accounts.tasks.send_talent_invitation_email",
+        schedule_type=Schedule.ONCE,
+        args=[emails, 1, "en"],
+        next_run=timezone.now() + timedelta(minutes=10)
+    )
+
+    Schedule.objects.create(
+        name="Send Talent Invitation Email 2",
+        func="accounts.tasks.send_talent_invitation_email",
+        schedule_type=Schedule.ONCE,
+        args=[emails, 2, "en"],
+        next_run=timezone.now() + timedelta(days=2)
+    )
+
+    Schedule.objects.create(
+        name="Send Talent Invitation Email 3",
+        func="accounts.tasks.send_talent_invitation_email",
+        schedule_type=Schedule.ONCE,
+        args=[emails, 3, "en"],
+        next_run=timezone.now() + timedelta(days=7)
+    )
+
+    user.invitation_no_sent += 1
+    user.invitation_sent_at = timezone.now()
+    user.save()
+    return
+
+
+
 
 
 
