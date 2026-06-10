@@ -278,12 +278,14 @@ class TalentUserListSchema(ModelSchema):
     phone_number: Optional[str] = None
     phone_code: Optional[str] = None
     photo_url:Optional[str]
+    average_experience_tenure: str = Field(alias="get_average_experience_tenure")
+    years_of_experience: str = Field(alias="get_years_of_experience")
     cv_url:Optional[str]
     is_profile_completed: bool
     
     class Meta:
         model = Talent
-        fields = ("uid", "years_of_experience", "job_type")
+        fields = ("uid", "job_type")
     
     @staticmethod
     def resolve_is_profile_completed(obj):
