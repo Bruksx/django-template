@@ -656,7 +656,7 @@ def get_talent_filter(request, talent_filter_uid: UUID):
         raise HttpError(404, "Talent filter not found")
     return talent_filter
 
-@router.post("invite-talent", auth=JWTAuth(), tags=["Business Account"], response=Response)
+@router.post("invite-talent", auth=JWTAuth(), tags=["Business Account"])
 def invite_talent_users(request, data: InviteTalentSchema):
     IsBusinessUser.check(request)
     business = request.user.businessuser.business
