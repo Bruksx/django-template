@@ -678,6 +678,10 @@ class Business(BaseModel):
     industry = models.ForeignKey(BusinessIndustry, null=True, on_delete=models.SET_NULL)
     paused = models.BooleanField(default=False)
 
+    talent_invite_last_sent = models.DateTimeField(null=True)
+    talent_invite_limit = models.IntegerField(default=0)
+
+
     def __str__(self):
         return f"{self.name}"
 

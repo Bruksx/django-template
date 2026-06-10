@@ -664,5 +664,5 @@ class ApplicationPipelineRatioSchema(Schema):
 
 
 class InviteTalentSchema(Schema):
-    emails: List[EmailStr]
+    emails: List[str]
 

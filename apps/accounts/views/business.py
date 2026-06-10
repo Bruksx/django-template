@@ -658,15 +658,17 @@ def get_talent_filter(request, talent_filter_uid: UUID):
 
 @router.post("invite-talent", auth=JWTAuth(), tags=["Business Account"], response=Response)
 def invite_talent_users(request, data: InviteTalentSchema):
-    user = request.user
-    daily_limit = 5
-    if user.invitation_last_sent.date() >= timezone.now().date() and user.invitation_no_sent >= daily_limit:
-        raise HttpError(400, "Daily limit exceeded")
-    if user.invitation_last_sent.date() < timezone.now().date():
-        user.invitation_no_sent = 0
-        user.save()
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
 
-    handle_invited_talents(data.emails, user)
+    daily_limit = 10
+    if business.talent_invite_last_sent.date() >= timezone.now().date() and business.talent_invite_limit >= daily_limit:
+        raise HttpError(400, "Daily limit exceeded")
+    if business.talent_invite_last_sent.date() < timezone.now().date():
+        business.talent_invite_limit = 0
+        business.save()
+
+    handle_invited_talents(data.emails, business, daily_limit - business.talent_invite_limit)
     return Response(status=200, data={"message": "Talent invited successfully"})
 
 
