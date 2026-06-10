@@ -197,6 +197,7 @@ class TalentUserSchema(ModelSchema):
     additional_skills: List[str]
     address: str = Field(alias="get_address")
     years_of_experience: str = Field(alias="get_years_of_experience")
+    average_experience_tenure: str = Field(alias="get_average_experience_tenure")
     is_profile_completed: bool
 
 
@@ -234,6 +235,7 @@ class TalentResumeSchema(ModelSchema):
     availability: List[TalentAvailabilitySchema]
     notice_period: Optional[str] = None
     experience_history: List[ExperienceSchema]
+    average_experience_tenure: str = Field(alias="get_average_experience_tenure")
     education_history: List[EducationSchema]
 
     class Meta:
