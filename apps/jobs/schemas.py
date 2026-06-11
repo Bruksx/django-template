@@ -1782,6 +1782,10 @@ class AIJobDescriptionGeneratorResponseSchema(Schema):
     skills: List[JobSkillSchema]
     job_level: Optional[GenericNameAndUidSchema]
     additional_skills: List[str]
+    years_of_experience: Optional[int] = None
+    work_structure: Optional[WorkStructureEnum] = None
+    country: Optional[GenericNameAndUidSchema] = None
+
 
 class AIJobSalaryItemSchema(Schema):
     salary_type: str = Field(examples=SalaryType.values())

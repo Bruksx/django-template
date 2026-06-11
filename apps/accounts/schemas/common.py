@@ -2,12 +2,11 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
-from ninja import ModelSchema, Schema
-from pydantic import EmailStr, Field
-
-from accounts.enums import CaseReasonType
+from accounts.enums import CaseReasonType, TalentJobType
 from accounts.models import User, CustomerCase, Business
 from core.schemas import READ_EXCLUDE_FIELDS
+from ninja import ModelSchema, Schema
+from pydantic import EmailStr, Field
 
 
 class UserSchema(ModelSchema):
@@ -22,6 +21,8 @@ class UserSchema(ModelSchema):
     phone_number: Optional[str] = None
     phone_code: Optional[str] = None
     is_profile_completed: bool
+    job_type: Optional[TalentJobType]=None
+    admin_role: Optional[str]
 
     class Meta:
         model = User
@@ -32,7 +33,13 @@ class UserSchema(ModelSchema):
         if not hasattr(obj, "talent"):
             return True
         return obj.talent.is_profile_completed()
-    
+
+    @staticmethod
+    def resolve_job_type(obj):
+        if not hasattr(obj, "job_type"):
+            return None
+        return obj.talent.job_type
+
     @staticmethod
     def resolve_has_set_password(obj):
         return bool(obj.password)
@@ -42,6 +49,12 @@ class UserSchema(ModelSchema):
         if not hasattr(obj, "businessuser"):
             return
         return obj.businessuser.role
+
+    @staticmethod
+    def resolve_admin_role(obj):
+        if not hasattr(obj, "adminuser"):
+            return
+        return obj.adminuser.role
 
     @staticmethod
     def resolve_business_user_uid(obj):
