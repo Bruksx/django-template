@@ -1,12 +1,13 @@
 from datetime import date
+from core.schemas import READ_EXCLUDE_FIELDS
 from typing import Optional, List, Literal, Generic, T
 from uuid import UUID
 
 from ninja import Schema, ModelSchema
 from pydantic import EmailStr, HttpUrl, Field
 
-from accounts.enums import BusinessUserRoleType, BusinessUserStatusType
-from accounts.models import BusinessUser, Business, Talent
+from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType, AdminRoleType
+from accounts.models import BusinessUser, Business, Talent, AdminUser
 from accounts.schemas.common import DashboardFilter
 from accounts.schemas.talent import TalentUserSchema, UpdateTalentProfileSchema2
 from core.schemas import GenericNameAndUidSchema
@@ -17,6 +18,22 @@ from paginations import CustomPaginatedResponseSchema
 
 class AdminDashboardFilter(DashboardFilter):
     company: Optional[UUID] = None
+
+class BusinessUsersFilter(Schema):
+    active: Optional[bool] = None
+    search: Optional[str] = None
+
+
+class TalentUsersFilter(Schema):
+    active: Optional[bool] = None
+    search: Optional[str] = None
+
+
+class BusinessFilter(DashboardFilter):
+    paused: Optional[bool] = None
+    search: Optional[str] = None
+
+
 
 class JobPhaseSchema(Schema):
     phase: str
@@ -119,7 +136,7 @@ class BusinessUserListSchema(ModelSchema):
 
     class Meta:
         model = BusinessUser
-        exclude = ["uid", "created_at", "updated_at", "deleted_at", "business", "added_by"]
+        exclude = ["created_at", "updated_at", "deleted_at", "business", "added_by"]
 
 class BusinessListSchema(ModelSchema):
     industry: Optional[GenericNameAndUidSchema] = None
@@ -160,15 +177,25 @@ class TalentListSchema(ModelSchema):
 class BusinessUserDetailSchema(BusinessUserListSchema):
     profile_picture: Optional[str] = Field(alias="user.photo_url")
 
-class BusinessDetailSchema(BusinessListSchema):
-    owner_name: str = Field(alias="created_by.fullname")
-    owner_email: EmailStr = Field(alias="created_by.email")
-    logo: str = Field(alias="get_logo")
+class BusinessDetailSchema(ModelSchema):
+    industry: Optional[GenericNameAndUidSchema] = None
+    head_office: str = Field(alias="location")
+    registration_date: date = Field(alias="reg_date")
+    owner_name: Optional[str] = None
+    owner_email: Optional[EmailStr] = None
+    logo: Optional[str] = Field(alias="get_logo")
 
     class Meta:
         model = Business
-        fields = ["uid", "name", "website", "size", "description",
-          "instagram", "linkedin", "facebook", "twitter_x"]
+        exclude = (*READ_EXCLUDE_FIELDS, "created_by")
+
+    @staticmethod
+    def resolve_owner_email(obj):
+        return obj.created_by.email if obj.created_by else None
+
+    @staticmethod
+    def resolve_owner_name(obj):
+        return obj.created_by.fullname if obj.created_by else None
 
 class TalentDetailSchema(TalentUserSchema):
     ...
@@ -244,3 +271,50 @@ class PauseResumeSchema(Schema):
 
 class AccountStatusSchema(Schema):
     is_active: bool
+
+class BannedUserSchema(Schema):
+    uid: UUID
+    email: EmailStr
+    account_type:UserType
+
+
+class AdminUserListSchema(ModelSchema):
+    fullname: str = Field(alias="user.fullname")
+    email: EmailStr = Field(alias="user.email")
+    joined_date: date
+    status: Literal['Active', 'Blocked']
+
+    class Meta:
+        model = AdminUser
+        fields = ["uid", "role", "last_activity"]
+
+    @staticmethod
+    def resolve_status(obj):
+        return "Active" if obj.user.is_active is True else "Blocked"
+
+    @staticmethod
+    def resolve_joined_date(obj):
+        return obj.created_at.date()
+
+class AdminActionSchema(Schema):
+    action: Literal["block", "unblock"]
+    uids: list[UUID]
+
+
+class InviteAdminSchema(Schema):
+    email: EmailStr
+    fullname: str
+
+class EditAdminSchema(Schema):
+    email: EmailStr
+    fullname: str
+    role: Optional[AdminRoleType] = None
+
+
+
+class AcceptAdminInviteSchema(Schema):
+    code: str
+    password: str
+
+
+

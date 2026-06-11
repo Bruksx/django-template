@@ -663,6 +663,8 @@ class ApplyToJobPostTest(TestCase):
         self.job = JobFactory.create(
             title="Test Job"
         )
+        self.job.cv_required = False
+        self.job.save()
         self.business_user = self.job.created_by
         self.job_post = JobPostFactory.create(
             status=JobStatusType.POSTED.value,
