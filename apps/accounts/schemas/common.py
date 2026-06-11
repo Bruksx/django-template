@@ -22,6 +22,7 @@ class UserSchema(ModelSchema):
     phone_code: Optional[str] = None
     is_profile_completed: bool
     job_type: Optional[TalentJobType]=None
+    admin_role: Optional[str]
 
     class Meta:
         model = User
@@ -38,7 +39,7 @@ class UserSchema(ModelSchema):
         if not hasattr(obj, "job_type"):
             return None
         return obj.talent.job_type
-    
+
     @staticmethod
     def resolve_has_set_password(obj):
         return bool(obj.password)
@@ -48,6 +49,12 @@ class UserSchema(ModelSchema):
         if not hasattr(obj, "businessuser"):
             return
         return obj.businessuser.role
+
+    @staticmethod
+    def resolve_admin_role(obj):
+        if not hasattr(obj, "adminuser"):
+            return
+        return obj.adminuser.role
 
     @staticmethod
     def resolve_business_user_uid(obj):

@@ -37,3 +37,13 @@ def send_incomplete_profile_reminder_email(emails: List[str], name: str=None, la
     html_file = f"accounts/{lang}/incomplete_profile_reminder.html"
     html_file = render_html_email(html_file, context)
     send_email(subject="Incomplete Profile Reminder", emails=emails, html_body=html_file)
+
+
+def send_admin_invite_email(email:str, token:str, user:str, lang="en"):
+    context = {
+        "link": f"{settings.FRONTEND_URL}auth/admin-invite?code={token}",
+        "user": user
+    }
+    html_file = f"accounts/{lang}/admin_invite.html"
+    html_content = render_html_email(html_file, context)
+    send_email(subject="Admin Invitation", emails=[email], html_body=html_content)
