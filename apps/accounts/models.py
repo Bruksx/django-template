@@ -8,7 +8,6 @@ from typing import Tuple, Optional
 from uuid import UUID
 
 import jwt
-from config.settings import SECRET_KEY
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -20,14 +19,16 @@ from django.db.models.signals import pre_save
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django_softdelete.managers import SoftDeleteManager
-from helpers.utils import delete_s3_item
 from ninja_jwt.tokens import RefreshToken
 from timezone_field import TimeZoneField
 
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
     BusinessSize, BusinessUserStatusType, CaseReasonType, AdminRoleType, TalentJobType
+from config.settings import SECRET_KEY
 from core.enums import SalaryType
 from core.models import BaseModel, State, City
+from core.models import BaseModel, State, City
+from helpers.utils import delete_s3_item
 from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum, \
     TechnologicalRequirementsEnum
 from notification.enums import NotificationGroup
@@ -262,6 +263,7 @@ class Talent(BaseModel):
     business_models = models.ManyToManyField("jobs.BusinessModel")
     years_of_experience = models.FloatField(default=0)
     months_of_experience = models.FloatField(default=0)
+    average_experience_tenure = models.FloatField(default=0, help_text="Average tenure in months")
     viewers = models.ManyToManyField("accounts.User", blank=True, related_name="talent_viewers")
     availability_timezone = TimeZoneField(default="America/Vancouver")
     flexible_availability = models.BooleanField(default=False)
@@ -291,6 +293,12 @@ class Talent(BaseModel):
 
     def get_years_of_experience(self):
         return f"{self.months_of_experience // 12} years {self.months_of_experience % 12} months"
+
+    def get_average_experience_tenure(self):
+        if self.months_of_experience != 0 and self.average_experience_tenure == 0:
+            self.average_experience_tenure = self.calculate_avg_experience_tenure()
+            self.save()
+        return f"{self.average_experience_tenure // 12} years {self.average_experience_tenure % 12} months"
 
     def get_skills(self):
         from accounts.schemas.talent import SkillSchema, TalentSkillSchema
@@ -369,7 +377,50 @@ class Talent(BaseModel):
         if final_months <= 0:
             return 0,0
         return final_months//12, final_months
-    
+
+    def calculate_avg_experience_tenure(self):
+            experiences = (
+                Experience.objects
+                .filter(talent=self)
+                .only(
+                    "company",
+                    "start_date",
+                    "end_date",
+                    "currently_works_here",
+                )
+            )
+
+            companies = set()
+            total_days = 0
+            today = date.today()
+
+            for exp in experiences:
+                if not exp.start_date or not exp.company:
+                    continue
+
+                companies.add(exp.company.strip().lower())
+
+                end_date = (
+                    today
+                    if exp.currently_works_here or exp.end_date is None
+                    else exp.end_date
+                )
+
+                total_days += max((end_date - exp.start_date).days, 0)
+
+            company_count = len(companies)
+
+            if company_count == 0:
+                return 0
+
+            average_days = total_days / company_count
+
+            # Convert to months (average month length)
+            return round(average_days / 30.44)
+
+
+
+
     def job_post_matches(self, job_only=False, by_talent_country=False, by_talent_role=False, start_date: date=None, end_date: date=None, business=None):
         from jobs.models import JobPost, Job
         from jobs.queries import add_job_post_annotations
