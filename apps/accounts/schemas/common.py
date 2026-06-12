@@ -37,7 +37,7 @@ class UserSchema(ModelSchema):
 
     @staticmethod
     def resolve_job_type(obj):
-        if not hasattr(obj, "talent"):
+        if not hasattr(obj, "job_type"):
             return None
         return obj.talent.job_type
 

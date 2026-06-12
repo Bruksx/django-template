@@ -8,7 +8,6 @@ from typing import Tuple, Optional
 from uuid import UUID
 
 import jwt
-from config.settings import SECRET_KEY
 from dateutil.relativedelta import relativedelta
 from django.contrib.auth.hashers import check_password, make_password
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -20,14 +19,16 @@ from django.db.models.signals import pre_save
 from django.utils import timezone
 from django.utils.functional import cached_property
 from django_softdelete.managers import SoftDeleteManager
-from helpers.utils import delete_s3_item
 from ninja_jwt.tokens import RefreshToken
 from timezone_field import TimeZoneField
 
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
     BusinessSize, BusinessUserStatusType, CaseReasonType, AdminRoleType, TalentJobType
+from config.settings import SECRET_KEY
 from core.enums import SalaryType
 from core.models import BaseModel, State, City
+from core.models import BaseModel, State, City
+from helpers.utils import delete_s3_item
 from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum, \
     TechnologicalRequirementsEnum
 from notification.enums import NotificationGroup

@@ -1,7 +1,7 @@
-from accounts.models import Talent
 from django.test import TestCase
-from factories import BusinessUserFactory, NotificationFactory, TalentFactory
 from ninja.testing import TestClient
+
+from factories import BusinessUserFactory, NotificationFactory, TalentFactory
 from notification.enums import NotificationGroup
 from notification.models import BusinessUserNotificationSettings, Notification
 from notification.views import router
