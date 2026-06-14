@@ -9,8 +9,6 @@ from django_q.models import Schedule
 from ninja import Router, PatchDict, UploadedFile, File
 from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
-from services.ai import parse_cv
-from services.ai.schema import ParsedTalentProfileSchema
 
 from accounts.enums import MeetingType
 from accounts.enums import UserType, AuthType
@@ -28,6 +26,8 @@ from helpers.utils import convert_base64_to_image_file, validate_password, delet
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from services import meeting
+from services.ai import parse_cv
+from services.ai.schema import ParsedTalentProfileSchema
 
 router = Router(tags=["Account"])
 
@@ -132,7 +132,6 @@ def talent_dashboard_chart(request):
     return request.user.talent.dashboard_charts()
 
 @router.patch("profile", auth=JWTAuth(), response=talent_schemas.TalentUserListSchema)
-@transaction.atomic
 def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentProfileSchema2]):
     IsTalentUser.check(request)
     talent_user: Talent = request.user.talent
