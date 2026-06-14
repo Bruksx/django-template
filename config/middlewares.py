@@ -132,7 +132,6 @@ class RequestTimingMiddleware:
             if base_key not in tracked:
                 tracked.add(base_key)
                 cache.set(ACTIVE_KEYS_KEY, tracked, TTL)
-            logging.info(f"Cache: {cache.get(ACTIVE_KEYS_KEY)}")
             logging.info(f"Request to '{request.path}' processed in {duration:.2f} ms.")
         except Exception as e:
             Logger.error(LogSchema(

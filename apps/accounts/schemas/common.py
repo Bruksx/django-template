@@ -2,11 +2,12 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import UUID
 
+from ninja import ModelSchema, Schema
+from pydantic import EmailStr, Field
+
 from accounts.enums import CaseReasonType, TalentJobType
 from accounts.models import User, CustomerCase, Business
 from core.schemas import READ_EXCLUDE_FIELDS
-from ninja import ModelSchema, Schema
-from pydantic import EmailStr, Field
 
 
 class UserSchema(ModelSchema):
@@ -36,7 +37,7 @@ class UserSchema(ModelSchema):
 
     @staticmethod
     def resolve_job_type(obj):
-        if not hasattr(obj, "job_type"):
+        if not hasattr(obj, "talent"):
             return None
         return obj.talent.job_type
 
