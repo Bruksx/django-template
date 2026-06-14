@@ -18,6 +18,7 @@ from accounts.models import Talent, TalentAvailableDay, BannedAccount
 from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
+from accounts.services.talent import update_talent_years_of_experience
 from auth.schema import OptionalLoginSchema
 from auth.services import validate_login
 from config.permissions import IsBusinessUser
@@ -27,7 +28,6 @@ from helpers.utils import convert_base64_to_image_file, validate_password, delet
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from services import meeting
-from services.talent import update_talent_years_of_experience
 
 router = Router(tags=["Account"])
 
