@@ -3,19 +3,12 @@ from datetime import date, timedelta
 from typing import Optional
 from uuid import UUID
 
-from config.permissions import IsBusinessUser
-from config.permissions import IsTalentUser
 from django.db import transaction
 from django.utils import timezone
 from django_q.models import Schedule
-from helpers.email.auth import send_verification_code
-from helpers.utils import convert_base64_to_image_file, validate_password, delete_s3_item
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
 from ninja import Router, PatchDict, UploadedFile, File
 from ninja.errors import HttpError
 from ninja_jwt.authentication import JWTAuth
-from services import meeting
 from services.ai import parse_cv
 from services.ai.schema import ParsedTalentProfileSchema
 
@@ -25,8 +18,16 @@ from accounts.models import Talent, TalentAvailableDay, BannedAccount
 from accounts.models import User, VerificationCode, Education, Experience
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
+from accounts.services.talent import update_talent_years_of_experience
 from auth.schema import OptionalLoginSchema
 from auth.services import validate_login
+from config.permissions import IsBusinessUser
+from config.permissions import IsTalentUser
+from helpers.email.auth import send_verification_code
+from helpers.utils import convert_base64_to_image_file, validate_password, delete_s3_item
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
+from services import meeting
 
 router = Router(tags=["Account"])
 
@@ -260,7 +261,11 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
     data.pop("skills", None)
     data.pop("business_models", None)
     user.update(**user_data)
-    return talent_user.update(**data)
+    talent = talent_user.update(**data)
+    update_talent_years_of_experience(talent)
+    return talent
+
+
     
 
 @router.patch("change-password", auth=JWTAuth())
