@@ -3,24 +3,24 @@ from datetime import timezone, date, time
 from decimal import Decimal
 from uuid import uuid4
 
+from django.test import TestCase
+from ninja.testing import TestClient
+from ninja_jwt.authentication import JWTAuth
+
 from accounts.enums import Days, BusinessUserRoleType
 from accounts.models import User, VerificationCode, Country, Talent, EducationLevel, Industry, \
     Skill, Department, Role, Business, BusinessUser, Experience, TalentAvailableDay, BusinessIndustry
 from accounts.views.talent import router
+from apps.factories import CityFactory, StateFactory, UserFactory
 from chats.models import Conversation, Message
 from core.models import Currency
 from core.models import State
-from django.test import TestCase
 from factories import WorkflowStageFactory, TalentFactory, BusinessUserFactory, CountryFactory, IndustryFactory, \
     LanguageFactory, EducationFactory, EducationLevelFactory, RoleFactory, ExperienceFactory, SkillFactory, \
     BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory
 from jobs.enums import LunchBreakEnum, PhaseType, JobStatusType, TechnologicalRequirementsEnum
 from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, AvailableDay, \
     JobApplication, JobInterview
-from ninja.testing import TestClient
-from ninja_jwt.authentication import JWTAuth
-
-from apps.factories import CityFactory, StateFactory, UserFactory
 
 
 class CreateAccountTests(TestCase):
@@ -212,6 +212,7 @@ class UpdateTalentProfileTests(TestCase):
         headers = {
             "authorization": f"bearer {self.talent.user.token}"
         }
+        years_of_experience = self.talent.years_of_experience
         response = self.client.patch(
             path=self.url,
             json=self.data,
@@ -219,6 +220,8 @@ class UpdateTalentProfileTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.talent.refresh_from_db()
+        new_years_of_experience = self.talent.years_of_experience
+        self.assertGreater(new_years_of_experience, years_of_experience)
         self.assertEqual(self.talent.user.first_name, "John")
         self.assertEqual(self.talent.user.last_name, "Doe")
         self.assertEqual(self.talent.preferred_communication, "text")

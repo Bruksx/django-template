@@ -5,12 +5,12 @@ from types import NoneType
 from django.db import transaction
 from django.utils import timezone
 from django_q.models import Schedule
-from helpers.email.auth import send_admin_created_account_email
-from monkeypatches.q_cluster import async_task
 from ninja.errors import HttpError
 
 from accounts.enums import UserType
 from accounts.models import User, Talent, Experience, Education, TalentAvailableDay
+from helpers.email.auth import send_admin_created_account_email
+from monkeypatches.q_cluster import async_task
 
 
 @transaction.atomic
@@ -362,4 +362,14 @@ def create_talent_profile_service(data: dict) -> Talent:
         kwargs=json.dumps({"emails": [user.email], "name": user.first_name})
     )
 
+    return talent
+
+
+def update_talent_years_of_experience(talent):
+    years, month = talent.calculate_years_of_experience()
+    avg_tenure = talent.calculate_avg_experience_tenure()
+    talent.years_of_experience = years
+    talent.months_of_experience = month
+    talent.average_experience_tenure = avg_tenure
+    talent.save(update_fields=["years_of_experience", "months_of_experience", "average_experience_tenure"])
     return talent
