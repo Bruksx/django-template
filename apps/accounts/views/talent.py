@@ -132,6 +132,7 @@ def talent_dashboard_chart(request):
     return request.user.talent.dashboard_charts()
 
 @router.patch("profile", auth=JWTAuth(), response=talent_schemas.TalentUserListSchema)
+@transaction.atomic
 def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentProfileSchema2]):
     IsTalentUser.check(request)
     talent_user: Talent = request.user.talent
