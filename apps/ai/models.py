@@ -26,7 +26,7 @@ class ExternalManagedModelQuerySet(list):
 
 class ExternalManagedModelManager(models.Manager):
     def get_queryset(self):
-        if settings.TEST:
+        if hasattr(settings, "TEST"):
             return self._fake_queryset()
         return super().get_queryset()
 
