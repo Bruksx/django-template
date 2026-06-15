@@ -27,6 +27,7 @@ from openpyxl import Workbook
 from settings.models import WorkFlowStage
 
 from config.settings import FRONTEND_URL
+from services.ai import analyze_application
 from helpers.utils import upload_to_s3, upload_to_server, sort_params_function, export_rows_to_excel
 from monkeypatches.q_cluster import async_task
 
@@ -64,6 +65,7 @@ def create_job_application(job_post, talent, data:ApplyToJobSchema):
                                                 recruiter=job_post.recruiter,
                                                 stage=stage,
                                                 available_for_schedule=data.available_for_schedule)
+    async_task(analyze_application)
     if job_post.job.min_match_score and application.match < job_post.job.min_match_score:
         reject_application(application, stage, job_post)
         return

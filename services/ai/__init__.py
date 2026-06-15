@@ -40,3 +40,10 @@ def run_batch():
         json={"reembed_all":False}
     )
     return response.json()
+
+def analyze_application():
+    client = GtcAiClient()
+    response = client.post(
+        "v1/insight/analyze-application",
+    )
+    return response.json()
