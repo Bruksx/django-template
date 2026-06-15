@@ -45,12 +45,7 @@ class BaseAIModel(models.Model):
 
 
 class AIMatchTalentEmbedding(BaseAIModel):
-    talent = models.OneToOneField(
-        "accounts.Talent",
-        db_column="talent_id",
-        on_delete=models.DO_NOTHING,
-        related_name="+",
-    )
+    talent_id = models.BigIntegerField(primary_key=True)
 
     embedding = VectorField(dimensions=384)
     source_hash = models.TextField()
@@ -66,13 +61,7 @@ class AIMatchTalentEmbedding(BaseAIModel):
 
 
 class AIMatchJobEmbedding(BaseAIModel):
-    job = models.OneToOneField(
-        "jobs.Job",
-        primary_key=True,
-        db_column="job_id",
-        on_delete=models.DO_NOTHING,
-        related_name="+",
-    )
+    job_id = models.BigIntegerField(primary_key=True)
 
     embedding = VectorField(dimensions=384)
     source_hash = models.TextField()
@@ -88,19 +77,8 @@ class AIMatchJobEmbedding(BaseAIModel):
 
 
 class AIMatchScore(BaseAIModel):
-    talent = models.ForeignKey(
-        "accounts.Talent",
-        db_column="talent_id",
-        on_delete=models.DO_NOTHING,
-        related_name="+",
-    )
-
-    job = models.ForeignKey(
-        "jobs.Job",
-        db_column="job_id",
-        on_delete=models.DO_NOTHING,
-        related_name="+",
-    )
+    talent_id = models.BigIntegerField()
+    job_id = models.BigIntegerField()
 
     raw_cosine = models.FloatField()
     score = models.IntegerField()
@@ -121,37 +99,11 @@ class AIMatchScore(BaseAIModel):
 
 
 class AIApplicationInsight(BaseAIModel):
-    application = models.OneToOneField(
-        "jobs.JobApplication",
-        db_column="application_id",
-        on_delete=models.DO_NOTHING,
-        related_name="+",
-    )
+    application_id = models.BigIntegerField(primary_key=True)
 
-    talent = models.ForeignKey(
-        "accounts.Talent",
-        db_column="talent_id",
-        on_delete=models.DO_NOTHING,
-        related_name="+",
-    )
-
-    jobpost = models.ForeignKey(
-        "jobs.JobPost",
-        db_column="jobpost_id",
-        on_delete=models.DO_NOTHING,
-        related_name="+",
-        null=True,
-        blank=True,
-    )
-
-    job = models.ForeignKey(
-        "jobs.Job",
-        db_column="job_id",
-        on_delete=models.DO_NOTHING,
-        related_name="+",
-        null=True,
-        blank=True,
-    )
+    talent_id = models.BigIntegerField()
+    jobpost_id = models.BigIntegerField(null=True, blank=True)
+    job_id = models.BigIntegerField(null=True, blank=True)
 
     content_hash = models.TextField(
         null=True,
