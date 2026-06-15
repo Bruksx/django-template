@@ -26,7 +26,7 @@ from helpers.utils import convert_base64_to_image_file, validate_password, delet
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
 from services import meeting
-from services.ai import parse_cv
+from services.ai import parse_cv, run_batch
 from services.ai.schema import ParsedTalentProfileSchema
 
 router = Router(tags=["Account"])
@@ -296,6 +296,7 @@ def upload_talent_cv(request, file: Optional[UploadedFile] = File(None), parse="
            raise HttpError(400, "No CV available for parsing")
 
         parsed_data = parse_cv(talent_user.cv.url)
+        async_task(run_batch)
         return Response(parsed_data)
     return Response(status=200, data={"message": "CV uploaded successfully"})
 

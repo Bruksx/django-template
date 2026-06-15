@@ -69,9 +69,11 @@ INSTALLED_APPS = [
     "notification",
     "settings",
     "config",
+    "ai",
 
     #3rd party
     "corsheaders",
+    "pgvector.django",
 
 ]
 
