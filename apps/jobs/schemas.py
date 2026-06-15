@@ -14,7 +14,7 @@ from pydantic import Field, EmailStr
 from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from accounts.schemas.business import BusinessUserListSchema
-from ai.models import AIApplicationInsight
+from ai.models import AIApplicationInsight, AIMatchScore
 from core.enums import SalaryType
 from core.models import Currency
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
@@ -1035,7 +1035,7 @@ class JobApplicationListSchema(ModelSchema):
     @staticmethod
     def resolve_ai_insight(obj):
         try:
-            insight = AIApplicationInsight.objects.filter(application=obj).first()
+            insight = AIApplicationInsight.objects.filter(application_id=obj.id).first()
             if insight:
                 return insight
             return dict()
@@ -1256,7 +1256,7 @@ class TalentJobPostListSchema(ModelSchema):
         request = context.get("request")
         talent = request.context.get("talent")
         try:
-            ai_match_score = AIMatchScore.objects.filter(talent=talent).first()
+            ai_match_score = AIMatchScore.objects.filter(talent_id=talent.id).first()
             if ai_match_score:
                 return int(ai_match_score.score)
             return 0

@@ -28,7 +28,6 @@ class AIMatchJobEmbeddingAdmin(ReadOnlyAIAdmin):
     list_display = ("job_id", "updated_at", )
 
     search_fields = ("job_id", )
-    readonly_fields = ("job",  "updated_at")
 
 
 
