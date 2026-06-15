@@ -44,6 +44,7 @@ ALLOWED_HOSTS = [
     "gtc-staging.1840andco.com",
     "gtc-production.1840andco.com",
     "127.0.0.1",
+    'localhost'
 ]
 
 

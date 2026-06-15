@@ -1,10 +1,11 @@
 from xml.etree import ElementTree as ET
 
 from django.db.models import Q
+from services.job_posting.services.linkedin import job_post_to_job_schema
+from typing_extensions import Optional
+
 from jobs.enums import JobStatusType
 from jobs.models import JobPost
-
-from services.job_posting.services.linkedin import job_post_to_job_schema
 
 
 def generate_job_post_xml()->bytes:
@@ -17,7 +18,7 @@ def generate_job_post_xml()->bytes:
     return ET.tostring(root, encoding="utf-8", method="xml")
 
 
-def generate_job_post_xml_stream(staffing=False):
+def generate_job_post_xml_stream(staffing=False, business_id: Optional[int] = None):
     yield '<?xml version="1.0" encoding="UTF-8"?>\n'
     yield '<jobs>\n'
 
@@ -26,6 +27,9 @@ def generate_job_post_xml_stream(staffing=False):
         query &= Q(country__name__in=["Canada", "United States"])
     else:
         query &= ~Q(country__name__in=["Canada", "United States"])
+
+    if business_id is not None:
+        query &= Q(job__created_by__business_id=business_id)
 
 
     queryset = (JobPost.objects
