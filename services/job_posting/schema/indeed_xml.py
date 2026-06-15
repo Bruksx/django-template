@@ -4,18 +4,17 @@ from html import unescape
 from typing import Optional
 from xml.sax.saxutils import escape
 
-from core.enums import SalaryType
 from htmlmin import minify
-from jobs.enums import WorkStructureEnum, JobStatusType
-from jobs.models import JobPost, Job
-from jobs.schemas import JobAvailabilitySchema
-from jobs.schemas import TalentJobPostSchema
 from lxml import etree as et
 from lxml.etree import Element, SubElement, tostring
 
 from apps.paginations import CustomPageNumberPaginationExtra
 from config import settings
+from core.enums import SalaryType
 from helpers.utils import alert_bug_via_email, html_to_text
+from jobs.enums import WorkStructureEnum, JobStatusType
+from jobs.models import JobPost, Job
+from jobs.schemas import TalentJobPostSchema
 
 BASE_FRONTEND_URL = settings.FRONTEND_URL
 BASE_BACKEND_URL = settings.BACKEND_URL
@@ -233,7 +232,6 @@ class JobBase:
     @staticmethod
     def _format_working_hours(job: Job):
         """Format working hours/available days for display in Indeed description"""
-        from jobs.schemas import JobAvailableDaySchema
 
         available_days = job.availableday_set.all().order_by('id')
         if available_days.count() == 0:
@@ -473,7 +471,7 @@ class Source:
             el.text = f"<![CDATA[{text.strip()}]]>"
 
     @staticmethod
-    def to_xml_stream(page=None, page_size=None):
+    def to_xml_stream(page=None, page_size=None, business_id: Optional[int] = None):
         """
         the pagination is for debugging
         """
@@ -482,52 +480,36 @@ class Source:
         yield '<publisher>1840 GTC</publisher>\n'
         yield f'<publisherurl>{escape(BASE_FRONTEND_URL)}</publisherurl>\n'
 
+        queryset = (JobPost.objects
+        .select_related(
+            'job',
+            'job__employment_type',
+            'job__created_by',
+            'job__department',
+            'job__job_level',
+            'job__minimum_education_level',
+            'job__first_language',
+            'salary_currency',
+            'salary_bonus_currency',
+        )
+        .prefetch_related(
+            'job__business_models',
+            'job__skills',
+            'job__availableday_set',
+        )
+        .filter(status=JobStatusType.POSTED.value)
+        .order_by("-refresh_order"))
+        if business_id:
+            queryset = queryset.filter(job__created_by__business_id=business_id)
+
         if page and page_size:
             pagination = CustomPageNumberPaginationExtra(page_size)
             queryset = pagination.get_paginated_queryset(
-                queryset=(
-                JobPost.objects
-                .select_related(
-                    'job',
-                    'job__employment_type',
-                    'job__department',
-                    'job__job_level',
-                    'job__minimum_education_level',
-                    'job__first_language',
-                    'salary_currency',
-                    'salary_bonus_currency',
-                )
-                .prefetch_related(
-                    'job__business_models',
-                    'job__skills',
-                    'job__availableday_set',
-                )
-                .filter(status=JobStatusType.POSTED.value)
-                .order_by("-refresh_order")
-            ), pagination=pagination.Input(page=page, page_size=page_size)
+                queryset=queryset, pagination=pagination.Input(page=page, page_size=page_size)
             )
         else:
-            queryset = (
-                JobPost.objects
-                .select_related(
-                    'job',
-                    'job__employment_type',
-                    'job__department',
-                    'job__job_level',
-                    'job__minimum_education_level',
-                    'job__first_language',
-                    'salary_currency',
-                    'salary_bonus_currency',
-                )
-                .prefetch_related(
-                    'job__business_models',
-                    'job__skills',
-                    'job__availableday_set',
-                )
-                .filter(status=JobStatusType.POSTED.value)
-                .order_by("-refresh_order")
-                .iterator(chunk_size=500)  # DB-level chunking
-            )
+            queryset = queryset.iterator(chunk_size=500)  # DB-level chunking
+
         for job_post in queryset:
             job_base = alert_bug_via_email(JobBase.convert_to_job, job_post=job_post, default=None)
             if job_base:
