@@ -65,7 +65,7 @@ def create_job_application(job_post, talent, data:ApplyToJobSchema):
                                                 recruiter=job_post.recruiter,
                                                 stage=stage,
                                                 available_for_schedule=data.available_for_schedule)
-    async_task(analyze_application)
+    async_task(analyze_application, application)
     if job_post.job.min_match_score and application.match < job_post.job.min_match_score:
         reject_application(application, stage, job_post)
         return
