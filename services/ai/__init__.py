@@ -41,9 +41,15 @@ def run_batch():
     )
     return response.json()
 
-def analyze_application():
+def analyze_application(application):
     client = GtcAiClient()
     response = client.post(
         "v1/insight/analyze-application",
+        json={
+            "application_id": str(application.id),
+            "applicant_id": str(application.applicant.id),
+            "job_post_id": str(application.job_post.id),
+            "force": False
+        }
     )
     return response.json()
