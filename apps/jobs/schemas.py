@@ -1,6 +1,6 @@
 from copy import copy
 from datetime import datetime
-from typing import List, Literal
+from typing import List, Literal, Any, Dict
 from typing import Optional
 from uuid import UUID
 
@@ -14,6 +14,7 @@ from pydantic import Field, EmailStr
 from accounts.enums import Days
 from accounts.models import Department, Role, Skill, SkillCategory, Talent, BusinessUser
 from accounts.schemas.business import BusinessUserListSchema
+from ai.models import AIApplicationInsight
 from core.enums import SalaryType
 from core.models import Currency
 from core.schemas import READ_EXCLUDE_FIELDS, MUTATE_EXCLUDE_FIELDS, EducationLevelSchema
@@ -963,6 +964,14 @@ class OtherApplicationSchema(ModelSchema):
     def resolve_job_status(obj):
         return "Active" if obj.job_post.status == JobStatusType.POSTED.value else "Closed"
 
+
+class AIInsightSchema(Schema):
+    summary: Optional[str] = None
+    strength: Optional[Dict[str, Any]] = dict()
+    weaknesses: Optional[Dict[str, Any]] = dict()
+    red_flags: Optional[Dict[str, Any]] = dict()
+
+
 class JobApplicationListSchema(ModelSchema):
     location:Optional[str] = Field(None, alias="job_post.get_country")
     role:Optional[GenericNameAndUidSchema] = Field(alias="applicant.get_role")
@@ -984,8 +993,8 @@ class JobApplicationListSchema(ModelSchema):
     years_of_experience: str = Field(alias="applicant.get_years_of_experience")
     average_experience_tenure: str = Field(alias="applicant.get_average_experience_tenure")
     other_application: Optional[OtherApplicationSchema]
-
     invited: bool
+    ai_insight: AIInsightSchema
 
     class Meta:
         model = JobApplication
@@ -1022,6 +1031,16 @@ class JobApplicationListSchema(ModelSchema):
         if hasattr(obj, "computed_match_score"):
             return 0 if not obj.computed_match_score else int(obj.computed_match_score)
         return int(obj.match) or 0
+    
+    @staticmethod
+    def resolve_ai_insight(obj):
+        try:
+            insight = AIApplicationInsight.objects.filter(application=obj).first()
+            if insight:
+                return insight
+            return dict()
+        except:
+            return dict()
 
 class JobApplicationDetailSchema(JobApplicationListSchema):
     strength: Optional[JobMatchSchema] = None
@@ -1119,6 +1138,7 @@ class TalentJobPostListSchema(ModelSchema):
     tags: List[str] = Field(alias="get_tags")
     linkedin_tags: List[str]
     code: str = Field(alias="get_code")
+    ai_match_score: Optional[int] = 0
 
 
     class Meta:
@@ -1230,6 +1250,18 @@ class TalentJobPostListSchema(ModelSchema):
     @staticmethod
     def resolve_match_obj(obj, context):
         return MatchScoreSchema.from_orm(obj)
+    
+    @staticmethod
+    def resolve_ai_match_score(obj, context):
+        request = context.get("request")
+        talent = request.context.get("talent")
+        try:
+            ai_match_score = AIMatchScore.objects.filter(talent=talent).first()
+            if ai_match_score:
+                return int(ai_match_score.score)
+            return 0
+        except:
+            return 0
 
 
 class TalentJobPostSchema(JobPostListSchema):
