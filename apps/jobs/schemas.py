@@ -995,6 +995,7 @@ class JobApplicationListSchema(ModelSchema):
     other_application: Optional[OtherApplicationSchema]
     invited: bool
     ai_insight: AIInsightSchema
+    ai_match_score: Optional[int] = 0
 
     class Meta:
         model = JobApplication
@@ -1041,6 +1042,18 @@ class JobApplicationListSchema(ModelSchema):
             return dict()
         except:
             return dict()
+    
+    @staticmethod
+    def resolve_ai_match_score(obj):
+        talent = obj.applicant
+        try:
+            ai_match_score = AIMatchScore.objects.filter(talent_id=talent.id).first()
+            if ai_match_score:
+                return int(ai_match_score.score)
+            return 0
+        except:
+            return 0
+        
 
 class JobApplicationDetailSchema(JobApplicationListSchema):
     strength: Optional[JobMatchSchema] = None
