@@ -77,7 +77,7 @@ class AIMatchJobEmbedding(BaseAIModel):
 
 
 class AIMatchScore(BaseAIModel):
-    talent_id = models.BigIntegerField()
+    talent_id = models.BigIntegerField(primary_key=True)
     job_id = models.BigIntegerField()
 
     raw_cosine = models.FloatField()
