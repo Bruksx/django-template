@@ -37,6 +37,6 @@ def run_batch():
     client = GtcAiClient()
     response = client.post(
         "v1/match/run-batch",
-        {"reembed_all":False}
+        json={"reembed_all":False}
     )
     return response.json()
