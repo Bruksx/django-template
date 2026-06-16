@@ -967,9 +967,9 @@ class OtherApplicationSchema(ModelSchema):
 
 class AIInsightSchema(Schema):
     summary: Optional[str] = None
-    strength: Optional[Dict[str, Any]] = dict()
-    weaknesses: Optional[Dict[str, Any]] = dict()
-    red_flags: Optional[Dict[str, Any]] = dict()
+    strength: Optional[list[str]] = []
+    weaknesses: Optional[list[str]] = []
+    red_flags: Optional[list[Dict[str, Any]]] = []
 
 
 class JobApplicationListSchema(ModelSchema):
