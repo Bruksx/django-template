@@ -21,8 +21,8 @@ from helpers.utils import export_rows_to_excel
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from settings.models import WorkFlowStage
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
-    WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType, UpdateQuickReviewType
-from .models import BusinessModel, JobApplication, Answer, JobInvite
+    WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType, UpdateQuickReviewType, RejectionReasonType
+from .models import BusinessModel, JobApplication, Answer, JobInvite, JobApplicationNotes
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
 from .models import (
     RequiredAttribute
@@ -1912,3 +1912,24 @@ class AIJobSalaryGeneratorRequestSchema(Schema):
     job_level: UUID
     department: UUID
     employment_type: UUID
+
+
+class MutateApplicationNoteSchema(Schema):
+    application_note: Optional[str] = None
+    interview_note: Optional[str] = None
+    rejection_reason: Optional[RejectionReasonType] = None
+    rejection_note: Optional[str] = None
+
+
+class ApplicationNoteSchema(ModelSchema):
+    application_note_by: Optional[BusinessUserListSchema] = None
+    interview_note_by: Optional[BusinessUserListSchema] = None
+    rejection_note_by: Optional[BusinessUserListSchema] = None
+    class Meta:
+        model = JobApplicationNotes
+        fields = ["application_note", "interview_note", "rejection_reason", "rejection_note",
+                  "application_note_at", "interview_note_at", "rejection_note_at",
+                  ]
+
+
+

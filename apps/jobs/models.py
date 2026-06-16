@@ -18,7 +18,7 @@ from settings.enums import PlaceHolderType
 from settings.models import WorkFlowStage
 from .db_functions import Epoch
 from .enums import WorkStructureEnum, LunchBreakEnum, QuestionTypeEnum, PhaseType, WithdrawalFeedbackType, \
-    JobStatusType, ScreeningResultStatusType
+    JobStatusType, ScreeningResultStatusType, RejectionReasonType
 
 
 # Create your models here.
@@ -684,6 +684,7 @@ class JobApplication(BaseModel):
     stage = models.ForeignKey("settings.WorkflowStage", on_delete=models.SET_NULL, null=True)
     stage_date_updated = models.DateTimeField(null=True)
 
+
     def other_application(self):
         if not self.stage:
             return
@@ -776,7 +777,20 @@ class JobApplication(BaseModel):
     def __str__(self) -> str:
         return f"{self.job_post} ({self.applicant})"
 
+class JobApplicationNotes(BaseModel):
+    application = models.OneToOneField(JobApplication, on_delete=models.CASCADE, related_name="notes")
+    application_note = models.TextField(null=True, blank=True)
+    interview_note = models.TextField(null=True, blank=True)
+    rejection_reason = models.CharField(choices=RejectionReasonType.choices, max_length=50)
+    rejection_note = models.TextField(null=True, blank=True)
 
+    application_note_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.CASCADE, null=True, related_name="application_notes")
+    interview_note_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.CASCADE, null=True, related_name="interview_notes")
+    rejection_note_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.CASCADE, null=True, related_name="rejection_notes")
+
+    application_note_at = models.DateTimeField(null=True)
+    interview_note_at = models.DateTimeField(null=True)
+    rejection_note_at = models.DateTimeField(null=True)
 
 class TalentApplicationStageTimeline(BaseModel):
     application = models.ForeignKey(JobApplication, on_delete=models.CASCADE)
