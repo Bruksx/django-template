@@ -3,8 +3,6 @@ from io import BytesIO
 from typing import List
 from uuid import UUID
 
-from accounts.models import Skill
-from core.models import Language
 from django.conf import settings
 from django.contrib.postgres.aggregates import StringAgg
 from django.core.files.base import ContentFile
@@ -14,6 +12,13 @@ from django.db.models import QuerySet, Window, F, Q, OuterRef, Exists, Count, Ca
 from django.db.models.functions import RowNumber, Cast, Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from ninja.errors import HttpError
+from openpyxl import Workbook
+
+from accounts.models import Skill
+from config.settings import FRONTEND_URL
+from core.models import Language
+from helpers.utils import upload_to_s3, upload_to_server, sort_params_function, export_rows_to_excel
 from jobs.enums import PhaseType, JobStatusType, QuestionTypeEnum
 from jobs.models import (
     JobApplication, Answer, RequiredAttribute, ScreeningQuestion, Job, RequiredSecondaryLanguage,
@@ -21,14 +26,9 @@ from jobs.models import (
     JobPostExport,
 )
 from jobs.schemas import ApplyToJobSchema, MutateRequiredAttributeSchema, MutateOptionSchema, BusinessJobFilterSchema
-from ninja.errors import HttpError
-from notification.notifications import send_talents_job_matching_notification
-from openpyxl import Workbook
-from settings.models import WorkFlowStage
-
-from config.settings import FRONTEND_URL
-from helpers.utils import upload_to_s3, upload_to_server, sort_params_function, export_rows_to_excel
 from monkeypatches.q_cluster import async_task
+from notification.notifications import send_talents_job_matching_notification
+from settings.models import WorkFlowStage
 
 
 def get_talent_job_recommendations(talent, business=None, search="", distinct=False, by_talent_role=False):
@@ -338,11 +338,10 @@ def get_talents_by_job_posts_service(request, job_post, search):
 
     query = Q()
     if search:
-        q = Q()
         for s in search.split(" "):
+            s = s.strip()
             if s:
-                q = q | Q(user__fullname__icontains=s) | Q(user__email__icontains=s)
-        query = query & q
+                query = query & (Q(user__fullname__icontains=s) | Q(user__email__icontains=s))
     talents = job_post.get_talents()
     send_talents_job_matching_notification(talents.count(), job_post)
     return talents.filter(query)

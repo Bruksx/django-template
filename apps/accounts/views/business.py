@@ -3,29 +3,29 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
-from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
-    Skill, Role, BusinessClient, Industry, EducationLevel, BannedAccount
-from core.models import Language
-from core.schemas import GenericNameAndUidSchema
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from jobs.models import Job, JobPost, BusinessModel
-from jobs.schemas import BusinessUserJobSchema
 from ninja import Router, UploadedFile, PatchDict, Form, Query
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
-from notification import notifications
-from paginations import CustomPaginatedResponseSchema, CustomPageNumberPaginationExtra
 
+from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
+    Skill, Role, BusinessClient, Industry, EducationLevel, BannedAccount
 from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
+from core.models import Language
+from core.schemas import GenericNameAndUidSchema
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
 from helpers.email.auth import send_verification_code, send_email_verification_code
 from helpers.utils import Secret
+from jobs.models import Job, JobPost, BusinessModel
+from jobs.schemas import BusinessUserJobSchema
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
+from notification import notifications
+from paginations import CustomPaginatedResponseSchema, CustomPageNumberPaginationExtra
 from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
@@ -222,11 +222,11 @@ def get_business_users(request, search: str = "", role: BusinessUserRoleType = N
     business = request.user.businessuser.business
     query = Q()
     if search:
-        q = Q()
         for s in search.split(" "):
+            s = s.strip()
             if s:
-                q = q | Q(user__fullname__icontains=s) | Q(user__email__icontains=s)
-        query = query & q
+                # Each individual word must match either the fullname OR the email
+                query = query & (Q(user__fullname__icontains=s) | Q(user__email__icontains=s))
 
     if role:
         query = query & Q(role=role.value)
