@@ -12,6 +12,7 @@ from django.utils import timezone
 from future.backports.datetime import timedelta
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
+from services.ai import JobDescriptionSchema, JobSalaryResponseSchema
 
 from accounts.enums import Days
 from accounts.models import Department, Role, Business, Industry, BusinessUser, Skill, User, Country, Talent, \
@@ -22,14 +23,14 @@ from factories import BusinessFactory, BusinessUserFactory, TalentFactory, JobPo
     JobFactory, JobApplicationFactory, WorkflowStageFactory, UserFactory, CountryFactory, ScreeningQuestionFactory, \
     AnswerFactory, CurrencyFactory, ExperienceFactory
 from jobs.business_views import router
-from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType, UpdateQuickReviewType
+from jobs.enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType, UpdateQuickReviewType, \
+    RejectionReasonType
 from jobs.models import (
     Job, AvailableDay, JobPost, ScreeningQuestion, QuestionOption, Language, EmploymentType, JobLevel, JobApplication,
-    BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage, JobPostTag
+    BusinessModel, RequiredSkill, RequiredAttribute, RequiredSecondaryLanguage, JobPostTag, JobApplicationNotes
 )
 from jobs.queries import add_application_match_score
 from jobs.schemas import AIJobSalaryGeneratorResponseSchema
-from services.ai import JobDescriptionSchema, JobSalaryResponseSchema
 from settings.models import WorkFlowStage
 
 
@@ -3484,7 +3485,7 @@ class AIJobDescriptionAPITest(TestCase):
             self.assertEqual(response.status_code, 400)
             self.assertEqual(response.data, {"detail": mock_generate_job_description.return_value.error})
 
-            
+
 class AIJobSalaryAPITest(TestCase):
     def setUp(self):
         super().setUp()
@@ -3521,4 +3522,225 @@ class AIJobSalaryAPITest(TestCase):
             self.assertEqual(response.status_code, 200)
             expected_response = AIJobSalaryGeneratorResponseSchema.example()
             self.assertEqual(response.data, expected_response)
+
+
+class QuickReviewAPITests(TestCase):
+    def setUp(self):
+        super().setUp()
+        self.client = TestClient(router)
+        self.url =  "applications/quick-reviews"
+        user = UserFactory()
+        business = BusinessFactory(created_by=user)
+        self.business_user = BusinessUserFactory(business=business, user=user)
+        job = JobFactory(created_by=self.business_user)
+        job_post = JobPostFactory(job=job)
+        hired_stage = WorkflowStageFactory.create(phase=PhaseType.HIRED.value, created_by=self.business_user)
+
+        interview_stage = WorkflowStageFactory.create(phase=PhaseType.INTERVIEW.value, created_by=self.business_user)
+        interview_stage.order = hired_stage.order
+        interview_stage.phase_order = hired_stage.phase_order
+        interview_stage.save()
+        hired_stage.order = hired_stage.order + 1
+        hired_stage.phase_order = hired_stage.phase_order + 1
+        hired_stage.save()
+        self.interview_stage = interview_stage
+        self.new_stage = WorkFlowStage.objects.filter(phase=PhaseType.NEW.value, created_by=self.business_user).first()
+        self.applicants = JobApplicationFactory.create_batch(10, job_post=job_post,
+                                                        stage=self.new_stage)
+
+
+    def test_get_quick_reviews(self):
+        response = self.client.get(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 10)
+
+    def test_update_quick_review_advance(self):
+        application = self.applicants[0].uid
+        response = self.client.post(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"},
+                                    json={"applications": [application], "action": UpdateQuickReviewType.ADVANCE.value})
+        prev_stage = self.applicants[0].stage
+        application = JobApplication.objects.get(uid=application)
+        self.assertEqual(response.status_code, 200)
+
+        self.assertNotEqual(application.stage.phase, prev_stage)
+        self.assertEqual(application.stage.phase, self.interview_stage.phase)
+        self.assertEqual(application.stage, self.interview_stage)
+
+        response = self.client.get(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 9)
+
+    def test_update_quick_review_reject(self):
+        application = self.applicants[0].uid
+        response = self.client.post(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"},
+                                    json={"applications": [application], "action": UpdateQuickReviewType.REJECT.value})
+        prev_stage = self.applicants[0].stage
+        application = JobApplication.objects.get(uid=application)
+        self.assertEqual(response.status_code, 200)
+
+        self.assertNotEqual(application.stage.phase, prev_stage)
+        self.assertEqual(application.stage.phase, PhaseType.REJECTED.value)
+
+        response = self.client.get(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 9)
+
+
+    def test_bulk_update_review_reject(self):
+        applications = [app.uid for app in self.applicants]
+        response = self.client.post(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"},
+                                    json={"applications": applications, "action": UpdateQuickReviewType.REJECT.value})
+
+        self.assertEqual(response.status_code, 200)
+        phase = JobApplication.objects.filter(uid__in=applications).distinct("stage__phase").values_list("stage__phase", flat=True)
+        self.assertEqual(phase.count(), 1)
+        self.assertEqual(phase[0], PhaseType.REJECTED.value)
+
+        response = self.client.get(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 0)
+
+
+        response = self.client.get(self.url, headers={"Authorization": f"Bearer {self.business_user.user.token}"})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 0)
+
+
+class ApplicationNotesTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.business = BusinessFactory.create()
+        self.business_user = BusinessUserFactory.create(business=self.business)
+        self.other_business = BusinessFactory.create()
+        self.other_business_user = BusinessUserFactory.create(business=self.other_business)
+
+        self.job = JobFactory.create(created_by=self.business_user)
+        self.job_post = JobPostFactory.create(job=self.job)
+        self.talent = TalentFactory.create()
+        self.application = JobApplicationFactory.create(
+            job_post=self.job_post,
+            applicant=self.talent,
+            recruiter=self.business_user
+        )
+
+        self.url = lambda app_uid: f"applications/{app_uid}/notes"
+
+    def test_get_application_notes_success(self):
+        """Test successfully retrieving application notes"""
+        notes = JobApplicationNotes.objects.create(
+            application=self.application,
+            application_note="Initial app note",
+            interview_note="Initial interview note",
+            rejection_reason=RejectionReasonType.CULTURE_TEAM_FIT_MISMATCH.value,
+            rejection_note="Initial rejection note"
+        )
+
+        headers = {"authorization": f"Bearer {self.business_user.user.token}"}
+        response = self.client.get(self.url(self.application.uid), headers=headers)
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["application_note"], "Initial app note")
+        self.assertEqual(data["interview_note"], "Initial interview note")
+        self.assertEqual(data["rejection_reason"], RejectionReasonType.CULTURE_TEAM_FIT_MISMATCH.value)
+        self.assertEqual(data["rejection_note"], "Initial rejection note")
+
+    def test_get_application_notes_no_notes_created(self):
+        """Test behavior when JobApplicationNotes does not exist yet"""
+        headers = {"authorization": f"Bearer {self.business_user.user.token}"}
+        response = self.client.get(self.url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("Application notes not found", response.json()["detail"])
+
+    def test_get_application_notes_forbidden_different_business(self):
+        """Test that business users cannot access notes from other businesses"""
+        headers = {"authorization": f"Bearer {self.other_business_user.user.token}"}
+        response = self.client.get(self.url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("This application does not exist", response.json()["detail"])
+
+    def test_get_application_notes_unauthorized(self):
+        """Test that unauthorized users cannot access the endpoint"""
+        response = self.client.get(self.url(self.application.uid))
+        self.assertEqual(response.status_code, 401)
+
+    def test_get_application_notes_talent_forbidden(self):
+        """Test that talent users cannot access the endpoint"""
+        headers = {"authorization": f"Bearer {self.talent.user.token}"}
+        response = self.client.get(self.url(self.application.uid), headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_update_application_notes_create_new(self):
+        """Test creating notes for the first time"""
+        data = {
+            "application_note": "New app note",
+            "interview_note": "New interview note",
+            "rejection_reason": RejectionReasonType.CULTURE_TEAM_FIT_MISMATCH.value,
+            "rejection_note": "New rejection note"
+        }
+        headers = {"authorization": f"Bearer {self.business_user.user.token}"}
+        response = self.client.patch(self.url(self.application.uid), json=data, headers=headers)
+        print("data: ", response.content)
+        self.assertEqual(response.status_code, 200)
+        self.application.refresh_from_db()
+        self.assertTrue(hasattr(self.application, "notes"))
+        self.assertEqual(self.application.notes.application_note, "New app note")
+        self.assertEqual(self.application.notes.application_note_by, self.business_user)
+
+    def test_update_application_notes_partial_update(self):
+        """Test updating only one field and verifying timestamps and other fields"""
+        notes = JobApplicationNotes.objects.create(
+            application=self.application,
+            application_note="Old app note",
+            interview_note="Old interview note"
+        )
+
+        data = {"application_note": "Updated app note"}
+        headers = {"authorization": f"Bearer {self.business_user.user.token}"}
+        response = self.client.patch(self.url(self.application.uid), json=data, headers=headers)
+
+        self.assertEqual(response.status_code, 200)
+        notes.refresh_from_db()
+        self.assertEqual(notes.application_note, "Updated app note")
+        self.assertEqual(notes.interview_note, "Old interview note")
+        self.assertIsNotNone(notes.application_note_at)
+        self.assertEqual(notes.application_note_by, self.business_user)
+
+    def test_update_application_notes_no_change(self):
+        """Test that updating with same values does not update timestamps"""
+        notes = JobApplicationNotes.objects.create(
+            application=self.application,
+            application_note="Same note",
+            application_note_at=timezone.now() - timedelta(days=1)
+        )
+        old_at = notes.application_note_at
+
+        data = {"application_note": "Same note"}
+        headers = {"authorization": f"Bearer {self.business_user.user.token}"}
+        response = self.client.patch(self.url(self.application.uid), json=data, headers=headers)
+
+        self.assertEqual(response.status_code, 200)
+        notes.refresh_from_db()
+        self.assertEqual(notes.application_note_at, old_at)
+
+    def test_update_application_notes_forbidden_different_business(self):
+        """Test that business users cannot update notes for other businesses"""
+        data = {"application_note": "Try to update"}
+        headers = {"authorization": f"Bearer {self.other_business_user.user.token}"}
+        response = self.client.patch(self.url(self.application.uid), json=data, headers=headers)
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("This application does not exist", response.json()["detail"])
+
+    def test_update_application_notes_unauthorized(self):
+        """Test that unauthorized users cannot update notes"""
+        data = {"application_note": "Try to update"}
+        response = self.client.patch(self.url(self.application.uid), json=data)
+        self.assertEqual(response.status_code, 401)
+
+    def test_update_application_notes_talent_forbidden(self):
+        """Test that talent users cannot update notes"""
+        data = {"application_note": "Try to update"}
+        headers = {"authorization": f"Bearer {self.talent.user.token}"}
+        response = self.client.patch(self.url(self.application.uid), json=data, headers=headers)
+        self.assertEqual(response.status_code, 403)
 
