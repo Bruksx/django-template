@@ -32,8 +32,9 @@ from ..schemas import common as common_schema
 from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema, TalentFilterListSchema, \
     SendBulkChatSchema, PipelineDashboardSchema, DashboardFilter, ApplicantDashboardSchema, \
     RecruitmentDashboardSchema, ApplicationPipelineRatioSchema, RecentHiresSchema, StuckApplicationSchema, \
-    PaginatedRecruiterHireSchema, TimeSeriesDashboardFilter, ApplicationHiresGraphItemSchema
-from ..services.business import pipeline_dashboard_data, applicant_dashboard_data, recruitment_dashboard_data
+    PaginatedRecruiterHireSchema, TimeSeriesDashboardFilter, ApplicationHiresGraphItemSchema, InviteTalentSchema
+from ..services.business import pipeline_dashboard_data, applicant_dashboard_data, recruitment_dashboard_data, \
+    handle_invited_talents
 from ..services.common import application_pipeline_ratio, recent_hires, stuck_applications, recruiter_hires_graph_data, \
     application_hires_graph_data
 
@@ -650,6 +651,20 @@ def get_talent_filter(request, talent_filter_uid: UUID):
         raise HttpError(404, "Talent filter not found")
     return talent_filter
 
+@router.post("invite-talent", auth=JWTAuth(), tags=["Business Account"])
+def invite_talent_users(request, data: InviteTalentSchema):
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
+
+    daily_limit = 10
+    if business.talent_invite_last_sent.date() >= timezone.now().date() and business.talent_invite_limit >= daily_limit:
+        raise HttpError(400, "Daily limit exceeded")
+    if business.talent_invite_last_sent.date() < timezone.now().date():
+        business.talent_invite_limit = 0
+        business.save()
+
+    handle_invited_talents(data.emails, business, daily_limit - business.talent_invite_limit)
+    return Response(status=200, data={"message": "Talent invited successfully"})
 
 
 @router.delete("talents-filters/{talent_filter_uid}", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentFilterSchema)

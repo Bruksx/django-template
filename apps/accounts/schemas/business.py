@@ -663,5 +663,6 @@ class ApplicationPipelineRatioSchema(Schema):
    ratio: int|float
 
 
-
+class InviteTalentSchema(Schema):
+    emails: List[str]
 
