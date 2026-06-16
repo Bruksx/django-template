@@ -33,7 +33,7 @@ from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType, UpdateQuickReviewType
 from .models import (
     EmploymentType, BusinessModel, JobLevel, JobPost, Job, RequiredAttribute, JobApplication, AvailableDay,
-    ScreeningQuestion, QuestionOption, Answer, JobInvite, JobPostTag
+    ScreeningQuestion, QuestionOption, Answer, JobInvite, JobPostTag, JobApplicationNotes
 )
 from .queries import add_application_match_score, add_job_post_annotations
 from .schemas import (
@@ -44,7 +44,7 @@ from .schemas import (
     OtherApplicationSchema, PublicJobPostListSchema, PublicJobPostFilterQuerySchema, UpdateQuickReviewSchema,
     QuickReviewFilterQuerySchema,
     AIJobDescriptionGeneratorResponseSchema, AIJobDescriptionGeneratorRequestSchema, AIJobSalaryGeneratorRequestSchema,
-    AIJobSalaryGeneratorResponseSchema
+    AIJobSalaryGeneratorResponseSchema, MutateApplicationNoteSchema, ApplicationNoteSchema
 )
 from .services import (set_job_required_attributes, get_screening_questions_service, update_job_post_service, \
                        update_bulk__job_posts_service, create_job_post_service, \
@@ -867,23 +867,6 @@ def update_quick_review(request, data: UpdateQuickReviewSchema):
         handle_applications_stage(applications, business_user, stage, data.action == UpdateQuickReviewType.ADVANCE)
     return Response(status=200, data={"message": "Applications updated successfully"})
 
-@router.delete("jobposts/tags", tags=['Common'], auth=JWTAuth())
-def delete_job_tags(request, data: List[str]):
-    IsBusinessUser.check(request)
-    business = request.user.businessuser.business
-    delete_job_post_tags(data, business)
-    return Response(status=204, data=dict(message="Job Post Tags deleted successfully"))
-
-
-@router.get("applications/{application_uid}/other-applications", tags=["Business Jobs"], auth=JWTAuth(), response=PaginatedResponseSchema[OtherApplicationSchema])
-@paginate(PageNumberPaginationExtra, page_size=50)
-def get_other_applications(request, application_uid: UUID):
-    IsBusinessUser.check(request)
-    queryset = JobApplication.objects.filter(job_post__job__created_by__business=request.user.businessuser.business)
-    application = queryset.filter(uid=application_uid).first()
-    if not application:
-        raise HttpError(404, "This application does not exist")
-    return queryset.filter(applicant=application.applicant).exclude(uid=application_uid).order_by("-created_at")
 
 @router.post("ai/generate-description", auth=JWTAuth(), response=AIJobDescriptionGeneratorResponseSchema)
 def ai_job_description_generator(request, body: AIJobDescriptionGeneratorRequestSchema = Form(),  file: UploadedFile=None):
@@ -977,3 +960,57 @@ def ai_job_salary_generator(request, data: AIJobSalaryGeneratorRequestSchema):
             "name": currency.name,
         },
     }
+
+
+@router.delete("jobposts/tags", tags=['Common'], auth=JWTAuth())
+def delete_job_tags(request, data: List[str]):
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
+    delete_job_post_tags(data, business)
+    return Response(status=204, data=dict(message="Job Post Tags deleted successfully"))
+
+
+@router.get("applications/{application_uid}/other-applications", tags=["Business Jobs"], auth=JWTAuth(), response=PaginatedResponseSchema[OtherApplicationSchema])
+@paginate(PageNumberPaginationExtra, page_size=50)
+def get_other_applications(request, application_uid: UUID):
+    IsBusinessUser.check(request)
+    queryset = JobApplication.objects.select_related("job_post__job__created_by__business").filter(job_post__job__created_by__business=request.user.businessuser.business)
+    application = queryset.filter(uid=application_uid).first()
+    if not application:
+        raise HttpError(404, "This application does not exist")
+    return queryset.filter(applicant=application.applicant).exclude(uid=application_uid).order_by("-created_at")
+
+@router.patch("applications/{application_uid}/notes", tags=["Business Jobs"], auth=JWTAuth(), response=ApplicationNoteSchema)
+def update_application_notes(request, application_uid: UUID, data:MutateApplicationNoteSchema):
+    IsBusinessUser.check(request)
+    application = JobApplication.objects.select_related("job_post__job__created_by__business").filter(uid=application_uid).first()
+    if not application or application.job_post.job.created_by.business != request.user.businessuser.business:
+        raise HttpError(404, "This application does not exist")
+    if not hasattr(application, "notes"):
+        JobApplicationNotes.objects.create(application=application)
+    application.refresh_from_db()
+    note_data = data.dict(exclude_unset=True)
+    if data.application_note != application.notes.application_note:
+        note_data["application_note_at"] = timezone.now()
+        note_data["application_note_by"] = request.user.businessuser
+    if data.rejection_note != application.notes.rejection_note:
+        note_data["rejection_note_at"] = timezone.now()
+        note_data["rejection_note_by"] = request.user.businessuser
+    if data.interview_note != application.notes.interview_note:
+        note_data["interview_note_at"] = timezone.now()
+        note_data["interview_note_by"] = request.user.businessuser
+    if note_data:
+        return application.notes.update(**note_data)
+    return application.notes
+
+@router.get("applications/{application_uid}/notes", tags=["Business Jobs"], auth=JWTAuth(), response=ApplicationNoteSchema)
+def get_application_notes(request, application_uid: UUID):
+    IsBusinessUser.check(request)
+    application = JobApplication.objects.select_related("job_post__job__created_by__business").filter(uid=application_uid).first()
+    if not application or application.job_post.job.created_by.business != request.user.businessuser.business:
+        raise HttpError(404, "This application does not exist")
+    try:
+        return application.notes
+    except JobApplication.notes.RelatedObjectDoesNotExist:
+        raise HttpError(404, "Application notes not found")
+
