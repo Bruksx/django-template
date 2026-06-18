@@ -3,37 +3,38 @@ from enum import Enum
 from typing import List, Optional
 from uuid import UUID
 
-from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
-    Skill, Role, BusinessClient, Industry, EducationLevel, BannedAccount
-from core.models import Language
-from core.schemas import GenericNameAndUidSchema
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from jobs.models import Job, JobPost, BusinessModel
-from jobs.schemas import BusinessUserJobSchema
 from ninja import Router, UploadedFile, PatchDict, Form, Query
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
-from notification import notifications
-from paginations import CustomPaginatedResponseSchema, CustomPageNumberPaginationExtra
 
+from accounts.models import User, Business, BusinessUser, VerificationCode, Country, BusinessIndustry, TalentFilter, \
+    Skill, Role, BusinessClient, Industry, EducationLevel, BannedAccount
 from config.permissions import IsBusinessOwnerOrAdmin, IsBusinessUser
+from core.models import Language
+from core.schemas import GenericNameAndUidSchema
 from helpers.email.accounts import send_business_user_invitation_email, send_business_user_welcome_email
 from helpers.email.auth import send_verification_code, send_email_verification_code
 from helpers.utils import Secret
+from jobs.models import Job, JobPost, BusinessModel
+from jobs.schemas import BusinessUserJobSchema
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
+from notification import notifications
+from paginations import CustomPaginatedResponseSchema, CustomPageNumberPaginationExtra
 from ..enums import UserType, BusinessUserStatusType, BusinessUserRoleType
 from ..schemas import business as business_schema
 from ..schemas import common as common_schema
 from ..schemas.business import SendEmailSchema, MutateTalentFilterSchema, TalentFilterSchema, TalentFilterListSchema, \
     SendBulkChatSchema, PipelineDashboardSchema, DashboardFilter, ApplicantDashboardSchema, \
     RecruitmentDashboardSchema, ApplicationPipelineRatioSchema, RecentHiresSchema, StuckApplicationSchema, \
-    PaginatedRecruiterHireSchema, TimeSeriesDashboardFilter, ApplicationHiresGraphItemSchema
-from ..services.business import pipeline_dashboard_data, applicant_dashboard_data, recruitment_dashboard_data
+    PaginatedRecruiterHireSchema, TimeSeriesDashboardFilter, ApplicationHiresGraphItemSchema, InviteTalentSchema
+from ..services.business import pipeline_dashboard_data, applicant_dashboard_data, recruitment_dashboard_data, \
+    handle_invited_talents
 from ..services.common import application_pipeline_ratio, recent_hires, stuck_applications, recruiter_hires_graph_data, \
     application_hires_graph_data
 
@@ -217,11 +218,11 @@ def get_business_users(request, search: str = "", role: BusinessUserRoleType = N
     business = request.user.businessuser.business
     query = Q()
     if search:
-        q = Q()
         for s in search.split(" "):
+            s = s.strip()
             if s:
-                q = q | Q(user__fullname__icontains=s) | Q(user__email__icontains=s)
-        query = query & q
+                # Each individual word must match either the fullname OR the email
+                query = query & (Q(user__fullname__icontains=s) | Q(user__email__icontains=s))
 
     if role:
         query = query & Q(role=role.value)
@@ -650,6 +651,20 @@ def get_talent_filter(request, talent_filter_uid: UUID):
         raise HttpError(404, "Talent filter not found")
     return talent_filter
 
+@router.post("invite-talent", auth=JWTAuth(), tags=["Business Account"])
+def invite_talent_users(request, data: InviteTalentSchema):
+    IsBusinessUser.check(request)
+    business = request.user.businessuser.business
+
+    daily_limit = 10
+    if business.talent_invite_last_sent.date() >= timezone.now().date() and business.talent_invite_limit >= daily_limit:
+        raise HttpError(400, "Daily limit exceeded")
+    if business.talent_invite_last_sent.date() < timezone.now().date():
+        business.talent_invite_limit = 0
+        business.save()
+
+    handle_invited_talents(data.emails, business, daily_limit - business.talent_invite_limit)
+    return Response(status=200, data={"message": "Talent invited successfully"})
 
 
 @router.delete("talents-filters/{talent_filter_uid}", auth=JWTAuth(), tags=["Talent Jobs"], response=TalentFilterSchema)

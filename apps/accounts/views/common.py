@@ -1,6 +1,14 @@
 import datetime
 from typing import List
 
+from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
+from ninja import Router, Query
+from ninja.errors import HttpError
+from ninja_extra import paginate
+from ninja_jwt.authentication import JWTAuth
+
 from accounts.constants import university_list, major_list, certification_list
 from accounts.enums import UserType
 from accounts.models import Talent, Country, EducationLevel, CustomerCase, User, VerificationCode, Industry, Business
@@ -10,20 +18,12 @@ from accounts.schemas.business import TalentFilterQuerySchema
 from accounts.schemas.common import CompanyListSchema
 from accounts.schemas.common import TokenSchema
 from core.schemas import GenericNameAndUidSchema
-from django.db import transaction
-from django.db.models import Q
-from django.utils import timezone
-from ninja import Router, Query
-from ninja.errors import HttpError
-from ninja_extra import paginate
-from ninja_jwt.authentication import JWTAuth
-from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
-
 from helpers.email.accounts import send_customer_case_email
 from helpers.email.auth import send_verification_code
 from helpers.utils import Secret
 from monkeypatches.q_cluster import async_task
 from monkeypatches.response import Response
+from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 
 router = Router(tags=["Common Account APIs"])
 
@@ -32,13 +32,13 @@ router = Router(tags=["Common Account APIs"])
 @paginate(CustomPageNumberPaginationExtra, page_size=50)
 def talent_lists(request, search="", filters:TalentFilterQuerySchema = Query(...)):
     talents = Talent.objects.prefetch_related("user").filter(visible=True)
+    q = Q()
     if search:
-        q = Q()
         for s in search.split(" "):
+            s = s.strip()
             if s:
-                q = q | Q(user__fullname__icontains=s) | Q(user__email__icontains=s)
+                q = q & (Q(user__fullname__icontains=s) | Q(user__email__icontains=s))
         talents = talents.filter(q)
-
     return filters.get_queryset(talents).order_by("-user__created_at").distinct()
 
 

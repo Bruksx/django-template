@@ -22,8 +22,8 @@ from helpers.utils import export_rows_to_excel
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 from settings.models import WorkFlowStage
 from .enums import WorkStructureEnum, TechnologicalRequirementsEnum, LunchBreakEnum, QuestionTypeEnum, \
-    WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType, UpdateQuickReviewType
-from .models import BusinessModel, JobApplication, Answer, JobInvite
+    WithdrawalFeedbackType, JobStatusType, ActionType, PhaseType, UpdateQuickReviewType, RejectionReasonType
+from .models import BusinessModel, JobApplication, Answer, JobInvite, JobApplicationNotes
 from .models import EmploymentType, Job, JobPost, ScreeningQuestion, QuestionOption, JobLevel, AvailableDay
 from .models import (
     RequiredAttribute
@@ -945,10 +945,10 @@ class OtherApplicationSchema(ModelSchema):
     role: Optional[GenericNameAndUidSchema] = Field(alias="job_post.job.role")
     location: Optional[GenericNameAndUidSchema] = Field(alias="job_post.country")
     job_stage: Optional[str]
-    job_status: str
     invited: bool
     applied_date: datetime = Field(alias="created_at")
     recruiter: Optional[BusinessUserSchema] = Field(alias="job_post.recruiter")
+    job_status: str
 
     class Meta:
         model = JobApplication
@@ -993,6 +993,9 @@ class JobApplicationListSchema(ModelSchema):
     years_of_experience: str = Field(alias="applicant.get_years_of_experience")
     average_experience_tenure: str = Field(alias="applicant.get_average_experience_tenure")
     other_application: Optional[OtherApplicationSchema]
+    recruiter: Optional[BusinessUserSchema] = Field(alias="job_post.recruiter")
+    job_status: str
+
     invited: bool
     ai_insight: AIInsightSchema
     ai_match_score: Optional[int] = 0
@@ -1005,6 +1008,10 @@ class JobApplicationListSchema(ModelSchema):
     @staticmethod
     def resolve_applicant_cv_url(obj):
         return obj.applicant.cv_url
+
+    @staticmethod
+    def resolve_job_status(obj):
+        return "Active" if obj.job_post.status == JobStatusType.POSTED.value else "Closed"
 
     @staticmethod
     def resolve_stage(obj):
@@ -1033,7 +1040,7 @@ class JobApplicationListSchema(ModelSchema):
         if hasattr(obj, "computed_match_score"):
             return 0 if not obj.computed_match_score else int(obj.computed_match_score)
         return int(obj.match) or 0
-    
+
     @staticmethod
     def resolve_ai_insight(obj):
         try:
@@ -1043,7 +1050,7 @@ class JobApplicationListSchema(ModelSchema):
             return dict()
         except:
             return dict()
-    
+
     @staticmethod
     def resolve_ai_match_score(obj):
         talent = obj.applicant
@@ -1275,7 +1282,7 @@ class TalentJobPostListSchema(ModelSchema):
     @staticmethod
     def resolve_match_obj(obj, context):
         return MatchScoreSchema.from_orm(obj)
-    
+
     @staticmethod
     def resolve_ai_match_score(obj, context):
         request = context.get("request")
@@ -1969,3 +1976,24 @@ class AIJobSalaryGeneratorRequestSchema(Schema):
     job_level: UUID
     department: UUID
     employment_type: UUID
+
+
+class MutateApplicationNoteSchema(Schema):
+    application_note: Optional[str] = None
+    interview_note: Optional[str] = None
+    rejection_reason: Optional[RejectionReasonType] = None
+    rejection_note: Optional[str] = None
+
+
+class ApplicationNoteSchema(ModelSchema):
+    application_note_by: Optional[BusinessUserListSchema] = None
+    interview_note_by: Optional[BusinessUserListSchema] = None
+    rejection_note_by: Optional[BusinessUserListSchema] = None
+    class Meta:
+        model = JobApplicationNotes
+        fields = ["application_note", "interview_note", "rejection_reason", "rejection_note",
+                  "application_note_at", "interview_note_at", "rejection_note_at",
+                  ]
+
+
+

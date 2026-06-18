@@ -47,3 +47,27 @@ def send_admin_invite_email(email:str, token:str, user:str, lang="en"):
     html_file = f"accounts/{lang}/admin_invite.html"
     html_content = render_html_email(html_file, context)
     send_email(subject="Admin Invitation", emails=[email], html_body=html_content)
+
+def send_first_talent_invitation_email(emails: List[str], lang="en"):
+    context = {
+        "link": f"{settings.FRONTEND_URL}onboarding/talent/registration",
+    }
+    html_file = f"accounts/{lang}/invite_talent_1.html"
+    html_content = render_html_email(html_file, context)
+    send_email(subject="You're invited to join 1840 Global Talent Cloud", emails=emails, html_body=html_content)
+
+def send_second_talent_invitation_email(emails: List[str], lang="en"):
+    context = {
+        "link": f"{settings.FRONTEND_URL}onboarding/talent/registration",
+    }
+    html_file = f"accounts/{lang}/invite_talent_2.html"
+    html_content = render_html_email(html_file, context)
+    send_email(subject="Your invitation is still open", emails=emails, html_body=html_content)
+
+def send_third_talent_invitation_email(emails: List[str], lang="en"):
+    context = {
+        "link": f"{settings.FRONTEND_URL}onboarding/talent/registration",
+    }
+    html_file = f"accounts/{lang}/invite_talent_3.html"
+    html_content = render_html_email(html_file, context)
+    send_email(subject="Final Reminder to join 1840 Global Talent Cloud", emails=emails, html_body=html_content)

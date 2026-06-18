@@ -340,11 +340,10 @@ def get_talents_by_job_posts_service(request, job_post, search):
 
     query = Q()
     if search:
-        q = Q()
         for s in search.split(" "):
+            s = s.strip()
             if s:
-                q = q | Q(user__fullname__icontains=s) | Q(user__email__icontains=s)
-        query = query & q
+                query = query & (Q(user__fullname__icontains=s) | Q(user__email__icontains=s))
     talents = job_post.get_talents()
     send_talents_job_matching_notification(talents.count(), job_post)
     return talents.filter(query)

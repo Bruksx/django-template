@@ -1,11 +1,8 @@
 from typing import List
 from uuid import UUID
 
-from config.permissions import IsBusinessUser
 from django.db import transaction
-from django.db.models import Q, F, OrderBy, Case, When, Value, IntegerField
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
+from django.db.models import Q, Case, When, Value, IntegerField
 from ninja import Router, UploadedFile, Form
 from ninja.errors import HttpError
 from ninja_extra.pagination import paginate
@@ -17,8 +14,11 @@ from chats.enums import ChatMessageAttachmentType
 from chats.models import Message, Conversation, MessageAttachment
 from chats.schemas import ChatListSchema, ChatUserSchema, ResponseSchema, MutateChatMessageSchema, \
     ChatMessagePaginatedSchema, ChatMessageRequestSchema, ChatMessageResponseSchema, ChatMessageErrorSchema
+from config.permissions import IsBusinessUser
 from core.schemas import CountSchema
 from jobs.business_views import pagination_class
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
 
@@ -42,8 +42,9 @@ def get_chats(request, search:str=""):
     if search:
         q = Q()
         for s in search.split(" "):
+            s = s.strip()
             if s:
-                q = q | Q(users__fullname__icontains=s) | Q(message__body__icontains=s)
+                q = q & Q(users__fullname__icontains=s) | Q(message__body__icontains=s)
         queryset = queryset.filter(q)
 
     return queryset.distinct()
