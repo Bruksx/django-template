@@ -999,6 +999,7 @@ class JobApplicationListSchema(ModelSchema):
     invited: bool
     ai_insight: AIInsightSchema
     ai_match_score: Optional[int] = 0
+    top_percent: Optional[int] = 0
 
     class Meta:
         model = JobApplication
@@ -1060,7 +1061,18 @@ class JobApplicationListSchema(ModelSchema):
             return 0
         except:
             return 0
-
+    
+    @staticmethod
+    def resolve_top_percent(obj):
+        talent = obj.applicant
+        try:
+            ai_match_score = AIMatchScore.objects.filter(talent_id=talent.id).first()
+            if ai_match_score:
+                return int(ai_match_score.top_percent)
+            return 0
+        except:
+            return 0
+        
 
 class JobApplicationDetailSchema(JobApplicationListSchema):
     strength: Optional[JobMatchSchema] = None
