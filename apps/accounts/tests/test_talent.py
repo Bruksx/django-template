@@ -467,13 +467,17 @@ class TalentDashboardTests(TestCase):
         response = self.client.get("/dashboard-report", headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()["data"]
-        self.assertIn("jobs_applied", data)
-        self.assertEqual(data["jobs_applied"], 1)
+        self.assertIn("application_to_interview", data)
+        self.assertEqual(data["application_to_interview"], 100)
         response = self.client.get("/dashboard-report?start_date=2022-02-02&end_date=2022-09-02", headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()["data"]
-        self.assertIn("jobs_applied", data)
-        self.assertEqual(data["jobs_applied"], 0)
+        self.assertIn("total_interview_to_application", data)
+        self.assertEqual(data["total_interview_to_application"], 100)
+        self.assertIn("recommended_jobs", data)
+        self.assertEqual(data["recommended_jobs"], 0)
+        self.assertIn("jobs_with_match_gt_50", data)
+        self.assertEqual(data["jobs_with_match_gt_50"], 0)
 
 
     def test_dashboard_chart_endpoint(self):

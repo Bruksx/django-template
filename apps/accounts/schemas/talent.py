@@ -365,6 +365,43 @@ class TalentDashboardReport(Schema):
         return obj.viewers.count()
 
 
+class TalentDashboardReport2(Schema):
+    application_to_interview: int
+    total_interview_to_application: int
+    recommended_jobs: int
+    jobs_with_match_gt_50: int
+
+    @staticmethod
+    def resolve_application_to_interview(obj, context):
+        from accounts.services.talent import application_to_interview
+
+        if not context:
+            context = dict()
+        return application_to_interview(obj, **context)
+
+    @staticmethod
+    def resolve_total_interview_to_application(obj, context):
+        from accounts.services.talent import total_interview_to_application
+
+        if not context:
+            context = dict()
+        return total_interview_to_application(obj, **context)
+
+    @staticmethod
+    def resolve_recommended_jobs(obj):
+        from accounts.services.talent import recommended_jobs_count
+        return recommended_jobs_count(obj)
+
+    @staticmethod
+    def resolve_jobs_with_match_gt_50(obj, context):
+        from accounts.services.talent import jobs_with_match_gt_50
+
+        if not context:
+            context = dict()
+        return jobs_with_match_gt_50(obj, **context)
+
+
+
 class MonthlyChartSchema(Schema):
     month: Months
     count: int

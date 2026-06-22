@@ -1,8 +1,10 @@
 import json
-from datetime import timedelta
+from datetime import timedelta, date
 from types import NoneType
 
 from django.db import transaction
+from django.db.models import Window, F
+from django.db.models.functions import RowNumber
 from django.utils import timezone
 from django_q.models import Schedule
 from ninja.errors import HttpError
@@ -10,6 +12,7 @@ from ninja.errors import HttpError
 from accounts.enums import UserType
 from accounts.models import User, Talent, Experience, Education, TalentAvailableDay
 from helpers.email.auth import send_admin_created_account_email
+from jobs.services import get_talent_job_recommendations
 from monkeypatches.q_cluster import async_task
 
 
@@ -373,3 +376,37 @@ def update_talent_years_of_experience(talent):
     talent.average_experience_tenure = avg_tenure
     talent.save(update_fields=["years_of_experience", "months_of_experience", "average_experience_tenure"])
     return talent
+
+
+def application_to_interview(talent, start_date: date=None, end_date: date=None):
+    total_interviews = talent.job_interviews(start_date=start_date, end_date=end_date).count()
+    total_applications = talent.job_applications(start_date=start_date, end_date=end_date).count()
+    return int((total_interviews/total_applications) * 100) if total_applications > 0 else 0
+
+
+def total_interview_to_application(talent, start_date: date=None, end_date: date=None):
+    total_interviews = talent.job_interviews(start_date=start_date, end_date=end_date).count()
+    total_applications = talent.job_applications(start_date=start_date, end_date=end_date).count()
+    return int((total_interviews/total_applications) * 100) if total_applications > 0 else 0
+
+def recommended_jobs_count(talent):
+    return get_talent_job_recommendations(talent, distinct=True).count()
+
+def jobs_with_match_gt_50(talent, start_date: date=None, end_date: date=None):
+    from jobs.models import JobPost
+    from jobs.queries import add_job_post_annotations
+    from jobs.enums import JobStatusType
+    queryset = JobPost.objects.select_related("job", "country", "job__role", "job__created_by__business")
+    if start_date and end_date:
+        queryset = queryset.filter(job__created_at__range=[start_date, end_date])
+    queryset = add_job_post_annotations(queryset, talent)
+    queryset = queryset.filter(computed_match_score__gt=50, status=JobStatusType.POSTED.value)
+    return queryset.annotate(
+        row_number=Window(
+            expression=RowNumber(),
+            partition_by=[F("job_id")],
+            order_by=[F("computed_match_score").desc()]  # highest score first
+        )
+    ).filter(row_number=1).count()
+
+
