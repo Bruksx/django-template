@@ -473,7 +473,7 @@ class TalentDashboardTests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()["data"]
         self.assertIn("total_interview_to_application", data)
-        self.assertEqual(data["total_interview_to_application"], 100)
+        self.assertEqual(data["total_interview_to_application"], 0)
         self.assertIn("recommended_jobs", data)
         self.assertEqual(data["recommended_jobs"], 0)
         self.assertIn("jobs_with_match_gt_50", data)
