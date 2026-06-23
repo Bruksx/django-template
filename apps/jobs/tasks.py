@@ -1,19 +1,19 @@
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import List
 from uuid import UUID
 
-from accounts.models import Talent
-from chats.models import Conversation, Message
 from django.db import connection, close_old_connections, transaction
 from django.db.models import Count
-from jobs.enums import JobStatusType
-from jobs.models import JobPost, Job, JobInvite, JobPostTag
-from notification.notifications import send_job_application_notification, send_job_sharing_notification, \
-    send_job_performance_notification
 
+from accounts.models import Talent
+from chats.models import Conversation, Message
 from helpers.email.jobs import send_shared_job_email, send_invite_to_apply_email
 from helpers.utils import chunk_queryset
+from jobs.enums import JobStatusType
+from jobs.models import JobPost, JobInvite, JobPostTag
 from monkeypatches.q_cluster import async_task
+from notification.notifications import send_job_application_notification, send_job_sharing_notification, \
+    send_job_performance_notification
 
 
 def share_job_via_email(job_ids:List[UUID], emails: List[str]=None, language:str="en"):
@@ -60,45 +60,126 @@ def invite_to_apply(sender_id:int, job_ids:List[UUID], talents: List[UUID], lang
     return
 
 
-
 def job_application_notification_task():
-    with transaction.atomic():
-        job_posts = JobPost.objects.filter(status=JobStatusType.POSTED.value)
-        with ThreadPoolExecutor(max_workers=20) as executor:
-            for chunk in chunk_queryset(job_posts):
-                executor.map(send_job_application_notification, chunk)
-        connection.close()
-        close_old_connections()
-    return
+    """Scheduled task to send job application notifications (5am, 10am, 4pm)"""
+
+    job_posts = JobPost.objects.filter(
+        status=JobStatusType.POSTED.value
+    ).select_related('job', 'job__created_by')  # optimize queries
+
+    if not job_posts.exists():
+        return
+
+    # Process in chunks to avoid memory issues
+    def process_job_post(job_post):
+        try:
+            # Each notification runs in its own transaction
+            with transaction.atomic():
+                send_job_application_notification(job_post)
+        except Exception as e:
+            # Log error but don't stop the whole task
+            print(f"Error sending application notification for job {job_post.uid}: {e}")
+            # You can add proper logging here (logger.error(...))
+
+    # Use ThreadPool for parallel processing
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        futures = []
+
+        for chunk in chunk_queryset(job_posts, chunk_size=50):  # adjust chunk_size as needed
+            for job_post in chunk:
+                future = executor.submit(process_job_post, job_post)
+                futures.append(future)
+
+        # Wait for all tasks to complete and handle exceptions
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                print(f"Thread error: {e}")
+
+    # Clean up database connections after using threads
+    close_old_connections()
+    connection.close()
+
+    return "Job application notifications task completed"
 
 
 def job_sharing_notification_task():
-    with transaction.atomic():
-        job_posts = JobPost.objects.filter(status=JobStatusType.POSTED.value)
-        with ThreadPoolExecutor(max_workers=20) as executor:
-            for chunk in chunk_queryset(job_posts):
-                executor.map(send_job_sharing_notification, chunk)
+    """
+    Scheduled task (Daily at 4 PM)
+    Sends job sharing summary notifications to business users.
+    """
+    job_posts = JobPost.objects.filter(
+        status=JobStatusType.POSTED.value
+    ).select_related(
+        'job',
+        'job__created_by',
+        'jobpostmetrics'
+    ).prefetch_related('message_set')  # optimize for send_job_sharing_notification
+
+    if not job_posts.exists():
+        return "No active job posts"
+
+    def process_job_post(job_post):
+        """Process single job post safely"""
+        try:
+            with transaction.atomic():
+                send_job_sharing_notification(job_post)
+        except Exception as e:
+            # TODO: Replace with proper logging (e.g. structlog / logging)
+            print(f"Error sending sharing notification for job {job_post.uid}: {e}")
+            # logger.error(...)
+
+    # Parallel processing with better control
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        futures = [
+            executor.submit(process_job_post, job_post)
+            for chunk in chunk_queryset(job_posts, chunk_size=50)
+            for job_post in chunk
+        ]
+
+        # Wait and handle exceptions
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                print(f"Thread execution error: {e}")
+
+    # Clean up connections after using threads
+    close_old_connections()
+    if connection:
         connection.close()
-        close_old_connections()
-    return
 
-
+    return "Job sharing notification task completed"
 
 def job_performance_notification_task():
-    with transaction.atomic():
-        job_posts = JobPost.objects.filter(status=JobStatusType.POSTED.value)
+    """
+    Weekly job performance notification task.
+    """
+    job_posts = JobPost.objects.filter(
+        status=JobStatusType.POSTED.value
+    ).select_related('job', 'job__created_by', 'jobpostmetrics')
 
-        with ThreadPoolExecutor(max_workers=20) as executor:
-            for chunk in chunk_queryset(job_posts):
-                executor.map(send_job_performance_notification, chunk)
+    success_count = 0
+    error_count = 0
 
-        connection.close()
-        close_old_connections()
-    return
+    for job_post in job_posts.iterator():   # memory-efficient
+        try:
+            with transaction.atomic():
+                send_job_performance_notification(job_post)
+            success_count += 1
+        except Exception as e:
+            error_count += 1
+            print(f"Failed for job {job_post.uid}: {e}")
 
-def fetch_job_posts_from_lever():
-    from services.job_posting.services.lever_job_download import import_lever_jobs
-    import_lever_jobs()
+    close_old_connections()
+
+    return f"Performance task completed. Success: {success_count}, Errors: {error_count}"
+
+
+# def fetch_job_posts_from_lever():
+#     from services.job_posting.services.lever_job_download import import_lever_jobs
+#     import_lever_jobs()
 
 
 def delete_tags_with_no_job_posts():

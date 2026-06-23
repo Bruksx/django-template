@@ -69,7 +69,7 @@ def applicant_dashboard_data(business: Optional[Business]=None, start_date: Opti
 
 
 def handle_invited_talents(emails: List[EmailStr], business, limit: int):
-    existing_emails = Talent.objects.filter(email__in=emails).values_list("email", flat=True)
+    existing_emails = Talent.objects.filter(user__email__in=emails).values_list("user__email", flat=True)
     new_emails = list(set(emails) - set(existing_emails))
     if len(new_emails) > limit:
         raise HttpError(400, f"Daily limit exceeded, you can only send to {limit} emails")
