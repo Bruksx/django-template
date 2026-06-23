@@ -613,6 +613,16 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
         )
         .values("score")[:1]
     )
+    pool_size_subquery = (
+        JobApplication.objects
+        .filter(
+            job_post_id=OuterRef("job_post_id"),
+            deleted_at__isnull=True
+        )
+        .values("job_post_id")
+        .annotate(c=Count("id"))
+        .values("c")[:1]
+    )
     queryset = (
         JobApplication.objects
         .select_related("stage", "applicant", "applicant__user", "applicant__country")
@@ -631,7 +641,7 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
                     order_by=F("ai_score").desc(),
                 )
             ).annotate(
-                pool_size=Count("id").over(partition_by=[F("job_post_id")])
+                pool_size=Subquery(pool_size_subquery)
             )
         .filter(job_post=job_post , job_post__job__created_by__business=business, applicant__deleted_at__isnull=True))
     queryset = add_application_match_score(queryset, job_post)
