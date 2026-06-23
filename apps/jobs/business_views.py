@@ -677,7 +677,10 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
                 )
             ).order_by(f"{sign}match")
         elif sort_by == "ai_match_score":
-            queryset.order_by(f"{sign}ai_match_score")
+            if asc:
+                queryset = queryset.order_by(F("ai_match_score").asc(nulls_last=True))
+            else:
+                queryset = queryset.order_by(F("ai_match_score").desc(nulls_last=True))
         elif sort_by == "created_at":
             queryset = queryset.order_by(f"{sign}created_at")
         elif sort_by == "stage":
