@@ -1,9 +1,9 @@
-from config import settings
-from helpers.utils import datetime_to_epoch_milliseconds, html_to_text
-
 from services.job_posting.enums.linkedIn import EmploymentStatusEnum, WorkPlaceTypeEnum, ExperienceLevelEnum
 from services.job_posting.schema.linkedIn import JobSchema, CompensationSchema, CompensationsSchema, RangeValueSchema, \
     ValueSchema
+
+from config import settings
+from helpers.utils import datetime_to_epoch_milliseconds, html_to_text
 
 
 def employment_type_mapper(employment_type):
@@ -218,7 +218,7 @@ def get_description(job_post, job) -> str:
 
 def job_post_to_job_schema(job_post, lang="en")->JobSchema:
     description = get_description(job_post, job_post.job)
-    apply_url = f"{settings.FRONTEND_URL}jobs-listing/{job_post.uid}"
+    apply_url = f"{settings.FRONTEND_URL}jobs-listing/{job_post.uid}?source=linkedin"
     employment_status = employment_type_mapper(job_post.job.employment_type.name if job_post.job.employment_type else "")
     return JobSchema(
                 title=job_post.job.get_title,

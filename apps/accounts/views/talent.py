@@ -140,6 +140,10 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
         data["gender"] = data["gender"].value if type(data["gender"]) is not str else data["gender"]
 
 
+    if "source" in data:
+        data["source"] = data["source"].value if type(data["source"]) is not str else data["source"]
+
+
     if "work_models" in data:
         wm_func = lambda x: x.value if type(x) is not str else x
         if data["work_models"] is not None:
