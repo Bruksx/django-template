@@ -995,11 +995,12 @@ class JobApplicationListSchema(ModelSchema):
     other_application: Optional[OtherApplicationSchema]
     recruiter: Optional[BusinessUserSchema] = Field(alias="job_post.recruiter")
     job_status: str
-
     invited: bool
     ai_insight: AIInsightSchema
     ai_match_score: Optional[int] = 0
     top_percent: Optional[int] = 0
+    rank: Optional[int] = 0
+    pool_size: Optional[int] = 0
 
     class Meta:
         model = JobApplication
