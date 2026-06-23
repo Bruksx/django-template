@@ -3,10 +3,11 @@ from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
 
+from ai.models import AIMatchScore
 from config.permissions import IsBusinessUser
 from django.db import transaction
-from django.db.models import Q, Exists, OuterRef, Case, When, F, Value
-from django.db.models.functions import Concat
+from django.db.models import Q, Exists, OuterRef, Case, When, F, Value, Subquery, Window, Count
+from django.db.models.functions import Concat, DenseRank
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from helpers.email.jobs import send_indeed_apply_email
@@ -604,11 +605,35 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
     IsBusinessUser.check(request)
     business = request.user.businessuser.business
     job_post = get_object_or_404(JobPost, uid=job_post_uid)
-    queryset = (JobApplication.objects
-                .select_related("stage", "applicant", "applicant__user", "applicant__country")
-                .annotate(invited=Exists(JobInvite.objects.filter(
-            job=OuterRef('job_post__job'), talent=OuterRef('applicant')
-        ))).filter(job_post=job_post , job_post__job__created_by__business=business, applicant__deleted_at__isnull=True))
+    score_subquery = (
+        AIMatchScore.objects
+        .filter(
+            talent_id=OuterRef("applicant_id"),
+            job_id=OuterRef("job_post___job_id"),
+        )
+        .values("score")[:1]
+    )
+    queryset = (
+        JobApplication.objects
+        .select_related("stage", "applicant", "applicant__user", "applicant__country")
+            .annotate(
+                invited=Exists(
+                    JobInvite.objects.filter(
+                        job=OuterRef('job_post__job'), talent=OuterRef('applicant')
+                    )
+                )
+            ).annotate(
+                ai_score=Subquery(score_subquery)
+            ).annotate(
+                rank=Window(
+                    expression=DenseRank(),
+                    partition_by=[F("job_post_id")],
+                    order_by=F("ai_score").desc(),
+                )
+            ).annotate(
+                pool_size=Count("id").over(partition_by=[F("job_post_id")])
+            )
+        .filter(job_post=job_post , job_post__job__created_by__business=business, applicant__deleted_at__isnull=True))
     queryset = add_application_match_score(queryset, job_post)
     if search:
         q = Q()
