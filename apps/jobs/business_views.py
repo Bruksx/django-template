@@ -609,7 +609,7 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
         AIMatchScore.objects
         .filter(
             talent_id=OuterRef("applicant_id"),
-            job_id=OuterRef("job_post___job_id"),
+            job_id=OuterRef("job_post__job_id"),
         )
         .values("score")[:1]
     )
