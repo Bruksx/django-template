@@ -662,9 +662,9 @@ def invite_talent_users(request, data: InviteTalentSchema):
     business = request.user.businessuser.business
 
     daily_limit = 10
-    if business.talent_invite_last_sent.date() >= timezone.now().date() and business.talent_invite_limit >= daily_limit:
+    if business.talent_invite_last_sent and business.talent_invite_last_sent.date() >= timezone.now().date() and business.talent_invite_limit >= daily_limit:
         raise HttpError(400, "Daily limit exceeded")
-    if business.talent_invite_last_sent.date() < timezone.now().date():
+    if business.talent_invite_last_sent and business.talent_invite_last_sent.date() < timezone.now().date():
         business.talent_invite_limit = 0
         business.save()
 
