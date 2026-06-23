@@ -601,7 +601,7 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
                     stage: Optional[UUID]=None,
                     new_application:bool=None,
                     sort_by:Optional[Literal["applicant", "location",
-"match", "created_at", "stage", "phase", "experience", "invited"]]=None, asc:bool=True, search:str="", invited:Optional[bool]=None):
+"match", "created_at", "stage", "phase", "experience", "invited", "ai_match_score"]]=None, asc:bool=True, search:str="", invited:Optional[bool]=None):
     IsBusinessUser.check(request)
     business = request.user.businessuser.business
     job_post = get_object_or_404(JobPost, uid=job_post_uid)
@@ -633,12 +633,12 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
                     )
                 )
             ).annotate(
-                ai_score=Subquery(score_subquery)
+                ai_match_score=Subquery(score_subquery)
             ).annotate(
                 rank=Window(
                     expression=DenseRank(),
                     partition_by=[F("job_post_id")],
-                    order_by=F("ai_score").desc(),
+                    order_by=F("ai_match_score").desc(),
                 )
             ).annotate(
                 pool_size=Subquery(pool_size_subquery)
@@ -676,6 +676,8 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
                     When(computed_match_score__isnull=False, then=F("computed_match_score")), default=float(0)
                 )
             ).order_by(f"{sign}match")
+        elif sort_by == "ai_match_score":
+            queryset.order_by(f"{sign}ai_match_score")
         elif sort_by == "created_at":
             queryset = queryset.order_by(f"{sign}created_at")
         elif sort_by == "stage":
