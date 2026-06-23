@@ -5,7 +5,8 @@ from uuid import UUID
 from ninja import Schema, ModelSchema, PatchDict
 from pydantic import Field, EmailStr
 
-from accounts.enums import GenderType, PreferredCommunicationType, Days, Months, NoticePeriodType, TalentJobType
+from accounts.enums import GenderType, PreferredCommunicationType, Days, Months, NoticePeriodType, TalentJobType, \
+    SourceType
 from accounts.enums import MeetingType
 from accounts.models import (Talent, User, TalentAvailableDay, Education,
                              Experience, Skill, Role)
@@ -125,6 +126,7 @@ class UpdateTalentProfileSchema2(ModelSchema):
     viber_number: Optional[str] = None
     # address: Optional[str] = None
     gender: Optional[GenderType|str] = ""
+    source: Optional[SourceType] = SourceType.OTHERS
     visible: Optional[bool] = None
     bio: Optional[str] = None
     notice_period: Optional[int|str] = None
