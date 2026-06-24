@@ -8,7 +8,7 @@ from ninja import ModelSchema, Schema
 from ninja_extra.schemas import PaginatedResponseSchema
 from pydantic import EmailStr, Field
 
-from accounts.enums import BusinessUserRoleType
+from accounts.enums import BusinessUserRoleType, TalentJobType
 from accounts.models import Business, BusinessUser, TalentFilter, Talent, Experience, Education
 from accounts.queries import add_profile_completion_annotation
 from accounts.schemas.common import DashboardFilter
@@ -369,6 +369,7 @@ class TalentFilterQuerySchema(ModelSchema):
     locations: Optional[List[str]] = None
     business_models: Optional[List[UUID]] = None
     completed_profiles: Optional[bool] = True
+    interested_in: Optional[List[TalentJobType]] = None
     
 
     class Meta:
@@ -388,6 +389,12 @@ class TalentFilterQuerySchema(ModelSchema):
                         role__uid__in=self.roles
                     ).values("talent_id").distinct()
                 )
+            )
+
+        if self.interested_in:
+            interested_in = [value.value for value in self.interested_in]
+            queryset = queryset.filter(
+                job_type__in=interested_in
             )
         
         # Industries
@@ -451,6 +458,9 @@ class TalentFilterQuerySchema(ModelSchema):
         get_sign =  lambda : "&" if "?" in params else "?" if start is True else "&"
         if self.roles :
             params += f"{get_sign()}roles={','.join(map(str, self.roles))}"
+        if self.interested_in:
+            interested_in = [value.value for value in self.interested_in]
+            params += f"{get_sign()}interested_in={','.join(map(str, interested_in))}"
         if self.industries:
             params += f"{get_sign()}industries={','.join(map(str, self.industries))}"
         if self.languages:
@@ -480,6 +490,7 @@ class MutateTalentFilterSchema(ModelSchema):
     skills: Optional[List[UUID]] = None
     locations: Optional[List[str]] = None
     business_models: Optional[List[UUID]] = None
+    interested_in: Optional[List[TalentJobType]] = None
 
     class Meta:
         model = TalentFilter
@@ -496,6 +507,7 @@ class TalentFilterSchema(ModelSchema):
     skills: Optional[List[GenericNameAndUidSchema]]
     business_models: Optional[List[GenericNameAndUidSchema]]
     locations: Optional[List[str]]
+    interested_in: Optional[List[str]]
 
     class Meta:
         model = TalentFilter

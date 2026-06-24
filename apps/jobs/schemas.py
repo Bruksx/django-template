@@ -989,6 +989,8 @@ class JobApplicationListSchema(ModelSchema):
     applicant_phone: Optional[str] = Field(alias="applicant.user.get_phone")
     applicant_country: Optional[GenericNameAndUidSchema] = Field(alias="applicant.country")
     applicant_cv_url: Optional[str]
+    applicant_job_type: Optional[str] = Field(default=None, alias="applicant.job_type")
+
     applicant_linkedin_url: Optional[str] = Field(alias="applicant.linkedin")
     years_of_experience: str = Field(alias="applicant.get_years_of_experience")
     average_experience_tenure: str = Field(alias="applicant.get_average_experience_tenure")

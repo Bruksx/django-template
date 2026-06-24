@@ -1,5 +1,4 @@
 from datetime import date
-from core.schemas import READ_EXCLUDE_FIELDS
 from typing import Optional, List, Literal, Generic, T
 from uuid import UUID
 
@@ -220,6 +219,7 @@ class ApplicationListSchema(ModelSchema):
     date_applied: date
     withdrawals: bool
     application_status: PhaseType
+    applicant_job_type: Optional[str] = Field(default=None, alias="applicant.job_type")
 
     class Meta:
         model = JobApplication
