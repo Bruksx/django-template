@@ -1425,6 +1425,7 @@ class TalentFilter(BaseModel):
     skills = models.ManyToManyField("accounts.Skill", related_name="skills_talent_filter")
     business_models = models.ManyToManyField("jobs.BusinessModel", blank=True, related_name="businessmodels_talent_filter")
     completed_profiles = models.BooleanField(default=True)
+    interested_in = models.JSONField(default=list)
 
 class BannedAccount(BaseModel):
     email = models.EmailField()

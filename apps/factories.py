@@ -8,6 +8,7 @@ from factory.django import DjangoModelFactory
 from faker import Faker
 
 from accounts.enums import GenderType, PreferredCommunicationType, BusinessUserRoleType, Days
+from accounts.enums import TalentJobType
 from accounts.models import User, Talent, Business, BusinessUser, Education, Role, TalentAvailableDay, CustomerCase, \
     EducationLevel, Industry, Country, Department, Experience, Skill, SkillCategory, BusinessIndustry, TalentFilter, \
     AdminUser
@@ -502,6 +503,7 @@ class TalentFilterFactory(BaseModelFactory):
     roles = factory.SubFactory(RoleFactory)
     industries = factory.SubFactory(IndustryFactory)
     locations = factory.Faker('city')
+    interested_in = factory.Faker('random_element', elements=TalentJobType.values())
     languages = factory.SubFactory(LanguageFactory)
     educational_levels = factory.SubFactory(EducationLevelFactory)
     maximum_notice_period = factory.Faker('random_int', min=1, max=90)

@@ -2,15 +2,18 @@ from urllib.parse import urlencode
 from uuid import uuid4
 
 import jwt
-from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, BusinessSize
-from accounts.models import User, VerificationCode, Business, BusinessUser, BusinessIndustry, Country, TalentFilter
-from accounts.views.business import router
 from django.test import TestCase
-from factories import BusinessFactory, BusinessUserFactory, CountryFactory, CurrencyFactory, JobFactory, JobPostFactory, BusinessFactory, BusinessUserFactory, CountryFactory, JobFactory, JobPostFactory, TalentFactory, ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, WorkflowStageFactory, UserFactory, RoleFactory, IndustryFactory, LanguageFactory, EducationLevelFactory, SkillFactory,TalentFilterFactory
-from jobs.enums import PhaseType, JobStatusType, WorkStructureEnum
-from jobs.models import JobApplication
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
+
+from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, BusinessSize, TalentJobType
+from accounts.models import User, VerificationCode, Business, BusinessUser, BusinessIndustry, Country, TalentFilter
+from accounts.views.business import router
+from factories import BusinessFactory, BusinessUserFactory, CountryFactory, JobFactory, JobPostFactory, TalentFactory, \
+    ConversationFactory, MessageFactory, JobApplicationFactory, JobApplicationWithdrawalFactory, WorkflowStageFactory, \
+    UserFactory, RoleFactory, IndustryFactory, LanguageFactory, EducationLevelFactory, SkillFactory, TalentFilterFactory
+from jobs.enums import PhaseType, JobStatusType, WorkStructureEnum
+from jobs.models import JobApplication
 from settings.models import WorkFlowStage
 
 
@@ -833,6 +836,7 @@ class UpdateTalentFilterTest(TestCase):
         self.valid_data = {
             "roles": [str(self.role.uid)],
             "industries": [str(self.industry.uid)],
+            "interested_in": [TalentJobType.FULL_TIME_JOBS.value],
             "locations": ["New York"],
             "languages": [str(self.language.uid)],
             "educational_levels": [str(self.educational_level.uid)],
@@ -849,6 +853,7 @@ class UpdateTalentFilterTest(TestCase):
         self.assertEqual(list(self.business_user.talentfilter.roles.values_list('uid', flat=True)), [self.role.uid])
         self.assertEqual(list(self.business_user.talentfilter.industries.values_list('uid', flat=True)), [self.industry.uid])
         self.assertEqual(self.business_user.talentfilter.locations, ["New York"])
+        self.assertEqual(self.business_user.talentfilter.interested_in, [TalentJobType.FULL_TIME_JOBS.value])
         self.assertEqual(list(self.business_user.talentfilter.languages.values_list('uid', flat=True)), [self.language.uid])
         self.assertEqual(list(self.business_user.talentfilter.educational_levels.values_list('uid', flat=True)), [self.educational_level.uid])
         self.assertEqual(self.business_user.talentfilter.maximum_notice_period, 30)
