@@ -503,7 +503,7 @@ class TalentFilterFactory(BaseModelFactory):
     roles = factory.SubFactory(RoleFactory)
     industries = factory.SubFactory(IndustryFactory)
     locations = factory.Faker('city')
-    interested_in = factory.Faker('random_element', elements=TalentJobType.values())
+    interested_in = random.choices(TalentJobType.values(), k=1)
     languages = factory.SubFactory(LanguageFactory)
     educational_levels = factory.SubFactory(EducationLevelFactory)
     maximum_notice_period = factory.Faker('random_int', min=1, max=90)

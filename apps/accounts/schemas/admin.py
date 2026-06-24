@@ -213,7 +213,7 @@ class ApplicationListSchema(ModelSchema):
     date_applied: date
     withdrawals: bool
     application_status: PhaseType
-    applicant_job_type: str = Field(alias="applicant.job_type")
+    applicant_job_type: Optional[str] = Field(default=None, alias="applicant.job_type")
 
     class Meta:
         model = JobApplication
