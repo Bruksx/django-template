@@ -111,19 +111,19 @@ def delete_talent_experience(request, experience_uid:UUID):
     return Response(status=204, data=None)
 
 
-@router.get("dashboard-report", response=talent_schemas.TalentDashboardReport2, auth=JWTAuth(),
+@router.get("dashboard-report", response=talent_schemas.TalentDashboardReport, auth=JWTAuth(),
             tags=["Talent Dashboard"])
 def talent_dashboard_report(request, start_date: date=None, end_date: date=None):
     IsTalentUser.check(request)
     if start_date and end_date:
         # if the range is inclusive
         end_date = end_date + timedelta(days=1)
-        return Response(data=talent_schemas.TalentDashboardReport2.from_orm(request.user.talent, context={
+        return Response(data=talent_schemas.TalentDashboardReport.from_orm(request.user.talent, context={
                 "start_date": start_date,
                 "end_date": end_date
             }))
 
-    return Response(data=talent_schemas.TalentDashboardReport2.from_orm(request.user.talent))
+    return Response(data=talent_schemas.TalentDashboardReport.from_orm(request.user.talent))
 
 @router.get("dashboard-charts", response=talent_schemas.TalentDashboardChartsSchema, auth=JWTAuth(),
             tags=["Talent Dashboard"])
