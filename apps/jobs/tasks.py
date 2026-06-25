@@ -85,7 +85,7 @@ def job_application_notification_task():
     with ThreadPoolExecutor(max_workers=20) as executor:
         futures = []
 
-        for chunk in chunk_queryset(job_posts, chunk_size=50):  # adjust chunk_size as needed
+        for chunk in chunk_queryset(job_posts):  # adjust chunk_size as needed
             for job_post in chunk:
                 future = executor.submit(process_job_post, job_post)
                 futures.append(future)
@@ -134,7 +134,7 @@ def job_sharing_notification_task():
     with ThreadPoolExecutor(max_workers=20) as executor:
         futures = [
             executor.submit(process_job_post, job_post)
-            for chunk in chunk_queryset(job_posts, chunk_size=50)
+            for chunk in chunk_queryset(job_posts)
             for job_post in chunk
         ]
 
