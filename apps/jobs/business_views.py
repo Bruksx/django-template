@@ -999,6 +999,8 @@ def update_application_notes(request, application_uid: UUID, data:MutateApplicat
     if data.interview_note != application.notes.interview_note:
         note_data["interview_note_at"] = timezone.now()
         note_data["interview_note_by"] = request.user.businessuser
+    if note_data.get("rejection_reason"):
+        note_data["rejection_reason"] = note_data["rejection_reason"].value
     if note_data:
         return application.notes.update(**note_data)
     return application.notes
@@ -1009,8 +1011,6 @@ def get_application_notes(request, application_uid: UUID):
     application = JobApplication.objects.select_related("job_post__job__created_by__business").filter(uid=application_uid).first()
     if not application or application.job_post.job.created_by.business != request.user.businessuser.business:
         raise HttpError(404, "This application does not exist")
-    try:
-        return application.notes
-    except JobApplication.notes.RelatedObjectDoesNotExist:
-        raise HttpError(404, "Application notes not found")
-
+    if not hasattr(application, "notes"):
+        JobApplicationNotes.objects.create(application=application)
+    return application.notes

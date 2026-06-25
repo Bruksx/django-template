@@ -292,13 +292,17 @@ class Talent(BaseModel):
         return self.cv.url if self.cv else None
 
     def get_years_of_experience(self):
-        return f"{self.months_of_experience // 12} years {self.months_of_experience % 12} months"
+        if self.months_of_experience % 12 == 0:
+            return f"{int(self.months_of_experience // 12)} years"
+        return f"{int(self.months_of_experience // 12)} years {int(self.months_of_experience % 12)} months"
 
     def get_average_experience_tenure(self):
         if self.months_of_experience != 0 and self.average_experience_tenure == 0:
             self.average_experience_tenure = self.calculate_avg_experience_tenure()
             self.save()
-        return f"{self.average_experience_tenure // 12} years {self.average_experience_tenure % 12} months"
+        if self.average_experience_tenure % 12 == 0:
+            return f"{int(self.average_experience_tenure // 12)} years"
+        return f"{int(self.average_experience_tenure // 12)} years {int(self.average_experience_tenure % 12)} months"
 
     def get_skills(self):
         from accounts.schemas.talent import SkillSchema, TalentSkillSchema
