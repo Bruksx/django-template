@@ -111,19 +111,19 @@ def delete_talent_experience(request, experience_uid:UUID):
     return Response(status=204, data=None)
 
 
-@router.get("dashboard-report", response=talent_schemas.TalentDashboardReport, auth=JWTAuth(),
+@router.get("dashboard-report", response=talent_schemas.TalentDashboardReport2, auth=JWTAuth(),
             tags=["Talent Dashboard"])
 def talent_dashboard_report(request, start_date: date=None, end_date: date=None):
     IsTalentUser.check(request)
     if start_date and end_date:
         # if the range is inclusive
         end_date = end_date + timedelta(days=1)
-        return Response(data=talent_schemas.TalentDashboardReport.from_orm(request.user.talent, context={
+        return Response(data=talent_schemas.TalentDashboardReport2.from_orm(request.user.talent, context={
                 "start_date": start_date,
                 "end_date": end_date
             }))
 
-    return Response(data=talent_schemas.TalentDashboardReport.from_orm(request.user.talent))
+    return Response(data=talent_schemas.TalentDashboardReport2.from_orm(request.user.talent))
 
 @router.get("dashboard-charts", response=talent_schemas.TalentDashboardChartsSchema, auth=JWTAuth(),
             tags=["Talent Dashboard"])
@@ -138,6 +138,10 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
     talent_user: Talent = request.user.talent
     if "gender" in data:
         data["gender"] = data["gender"].value if type(data["gender"]) is not str else data["gender"]
+
+
+    if "source" in data:
+        data["source"] = data["source"].value if type(data["source"]) is not str else data["source"]
 
 
     if "work_models" in data:

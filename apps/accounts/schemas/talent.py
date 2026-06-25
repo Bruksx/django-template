@@ -5,7 +5,8 @@ from uuid import UUID
 from ninja import Schema, ModelSchema, PatchDict
 from pydantic import Field, EmailStr
 
-from accounts.enums import GenderType, PreferredCommunicationType, Days, Months, NoticePeriodType, TalentJobType
+from accounts.enums import GenderType, PreferredCommunicationType, Days, Months, NoticePeriodType, TalentJobType, \
+    SourceType
 from accounts.enums import MeetingType
 from accounts.models import (Talent, User, TalentAvailableDay, Education,
                              Experience, Skill, Role)
@@ -125,6 +126,7 @@ class UpdateTalentProfileSchema2(ModelSchema):
     viber_number: Optional[str] = None
     # address: Optional[str] = None
     gender: Optional[GenderType|str] = ""
+    source: Optional[SourceType] = SourceType.OTHERS
     visible: Optional[bool] = None
     bio: Optional[str] = None
     notice_period: Optional[int|str] = None
@@ -363,6 +365,43 @@ class TalentDashboardReport(Schema):
     @staticmethod
     def resolve_profile_views(obj):
         return obj.viewers.count()
+
+
+class TalentDashboardReport2(Schema):
+    application_to_interview: int
+    total_interview_to_application: int
+    recommended_jobs: int
+    jobs_with_match_gt_50: int
+
+    @staticmethod
+    def resolve_application_to_interview(obj, context):
+        from accounts.services.talent import application_to_interview
+
+        if not context:
+            context = dict()
+        return application_to_interview(obj, **context)
+
+    @staticmethod
+    def resolve_total_interview_to_application(obj, context):
+        from accounts.services.talent import total_interview_to_application
+
+        if not context:
+            context = dict()
+        return total_interview_to_application(obj, **context)
+
+    @staticmethod
+    def resolve_recommended_jobs(obj):
+        from accounts.services.talent import recommended_jobs_count
+        return recommended_jobs_count(obj)
+
+    @staticmethod
+    def resolve_jobs_with_match_gt_50(obj, context):
+        from accounts.services.talent import jobs_with_match_gt_50
+
+        if not context:
+            context = dict()
+        return jobs_with_match_gt_50(obj, **context)
+
 
 
 class MonthlyChartSchema(Schema):

@@ -102,3 +102,9 @@ class AdminRoleType(BaseEnum):
 class TalentJobType(BaseEnum):
     FULL_TIME_JOBS = "Full Time Jobs"
     SHIFT_JOBS = "Shift Jobs"
+
+class SourceType(BaseEnum):
+    LINKEDIN = "Linkedin"
+    INDEED = "Indeed"
+    EMAIL = "Email"
+    OTHERS = "Others"

@@ -81,7 +81,7 @@ Number of talents with incomplete profiles:    {incompleted}\n
     )
 
 def send_talent_invitation_email(emails: List[str], email_order: int=1, lang="en"):
-    already_sent = set(Talent.objects.filter(email__in=emails).values_list("email", flat=True))
+    already_sent = set(Talent.objects.filter(user__email__in=emails).values_list("user__email", flat=True))
     emails = list(set(emails) - already_sent)
     if not emails:
         return

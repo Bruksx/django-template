@@ -23,10 +23,9 @@ from ninja_jwt.tokens import RefreshToken
 from timezone_field import TimeZoneField
 
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessSize, BusinessUserStatusType, CaseReasonType, AdminRoleType, TalentJobType
+    BusinessSize, BusinessUserStatusType, CaseReasonType, AdminRoleType, TalentJobType, SourceType
 from config.settings import SECRET_KEY
 from core.enums import SalaryType
-from core.models import BaseModel, State, City
 from core.models import BaseModel, State, City
 from helpers.utils import delete_s3_item
 from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum, \
@@ -266,6 +265,7 @@ class Talent(BaseModel):
     average_experience_tenure = models.FloatField(default=0, help_text="Average tenure in months")
     viewers = models.ManyToManyField("accounts.User", blank=True, related_name="talent_viewers")
     availability_timezone = TimeZoneField(default="America/Vancouver")
+    source = models.CharField(max_length=50, choices=SourceType.choices(), default=SourceType.OTHERS.value)
     flexible_availability = models.BooleanField(default=False)
 
     def get_address(self):
@@ -1429,6 +1429,7 @@ class TalentFilter(BaseModel):
     skills = models.ManyToManyField("accounts.Skill", related_name="skills_talent_filter")
     business_models = models.ManyToManyField("jobs.BusinessModel", blank=True, related_name="businessmodels_talent_filter")
     completed_profiles = models.BooleanField(default=True)
+    interested_in = models.JSONField(default=list)
 
 class BannedAccount(BaseModel):
     email = models.EmailField()
