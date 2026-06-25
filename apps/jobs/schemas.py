@@ -944,10 +944,10 @@ class OtherApplicationSchema(ModelSchema):
     role: Optional[GenericNameAndUidSchema] = Field(alias="job_post.job.role")
     location: Optional[GenericNameAndUidSchema] = Field(alias="job_post.country")
     job_stage: Optional[str]
-    job_status: str
     invited: bool
     applied_date: datetime = Field(alias="created_at")
     recruiter: Optional[BusinessUserSchema] = Field(alias="job_post.recruiter")
+    job_status: str
 
     class Meta:
         model = JobApplication
@@ -984,6 +984,8 @@ class JobApplicationListSchema(ModelSchema):
     years_of_experience: str = Field(alias="applicant.get_years_of_experience")
     average_experience_tenure: str = Field(alias="applicant.get_average_experience_tenure")
     other_application: Optional[OtherApplicationSchema]
+    recruiter: Optional[BusinessUserSchema] = Field(alias="job_post.recruiter")
+    job_status: str
 
     invited: bool
 
@@ -994,6 +996,10 @@ class JobApplicationListSchema(ModelSchema):
     @staticmethod
     def resolve_applicant_cv_url(obj):
         return obj.applicant.cv_url
+
+    @staticmethod
+    def resolve_job_status(obj):
+        return "Active" if obj.job_post.status == JobStatusType.POSTED.value else "Closed"
 
     @staticmethod
     def resolve_stage(obj):
