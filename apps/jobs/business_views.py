@@ -567,11 +567,43 @@ def job_detail(request, job_uid:UUID):
 @router.get("job-posts/applications/{application_uid}", response=job_schemas.JobApplicationListSchema, auth=JWTAuth())
 def view_applicant(request, application_uid: UUID):
     IsBusinessUser.check(request)
-    application = (JobApplication.objects
-            .select_related("stage", "applicant", "applicant__user","applicant__country")
-            .annotate(invited=Exists(JobInvite.objects.filter(
-            job=OuterRef('job_post__job'), talent=OuterRef('applicant')
-        ))).filter(uid=application_uid, job_post__job__created_by__business=request.user.businessuser.business).first())
+    score_subquery = (
+        AIMatchScore.objects
+        .filter(
+            talent_id=OuterRef("applicant_id"),
+            job_id=OuterRef("job_post__job_id"),
+        )
+        .values("score")[:1]
+    )
+    pool_size_subquery = (
+        JobApplication.objects
+        .filter(
+            job_post_id=OuterRef("job_post_id"),
+            deleted_at__isnull=True
+        )
+        .values("job_post_id")
+        .annotate(c=Count("id"))
+        .values("c")[:1]
+    )
+    application = JobApplication.objects.select_related(
+        "stage", "applicant", "applicant__user","applicant__country"
+    ).annotate(
+        invited=Exists(
+            JobInvite.objects.filter(
+                job=OuterRef('job_post__job'), talent=OuterRef('applicant')
+                )
+            )
+    ).annotate(
+        ai_match_score=Subquery(score_subquery)
+    ).annotate(
+        rank=Window(
+            expression=DenseRank(),
+            partition_by=[F("job_post_id")],
+            order_by=F("ai_match_score").desc(),
+        )
+    ).annotate(
+        pool_size=Subquery(pool_size_subquery)
+    ).filter(uid=application_uid, job_post__job__created_by__business=request.user.businessuser.business).first()
     
     if not application:
         raise HttpError(404, "Application not found")
@@ -584,11 +616,39 @@ def view_applicant(request, application_uid: UUID):
             auth=JWTAuth())
 def view_applicant_detail(request, application_uid: UUID):
     IsBusinessUser.check(request)
+    score_subquery = (
+        AIMatchScore.objects
+        .filter(
+            talent_id=OuterRef("applicant_id"),
+            job_id=OuterRef("job_post__job_id"),
+        )
+        .values("score")[:1]
+    )
+    pool_size_subquery = (
+        JobApplication.objects
+        .filter(
+            job_post_id=OuterRef("job_post_id"),
+            deleted_at__isnull=True
+        )
+        .values("job_post_id")
+        .annotate(c=Count("id"))
+        .values("c")[:1]
+    )
     application = (JobApplication.objects
                    .select_related("stage", "applicant", "applicant__user", "applicant__country")
                    .annotate(invited=Exists(JobInvite.objects.filter(
         job=OuterRef('job_post__job'), talent=OuterRef('applicant')
-    ))).filter(uid=application_uid, job_post__job__created_by__business=request.user.businessuser.business).first())
+    ))).annotate(
+                ai_match_score=Subquery(score_subquery)
+            ).annotate(
+                rank=Window(
+                    expression=DenseRank(),
+                    partition_by=[F("job_post_id")],
+                    order_by=F("ai_match_score").desc(),
+                )
+            ).annotate(
+                pool_size=Subquery(pool_size_subquery)
+            ).filter(uid=application_uid, job_post__job__created_by__business=request.user.businessuser.business).first())
 
     if not application:
         raise HttpError(404, "Application not found")
