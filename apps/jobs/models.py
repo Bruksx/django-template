@@ -785,7 +785,7 @@ class JobApplicationNotes(BaseModel):
     application = models.OneToOneField(JobApplication, on_delete=models.CASCADE, related_name="notes")
     application_note = models.TextField(null=True, blank=True)
     interview_note = models.TextField(null=True, blank=True)
-    rejection_reason = models.CharField(choices=RejectionReasonType.choices, max_length=50)
+    rejection_reason = models.CharField(choices=RejectionReasonType.choices, max_length=50, null=True)
     rejection_note = models.TextField(null=True, blank=True)
 
     application_note_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.CASCADE, null=True, related_name="application_notes")

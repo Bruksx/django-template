@@ -1064,7 +1064,7 @@ class JobApplicationListSchema(ModelSchema):
             return 0
         except:
             return 0
-    
+
     @staticmethod
     def resolve_top_percent(obj):
         talent = obj.applicant
@@ -1075,7 +1075,7 @@ class JobApplicationListSchema(ModelSchema):
             return 0
         except:
             return 0
-        
+
 
 class JobApplicationDetailSchema(JobApplicationListSchema):
     strength: Optional[JobMatchSchema] = None
@@ -1098,7 +1098,7 @@ class JobApplicationDetailSchema(JobApplicationListSchema):
     @staticmethod
     def resolve_non_negotiable(obj, context):
         return obj.job_post.non_negotiable()
-    
+
     @staticmethod
     def resolve_ai_insight(obj):
         try:
@@ -1119,7 +1119,7 @@ class JobApplicationDetailSchema(JobApplicationListSchema):
             return 0
         except:
             return 0
-    
+
     @staticmethod
     def resolve_top_percent(obj):
         talent = obj.applicant
