@@ -162,6 +162,7 @@ class TalentListSchema(ModelSchema):
     current_role: Optional[GenericNameAndUidSchema] = Field(None, alias="role")
     location:str = Field(alias="get_address")
     email: EmailStr = Field(alias="user.email")
+    interested_in: str = Field(alias="job_type")
     applications: int
     signup_date: date
 

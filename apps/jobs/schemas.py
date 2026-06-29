@@ -1846,6 +1846,7 @@ class BusinessUserJobSchema(ModelSchema):
 
 class TalentScreeningResultSchema(ModelSchema):
     role: Optional[GenericNameAndUidSchema] = Field(None, alias="job_post.job.role")
+    stage: Optional[GenericNameAndUidSchema] = None
     location: Optional[GenericNameAndUidSchema] = Field(None, alias="job_post.country")
     client: Optional[str] = Field(None, alias="job_post.job.get_company")
     result: Optional[str] = Field(None, alias="get_screening_result_status")
