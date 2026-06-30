@@ -964,6 +964,7 @@ class OtherApplicationSchema(ModelSchema):
         return "Active" if obj.job_post.status == JobStatusType.POSTED.value else "Closed"
 
 class JobApplicationListSchema(ModelSchema):
+    job_role: Optional[GenericNameAndUidSchema] = Field(alias="job_post.job.role")
     location:Optional[str] = Field(None, alias="job_post.get_country")
     role:Optional[GenericNameAndUidSchema] = Field(alias="applicant.get_role")
     experience:int
