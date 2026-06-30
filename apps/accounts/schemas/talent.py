@@ -205,7 +205,7 @@ class TalentUserSchema(ModelSchema):
 
     class Meta:
         model = Talent
-        exclude = (*READ_EXCLUDE_FIELDS, "cv", "photo", "months_of_experience", "viewers")
+        exclude = (*READ_EXCLUDE_FIELDS, "cv", "photo", "months_of_experience")
 
     @staticmethod
     def resolve_skills(obj):
@@ -461,3 +461,29 @@ class ScheduleMeetingSchema(Schema):
 class MeetingResponse(Schema):
     link: str
     url: str
+
+class TalentApplicationFunnelSchema(Schema):
+    jobs_viewed: int
+    applications_submitted: int
+    interviews: int
+    hires: int
+    job_application_conversion: int
+    application_interview_conversion: int
+    interview_hire_conversion: int
+
+
+
+class ExploredDeptSchema(Schema):
+    department: str
+    count: int
+    percent: int
+
+class TalentExploredDeptSchema(Schema):
+    total_views: int
+    departments: List[ExploredDeptSchema]
+
+class TalentActivitySchema(Schema):
+    applications: int
+    interviews: int
+    unread_messages: int
+    profile_views: int

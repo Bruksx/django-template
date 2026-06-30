@@ -263,10 +263,10 @@ class Talent(BaseModel):
     years_of_experience = models.FloatField(default=0)
     months_of_experience = models.FloatField(default=0)
     average_experience_tenure = models.FloatField(default=0, help_text="Average tenure in months")
-    viewers = models.ManyToManyField("accounts.User", blank=True, related_name="talent_viewers")
     availability_timezone = TimeZoneField(default="America/Vancouver")
     source = models.CharField(max_length=50, choices=SourceType.choices(), default=SourceType.OTHERS.value)
     flexible_availability = models.BooleanField(default=False)
+
 
     def get_address(self):
         data = list()
@@ -711,6 +711,16 @@ class Talent(BaseModel):
         if self.role:
             return self.role
         return self.experience_set.order_by('-start_date').first().role if self.experience_set.exists() else None
+
+
+class TalentViewer(models.Model):
+    talent = models.ForeignKey(Talent, on_delete=models.CASCADE, related_name="viewers")
+    user = models.ForeignKey( "accounts.User", on_delete=models.CASCADE, related_name="talents_viewed")
+    last_viewed_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ("talent", "user")
+
 
 class BusinessIndustry(BaseModel):
     name = models.CharField(max_length=128)
