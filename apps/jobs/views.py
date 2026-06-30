@@ -2,12 +2,8 @@ from typing import List, Literal, Union, Optional
 from uuid import UUID
 
 import pytz
-from config.permissions import IsTalentUser, IsBusinessUser
 from django.db import transaction
 from django.db.models import Q
-from helpers.utils import delete_s3_item
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
 from ninja import Router, UploadedFile
 from ninja.errors import HttpError
 from ninja.params import Query
@@ -15,6 +11,8 @@ from ninja_extra.pagination import paginate
 from ninja_jwt.authentication import JWTAuth
 
 from accounts.models import Talent
+from config.permissions import IsTalentUser, IsBusinessUser
+from helpers.utils import delete_s3_item
 from jobs import tasks
 from jobs.enums import JobStatusType, PhaseType
 from jobs.models import (
@@ -27,6 +25,8 @@ from jobs.schemas import TalentJobPostListSchema, TalentJobApplicationWithdrawal
     InviteToApplySchema, TalentScreeningResultSchema
 from jobs.services import get_talent_job_recommendations, create_job_application, upload_answer_files_service, \
     get_screening_questions_service, get_talent_screening_results
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
 from notification import notifications
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
@@ -149,7 +149,7 @@ def view_job_post(request, job_post_id:UUID):
     job_post = add_job_post_annotations(job_post, talent).filter(job__created_by__business__paused=False).first()
     if not job_post:
         raise HttpError(404, "Job post not found")
-    job_post.view()
+    job_post.view(talent)
     notifications.send_talent_job_matching_notification(talent, job_post)
     return job_post
 
@@ -170,7 +170,7 @@ def view_job_from_alert(request, job_id:UUID):
     job_post:JobPost = JobPost.objects.filter(job__uid=job_id, country=talent.country).last()
     if not job_post:
         raise HttpError(404, "This job is not available in your country")
-    job_post.view()
+    job_post.view(talent)
     notifications.send_talent_job_matching_notification(talent, job_post)
     return job_post
 
