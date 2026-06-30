@@ -3,15 +3,16 @@ from datetime import timedelta, date
 from types import NoneType
 
 from django.db import transaction
-from django.db.models import Window, F
-from django.db.models.functions import RowNumber
+from django.db.models import Window, F, Case, When, Value, Count, ExpressionWrapper, FloatField, IntegerField
+from django.db.models.functions import RowNumber, Cast
 from django.utils import timezone
 from django_q.models import Schedule
 from ninja.errors import HttpError
 
 from accounts.enums import UserType
-from accounts.models import User, Talent, Experience, Education, TalentAvailableDay
+from accounts.models import User, Experience, Education, TalentAvailableDay, TalentViewer, Talent
 from helpers.email.auth import send_admin_created_account_email
+from jobs.enums import PhaseType
 from jobs.services import get_talent_job_recommendations
 from monkeypatches.q_cluster import async_task
 
@@ -410,5 +411,71 @@ def jobs_with_match_gt_50(talent, start_date: date=None, end_date: date=None):
     ).filter(row_number=1).count()
 
 
+def get_talent_application_funnel(talent):
+    jobs_viewed = talent.viewed_job_posts.count()
+    applications = talent.job_applications().count()
+    interviews = talent.job_interviews.count()
+    hires = talent.job_applications().filter(stage__phase=PhaseType.HIRED.value).count()
+    job_application_conversion = int((applications/jobs_viewed) * 100) if jobs_viewed > 0 else 0
+    application_interview_conversion = int((interviews/applications) * 100) if applications > 0 else 0
+    interview_hire_conversion = int((hires/interviews) * 100) if interviews > 0 else 0
+    return {
+        "job_viewed": jobs_viewed,
+        "applications_submitted": applications,
+        "interviews": interviews,
+        "hires": hires,
+        "job_application_conversion": job_application_conversion,
+        "application_interview_conversion": application_interview_conversion,
+        "interview_hire_conversion": interview_hire_conversion
+    }
 
+
+
+def get_talent_explored_department(talent):
+    total_views = talent.viewed_job_posts.count()
+    departments = (
+        talent.viewed_job_posts
+        .annotate(
+            department=Case(
+                When(job__role__department__isnull=False, then=F("job__role__department__name")),
+                default=Value(""),
+            )
+        )
+        .values("department")
+        .annotate(count=Count("department"))
+        .annotate(
+            percent=Cast(
+                ExpressionWrapper(
+                    F("count") * 100.0 / total_views,
+                    output_field=FloatField(),
+                ),
+                IntegerField(),
+            ) if total_views > 0 else Value(0, output_field=IntegerField())
+        )
+        .order_by("-count")
+        .values("department", "count", "percent")
+    )
+    return {
+        "total_views": total_views,
+        "departments": departments
+    }
+
+
+def get_talent_activity(talent, days_back=7):
+    start_date = (timezone.now() - timedelta(days=days_back)).date()
+    end_date = timezone.now().date() + timedelta(days=1)
+    applications = talent.job_applications(start_date=start_date, end_date=end_date).count()
+    interviews = talent.job_interviews(start_date=start_date, end_date=end_date).count()
+    from chats.models import Message
+    unread_messages = Message.objects.filter(users__id=talent.user_id).exclude(
+        sender=talent.user).exclude(readers__id=talent.user_id).filter(
+        created_at__gte=start_date, created_at__lte=end_date
+    ).distinct().count()
+    profile_view = TalentViewer.objects.filter(talent=talent, last_viewed__gte=start_date, last_viewed__lte=end_date).count()
+    return {
+        "applications": applications,
+        "interviews": interviews,
+        "unread_messages": unread_messages,
+        "profile_views": profile_view
+    }
 
