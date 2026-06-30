@@ -1851,6 +1851,7 @@ class TalentScreeningResultSchema(ModelSchema):
     client: Optional[str] = Field(None, alias="job_post.job.get_company")
     result: Optional[str] = Field(None, alias="get_screening_result_status")
     date_submitted: Optional[datetime] = Field(None, alias="created_at")
+    job_post_uid: Optional[UUID] = Field(None, alias="job_post.uid")
 
     class Meta:
         model = JobApplication
