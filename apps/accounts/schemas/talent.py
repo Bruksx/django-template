@@ -461,7 +461,7 @@ class MeetingResponse(Schema):
     url: str
 
 class TalentApplicationFunnelSchema(Schema):
-    job_viewed: int
+    jobs_viewed: int
     applications_submitted: int
     interviews: int
     hires: int
@@ -474,7 +474,7 @@ class TalentApplicationFunnelSchema(Schema):
 class ExploredDeptSchema(Schema):
     department: str
     count: int
-    percentage: int
+    percent: int
 
 class TalentExploredDeptSchema(Schema):
     total_views: int

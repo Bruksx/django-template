@@ -365,20 +365,20 @@ def delete_account(request, data: OptionalLoginSchema = {}):
 
 
 
-@router.get("application-funnel", auth=JWTAuth(), response=talent_schemas.TalentApplicationFunnelSchema)
+@router.get("dashboard/application-funnel", auth=JWTAuth(), response=talent_schemas.TalentApplicationFunnelSchema)
 def talent_application_funnel(request):
     IsTalentUser.check(request)
     talent = request.user.talent
     return get_talent_application_funnel(talent)
 
 
-@router.get("weekly-activity", auth=JWTAuth(), response=talent_schemas.TalentActivitySchema)
+@router.get("dashboard/weekly-activity", auth=JWTAuth(), response=talent_schemas.TalentActivitySchema)
 def talent_activity(request):
     IsTalentUser.check(request)
     talent = request.user.talent
     return get_talent_activity(talent)
 
-@router.get("explored-department", auth=JWTAuth(), response=talent_schemas.TalentExploredDeptSchema)
+@router.get("dashboard/explored-department", auth=JWTAuth(), response=talent_schemas.TalentExploredDeptSchema)
 def talent_explored_department(request):
     IsTalentUser.check(request)
     talent = request.user.talent

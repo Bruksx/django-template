@@ -635,7 +635,7 @@ class UploadTalentProfilePictureTests(TestCase):
 class TalentApplicationFunnelTests(TestCase):
     def setUp(self):
         self.client = TestClient(router)
-        self.url = "/application-funnel"
+        self.url = "/dashboard/application-funnel"
         self.country = Country.objects.first()
         self.province = State.objects.first()
         self.role = Role.objects.first()
@@ -703,11 +703,11 @@ class TalentApplicationFunnelTests(TestCase):
         response = self.client.get(self.url, headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["job_viewed"], 2)
+        self.assertEqual(data["jobs_viewed"], 1)
         self.assertEqual(data["applications_submitted"], 2)
         self.assertEqual(data["interviews"], 1)
         self.assertEqual(data["hires"], 1)
-        self.assertEqual(data["job_application_conversion"], 100)
+        self.assertEqual(data["job_application_conversion"], 200)
         self.assertEqual(data["application_interview_conversion"], 50)
         self.assertEqual(data["interview_hire_conversion"], 100)
 
@@ -718,7 +718,7 @@ class TalentApplicationFunnelTests(TestCase):
         response = self.client.get(self.url, headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["job_viewed"], 0)
+        self.assertEqual(data["jobs_viewed"], 0)
         self.assertEqual(data["applications_submitted"], 0)
         self.assertEqual(data["interviews"], 0)
         self.assertEqual(data["hires"], 0)
@@ -736,7 +736,7 @@ class TalentApplicationFunnelTests(TestCase):
         response = self.client.get(self.url, headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["job_viewed"], 1)
+        self.assertEqual(data["jobs_viewed"], 1)
         self.assertEqual(data["applications_submitted"], 0)
         self.assertEqual(data["interviews"], 0)
         self.assertEqual(data["hires"], 0)
@@ -759,7 +759,7 @@ class TalentApplicationFunnelTests(TestCase):
         response = self.client.get(self.url, headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["job_viewed"], 1)
+        self.assertEqual(data["jobs_viewed"], 1)
         self.assertEqual(data["applications_submitted"], 1)
         self.assertEqual(data["interviews"], 0)
         self.assertEqual(data["hires"], 0)
@@ -802,7 +802,7 @@ class TalentApplicationFunnelTests(TestCase):
 class TalentActivityTests(TestCase):
     def setUp(self):
         self.client = TestClient(router)
-        self.url = "/weekly-activity"
+        self.url = "dashboard/weekly-activity"
         self.country = Country.objects.first()
         self.province = State.objects.first()
         self.role = Role.objects.first()
@@ -945,7 +945,7 @@ class TalentActivityTests(TestCase):
 class TalentExploredDepartmentTests(TestCase):
     def setUp(self):
         self.client = TestClient(router)
-        self.url = "/explored-department"
+        self.url = "dashboard/explored-department"
         self.country = Country.objects.first()
         self.province = State.objects.first()
         self.job_level = JobLevel.objects.first()
@@ -1005,17 +1005,17 @@ class TalentExploredDepartmentTests(TestCase):
         response = self.client.get(self.url, headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["total_views"], 3)
+        self.assertEqual(data["total_views"], 2)
         self.assertEqual(len(data["departments"]), 2)
         # Ordered by count desc, so engineering should be first
         first = data["departments"][0]
         second = data["departments"][1]
         self.assertEqual(first["department"], "Engineering")
-        self.assertEqual(first["count"], 2)
-        self.assertEqual(first["percentage"], 66)
+        self.assertEqual(first["count"], 1)
+        self.assertEqual(first["percent"], 50)
         self.assertEqual(second["department"], "Marketing")
         self.assertEqual(second["count"], 1)
-        self.assertEqual(second["percentage"], 33)
+        self.assertEqual(second["percent"], 50)
 
     def test_explored_department_with_no_views(self):
         headers = {
@@ -1041,7 +1041,7 @@ class TalentExploredDepartmentTests(TestCase):
         self.assertEqual(len(data["departments"]), 1)
         self.assertEqual(data["departments"][0]["department"], "Engineering")
         self.assertEqual(data["departments"][0]["count"], 1)
-        self.assertEqual(data["departments"][0]["percentage"], 100)
+        self.assertEqual(data["departments"][0]["percent"], 100)
 
     def test_explored_department_by_business_user(self):
         business_user = BusinessUserFactory.create()

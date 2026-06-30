@@ -414,13 +414,13 @@ def jobs_with_match_gt_50(talent, start_date: date=None, end_date: date=None):
 def get_talent_application_funnel(talent):
     jobs_viewed = talent.viewed_job_posts.count()
     applications = talent.job_applications().count()
-    interviews = talent.job_interviews.count()
+    interviews = talent.job_interviews().count()
     hires = talent.job_applications().filter(stage__phase=PhaseType.HIRED.value).count()
     job_application_conversion = int((applications/jobs_viewed) * 100) if jobs_viewed > 0 else 0
     application_interview_conversion = int((interviews/applications) * 100) if applications > 0 else 0
     interview_hire_conversion = int((hires/interviews) * 100) if interviews > 0 else 0
     return {
-        "job_viewed": jobs_viewed,
+        "jobs_viewed": jobs_viewed,
         "applications_submitted": applications,
         "interviews": interviews,
         "hires": hires,
@@ -467,11 +467,11 @@ def get_talent_activity(talent, days_back=7):
     applications = talent.job_applications(start_date=start_date, end_date=end_date).count()
     interviews = talent.job_interviews(start_date=start_date, end_date=end_date).count()
     from chats.models import Message
-    unread_messages = Message.objects.filter(users__id=talent.user_id).exclude(
+    unread_messages = Message.objects.filter(conversation__users__id=talent.user_id).exclude(
         sender=talent.user).exclude(readers__id=talent.user_id).filter(
         created_at__gte=start_date, created_at__lte=end_date
     ).distinct().count()
-    profile_view = TalentViewer.objects.filter(talent=talent, last_viewed__gte=start_date, last_viewed__lte=end_date).count()
+    profile_view = TalentViewer.objects.filter(talent=talent, last_viewed_at__gte=start_date, last_viewed_at__lte=end_date).count()
     return {
         "applications": applications,
         "interviews": interviews,
