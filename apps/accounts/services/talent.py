@@ -410,3 +410,5 @@ def jobs_with_match_gt_50(talent, start_date: date=None, end_date: date=None):
     ).filter(row_number=1).count()
 
 
+
+
