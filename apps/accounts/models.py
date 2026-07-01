@@ -266,6 +266,14 @@ class Talent(BaseModel):
     availability_timezone = TimeZoneField(default="America/Vancouver")
     source = models.CharField(max_length=50, choices=SourceType.choices(), default=SourceType.OTHERS.value)
     flexible_availability = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    def profile_status(self):
+        if not self.is_profile_completed():
+            return "Incompleted"
+        if not self.is_active:
+            return "Inactive"
+        return "Active"
 
 
     def get_address(self):
@@ -1444,6 +1452,14 @@ class TalentFilter(BaseModel):
 class BannedAccount(BaseModel):
     email = models.EmailField()
     account_type = models.CharField(choices=UserType.choices())
+    fullname = models.CharField(max_length=128, null=True)
+
+    # Talent fields
+    current_role = models.CharField(max_length=128, null=True)
+    interested_in = models.CharField(max_length=128, null=True)
+    location = models.CharField(max_length=128, null=True)
+
+
 
 class AdminUserInvite(BaseModel):
     email = models.EmailField()

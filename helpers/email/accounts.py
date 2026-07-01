@@ -71,3 +71,13 @@ def send_third_talent_invitation_email(emails: List[str], lang="en"):
     html_file = f"accounts/{lang}/invite_talent_3.html"
     html_content = render_html_email(html_file, context)
     send_email(subject="Final Reminder to join 1840 Global Talent Cloud", emails=emails, html_body=html_content)
+
+def send_talent_account_activation_email(email:str, fullname:str, status:str, lang="en"):
+    context = {
+        "fullname": fullname,
+        "status": status,
+        "link": f"{settings.FRONTEND_URL}auth/login"
+    }
+    html_file = f"accounts/{lang}/activate_talent_account.html"
+    html_content = render_html_email(html_file, context)
+    send_email(subject="Your Account Has Been Deactivated", emails=[email], html_body=html_content)

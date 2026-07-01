@@ -1,13 +1,9 @@
-import requests
 import json
 import time
 from urllib.parse import quote, urlencode
 
 import jwt
 import requests
-from accounts.enums import UserType, AuthType, SocialType, BusinessUserRoleType
-from accounts.models import BusinessUser, VerificationCode, User, Talent, Business, BannedAccount
-from core.services import get_settings
 from django.db.models import Q
 from django.utils import timezone
 from django.utils.crypto import get_random_string
@@ -15,11 +11,14 @@ from google.auth.transport import requests as grequests
 from google.oauth2 import id_token
 from ninja.errors import HttpError
 from requests.exceptions import HTTPError as RequestsError
+from services.auth.facebook import Facebook
 
+from accounts.enums import UserType, AuthType, SocialType, BusinessUserRoleType
+from accounts.models import BusinessUser, VerificationCode, User, Talent, Business, BannedAccount
 from config.settings import APPLE_CONFIG
+from core.services import get_settings
 from helpers.email.auth import send_verification_code
 from monkeypatches.q_cluster import async_task
-from services.auth.facebook import Facebook
 from .client import LinkedInAPI
 from .schema import SocialAuthSchema
 
@@ -37,6 +36,10 @@ def validate_login(user: User, raise_exception=True):
             raise HttpError(401, "Your account is not active")
         user.last_login = timezone.now()
         user.save(update_fields=["last_login"])
+        if hasattr(user, "talent"):
+            user.talent.is_active = True
+            user.talent.visible = True
+            user.talent.save(update_fields=["is_active", "visible"])
         return True
     
     except HttpError as e:

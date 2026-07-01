@@ -1,0 +1,42 @@
+{% extends "all_template.html" %}
+{% load static %}
+
+{% block content %}
+    <div
+      style="
+        width: 100%;
+        text-align: center;
+        max-width: 41.25rem;
+        margin: auto;
+        padding: 1rem 1.44rem 5rem;
+        color: #013832;
+      "
+    >
+    <p style="text-align: left;">Hi {{fullname}}</p>
+      <p style="text-align: left;">
+  Due to your profile being {{status}} after 30 days, your account has been deactivated. Sign in to the 1840 Global Talent Cloud to reactivate, click the button below.
+      </p>
+
+      <a
+        style="
+          display: inline-block;
+          border-radius: 0.25rem;
+          padding: 0.875rem 2rem;
+          color: white;
+          font-size: 1.125rem;
+          background-color: #266b5b;
+          text-decoration: none;
+          font-weight: 500;
+        "
+        href="{{ link }}"
+        >Log In</a
+      >
+    <br>
+    <p>We are excited to see your profile and help you take the next step</p>
+    <br>
+    <p>Best,</p>
+    <p>The 1840 GTC Team</p>
+    </div>
+
+
+{% endblock %}

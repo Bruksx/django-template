@@ -474,7 +474,16 @@ def ban_account(user: User):
     # TODO send an email to the banned account
     if BannedAccount.objects.filter(email__iexact=user.email, account_type=user.type).exists():
         return
-    BannedAccount.objects.create(email=user.email, account_type=user.type)
+    account_data = {
+        "email": user.email,
+        "account_type": user.type,
+        "fullname": user.fullname
+    }
+    if hasattr(user, "talent"):
+        account_data["current_role"] = user.talent.role.name if user.talent.role else None
+        account_data["interested_in"] = user.talent.job_type
+        account_data["location"] = user.talent.get_address()
+    BannedAccount.objects.create(**account_data)
     if hasattr(user, "talent"):
         user.talent.delete_account(banned=True)
         user.delete_account()
@@ -490,13 +499,18 @@ def ban_account(user: User):
 @transaction.atomic
 @update_admin_last_activity
 def toggle_account_status(user: User, is_active=True):
-    if user.is_active == is_active:
-        return user
-    user.is_active = is_active
-    user.save()
     if hasattr(user, "businessuser"):
+        user.is_active = is_active
+        user.save()
         user.businessuser.status = BusinessUserStatusType.ACTIVE.value if is_active else BusinessUserStatusType.INACTIVE.value
         user.businessuser.save()
+    elif hasattr(user, "talent"):
+        user.talent.is_active = is_active
+        user.talent.visible = is_active
+        user.talent.save()
+    elif hasattr(user, "adminuser"):
+        user.is_active = is_active
+        user.save()
 
     # TODO: send an email regards account status
     return user
