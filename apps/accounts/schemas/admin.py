@@ -165,10 +165,19 @@ class TalentListSchema(ModelSchema):
     interested_in: str = Field(alias="job_type")
     applications: int
     signup_date: date
+    profile_status: str
+    last_active: Optional[date] = None
 
     class Meta:
         model = Talent
         fields = ["uid", "job_type"]
+
+    @staticmethod
+    def resolve_last_active(obj):
+        if not obj.user.last_login:
+            return None
+        return obj.user.last_login.date()
+
 
 
 
