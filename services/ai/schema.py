@@ -107,6 +107,8 @@ class JobDescriptionSchema(Schema):
     years_of_experience: Optional[int] = None
     work_structure: Optional[WorkStructureEnum] = None
     country: Optional[UUID]=None
+    state: Optional[UUID] = None
+    city: Optional[UUID] = None
     error: Optional[str] = None
     @classmethod
     def example(cls, with_error=False):
@@ -128,6 +130,9 @@ class JobDescriptionSchema(Schema):
             years_of_experience=1,
             work_structure=WorkStructureEnum.REMOTE,
             country=UUID(int=1),
+            state=UUID(int=2),
+            city=UUID(int=3),
+
             error=None if not with_error else "A sample error"
         )
 
