@@ -1,5 +1,4 @@
 from datetime import date
-from core.schemas import READ_EXCLUDE_FIELDS
 from typing import Optional, List, Literal, Generic, T
 from uuid import UUID
 
@@ -11,6 +10,7 @@ from accounts.models import BusinessUser, Business, Talent, AdminUser
 from accounts.schemas.common import DashboardFilter
 from accounts.schemas.talent import TalentUserSchema, UpdateTalentProfileSchema2
 from core.schemas import GenericNameAndUidSchema
+from core.schemas import READ_EXCLUDE_FIELDS
 from jobs.enums import PhaseType, JobStatusType
 from jobs.models import JobApplication
 from paginations import CustomPaginatedResponseSchema
@@ -158,10 +158,19 @@ class TalentListSchema(ModelSchema):
     email: EmailStr = Field(alias="user.email")
     applications: int
     signup_date: date
+    profile_status: str
+    last_active: Optional[date] = None
 
     class Meta:
         model = Talent
         fields = ["uid", "job_type"]
+
+    @staticmethod
+    def resolve_last_active(obj):
+        if not obj.user.last_login:
+            return None
+        return obj.user.last_login.date()
+
 
 
 

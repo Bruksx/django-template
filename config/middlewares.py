@@ -90,6 +90,7 @@ class LogUserLastLoginConnectionMiddleware:
             return response
         logger = logging.getLogger(__name__)
         now = django_timezone.now()
+        # update last login time if it's been more than 1 hour
         if request.user.last_login:
             if now - request.user.last_login >= timedelta(hours=1):
                 request.user.last_login = now

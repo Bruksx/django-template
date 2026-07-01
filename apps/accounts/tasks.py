@@ -1,10 +1,11 @@
 from datetime import timedelta
 
-from accounts.models import Talent, User
-from accounts.queries import add_profile_completion_annotation
 from django.utils import timezone
 
+from accounts.models import Talent, User
+from accounts.queries import add_profile_completion_annotation
 from config import settings
+from helpers.email.accounts import send_talent_account_activation_email
 from helpers.email.utils import send_email
 
 
@@ -76,3 +77,22 @@ Number of talents with incomplete profiles:    {incompleted}\n
     Number of talents with incomplete profiles:    {incompleted}\n
             """
     )
+
+
+def deactivate_inactive_talents():
+    last_30_days = timezone.now() - timedelta(days=30)
+    talents = Talent.objects.select_related("user").exclude(is_active=False)
+    talents = talents.filter(user__last_login__lte=last_30_days)
+    talents.update(is_active=False, visible=False)
+    for talent in talents.iterator():
+        send_talent_account_activation_email(email=talent.user.email, fullname=talent.user.full_name, status="inactive")
+    return
+
+def deactivate_incomplete_talent_accounts():
+    last_30_days = timezone.now() - timedelta(days=30)
+    talents = add_profile_completion_annotation(Talent.objects.all())
+    talents = talents.filter(created_at__lte=last_30_days, complete_profile=False)
+    talents.update(is_active=False, visible=False)
+    for talent in talents.iterator():
+        send_talent_account_activation_email(email=talent.user.email, fullname=talent.user.full_name, status="incomplete")
+    return
