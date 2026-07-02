@@ -9,7 +9,7 @@ from accounts.models import BusinessUser, Business, Talent, AdminUser
 from ninja import Schema, ModelSchema
 from pydantic import EmailStr, HttpUrl, Field
 
-from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType, AdminRoleType
+from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType, AdminRoleType, TalentJobType
 from accounts.models import BusinessUser, Business, Talent, AdminUser
 from accounts.schemas.common import DashboardFilter
 from accounts.schemas.talent import TalentUserSchema, UpdateTalentProfileSchema2
@@ -31,8 +31,14 @@ class BusinessUsersFilter(Schema):
 
 
 class TalentUsersFilter(Schema):
-    active: Optional[bool] = None
     search: Optional[str] = None
+    roles: List[UUID] = []
+    location: Optional[str] = None
+    interested_in: Optional[TalentJobType] = None
+    profile_status: Optional[Literal['incomplete', 'active', 'inactive']] = None
+
+
+
 
 
 class BusinessFilter(DashboardFilter):
