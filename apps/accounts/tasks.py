@@ -107,7 +107,7 @@ def deactivate_inactive_talents():
 def deactivate_incomplete_talent_accounts():
     last_30_days = timezone.now() - timedelta(days=30)
     talents = add_profile_completion_annotation(Talent.objects.all())
-    talents = talents.filter(created_at__lte=last_30_days, complete_profile=False)
+    talents = talents.filter(created_at__lte=last_30_days, semi_complete_profile=False)
     talents.update(is_active=False, visible=False)
     for talent in talents.iterator():
         send_talent_account_activation_email(email=talent.user.email, fullname=talent.user.full_name, status="incomplete")

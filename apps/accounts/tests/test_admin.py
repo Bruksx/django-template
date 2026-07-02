@@ -1,16 +1,17 @@
 from datetime import timezone as dt_timezone, datetime, date
 from uuid import uuid4
 
+from django.test import TestCase
+from ninja.testing import TestClient
+
 from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType
 from accounts.models import Business, BusinessIndustry, BusinessUser, User, Talent, BannedAccount, AdminUserInvite
 from accounts.views.admin import router
 from core.models import PageMetric, APIMetric
-from django.test import TestCase
 from factories import BusinessFactory, BusinessUserFactory, CountryFactory, JobFactory, JobPostFactory, \
     TalentFactory, AdminUserFactory, RoleFactory
 from jobs.enums import JobStatusType
 from jobs.models import JobApplication, Job
-from ninja.testing import TestClient
 from settings.models import WorkFlowStage
 
 
@@ -594,8 +595,10 @@ class GetTalentUsersTestCase(TestCase):
             "authorization": f"Bearer {self.user.token}"
         }
         # Create some talents, some active and some not
-        self.talent_active = TalentFactory.create(user__is_active=True)
-        self.talent_inactive = TalentFactory.create(user__is_active=False)
+        self.talent_active = TalentFactory.create(is_active=True, visible=True)
+        self.talent_active = self.talent_active.update(is_active=True, visible=True)
+        self.talent_inactive = TalentFactory.create(is_active=False, visible=False)
+        self.talent_inactive = self.talent_inactive.update(is_active=False, visible=False)
         TalentFactory.create_batch(3)  # Create 3 more talents (default active=True)
 
     def test_get_talent_users_success(self):
@@ -608,7 +611,7 @@ class GetTalentUsersTestCase(TestCase):
 
     def test_get_talent_users_filter_by_active(self):
         """Test filtering talent users by active status"""
-        response = self.client.get("/talents?active=true", headers=self.auth_headers)
+        response = self.client.get("/talents?profile_status=active", headers=self.auth_headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("results", data)
@@ -622,7 +625,7 @@ class GetTalentUsersTestCase(TestCase):
 
     def test_get_talent_users_filter_by_inactive(self):
         """Test filtering talent users by inactive status"""
-        response = self.client.get("/talents?active=false", headers=self.auth_headers)
+        response = self.client.get("/talents?profile_status=inactive", headers=self.auth_headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("results", data)
