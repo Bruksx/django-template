@@ -1892,6 +1892,8 @@ class AIJobDescriptionGeneratorResponseSchema(Schema):
     years_of_experience: Optional[int] = None
     work_structure: Optional[WorkStructureEnum] = None
     country: Optional[GenericNameAndUidSchema] = None
+    state: Optional[GenericNameAndUidSchema] = None
+    city: Optional[GenericNameAndUidSchema] = None
 
 
 class AIJobSalaryItemSchema(Schema):
