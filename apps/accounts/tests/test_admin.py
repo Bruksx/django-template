@@ -596,7 +596,9 @@ class GetTalentUsersTestCase(TestCase):
         }
         # Create some talents, some active and some not
         self.talent_active = TalentFactory.create(is_active=True, visible=True)
+        self.talent_active = self.talent_active.update(is_active=True, visible=True)
         self.talent_inactive = TalentFactory.create(is_active=False, visible=False)
+        self.talent_inactive = self.talent_inactive.update(is_active=False, visible=False)
         TalentFactory.create_batch(3)  # Create 3 more talents (default active=True)
 
     def test_get_talent_users_success(self):

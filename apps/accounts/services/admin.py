@@ -614,12 +614,15 @@ def get_talent_users_data(**filters):
     if profile_status:
         profile_status_query = Q()
         if 'active' in profile_status:
-            profile_status_query = profile_status_query | Q(active=True, visible=True)
+            q = Q(is_active=True, visible=True)
+            profile_status_query |=q if profile_status_query else q
         if 'inactive' in profile_status:
-            profile_status_query = profile_status_query | Q(active=False, visible=True)
+            q = Q(is_active=False, visible=False)
+            profile_status_query |=q if profile_status_query else q
         if 'incomplete' in profile_status:
             queryset = add_profile_completion_annotation(queryset)
-            profile_status_query = profile_status_query | Q(semi_complete_profile=False)
+            q = Q(semi_complete_profile=False)
+            profile_status_query |=q if profile_status_query else q
         queryset = queryset.filter(profile_status_query)
 
 
