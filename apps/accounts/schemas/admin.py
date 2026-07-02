@@ -34,8 +34,8 @@ class TalentUsersFilter(Schema):
     search: Optional[str] = None
     roles: List[UUID] = []
     location: Optional[str] = None
-    interested_in: Optional[TalentJobType] = None
-    profile_status: Optional[Literal['incomplete', 'active', 'inactive']] = None
+    interested_in: List[TalentJobType] = None
+    profile_status: List[Literal['incomplete', 'active', 'inactive']] = []
 
 
 
