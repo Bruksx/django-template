@@ -1,10 +1,11 @@
 from datetime import timedelta
 
-from accounts.models import Talent, User
-from accounts.queries import add_profile_completion_annotation
 from django.utils import timezone
 
+from accounts.models import Talent, User
+from accounts.queries import add_profile_completion_annotation
 from config import settings
+from enums import SourceType
 from helpers.email.utils import send_email
 
 
@@ -74,5 +75,29 @@ Number of talents with incomplete profiles:    {incompleted}\n
     This Week's Data \n\n
     Number of talents with complete profiles:   {completed + semi_completed}\n
     Number of talents with incomplete profiles:    {incompleted}\n
+            """
+    )
+
+
+def send_weekly_report_of_talent_sources():
+    if settings.DEBUG is True:
+        return
+    last_week = timezone.now() - timedelta(days=7)
+    indeed_queryset = Talent.objects.filter(source=SourceType.INDEED.value)
+    linkedin_queryset = Talent.objects.filter(source=SourceType.LINKEDIN.value)
+    linked_total = linkedin_queryset.count()
+    indeed_total = indeed_queryset.count()
+    total_linked_last_week = linkedin_queryset.exclude(created_at__gt=last_week).count()
+    total_indeed_last_week = indeed_queryset.exclude(created_at__gt=last_week).count()
+
+    send_email(
+        subject="Talent Profile Source Weekly Report",
+        emails=["ohaegbulouis@gmail.com", "khurshidu@1840andco.com"],
+        plain_body=f"""
+    Total Number of Talents from LinkedIn Last Week: {total_linked_last_week} \n
+    Total Number of Talents from Indeed Last Week: {total_indeed_last_week} \n\n
+
+    Number of talents from LinkedIn:   {linked_total}\n
+    Number of talents from Indeed:    {indeed_total}\n
             """
     )
