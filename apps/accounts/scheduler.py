@@ -18,5 +18,10 @@ tasks = [
         "name": "Deactivate Incomplete Talent Profile",
         "func": "accounts.tasks.deactivate_incomplete_talent_account",
         "cron": "0 3 * * *" # Every day at 3 am
+    },
+    {
+        "name": "Talent Profile Source Weekly Report - Every Monday",
+        "func": "accounts.tasks.send_weekly_report_of_talent_sources",
+        "cron": "0 9 * * 1" # Every week at 9 am on monday morning
     }
 ]
