@@ -634,21 +634,26 @@ def view_applicant_detail(request, application_uid: UUID):
         .annotate(c=Count("id"))
         .values("c")[:1]
     )
-    application = (JobApplication.objects
-                   .select_related("stage", "applicant", "applicant__user", "applicant__country")
-                   .annotate(invited=Exists(JobInvite.objects.filter(
-        job=OuterRef('job_post__job'), talent=OuterRef('applicant')
-    ))).annotate(
-                ai_match_score=Subquery(score_subquery)
-            ).annotate(
-                rank=Window(
-                    expression=RowNumber(),
-                    partition_by=[F("job_post_id")],
-                    order_by=F("ai_match_score").desc(),
-                )
-            ).annotate(
-                pool_size=Subquery(pool_size_subquery)
-            ).filter(uid=application_uid, job_post__job__created_by__business=request.user.businessuser.business).first())
+    query = JobApplication.objects.select_related(
+        "stage", "applicant", "applicant__user", "applicant__country"
+    ).annotate(
+        invited=Exists(
+            JobInvite.objects.filter(
+                job=OuterRef('job_post__job'), talent=OuterRef('applicant')
+            )
+        )
+    ).annotate(
+        ai_match_score=Subquery(score_subquery)
+    ).annotate(
+        rank=Window(
+            expression=RowNumber(),
+            partition_by=[F("job_post_id")],
+            order_by=F("ai_match_score").desc(),
+        )
+    ).annotate(
+        pool_size=Subquery(pool_size_subquery)
+    )
+    application = query.filter(uid=application_uid, job_post__job__created_by__business=request.user.businessuser.business).first()
 
     if not application:
         raise HttpError(404, "Application not found")
