@@ -1788,7 +1788,7 @@ class TalentListJobPostSchema(ModelSchema):
     country: Optional[GenericNameAndUidSchema]
     years_of_experience: str = Field(alias="get_years_of_experience")
     average_experience_tenure: str = Field(alias="get_average_experience_tenure")
-    ai_match_score = Optional[int] = None
+    ai_match_score: Optional[int] = None
 
     class Meta:
         model = Talent
