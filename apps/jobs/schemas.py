@@ -973,6 +973,7 @@ class AIInsightSchema(Schema):
 
 
 class JobApplicationListSchema(ModelSchema):
+    job_role: Optional[GenericNameAndUidSchema] = Field(alias="job_post.job.role")
     location:Optional[str] = Field(None, alias="job_post.get_country")
     role:Optional[GenericNameAndUidSchema] = Field(alias="applicant.get_role")
     experience:int
@@ -989,6 +990,8 @@ class JobApplicationListSchema(ModelSchema):
     applicant_phone: Optional[str] = Field(alias="applicant.user.get_phone")
     applicant_country: Optional[GenericNameAndUidSchema] = Field(alias="applicant.country")
     applicant_cv_url: Optional[str]
+    applicant_job_type: Optional[str] = Field(default=None, alias="applicant.job_type")
+
     applicant_linkedin_url: Optional[str] = Field(alias="applicant.linkedin")
     years_of_experience: str = Field(alias="applicant.get_years_of_experience")
     average_experience_tenure: str = Field(alias="applicant.get_average_experience_tenure")
@@ -1074,7 +1077,7 @@ class JobApplicationDetailSchema(JobApplicationListSchema):
     @staticmethod
     def resolve_non_negotiable(obj, context):
         return obj.job_post.non_negotiable()
-    
+
     @staticmethod
     def resolve_ai_insight(obj):
         try:
@@ -1095,7 +1098,7 @@ class JobApplicationDetailSchema(JobApplicationListSchema):
             return 0
         except:
             return 0
-    
+
     @staticmethod
     def resolve_top_percent(obj):
         talent = obj.applicant
@@ -1823,10 +1826,12 @@ class BusinessUserJobSchema(ModelSchema):
 
 class TalentScreeningResultSchema(ModelSchema):
     role: Optional[GenericNameAndUidSchema] = Field(None, alias="job_post.job.role")
+    stage: Optional[GenericNameAndUidSchema] = None
     location: Optional[GenericNameAndUidSchema] = Field(None, alias="job_post.country")
     client: Optional[str] = Field(None, alias="job_post.job.get_company")
     result: Optional[str] = Field(None, alias="get_screening_result_status")
     date_submitted: Optional[datetime] = Field(None, alias="created_at")
+    job_post_uid: Optional[UUID] = Field(None, alias="job_post.uid")
 
     class Meta:
         model = JobApplication
@@ -1866,6 +1871,8 @@ class AIJobDescriptionGeneratorResponseSchema(Schema):
     years_of_experience: Optional[int] = None
     work_structure: Optional[WorkStructureEnum] = None
     country: Optional[GenericNameAndUidSchema] = None
+    state: Optional[GenericNameAndUidSchema] = None
+    city: Optional[GenericNameAndUidSchema] = None
 
 
 class AIJobSalaryItemSchema(Schema):

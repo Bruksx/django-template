@@ -9,7 +9,7 @@ from ninja_jwt.authentication import JWTAuth
 
 from accounts.enums import Days, BusinessUserRoleType
 from accounts.models import User, VerificationCode, Country, Talent, EducationLevel, Industry, \
-    Skill, Department, Role, Business, BusinessUser, Experience, TalentAvailableDay, BusinessIndustry
+    Skill, Department, Role, Business, BusinessUser, Experience, TalentAvailableDay, TalentViewer, BusinessIndustry
 from accounts.views.talent import router
 from apps.factories import CityFactory, StateFactory, UserFactory
 from chats.models import Conversation, Message
@@ -17,7 +17,7 @@ from core.models import Currency
 from core.models import State
 from factories import WorkflowStageFactory, TalentFactory, BusinessUserFactory, CountryFactory, IndustryFactory, \
     LanguageFactory, EducationFactory, EducationLevelFactory, RoleFactory, ExperienceFactory, SkillFactory, \
-    BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory
+    BusinessModelFactory, CurrencyFactory, JobLevelFactory, EmploymentTypeFactory, DepartmentFactory
 from jobs.enums import LunchBreakEnum, PhaseType, JobStatusType, TechnologicalRequirementsEnum
 from jobs.models import JobLevel, EmploymentType, BusinessModel, Job, JobPost, AvailableDay, \
     JobApplication, JobInterview
@@ -630,3 +630,427 @@ class UploadTalentProfilePictureTests(TestCase):
         file.name = "profile.png"
         response = self.client.post(self.url, {"file": file}, format="multipart", headers=self.headers)
         self.assertEqual(response.status_code, 200)
+
+
+class TalentApplicationFunnelTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = "/dashboard/application-funnel"
+        self.country = Country.objects.first()
+        self.province = State.objects.first()
+        self.role = Role.objects.first()
+        self.job_level = JobLevel.objects.first()
+        self.employment_type = EmploymentType.objects.first()
+        self.currency = Currency.objects.first()
+        self.talent = TalentFactory.create()
+        self.business_user = BusinessUserFactory.create()
+        self.industry = BusinessIndustry.objects.order_by("?").first()
+        self.user_data = dict(
+            first_name="Funnel",
+            last_name="User",
+            email="funneluser@example.com",
+            password="securepassword",
+        )
+        self.user = User.objects.create_user(**self.user_data)
+        self.funnel_talent = Talent.objects.create(user=self.user, country=self.country)
+        self.hired_stage = WorkflowStageFactory.create(phase=PhaseType.HIRED.value)
+        self.interview_stage = WorkflowStageFactory.create(phase=PhaseType.INTERVIEW.value)
+
+    def _create_job_post(self, recruiter):
+        job = Job.objects.create(
+            created_by=recruiter,
+            job_level=self.job_level,
+            role=self.role,
+            employment_type=self.employment_type,
+            hiring_company_name="Funnel Co",
+            title="Funnel Role",
+            about="Funnel about",
+            years_of_experience=3,
+            lunch_break=LunchBreakEnum.PAID.value,
+            availability_timezone=timezone.utc
+        )
+        return JobPost.objects.create(
+            job=job,
+            status=JobStatusType.CLOSED.value,
+            country=self.country,
+            province=self.province,
+            postal_code="M5V 1T6",
+            salary_min=Decimal('80000.00'),
+            salary_max=Decimal('100000.00'),
+            salary_currency=self.currency,
+            recruiter=recruiter
+        )
+
+    def test_application_funnel_success(self):
+        job_post = self._create_job_post(self.business_user)
+        # 2 views, 1 application, 1 interview, 1 hire
+        other_talent = TalentFactory.create()
+        job_post.viewers.add(self.funnel_talent, other_talent)
+        application = JobApplication.objects.create(
+            job_post=job_post,
+            applicant=self.funnel_talent,
+            stage=self.interview_stage
+        )
+        JobInterview.objects.create(application=application)
+        JobApplication.objects.create(
+            job_post=job_post,
+            applicant=self.funnel_talent,
+            stage=self.hired_stage
+        )
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["jobs_viewed"], 1)
+        self.assertEqual(data["applications_submitted"], 2)
+        self.assertEqual(data["interviews"], 1)
+        self.assertEqual(data["hires"], 1)
+        self.assertEqual(data["job_application_conversion"], 200)
+        self.assertEqual(data["application_interview_conversion"], 50)
+        self.assertEqual(data["interview_hire_conversion"], 100)
+
+    def test_application_funnel_with_no_activity(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["jobs_viewed"], 0)
+        self.assertEqual(data["applications_submitted"], 0)
+        self.assertEqual(data["interviews"], 0)
+        self.assertEqual(data["hires"], 0)
+        self.assertEqual(data["job_application_conversion"], 0)
+        self.assertEqual(data["application_interview_conversion"], 0)
+        self.assertEqual(data["interview_hire_conversion"], 0)
+
+    def test_application_funnel_views_without_applications(self):
+        """Conversion to applications should be 0 when only views exist."""
+        job_post = self._create_job_post(self.business_user)
+        job_post.viewers.add(self.funnel_talent)
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["jobs_viewed"], 1)
+        self.assertEqual(data["applications_submitted"], 0)
+        self.assertEqual(data["interviews"], 0)
+        self.assertEqual(data["hires"], 0)
+        self.assertEqual(data["job_application_conversion"], 0)
+        self.assertEqual(data["application_interview_conversion"], 0)
+        self.assertEqual(data["interview_hire_conversion"], 0)
+
+    def test_application_funnel_applications_without_interviews(self):
+        """Conversion to interview should be 0 when no interviews exist."""
+        job_post = self._create_job_post(self.business_user)
+        job_post.viewers.add(self.funnel_talent)
+        JobApplication.objects.create(
+            job_post=job_post,
+            applicant=self.funnel_talent,
+            stage=self.interview_stage
+        )
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["jobs_viewed"], 1)
+        self.assertEqual(data["applications_submitted"], 1)
+        self.assertEqual(data["interviews"], 0)
+        self.assertEqual(data["hires"], 0)
+        self.assertEqual(data["application_interview_conversion"], 0)
+        self.assertEqual(data["interview_hire_conversion"], 0)
+
+    def test_application_funnel_interviews_without_hires(self):
+        """Conversion to hire should be 0 when no HIRED applications exist."""
+        job_post = self._create_job_post(self.business_user)
+        job_post.viewers.add(self.funnel_talent)
+        application = JobApplication.objects.create(
+            job_post=job_post,
+            applicant=self.funnel_talent,
+            stage=self.interview_stage
+        )
+        JobInterview.objects.create(application=application)
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["interviews"], 1)
+        self.assertEqual(data["hires"], 0)
+        self.assertEqual(data["interview_hire_conversion"], 0)
+
+    def test_application_funnel_by_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"bearer {business_user.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_application_funnel_unauthenticated(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 401)
+
+
+class TalentActivityTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = "dashboard/weekly-activity"
+        self.country = Country.objects.first()
+        self.province = State.objects.first()
+        self.role = Role.objects.first()
+        self.job_level = JobLevel.objects.first()
+        self.employment_type = EmploymentType.objects.first()
+        self.currency = Currency.objects.first()
+        self.industry = BusinessIndustry.objects.order_by("?").first()
+        self.user_data = dict(
+            first_name="Activity",
+            last_name="User",
+            email="activityuser@example.com",
+            password="securepassword",
+        )
+        self.user = User.objects.create_user(**self.user_data)
+        self.talent = Talent.objects.create(user=self.user, country=self.country)
+        self.business_user = BusinessUserFactory.create()
+        self.interview_stage = WorkflowStageFactory.create(phase=PhaseType.INTERVIEW.value)
+
+    def _create_job_post(self, recruiter):
+        job = Job.objects.create(
+            created_by=recruiter,
+            job_level=self.job_level,
+            role=self.role,
+            employment_type=self.employment_type,
+            hiring_company_name="Activity Co",
+            title="Activity Role",
+            about="Activity about",
+            years_of_experience=3,
+            lunch_break=LunchBreakEnum.PAID.value,
+            availability_timezone=timezone.utc
+        )
+        return JobPost.objects.create(
+            job=job,
+            status=JobStatusType.CLOSED.value,
+            country=self.country,
+            province=self.province,
+            postal_code="M5V 1T6",
+            salary_min=Decimal('80000.00'),
+            salary_max=Decimal('100000.00'),
+            salary_currency=self.currency,
+            recruiter=recruiter
+        )
+
+    def test_weekly_activity_success(self):
+        job_post = self._create_job_post(self.business_user)
+        application = JobApplication.objects.create(
+            job_post=job_post,
+            applicant=self.talent,
+            stage=self.interview_stage
+        )
+        JobInterview.objects.create(application=application)
+        # Profile view within the last 7 days
+        TalentViewer.objects.create(talent=self.talent, user=self.business_user.user)
+        # Unread message within the window
+        sender = UserFactory.create()
+        conversation = Conversation.objects.create()
+        conversation.users.set([self.user, sender])
+        conversation.refresh_from_db()
+        Message.objects.create(
+            conversation=conversation,
+            sender=sender,
+            job_post=job_post,
+            body="Hello"
+        )
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["applications"], 1)
+        self.assertEqual(data["interviews"], 1)
+        self.assertEqual(data["profile_views"], 1)
+        self.assertEqual(data["unread_messages"], 1)
+
+    def test_weekly_activity_with_no_activity(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["applications"], 0)
+        self.assertEqual(data["interviews"], 0)
+        self.assertEqual(data["unread_messages"], 0)
+        self.assertEqual(data["profile_views"], 0)
+
+    def test_weekly_activity_read_messages_excluded(self):
+        """Messages already read by the talent should not be counted as unread."""
+        sender = UserFactory.create()
+        conversation = Conversation.objects.create()
+        conversation.users.set([self.user, sender])
+        conversation.refresh_from_db()
+        message = Message.objects.create(
+            conversation=conversation,
+            sender=sender,
+            body="Read me"
+        )
+        message.readers.add(self.user)
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["unread_messages"], 0)
+
+    def test_weekly_activity_own_messages_excluded(self):
+        """Messages sent by the talent themselves should not be counted as unread."""
+        other = UserFactory.create()
+        conversation = Conversation.objects.create()
+        conversation.users.set([self.user, other])
+        conversation.refresh_from_db()
+        Message.objects.create(
+            conversation=conversation,
+            sender=self.user,
+            body="From me"
+        )
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["unread_messages"], 0)
+
+    def test_weekly_activity_by_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"bearer {business_user.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_weekly_activity_unauthenticated(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 401)
+
+
+class TalentExploredDepartmentTests(TestCase):
+    def setUp(self):
+        self.client = TestClient(router)
+        self.url = "dashboard/explored-department"
+        self.country = Country.objects.first()
+        self.province = State.objects.first()
+        self.job_level = JobLevel.objects.first()
+        self.employment_type = EmploymentType.objects.first()
+        self.currency = Currency.objects.first()
+        self.industry = BusinessIndustry.objects.order_by("?").first()
+        self.user_data = dict(
+            first_name="Explore",
+            last_name="User",
+            email="exploreuser@example.com",
+            password="securepassword",
+        )
+        self.user = User.objects.create_user(**self.user_data)
+        self.talent = Talent.objects.create(user=self.user, country=self.country)
+        self.business_user = BusinessUserFactory.create()
+        self.dept_engineering = DepartmentFactory.create(name="Engineering")
+        self.dept_marketing = DepartmentFactory.create(name="Marketing")
+        self.role_engineering = RoleFactory.create(department=self.dept_engineering)
+        self.role_marketing = RoleFactory.create(department=self.dept_marketing)
+
+    def _create_job_post(self, recruiter, role):
+        job = Job.objects.create(
+            created_by=recruiter,
+            job_level=self.job_level,
+            role=role,
+            employment_type=self.employment_type,
+            hiring_company_name="Explore Co",
+            title=f"Explore {role.name}",
+            about="Explore about",
+            years_of_experience=3,
+            lunch_break=LunchBreakEnum.PAID.value,
+            availability_timezone=timezone.utc
+        )
+        return JobPost.objects.create(
+            job=job,
+            status=JobStatusType.CLOSED.value,
+            country=self.country,
+            province=self.province,
+            postal_code="M5V 1T6",
+            salary_min=Decimal('80000.00'),
+            salary_max=Decimal('100000.00'),
+            salary_currency=self.currency,
+            recruiter=recruiter
+        )
+
+    def test_explored_department_success(self):
+        """Departments should be returned with view counts and percentages."""
+        eng_post = self._create_job_post(self.business_user, self.role_engineering)
+        mkt_post = self._create_job_post(self.business_user, self.role_marketing)
+        # 2 views for engineering, 1 for marketing
+        other_talent = TalentFactory.create()
+        eng_post.viewers.add(self.talent, other_talent)
+        mkt_post.viewers.add(self.talent)
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["total_views"], 2)
+        self.assertEqual(len(data["departments"]), 2)
+        # Ordered by count desc, so engineering should be first
+        first = data["departments"][0]
+        second = data["departments"][1]
+        self.assertEqual(first["department"], "Engineering")
+        self.assertEqual(first["count"], 1)
+        self.assertEqual(first["percent"], 50)
+        self.assertEqual(second["department"], "Marketing")
+        self.assertEqual(second["count"], 1)
+        self.assertEqual(second["percent"], 50)
+
+    def test_explored_department_with_no_views(self):
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["total_views"], 0)
+        self.assertEqual(data["departments"], [])
+
+    def test_explored_department_single_department(self):
+        """100% of views should map to a single department."""
+        eng_post = self._create_job_post(self.business_user, self.role_engineering)
+        eng_post.viewers.add(self.talent)
+        headers = {
+            "authorization": f"bearer {self.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["total_views"], 1)
+        self.assertEqual(len(data["departments"]), 1)
+        self.assertEqual(data["departments"][0]["department"], "Engineering")
+        self.assertEqual(data["departments"][0]["count"], 1)
+        self.assertEqual(data["departments"][0]["percent"], 100)
+
+    def test_explored_department_by_business_user(self):
+        business_user = BusinessUserFactory.create()
+        headers = {
+            "authorization": f"bearer {business_user.user.token}"
+        }
+        response = self.client.get(self.url, headers=headers)
+        self.assertEqual(response.status_code, 403)
+
+    def test_explored_department_unauthenticated(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 401)

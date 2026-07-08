@@ -16,15 +16,20 @@ def schedule_cron_tasks(tasks):
     task_names = [get_task_name(task) for task in tasks]
     for task in tasks:
         task_name = get_task_name(task)
-        if Schedule.objects.filter(name=task_name).exists():
-            continue
+        s = Schedule.objects.filter(name__iexact=task_name).first()
+        if s:
+            s.delete()
+            print(f"Re-scheduling {task_name}")
+        else:
+            print(f"Scheduling {task_name}")
+
         Schedule.objects.create(
             name=task_name,
             func=task["func"],
+            kwargs=task.get("kwargs"),
             schedule_type=Schedule.CRON,
             cron=task["cron"],
             repeats=-1,  # Repeat indefinitely
         )
     Schedule.objects.exclude(name__in=task_names).filter(name__startswith="Schedule:").delete()
-
     print("Cron tasks scheduled successfully.")

@@ -1,5 +1,4 @@
 from datetime import date
-from core.schemas import READ_EXCLUDE_FIELDS
 from typing import Optional, List, Literal, Generic, T
 from uuid import UUID
 
@@ -10,7 +9,7 @@ from accounts.models import BusinessUser, Business, Talent, AdminUser
 from ninja import Schema, ModelSchema
 from pydantic import EmailStr, HttpUrl, Field
 
-from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType, AdminRoleType
+from accounts.enums import BusinessUserRoleType, BusinessUserStatusType, UserType, AdminRoleType, TalentJobType
 from accounts.models import BusinessUser, Business, Talent, AdminUser
 from accounts.schemas.common import DashboardFilter
 from accounts.schemas.talent import TalentUserSchema, UpdateTalentProfileSchema2
@@ -32,8 +31,14 @@ class BusinessUsersFilter(Schema):
 
 
 class TalentUsersFilter(Schema):
-    active: Optional[bool] = None
     search: Optional[str] = None
+    roles: List[UUID] = []
+    location: Optional[str] = None
+    interested_in: List[TalentJobType] = None
+    profile_status: List[Literal['incomplete', 'active', 'inactive']] = []
+
+
+
 
 
 class BusinessFilter(DashboardFilter):
@@ -163,12 +168,22 @@ class TalentListSchema(ModelSchema):
     current_role: Optional[GenericNameAndUidSchema] = Field(None, alias="role")
     location:str = Field(alias="get_address")
     email: EmailStr = Field(alias="user.email")
+    interested_in: str = Field(alias="job_type")
     applications: int
     signup_date: date
+    profile_status: str
+    last_active: Optional[date] = None
 
     class Meta:
         model = Talent
         fields = ["uid", "job_type"]
+
+    @staticmethod
+    def resolve_last_active(obj):
+        if not obj.user.last_login:
+            return None
+        return obj.user.last_login.date()
+
 
 
 
@@ -220,6 +235,7 @@ class ApplicationListSchema(ModelSchema):
     date_applied: date
     withdrawals: bool
     application_status: PhaseType
+    applicant_job_type: Optional[str] = Field(default=None, alias="applicant.job_type")
 
     class Meta:
         model = JobApplication

@@ -474,7 +474,16 @@ def ban_account(user: User):
     # TODO send an email to the banned account
     if BannedAccount.objects.filter(email__iexact=user.email, account_type=user.type).exists():
         return
-    BannedAccount.objects.create(email=user.email, account_type=user.type)
+    account_data = {
+        "email": user.email,
+        "account_type": user.type,
+        "fullname": user.fullname
+    }
+    if hasattr(user, "talent"):
+        account_data["current_role"] = user.talent.role.name if user.talent.role else None
+        account_data["interested_in"] = user.talent.job_type
+        account_data["location"] = user.talent.get_address()
+    BannedAccount.objects.create(**account_data)
     if hasattr(user, "talent"):
         user.talent.delete_account(banned=True)
         user.delete_account()
@@ -490,13 +499,18 @@ def ban_account(user: User):
 @transaction.atomic
 @update_admin_last_activity
 def toggle_account_status(user: User, is_active=True):
-    if user.is_active == is_active:
-        return user
-    user.is_active = is_active
-    user.save()
     if hasattr(user, "businessuser"):
+        user.is_active = is_active
+        user.save()
         user.businessuser.status = BusinessUserStatusType.ACTIVE.value if is_active else BusinessUserStatusType.INACTIVE.value
         user.businessuser.save()
+    elif hasattr(user, "talent"):
+        user.talent.is_active = is_active
+        user.talent.visible = is_active
+        user.talent.save()
+    elif hasattr(user, "adminuser"):
+        user.is_active = is_active
+        user.save()
 
     # TODO: send an email regards account status
     return user
@@ -574,10 +588,13 @@ def delete_business_user_data(business_user_uid: UUID):
     User.objects.filter(id=business_user.user.id).hard_delete()
     return {"message": "Business user deleted successfully"}
 
-def get_talent_users_data(active:Optional[bool]=None, search:Optional[str]=None):
+def get_talent_users_data(**filters):
+    search = filters.pop("search", None)
+    roles = filters.pop("roles", None)
+    location = filters.pop("location", None)
+    interested_in = filters.pop("interested_in", None)
+    profile_status = filters.pop("profile_status", None)
     queryset = Talent.objects.all().select_related("user", "role", "country")
-    if active is not None:
-        queryset = queryset.filter(user__is_active=active)
     if search:
         search = search.split(" ") if " " in search else [search]
         query = Q()
@@ -585,6 +602,29 @@ def get_talent_users_data(active:Optional[bool]=None, search:Optional[str]=None)
             query = query | Q(
                 Q(user__email__icontains=s) | Q(user__first_name__icontains=s) | Q(user__last_name__icontains=s))
         queryset = queryset.filter(query)
+    if roles:
+        queryset = queryset.filter(role__uid__in=roles)
+    if location:
+        queryset = queryset.filter(Q(country__name__icontains=location) | Q(country__code__icontains=location)
+                                   | Q(state__name__icontains=location) | Q(city__icontains=location))
+
+    if interested_in:
+        interested_in = [i.value for i in interested_in]
+        queryset = queryset.filter(job_type__in=interested_in)
+    if profile_status:
+        profile_status_query = Q()
+        if 'active' in profile_status:
+            q = Q(is_active=True, visible=True)
+            profile_status_query |=q if profile_status_query else q
+        if 'inactive' in profile_status:
+            q = Q(is_active=False, visible=False)
+            profile_status_query |=q if profile_status_query else q
+        if 'incomplete' in profile_status:
+            queryset = add_profile_completion_annotation(queryset)
+            q = Q(semi_complete_profile=False)
+            profile_status_query |=q if profile_status_query else q
+        queryset = queryset.filter(profile_status_query)
+
 
     return queryset.order_by("-updated_at", "-user__updated_at")
 

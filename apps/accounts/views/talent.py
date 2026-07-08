@@ -13,10 +13,11 @@ from ninja_jwt.authentication import JWTAuth
 from accounts.enums import MeetingType
 from accounts.enums import UserType, AuthType
 from accounts.models import Talent, TalentAvailableDay, BannedAccount
-from accounts.models import User, VerificationCode, Education, Experience
+from accounts.models import User, VerificationCode, Education, Experience, TalentViewer
 from accounts.schemas import common as common_schemas
 from accounts.schemas import talent as talent_schemas
-from accounts.services.talent import update_talent_years_of_experience
+from accounts.services.talent import update_talent_years_of_experience, get_talent_application_funnel, \
+    get_talent_activity, get_talent_explored_department
 from auth.schema import OptionalLoginSchema
 from auth.services import validate_login
 from config.permissions import IsBusinessUser
@@ -138,6 +139,10 @@ def update_talent_profile(request, data: PatchDict[talent_schemas.UpdateTalentPr
     talent_user: Talent = request.user.talent
     if "gender" in data:
         data["gender"] = data["gender"].value if type(data["gender"]) is not str else data["gender"]
+
+
+    if "source" in data:
+        data["source"] = data["source"].value if type(data["source"]) is not str else data["source"]
 
 
     if "work_models" in data:
@@ -322,9 +327,11 @@ def talent_details(request, talent_uid:UUID):
     talent = Talent.objects.filter(uid=talent_uid).first()
     if not talent:
         raise HttpError(404, "This talent does not exist")
-    if not talent.viewers.filter(id=request.user.id).exists():
-        talent.viewers.add(request.user)
-        talent.save()
+    TalentViewer.objects.update_or_create(
+        talent=talent,
+        user=request.user,
+        defaults={"last_viewed_at": timezone.now()}
+    )
     return talent
 
 
@@ -360,3 +367,24 @@ def delete_account(request, data: OptionalLoginSchema = {}):
             raise HttpError(400, "Incorrect Password")
     user.delete_account()
     return Response(status=204, data={"message": "Account deleted successfully"})
+
+
+
+@router.get("dashboard/application-funnel", auth=JWTAuth(), response=talent_schemas.TalentApplicationFunnelSchema)
+def talent_application_funnel(request):
+    IsTalentUser.check(request)
+    talent = request.user.talent
+    return get_talent_application_funnel(talent)
+
+
+@router.get("dashboard/weekly-activity", auth=JWTAuth(), response=talent_schemas.TalentActivitySchema)
+def talent_activity(request):
+    IsTalentUser.check(request)
+    talent = request.user.talent
+    return get_talent_activity(talent)
+
+@router.get("dashboard/explored-department", auth=JWTAuth(), response=talent_schemas.TalentExploredDeptSchema)
+def talent_explored_department(request):
+    IsTalentUser.check(request)
+    talent = request.user.talent
+    return get_talent_explored_department(talent)

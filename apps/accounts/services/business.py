@@ -4,6 +4,7 @@ from uuid import UUID
 
 from django.utils import timezone
 from django_q.models import Schedule
+from django_q.tasks import schedule
 from ninja.errors import HttpError
 from pydantic import EmailStr
 
@@ -69,34 +70,40 @@ def applicant_dashboard_data(business: Optional[Business]=None, start_date: Opti
 
 
 def handle_invited_talents(emails: List[EmailStr], business, limit: int):
-    existing_emails = Talent.objects.filter(email__in=emails).values_list("email", flat=True)
+    existing_emails = Talent.objects.filter(user__email__in=emails).values_list("user__email", flat=True)
     new_emails = list(set(emails) - set(existing_emails))
     if len(new_emails) > limit:
         raise HttpError(400, f"Daily limit exceeded, you can only send to {limit} emails")
 
 
-    Schedule.objects.create(
-        name="Send Talent Invitation Email 1",
+    schedule(
+        name=f"Send Talent Invitation Email 1 {business.id} {timezone.now().timestamp()}",
         func="accounts.tasks.send_talent_invitation_email",
         schedule_type=Schedule.ONCE,
-        args=[new_emails, 1, "en"],
-        next_run=timezone.now() + timedelta(minutes=10)
+        next_run=timezone.now() + timedelta(minutes=3),
+        emails=new_emails,
+        email_order=1,
+        lang="en"
     )
 
-    Schedule.objects.create(
-        name="Send Talent Invitation Email 2",
+    schedule(
+        name=f"Send Talent Invitation Email 2 {business.id} {timezone.now().timestamp()}",
         func="accounts.tasks.send_talent_invitation_email",
         schedule_type=Schedule.ONCE,
-        args=[new_emails, 2, "en"],
-        next_run=timezone.now() + timedelta(days=2)
+        next_run=timezone.now() + timedelta(days=2),
+        emails=new_emails,
+        email_order=2,
+        lang="en"
     )
 
-    Schedule.objects.create(
-        name="Send Talent Invitation Email 3",
+    schedule(
+        name=f"Send Talent Invitation Email 3 {business.id} {timezone.now().timestamp()}",
         func="accounts.tasks.send_talent_invitation_email",
         schedule_type=Schedule.ONCE,
-        args=[new_emails, 3, "en"],
-        next_run=timezone.now() + timedelta(days=7)
+        next_run=timezone.now() + timedelta(days=7),
+        emails=new_emails,
+        email_order=3,
+        lang="en"
     )
     limit -= len(new_emails)
     business.talent_invite_limit += limit

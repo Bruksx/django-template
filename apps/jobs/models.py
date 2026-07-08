@@ -1,5 +1,6 @@
 import string
 from functools import cached_property
+from typing import Optional
 
 from accounts.enums import Days
 from accounts.models import Talent, TalentAvailableDay
@@ -335,6 +336,7 @@ class JobPost(BaseModel):
     
     promotion_code = models.CharField(max_length=200, null=True, blank=True)
     linkedin_tags = models.JSONField(default=list)
+    viewers = models.ManyToManyField("accounts.Talent", related_name="viewed_job_posts", blank=True)
 
 
     def get_tags(self):
@@ -456,10 +458,16 @@ class JobPost(BaseModel):
                                       description=str(e), data=dict()).__dict__)
             return []
 
-    def view(self):
+    def view(self, talent: Optional[Talent]=None):
         metric, _ = JobPostMetrics.objects.get_or_create(job_post=self)
         metric.weekly_views = F("weekly_views") + 1
         metric.save()
+        if not talent:
+            return
+        if self.viewers.filter(id=talent.id).exists():
+            return
+        self.viewers.add(talent)
+        self.save()
         return
 
     def update_email_share(self):
@@ -795,7 +803,7 @@ class JobApplicationNotes(BaseModel):
     application = models.OneToOneField(JobApplication, on_delete=models.CASCADE, related_name="notes")
     application_note = models.TextField(null=True, blank=True)
     interview_note = models.TextField(null=True, blank=True)
-    rejection_reason = models.CharField(choices=RejectionReasonType.choices, max_length=50)
+    rejection_reason = models.CharField(choices=RejectionReasonType.choices, max_length=50, null=True)
     rejection_note = models.TextField(null=True, blank=True)
 
     application_note_by = models.ForeignKey("accounts.BusinessUser", on_delete=models.CASCADE, null=True, related_name="application_notes")

@@ -3648,9 +3648,11 @@ class ApplicationNotesTests(TestCase):
     def test_get_application_notes_no_notes_created(self):
         """Test behavior when JobApplicationNotes does not exist yet"""
         headers = {"authorization": f"Bearer {self.business_user.user.token}"}
+        self.assertFalse(hasattr(self.application, "notes"))
         response = self.client.get(self.url(self.application.uid), headers=headers)
-        self.assertEqual(response.status_code, 404)
-        self.assertIn("Application notes not found", response.json()["detail"])
+        self.assertEqual(response.status_code, 200)
+        self.application.refresh_from_db()
+        self.assertTrue(hasattr(self.application, "notes"))
 
     def test_get_application_notes_forbidden_different_business(self):
         """Test that business users cannot access notes from other businesses"""

@@ -527,6 +527,8 @@ def create_talent_filter(request, data: PatchDict[MutateTalentFilterSchema]):
     industries = data.pop("industries", None)
     levels = data.pop("educational_levels", None)
     skills = data.pop("skills", None)
+    interested_in = data.pop("interested_in", [])
+    interested_in = [i.value for i in interested_in]
     if languages is not None:
         languages = Language.objects.filter(uid__in=languages)
     if roles:
@@ -548,6 +550,11 @@ def create_talent_filter(request, data: PatchDict[MutateTalentFilterSchema]):
         talent_filter.business_models.set(business_models)
     else:
         talent_filter.business_models.clear()
+
+    if interested_in:
+        talent_filter.interested_in = interested_in
+    else:
+        talent_filter.interested_in = []
 
     if skills:
         talent_filter.skills.set(skills)
@@ -589,6 +596,8 @@ def update_talent_filter(request, talent_filter_uid: UUID, data: PatchDict[Mutat
     roles = data.pop("roles", None)
     industries = data.pop("industries", None)
     levels = data.pop("educational_levels", None)
+    interested_in = data.pop("interested_in", [])
+    interested_in = [i.value for i in interested_in]
     
     if languages is not None:
         languages = Language.objects.filter(uid__in=languages)
@@ -609,6 +618,11 @@ def update_talent_filter(request, talent_filter_uid: UUID, data: PatchDict[Mutat
         talent_filter.business_models.set(business_models)
     else:
         talent_filter.business_models.clear()
+
+    if interested_in:
+        talent_filter.interested_in = interested_in
+    else:
+        talent_filter.interested_in = []
 
     if languages:
         talent_filter.languages.set(languages)
@@ -657,9 +671,9 @@ def invite_talent_users(request, data: InviteTalentSchema):
     business = request.user.businessuser.business
 
     daily_limit = 10
-    if business.talent_invite_last_sent.date() >= timezone.now().date() and business.talent_invite_limit >= daily_limit:
+    if business.talent_invite_last_sent and business.talent_invite_last_sent.date() >= timezone.now().date() and business.talent_invite_limit >= daily_limit:
         raise HttpError(400, "Daily limit exceeded")
-    if business.talent_invite_last_sent.date() < timezone.now().date():
+    if business.talent_invite_last_sent and business.talent_invite_last_sent.date() < timezone.now().date():
         business.talent_invite_limit = 0
         business.save()
 

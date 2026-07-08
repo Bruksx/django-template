@@ -23,10 +23,9 @@ from ninja_jwt.tokens import RefreshToken
 from timezone_field import TimeZoneField
 
 from accounts.enums import UserType, AuthType, GenderType, BusinessUserRoleType, NoticePeriodType, Months, Days, \
-    BusinessSize, BusinessUserStatusType, CaseReasonType, AdminRoleType, TalentJobType
+    BusinessSize, BusinessUserStatusType, CaseReasonType, AdminRoleType, TalentJobType, SourceType
 from config.settings import SECRET_KEY
 from core.enums import SalaryType
-from core.models import BaseModel, State, City
 from core.models import BaseModel, State, City
 from helpers.utils import delete_s3_item
 from jobs.enums import PhaseType, WithdrawalFeedbackType, JobStatusType, WorkStructureEnum, \
@@ -264,9 +263,18 @@ class Talent(BaseModel):
     years_of_experience = models.FloatField(default=0)
     months_of_experience = models.FloatField(default=0)
     average_experience_tenure = models.FloatField(default=0, help_text="Average tenure in months")
-    viewers = models.ManyToManyField("accounts.User", blank=True, related_name="talent_viewers")
     availability_timezone = TimeZoneField(default="America/Vancouver")
+    source = models.CharField(max_length=50, choices=SourceType.choices(), default=SourceType.OTHERS.value)
     flexible_availability = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+
+    def profile_status(self):
+        if not self.is_profile_completed():
+            return "Incompleted"
+        if not self.is_active:
+            return "Inactive"
+        return "Active"
+
 
     def get_address(self):
         data = list()
@@ -711,6 +719,16 @@ class Talent(BaseModel):
         if self.role:
             return self.role
         return self.experience_set.order_by('-start_date').first().role if self.experience_set.exists() else None
+
+
+class TalentViewer(models.Model):
+    talent = models.ForeignKey(Talent, on_delete=models.CASCADE, related_name="viewers")
+    user = models.ForeignKey( "accounts.User", on_delete=models.CASCADE, related_name="talents_viewed")
+    last_viewed_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ("talent", "user")
+
 
 class BusinessIndustry(BaseModel):
     name = models.CharField(max_length=128)
@@ -1429,10 +1447,19 @@ class TalentFilter(BaseModel):
     skills = models.ManyToManyField("accounts.Skill", related_name="skills_talent_filter")
     business_models = models.ManyToManyField("jobs.BusinessModel", blank=True, related_name="businessmodels_talent_filter")
     completed_profiles = models.BooleanField(default=True)
+    interested_in = models.JSONField(default=list)
 
 class BannedAccount(BaseModel):
     email = models.EmailField()
     account_type = models.CharField(choices=UserType.choices())
+    fullname = models.CharField(max_length=128, null=True)
+
+    # Talent fields
+    current_role = models.CharField(max_length=128, null=True)
+    interested_in = models.CharField(max_length=128, null=True)
+    location = models.CharField(max_length=128, null=True)
+
+
 
 class AdminUserInvite(BaseModel):
     email = models.EmailField()

@@ -6,8 +6,12 @@ from django.utils import timezone
 from accounts.models import Talent, User
 from accounts.queries import add_profile_completion_annotation
 from config import settings
+from enums import SourceType
 from helpers.email.accounts import send_first_talent_invitation_email, send_second_talent_invitation_email, \
     send_third_talent_invitation_email
+from helpers.email.accounts import send_incomplete_talent_reminder_account_deactivation_email, \
+    send_inactive_talent_reminder_account_deactivation_email, send_inactive_talent_account_deactivation_email, \
+    send_incomplete_talent_account_deactivation_email
 from helpers.email.utils import send_email
 
 
@@ -81,7 +85,7 @@ Number of talents with incomplete profiles:    {incompleted}\n
     )
 
 def send_talent_invitation_email(emails: List[str], email_order: int=1, lang="en"):
-    already_sent = set(Talent.objects.filter(email__in=emails).values_list("email", flat=True))
+    already_sent = set(Talent.objects.filter(user__email__in=emails).values_list("user__email", flat=True))
     emails = list(set(emails) - already_sent)
     if not emails:
         return
@@ -94,3 +98,65 @@ def send_talent_invitation_email(emails: List[str], email_order: int=1, lang="en
     return
 
 
+
+def deactivate_inactive_talents(days: int):
+    last_30_days = timezone.now() - timedelta(days=days)
+    talents = Talent.objects.select_related("user").exclude(is_active=False)
+    talents = talents.filter(user__last_login__lte=last_30_days)
+    talents.update(is_active=False, visible=False)
+    for talent in talents.iterator():
+        send_inactive_talent_account_deactivation_email(email=talent.user.email, fullname=talent.user.full_name)
+    return
+
+def deactivation_reminder_incomplete_talent_accounts(days=int):
+    if days not in [1, 7]:
+        return
+    last_n_days = timezone.now() - timedelta(days=30 + days)
+    talents = add_profile_completion_annotation(Talent.objects.all())
+    talents = talents.filter(created_at__lte=last_n_days, semi_complete_profile=False)
+    for talent in talents.iterator():
+        send_incomplete_talent_reminder_account_deactivation_email(email=talent.user.email, fullname=talent.user.full_name, days=days)
+    return
+
+def deactivation_reminder_inactive_talent_accounts(days=int):
+    if days not in [15, 7]:
+        return
+    last_n_days = timezone.now() - timedelta(days=30 + days)
+    talents = Talent.objects.select_related("user").exclude(is_active=False)
+    talents = talents.filter(user__last_login__lte=last_n_days)
+    for talent in talents.iterator():
+        send_inactive_talent_reminder_account_deactivation_email(email=talent.user.email, fullname=talent.user.full_name, days=days)
+    return
+
+
+def deactivate_incomplete_talent_accounts():
+    last_30_days = timezone.now() - timedelta(days=30)
+    talents = add_profile_completion_annotation(Talent.objects.all())
+    talents = talents.filter(created_at__lte=last_30_days, semi_complete_profile=False)
+    talents.update(is_active=False, visible=False)
+    for talent in talents.iterator():
+        send_incomplete_talent_account_deactivation_email(email=talent.user.email, fullname=talent.user.full_name)
+    return
+
+def send_weekly_report_of_talent_sources():
+    if settings.DEBUG is True:
+        return
+    last_week = timezone.now() - timedelta(days=7)
+    indeed_queryset = Talent.objects.filter(source=SourceType.INDEED.value)
+    linkedin_queryset = Talent.objects.filter(source=SourceType.LINKEDIN.value)
+    linked_total = linkedin_queryset.count()
+    indeed_total = indeed_queryset.count()
+    total_linked_last_week = linkedin_queryset.exclude(created_at__gt=last_week).count()
+    total_indeed_last_week = indeed_queryset.exclude(created_at__gt=last_week).count()
+
+    send_email(
+        subject="Talent Profile Source Weekly Report",
+        emails=["ohaegbulouis@gmail.com", "khurshidu@1840andco.com"],
+        plain_body=f"""
+    Total Number of Talents from LinkedIn Last Week: {total_linked_last_week} \n
+    Total Number of Talents from Indeed Last Week: {total_indeed_last_week} \n\n
+
+    Number of talents from LinkedIn:   {linked_total}\n
+    Number of talents from Indeed:    {indeed_total}\n
+            """
+    )

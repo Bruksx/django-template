@@ -3,32 +3,32 @@ from datetime import timedelta
 from typing import Literal, Optional, List
 from uuid import UUID
 
-from ai.models import AIMatchScore
-from config.permissions import IsBusinessUser
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef, Case, When, F, Value, Subquery, Window, Count
 from django.db.models.functions import Concat, DenseRank, RowNumber
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from helpers.email.jobs import send_indeed_apply_email
-from helpers.utils import convert_base64_to_image_file, upload_to_s3, delete_s3_item
-from monkeypatches.q_cluster import async_task
-from monkeypatches.response import Response
 from ninja import Router, PatchDict, Query
 from ninja import UploadedFile, Form
 from ninja.errors import HttpError
 from ninja_extra import paginate
 from ninja_jwt.authentication import JWTAuth
-from services.ai import generate_job_description, generate_job_post_salary, JobSalaryRequestSchema
-from services.job_posting.schema.indeed import IndeedApplicationDataPatch
 
 from accounts.models import Country, Department, Role, SkillCategory, Skill, BusinessUser, Talent
 from accounts.schemas.talent import SkillSchema, AddSkillSchema
+from ai.models import AIMatchScore
 from chats.schemas import ResponseSchema
-from core.models import State, Currency
+from config.permissions import IsBusinessUser
+from core.models import State, Currency, City
+from helpers.email.jobs import send_indeed_apply_email
+from helpers.utils import convert_base64_to_image_file, upload_to_s3, delete_s3_item
+from monkeypatches.q_cluster import async_task
+from monkeypatches.response import Response
 from paginations import CustomPageNumberPaginationExtra, CustomPaginatedResponseSchema
 from paginations import CustomPageNumberPaginationExtra as PageNumberPaginationExtra
 from paginations import CustomPaginatedResponseSchema as PaginatedResponseSchema
+from services.ai import generate_job_description, generate_job_post_salary, JobSalaryRequestSchema
+from services.job_posting.schema.indeed import IndeedApplicationDataPatch
 from settings.models import WorkFlowStage
 from . import schemas as job_schemas
 from .enums import JobStatusType, PhaseType, QuestionTypeEnum, ActionType, UpdateQuickReviewType
@@ -989,6 +989,8 @@ def ai_job_description_generator(request, body: AIJobDescriptionGeneratorRequest
 
     data = generate_job_description(**data)
     country = Country.objects.filter(uid=data.country).first() if data.country else None
+    state = State.objects.filter(uid=data.state).first() if data.state else None
+    city = City.objects.filter(uid=data.city).first() if data.city else None
     result = AIJobDescriptionGeneratorResponseSchema(
         role=GenericNameAndUidSchema(uid=data.role.uid, name=data.role.name) if data.role else None,
         job_description=data.job_description,
@@ -998,7 +1000,9 @@ def ai_job_description_generator(request, body: AIJobDescriptionGeneratorRequest
         additional_skills=data.additional_skills,
         years_of_experience=data.years_of_experience,
         work_structure=data.work_structure,
-        country=GenericNameAndUidSchema(uid=country.uid, name=country.name) if country else None
+        country=GenericNameAndUidSchema(uid=country.uid, name=country.name) if country else None,
+        state=GenericNameAndUidSchema(uid=state.uid, name=state.name) if state else None,
+        city=GenericNameAndUidSchema(uid=city.uid, name=city.name) if city else None,
     )
     if url:
         async_task(delete_s3_item, url)
@@ -1103,6 +1107,8 @@ def update_application_notes(request, application_uid: UUID, data:MutateApplicat
     if data.interview_note != application.notes.interview_note:
         note_data["interview_note_at"] = timezone.now()
         note_data["interview_note_by"] = request.user.businessuser
+    if note_data.get("rejection_reason"):
+        note_data["rejection_reason"] = note_data["rejection_reason"].value
     if note_data:
         return application.notes.update(**note_data)
     return application.notes
@@ -1113,8 +1119,6 @@ def get_application_notes(request, application_uid: UUID):
     application = JobApplication.objects.select_related("job_post__job__created_by__business").filter(uid=application_uid).first()
     if not application or application.job_post.job.created_by.business != request.user.businessuser.business:
         raise HttpError(404, "This application does not exist")
-    try:
-        return application.notes
-    except JobApplication.notes.RelatedObjectDoesNotExist:
-        raise HttpError(404, "Application notes not found")
-
+    if not hasattr(application, "notes"):
+        JobApplicationNotes.objects.create(application=application)
+    return application.notes

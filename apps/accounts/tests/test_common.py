@@ -2,7 +2,7 @@ from django.test import TestCase
 from ninja.testing import TestClient
 from ninja_jwt.authentication import JWTAuth
 
-from accounts.enums import CaseReasonType
+from accounts.enums import CaseReasonType, TalentJobType
 from accounts.models import Country, Industry, User, Talent, CustomerCase, VerificationCode
 from accounts.schemas.business import TalentFilterQuerySchema
 from accounts.views.common import router
@@ -390,7 +390,8 @@ class TalentListTest(TestCase):
         
         tf_params = TalentFilterQuerySchema(
             roles=[role.uid],
-            industries=[industry.uid]
+            industries=[industry.uid],
+            interested_in=[TalentJobType.FULL_TIME_JOBS.value],
         ).to_url_params(start=False)
 
         talent = TalentFactory.create(user=UserFactory(first_name="John"))
