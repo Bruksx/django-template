@@ -416,7 +416,7 @@ class JobPost(BaseModel):
 
         match_score_subquery = AIMatchScore.objects.filter(
             talent_id=OuterRef("id"),
-            job_id=OuterRef(self.job.id),
+            job_id=self.job.id,
         ).values("score")[:1]
     
         queryset = queryset.annotate(
