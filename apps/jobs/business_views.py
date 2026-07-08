@@ -616,14 +616,12 @@ def view_applicant(request, application_uid: UUID):
             auth=JWTAuth())
 def view_applicant_detail(request, application_uid: UUID):
     IsBusinessUser.check(request)
-    score_subquery = (
-        AIMatchScore.objects
-        .filter(
-            talent_id=OuterRef("applicant_id"),
-            job_id=OuterRef("job_post__job_id"),
-        )
-        .values("score")[:1]
+    ai_match_score = AIMatchScore.objects.filter(
+        talent_id=OuterRef("applicant_id"),
+        job_id=OuterRef("job_post__job_id"),
     )
+    score_subquery = ai_match_score.values("score")[:1]
+    top_percent_subquery = ai_match_score.values("top_percent")[:1]
     pool_size_subquery = (
         JobApplication.objects
         .filter(
@@ -643,7 +641,8 @@ def view_applicant_detail(request, application_uid: UUID):
             )
         )
     ).annotate(
-        ai_match_score=Subquery(score_subquery)
+        ai_match_score=Subquery(score_subquery),
+        top_percent=Subquery(top_percent_subquery),
     ).annotate(
         rank=Window(
             expression=RowNumber(),
