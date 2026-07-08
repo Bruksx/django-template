@@ -1,0 +1,54 @@
+{% extends "all_template.html" %}
+{% load static %}
+{% block content %}
+    <div
+      style="
+        width: 100%;
+        text-align: center;
+        max-width: 41.25rem;
+        margin: auto;
+        padding: 1rem 1.44rem 5rem;
+        color: #013832;
+      "
+    >
+      <p style="text-align: left;">Hi {{fullname}},</p>
+      
+      <p style="text-align: left;">
+        We've missed you on <b>1840 Global Talent Cloud</b>.
+      </p>
+
+      <p style="text-align: left;">
+        Log in to keep your profile active, stay visible to hiring companies, 
+        and continue discovering opportunities that match your skills.
+      </p>
+
+      <p style="text-align: left;">
+        We regularly deactivate inactive accounts to ensure our talent community stays up to date, 
+        so don't forget to sign in and keep your profile active.
+      </p>
+
+      <a
+        style="
+          display: inline-block;
+          border-radius: 0.25rem;
+          padding: 0.875rem 2rem;
+          color: white;
+          font-size: 1.125rem;
+          background-color: #266b5b;
+          text-decoration: none;
+          font-weight: 500;
+        "
+        href="{{ link }}"
+        >Log In</a
+      >
+
+      <br><br>
+      <p style="text-align: left;">
+        We look forward to seeing you back soon.
+      </p>
+      
+      <br>
+      <p>Kindest,</p>
+      <p>The 1840 GTC Team</p>
+    </div>
+{% endblock %}

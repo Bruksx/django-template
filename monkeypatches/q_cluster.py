@@ -21,6 +21,7 @@ def schedule_cron_tasks(tasks):
         Schedule.objects.create(
             name=task_name,
             func=task["func"],
+            kwargs=task.get("kwargs"),
             schedule_type=Schedule.CRON,
             cron=task["cron"],
             repeats=-1,  # Repeat indefinitely

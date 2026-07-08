@@ -18,5 +18,31 @@ tasks = [
         "name": "Deactivate Incomplete Talent Profile",
         "func": "accounts.tasks.deactivate_incomplete_talent_account",
         "cron": "0 3 * * *" # Every day at 3 am
+    },
+    {
+        "name": "Deactivate Incomplete Talent Profile - 7",
+        "func": "accounts.tasks.deactivation_reminder_incomplete_talent_accounts",
+        "kwargs": "days=7",
+        "cron": "0 7 * * *" # Every day at 7 am
+    },
+{
+        "name": "Deactivate Incomplete Talent Profile - 1",
+        "func": "accounts.tasks.deactivation_reminder_incomplete_talent_accounts",
+        "kwargs": "days=1",
+        "cron": "0 6 * * *" # Every day at 6 am
+    },
+
+    {
+        "name": "Deactivate Inactive Talent Profile - 7",
+        "func": "accounts.tasks.deactivation_reminder_inactive_talent_accounts",
+        "kwargs": "days=7",
+        "cron": "0 5 * * *" # Every day at 5 am
+    },
+{
+        "name": "Deactivate Inactive Talent Profile - 15",
+        "func": "accounts.tasks.deactivation_reminder_inactive_talent_accounts",
+        "kwargs": "days=15",
+        "cron": "0 4 * * *" # Every day at 4 am
     }
+
 ]

@@ -48,12 +48,55 @@ def send_admin_invite_email(email:str, token:str, user:str, lang="en"):
     html_content = render_html_email(html_file, context)
     send_email(subject="Admin Invitation", emails=[email], html_body=html_content)
 
-def send_talent_account_activation_email(email:str, fullname:str, status:str, lang="en"):
+def send_inactive_talent_account_deactivation_email(email:str, fullname:str, lang="en"):
     context = {
         "fullname": fullname,
-        "status": status,
         "link": f"{settings.FRONTEND_URL}auth/login"
     }
-    html_file = f"accounts/{lang}/activate_talent_account.html"
+    html_file = f"accounts/{lang}/deactivate_inactive_talent_account.html"
     html_content = render_html_email(html_file, context)
     send_email(subject="Your Account Has Been Deactivated", emails=[email], html_body=html_content)
+
+def send_incomplete_talent_account_deactivation_email(email:str, fullname:str, lang="en"):
+    context = {
+        "fullname": fullname,
+        "link": f"{settings.FRONTEND_URL}auth/login"
+    }
+    html_file = f"accounts/{lang}/deactivate_incomplete_talent_account.html"
+    html_content = render_html_email(html_file, context)
+    send_email(subject="Your Account Has Been Deactivated", emails=[email], html_body=html_content)
+
+
+def send_incomplete_talent_reminder_account_deactivation_email(email:str, fullname:str, days=int, lang="en"):
+    context = {
+        "fullname": fullname,
+        "link": f"{settings.FRONTEND_URL}auth/login"
+    }
+    if days == 1:
+        html_file = f"accounts/{lang}/deactivate_incomplete_talent_account_reminder_1.html"
+        html_content = render_html_email(html_file, context)
+        subject = "Complete your profile or it will be deactivated!"
+    elif days == 7:
+        html_file = f"accounts/{lang}/deactivate_incomplete_talent_account_reminder_7.html"
+        html_content = render_html_email(html_file, context)
+        subject = "7 days left: Complete your profile or it will be deactivated"
+    else:
+        return
+    send_email(subject=subject, emails=[email], html_body=html_content)
+
+def send_inactive_talent_reminder_account_deactivation_email(email:str, fullname:str, days=int, lang="en"):
+    context = {
+        "fullname": fullname,
+        "link": f"{settings.FRONTEND_URL}auth/login"
+    }
+    if days == 15:
+        html_file = f"accounts/{lang}/deactivate_inactive_talent_account_reminder_15.html"
+        html_content = render_html_email(html_file, context)
+        subject = "Its been 15 days without you!"
+    elif days == 7:
+        html_file = f"accounts/{lang}/deactivate_inactive_talent_account_reminder_7.html"
+        html_content = render_html_email(html_file, context)
+        subject = "Your account will be deactivated"
+    else:
+        return
+    send_email(subject=subject, emails=[email], html_body=html_content)

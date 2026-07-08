@@ -1,0 +1,63 @@
+{% extends "all_template.html" %}
+{% load static %}
+{% block content %}
+    <div
+      style="
+        width: 100%;
+        text-align: center;
+        max-width: 41.25rem;
+        margin: auto;
+        padding: 1rem 1.44rem 5rem;
+        color: #013832;
+      "
+    >
+      <p style="text-align: left;">Hi {{fullname}},</p>
+      
+      <p style="text-align: left;">
+        Your <b>1840 Global Talent Cloud</b> profile is still <b>incomplete</b>.
+      </p>
+
+      <p style="text-align: left;">
+        <strong>Complete your profile today</strong> to avoid your account being <b>deactivated</b>.
+      </p>
+
+      <p style="text-align: left;">
+        Simply <b>upload your CV</b> and our AI will build your profile in minutes. 
+        Once complete, you'll receive an <b>AI Match %</b> for every opportunity and be 
+        discoverable by hiring companies.
+      </p>
+
+      <p style="text-align: left;">
+        If your profile isn't completed today, it will be deactivated.
+      </p>
+
+      <p style="text-align: left;">
+        <strong>Complete your profile now</strong>, it only takes a few minutes, and our AI does the rest.
+      </p>
+
+      <a
+        style="
+          display: inline-block;
+          border-radius: 0.25rem;
+          padding: 0.875rem 2rem;
+          color: white;
+          font-size: 1.125rem;
+          background-color: #266b5b;
+          text-decoration: none;
+          font-weight: 500;
+        "
+        href="{{ link }}"
+        >Complete my Profile</a
+      >
+
+      <br><br>
+      <p style="text-align: left;">
+        We'd love to keep you as part of the 1840 Global Talent Cloud, so complete your profile today 
+        to continue discovering new opportunities.
+      </p>
+      
+      <br>
+      <p>Best,</p>
+      <p>The 1840 GTC Team</p>
+    </div>
+{% endblock %}
