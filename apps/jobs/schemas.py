@@ -967,7 +967,7 @@ class OtherApplicationSchema(ModelSchema):
 
 class AIInsightSchema(Schema):
     summary: Optional[str] = None
-    strength: Optional[list[str]] = []
+    strengths: Optional[list[str]] = []
     weaknesses: Optional[list[str]] = []
     red_flags: Optional[list[Dict[str, Any]]] = []
 

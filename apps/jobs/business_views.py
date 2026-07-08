@@ -573,6 +573,30 @@ def view_applicant(request, application_uid: UUID):
         )
     score_subquery = ai_match.values("score")[:1]
     top_percent_subquery = ai_match.values("top_percent")[:1]
+    higher_rank_subquery = (
+        JobApplication.objects.filter(
+            job_post_id=OuterRef("job_post_id"),
+            deleted_at__isnull=True,
+        )
+        .annotate(
+            other_score=Subquery(
+                AIMatchScore.objects.filter(
+                    talent_id=OuterRef("applicant_id"),
+                    job_id=OuterRef("job_post__job_id"),
+                ).values("score")[:1]
+            )
+        )
+        .filter(
+            Q(other_score__gt=OuterRef("ai_match_score")) |
+            (
+                Q(other_score=OuterRef("ai_match_score")) &
+                Q(id__lt=OuterRef("id"))
+            )
+        )
+        .values("job_post_id")
+        .annotate(rank=Count("id"))
+        .values("rank")[:1]
+    )
     pool_size_subquery = (
         JobApplication.objects
         .filter(
@@ -595,11 +619,7 @@ def view_applicant(request, application_uid: UUID):
         ai_match_score=Subquery(score_subquery),
         top_percent=Subquery(top_percent_subquery),
     ).annotate(
-        rank=Window(
-            expression=RowNumber(),
-            partition_by=[F("job_post_id")],
-            order_by=F("ai_match_score").desc(),
-        )
+        rank=Coalesce(Subquery(higher_rank_subquery), Value(0)) + Value(1)
     ).annotate(
         pool_size=Subquery(pool_size_subquery)
     )
