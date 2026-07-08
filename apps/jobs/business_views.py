@@ -567,14 +567,12 @@ def job_detail(request, job_uid:UUID):
 @router.get("job-posts/applications/{application_uid}", response=job_schemas.JobApplicationListSchema, auth=JWTAuth())
 def view_applicant(request, application_uid: UUID):
     IsBusinessUser.check(request)
-    score_subquery = (
-        AIMatchScore.objects
-        .filter(
+    ai_match = AIMatchScore.objects.filter(
             talent_id=OuterRef("applicant_id"),
             job_id=OuterRef("job_post__job_id"),
         )
-        .values("score")[:1]
-    )
+    score_subquery = ai_match.values("score")[:1]
+    top_percent_subquery = ai_match.values("top_percent")[:1]
     pool_size_subquery = (
         JobApplication.objects
         .filter(
@@ -594,7 +592,8 @@ def view_applicant(request, application_uid: UUID):
                 )
             )
     ).annotate(
-        ai_match_score=Subquery(score_subquery)
+        ai_match_score=Subquery(score_subquery),
+        top_percent=Subquery(top_percent_subquery),
     ).annotate(
         rank=Window(
             expression=RowNumber(),
@@ -671,14 +670,12 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
     IsBusinessUser.check(request)
     business = request.user.businessuser.business
     job_post = get_object_or_404(JobPost, uid=job_post_uid)
-    score_subquery = (
-        AIMatchScore.objects
-        .filter(
+    ai_match = AIMatchScore.objects.filter(
             talent_id=OuterRef("applicant_id"),
             job_id=job_post.job.id,
         )
-        .values("score")[:1]
-    )
+    score_subquery = ai_match.values("score")[:1]
+    top_percent_subquery = ai_match.values("top_percent")[:1]
     pool_size_subquery = (
         JobApplication.objects
         .filter(
@@ -699,7 +696,8 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
                     )
                 )
             ).annotate(
-                ai_match_score=Subquery(score_subquery)
+                ai_match_score=Subquery(score_subquery),
+                top_percent=Subquery(top_percent_subquery),
             ).annotate(
                 rank=Window(
                     expression=RowNumber(),

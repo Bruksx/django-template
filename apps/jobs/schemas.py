@@ -1051,28 +1051,6 @@ class JobApplicationListSchema(ModelSchema):
             return dict()
         except:
             return dict()
-
-    @staticmethod
-    def resolve_ai_match_score(obj):
-        talent = obj.applicant
-        try:
-            ai_match_score = AIMatchScore.objects.filter(talent_id=talent.id).first()
-            if ai_match_score:
-                return int(ai_match_score.score)
-            return 0
-        except:
-            return 0
-    
-    @staticmethod
-    def resolve_top_percent(obj):
-        talent = obj.applicant
-        try:
-            ai_match_score = AIMatchScore.objects.filter(talent_id=talent.id).first()
-            if ai_match_score:
-                return int(ai_match_score.top_percent)
-            return 0
-        except:
-            return 0
         
 
 class JobApplicationDetailSchema(JobApplicationListSchema):
