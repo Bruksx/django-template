@@ -46,7 +46,7 @@ def get_talent_job_recommendations(talent, business=None, search="", distinct=Fa
             )
         ).filter(row_number=1)
     ai_match_score_subquery = AIMatchScore.objects.filter(
-        talent_id=OuterRef(talent.id),
+        talent_id=talent.id,
         job_id=OuterRef("job__id"),
     ).values("score")[:1]
 
