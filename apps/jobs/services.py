@@ -4,13 +4,14 @@ from typing import List
 from uuid import UUID
 
 from accounts.models import Skill
+from ai.models import AIMatchScore
 from core.models import Language
 from django.conf import settings
 from django.contrib.postgres.aggregates import StringAgg
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import QuerySet, Window, F, Q, OuterRef, Exists, Count, Case, When, Value, Func, \
-    CharField
+    CharField, Subquery
 from django.db.models.functions import RowNumber, Cast, Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -44,6 +45,14 @@ def get_talent_job_recommendations(talent, business=None, search="", distinct=Fa
                 order_by=[F("computed_match_score").desc()]  # highest score first
             )
         ).filter(row_number=1)
+    ai_match_score_subquery = AIMatchScore.objects.filter(
+        talent_id=OuterRef(talent.id),
+        job_id=OuterRef("job__id"),
+    ).values("score")[:1]
+
+    queryset = queryset.annotate(
+        ai_match_score=Subquery(ai_match_score_subquery)
+    )
     return queryset.order_by("-refresh_order", "-posted_order")
 
 

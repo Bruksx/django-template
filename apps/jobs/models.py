@@ -3,6 +3,7 @@ from functools import cached_property
 
 from accounts.enums import Days
 from accounts.models import Talent, TalentAvailableDay
+from ai.models import AIMatchScore
 from core.enums import SalaryType
 from core.models import BaseModel, Language
 from accounts.enums import Days
@@ -10,7 +11,7 @@ from accounts.models import Talent, TalentAvailableDay
 from core.enums import SalaryType
 from core.models import BaseModel, Language
 from django.db import models
-from django.db.models import F, Q, Count, IntegerField, When, Case, Value
+from django.db.models import F, Q, Count, IntegerField, When, Case, Value, Subquery, OuterRef
 from django.db.models.functions import Coalesce, Now, Extract, Cast
 from django.db.models.signals import pre_save
 from django_softdelete.managers import SoftDeleteManager
@@ -410,6 +411,15 @@ class JobPost(BaseModel):
         from jobs.queries import add_talent_match_score
         if not queryset:
             queryset = Talent.objects.filter(visible=True)
+
+        match_score_subquery = AIMatchScore.objects.filter(
+            talent_id=OuterRef("id"),
+            job_id=OuterRef(self.job.id),
+        ).values("score")[:1]
+    
+        queryset = queryset.annotate(
+            ai_match_score=Subquery(match_score_subquery)
+        )
         return add_talent_match_score(queryset, self).filter(computed_match_score__gte=50).order_by("-computed_match_score")
 
     def phase_data(self):
