@@ -585,7 +585,7 @@ def view_applicant(request, application_uid: UUID):
         .annotate(c=Count("id"))
         .values("c")[:1]
     )
-    application = JobApplication.objects.select_related(
+    query = JobApplication.objects.select_related(
         "stage", "applicant", "applicant__user","applicant__country"
     ).annotate(
         invited=Exists(
@@ -603,7 +603,8 @@ def view_applicant(request, application_uid: UUID):
         )
     ).annotate(
         pool_size=Subquery(pool_size_subquery)
-    ).filter(uid=application_uid, job_post__job__created_by__business=request.user.businessuser.business).first()
+    )
+    application = query.filter(uid=application_uid, job_post__job__created_by__business=request.user.businessuser.business).first()
     
     if not application:
         raise HttpError(404, "Application not found")
