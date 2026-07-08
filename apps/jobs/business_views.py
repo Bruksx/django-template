@@ -5,7 +5,7 @@ from uuid import UUID
 
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef, Case, When, F, Value, Subquery, Window, Count
-from django.db.models.functions import Concat, DenseRank, RowNumber
+from django.db.models.functions import Concat, RowNumber, Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja import Router, PatchDict, Query
@@ -632,6 +632,30 @@ def view_applicant_detail(request, application_uid: UUID):
         .annotate(c=Count("id"))
         .values("c")[:1]
     )
+    higher_rank_subquery = (
+        JobApplication.objects.filter(
+            job_post_id=OuterRef("job_post_id"),
+            deleted_at__isnull=True,
+        )
+        .annotate(
+            other_score=Subquery(
+                AIMatchScore.objects.filter(
+                    talent_id=OuterRef("applicant_id"),
+                    job_id=OuterRef("job_post__job_id"),
+                ).values("score")[:1]
+            )
+        )
+        .filter(
+            Q(other_score__gt=OuterRef("ai_match_score")) |
+            (
+                Q(other_score=OuterRef("ai_match_score")) &
+                Q(id__lt=OuterRef("id"))
+            )
+        )
+        .values("job_post_id")
+        .annotate(rank=Count("id"))
+        .values("rank")[:1]
+    )
     query = JobApplication.objects.select_related(
         "stage", "applicant", "applicant__user", "applicant__country"
     ).annotate(
@@ -644,11 +668,7 @@ def view_applicant_detail(request, application_uid: UUID):
         ai_match_score=Subquery(score_subquery),
         top_percent=Subquery(top_percent_subquery),
     ).annotate(
-        rank=Window(
-            expression=RowNumber(),
-            partition_by=[F("job_post_id")],
-            order_by=F("ai_match_score").desc(),
-        )
+        rank=Coalesce(Subquery(higher_rank_subquery), Value(0)) + Value(1)
     ).annotate(
         pool_size=Subquery(pool_size_subquery)
     )
