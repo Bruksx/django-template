@@ -5,7 +5,7 @@ from uuid import UUID
 
 from django.db import transaction
 from django.db.models import Q, Exists, OuterRef, Case, When, F, Value, Subquery, Window, Count
-from django.db.models.functions import Concat, DenseRank
+from django.db.models.functions import Concat, DenseRank, RowNumber
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja import Router, PatchDict, Query
@@ -597,7 +597,7 @@ def view_applicant(request, application_uid: UUID):
         ai_match_score=Subquery(score_subquery)
     ).annotate(
         rank=Window(
-            expression=DenseRank(),
+            expression=RowNumber(),
             partition_by=[F("job_post_id")],
             order_by=F("ai_match_score").desc(),
         )
@@ -642,7 +642,7 @@ def view_applicant_detail(request, application_uid: UUID):
                 ai_match_score=Subquery(score_subquery)
             ).annotate(
                 rank=Window(
-                    expression=DenseRank(),
+                    expression=RowNumber(),
                     partition_by=[F("job_post_id")],
                     order_by=F("ai_match_score").desc(),
                 )
@@ -669,7 +669,7 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
         AIMatchScore.objects
         .filter(
             talent_id=OuterRef("applicant_id"),
-            job_id=OuterRef("job_post__job_id"),
+            job_id=job_post.job.id,
         )
         .values("score")[:1]
     )
@@ -696,7 +696,7 @@ def view_applicants(request, job_post_uid:UUID, page_size=50, page=1, phase:Opti
                 ai_match_score=Subquery(score_subquery)
             ).annotate(
                 rank=Window(
-                    expression=DenseRank(),
+                    expression=RowNumber(),
                     partition_by=[F("job_post_id")],
                     order_by=F("ai_match_score").desc(),
                 )
