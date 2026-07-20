@@ -422,7 +422,7 @@ class JobPost(BaseModel):
         queryset = queryset.annotate(
             ai_match_score=Subquery(match_score_subquery)
         )
-        return add_talent_match_score(queryset, self).filter(computed_match_score__gte=50).order_by("-computed_match_score")
+        return add_talent_match_score(queryset, self).filter(ai_match_score__gte=75).order_by("-ai_match_score")
 
     def phase_data(self):
         def get_phase_count():
